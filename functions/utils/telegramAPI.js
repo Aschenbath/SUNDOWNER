@@ -1,3 +1,48 @@
+import { ProxyAgent } from 'undici'
+
+const DEFAULT_TELEGRAM_ORIGIN = 'https://api.telegram.org'
+const PROXY_ENV_KEYS = [
+    'HTTPS_PROXY',
+    'https_proxy',
+    'ALL_PROXY',
+    'all_proxy',
+    'HTTP_PROXY',
+    'http_proxy',
+]
+
+function hasScheme(value = '') {
+    return /^[a-z][a-z0-9+.-]*:\/\//i.test(String(value).trim())
+}
+
+function resolveTelegramOrigin(proxyUrl = '') {
+    const normalized = String(proxyUrl || '').trim()
+    if (!normalized) {
+        return DEFAULT_TELEGRAM_ORIGIN
+    }
+
+    if (hasScheme(normalized)) {
+        return DEFAULT_TELEGRAM_ORIGIN
+    }
+
+    return `https://${normalized.replace(/^\/+|\/+$/g, '')}`
+}
+
+function resolveProxyEndpoint(proxyUrl = '') {
+    const normalized = String(proxyUrl || '').trim()
+    if (normalized && hasScheme(normalized)) {
+        return normalized
+    }
+
+    for (const key of PROXY_ENV_KEYS) {
+        const value = String(process.env[key] || '').trim()
+        if (value) {
+            return value
+        }
+    }
+
+    return ''
+}
+
 /**
  * Telegram API wrapper
  */
@@ -5,9 +50,11 @@ export class TelegramAPI {
     constructor(botToken, proxyUrl = '') {
         this.botToken = botToken
         this.proxyUrl = proxyUrl
-        const apiDomain = proxyUrl ? `https://${proxyUrl}` : 'https://api.telegram.org'
-        this.baseURL = `${apiDomain}/bot${this.botToken}`
-        this.fileDomain = proxyUrl ? `https://${proxyUrl}` : 'https://api.telegram.org'
+        this.apiOrigin = resolveTelegramOrigin(proxyUrl)
+        this.baseURL = `${this.apiOrigin}/bot${this.botToken}`
+        this.fileDomain = this.apiOrigin
+        this.proxyEndpoint = resolveProxyEndpoint(proxyUrl)
+        this.dispatcher = this.proxyEndpoint ? new ProxyAgent(this.proxyEndpoint) : undefined
         this.defaultHeaders = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0',
         }
@@ -28,6 +75,7 @@ export class TelegramAPI {
                 ...this.defaultHeaders,
                 ...headers,
             },
+            dispatcher: this.dispatcher,
         }
 
         if (params && Object.keys(params).length > 0) {
@@ -74,6 +122,7 @@ export class TelegramAPI {
             method: 'POST',
             headers: this.defaultHeaders,
             body: formData,
+            dispatcher: this.dispatcher,
         })
         if (!response.ok) {
             throw new Error(`Telegram API error: ${response.statusText}`)
@@ -153,6 +202,7 @@ export class TelegramAPI {
         const fullURL = `${this.fileDomain}/file/bot${this.botToken}/${filePath}`
         return await fetch(fullURL, {
             headers: this.defaultHeaders,
+            dispatcher: this.dispatcher,
         })
     }
 
