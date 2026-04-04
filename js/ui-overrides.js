@@ -1,7 +1,7 @@
 (function () {
   const BRAND_REPLACEMENTS = [
     [/Sanyue ImgHub/gi, 'Moments Drive'],
-    [/Sanyue 图床/gi, 'Moments Drive'],
+    [/Sanyue 鍥惧簥/gi, 'Moments Drive'],
     [/SanyueQi/gi, 'Aschenbath'],
     [/sanyue_imghub/gi, 'moments_drive'],
     [/Sanyue/gi, 'Moments']
@@ -46,25 +46,18 @@
     if (BLOCKED_URL_PATTERNS.some((pattern) => pattern.test(link.href))) {
       link.dataset.codexHidden = 'true';
       link.setAttribute('aria-hidden', 'true');
-      if (link.parentElement && link.parentElement.textContent.trim().length < 64) {
-        link.parentElement.dataset.codexHidden = 'true';
-      }
     }
   }
 
   function hidePersonalCredits(root) {
     root.querySelectorAll('a[href]').forEach(markBlockedLink);
 
-    root.querySelectorAll('p,span,div,strong,small,h1,h2,h3').forEach((el) => {
+    root.querySelectorAll('p,span,div,strong,small').forEach((el) => {
       const text = (el.textContent || '').trim();
-      if (!text) {
+      if (!text || text.length > 120) {
         return;
       }
-      if (
-        /Designed by/i.test(text) ||
-        /Powered By/i.test(text) ||
-        /CloudFlare-ImgBed/i.test(text)
-      ) {
+      if (/Designed by/i.test(text) || /Powered By/i.test(text) || /CloudFlare-ImgBed/i.test(text)) {
         el.dataset.codexHidden = 'true';
       }
     });
@@ -90,9 +83,6 @@
         img.loading = 'lazy';
       }
       img.decoding = 'async';
-      if (!img.hasAttribute('fetchpriority')) {
-        img.setAttribute('fetchpriority', 'low');
-      }
     });
 
     root.querySelectorAll('video').forEach((video) => {
@@ -134,24 +124,32 @@
     return rawWindowOpen.call(this, url, ...args);
   };
 
-  patchRoot(document);
+  function boot() {
+    patchRoot(document);
 
-  const observer = new MutationObserver((records) => {
-    records.forEach((record) => {
-      record.addedNodes.forEach((node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          neutralizeTextNode(node);
-          return;
-        }
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          patchRoot(node);
-        }
+    const observer = new MutationObserver((records) => {
+      records.forEach((record) => {
+        record.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            neutralizeTextNode(node);
+            return;
+          }
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            patchRoot(node);
+          }
+        });
       });
     });
-  });
 
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true
-  });
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
 })();
