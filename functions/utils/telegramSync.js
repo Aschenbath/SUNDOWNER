@@ -25,8 +25,14 @@ function normalizeChatId(value) {
 }
 
 function createImportDirectory(channelName, importDirectory) {
-    const normalized = sanitizeUploadFolder(importDirectory || `telegram-import/${channelName}`)
+    const fallback = typeof importDirectory === 'string' ? importDirectory : `telegram-import/${channelName}`
+    const normalized = sanitizeUploadFolder(fallback)
     return normalized ? `${normalized}/` : ''
+}
+
+function buildImportedBaseName(channelName, messageId, fileUniqueId) {
+    const safeChannel = sanitizeFileName(channelName)
+    return `tg_${safeChannel}_${messageId}_${fileUniqueId}`
 }
 
 function buildDefaultFileName(kind, messageId, ext) {
@@ -78,14 +84,16 @@ function extractMediaFromMessage(message) {
     return null
 }
 
-function buildImportedFileId(channelName, messageId, fileUniqueId, ext) {
-    const safeChannel = sanitizeFileName(channelName)
-    return `tg/${safeChannel}/${messageId}_${fileUniqueId}.${ext}`
+function buildImportedFileId(channelName, importDirectory, messageId, fileUniqueId, ext) {
+    const normalizedDirectory = sanitizeUploadFolder(importDirectory || '')
+    const baseName = buildImportedBaseName(channelName, messageId, fileUniqueId)
+    return normalizedDirectory ? `${normalizedDirectory}/${baseName}.${ext}` : `${baseName}.${ext}`
 }
 
-function buildMessagePrefix(channelName, messageId) {
-    const safeChannel = sanitizeFileName(channelName)
-    return `tg/${safeChannel}/${messageId}_`
+function buildMessagePrefix(channelName, importDirectory, messageId) {
+    const normalizedDirectory = sanitizeUploadFolder(importDirectory || '')
+    const baseNamePrefix = `tg_${sanitizeFileName(channelName)}_${messageId}_`
+    return normalizedDirectory ? `${normalizedDirectory}/${baseNamePrefix}` : baseNamePrefix
 }
 
 function createSyncSnapshot(channel) {
@@ -256,8 +264,8 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
     const telegramAPI = new TelegramAPI(channel.botToken, channel.proxyUrl || '')
     const filePath = await telegramAPI.getFilePath(mediaInfo.media.file_id)
     const { metadata, ext } = await buildImportedMetadata(context, channel, message, source, mediaInfo, filePath)
-    const fileId = buildImportedFileId(channel.name, message.message_id, mediaInfo.media.file_unique_id || mediaInfo.media.file_id, ext)
-    const prefix = buildMessagePrefix(channel.name, message.message_id)
+    const fileId = buildImportedFileId(channel.name, channel.importDirectory, message.message_id, mediaInfo.media.file_unique_id || mediaInfo.media.file_id, ext)
+    const prefix = buildMessagePrefix(channel.name, channel.importDirectory, message.message_id)
 
     const db = getDatabase(context.env)
     const staleFileIds = await cleanupStaleImportedFiles(context, prefix, fileId)
