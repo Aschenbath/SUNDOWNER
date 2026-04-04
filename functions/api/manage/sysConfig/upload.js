@@ -1,4 +1,4 @@
-import { getDatabase } from '../../../utils/databaseAdapter.js'
+﻿import { getDatabase } from '../../../utils/databaseAdapter.js'
 
 export async function onRequest(context) {
     const { request, env } = context
@@ -43,8 +43,10 @@ function normalizeTelegramSyncChannel(channel = {}) {
     if (typeof normalized.syncEnabled !== 'boolean') {
         normalized.syncEnabled = false
     }
-    if (typeof normalized.importDirectory !== 'string' || normalized.importDirectory.trim() === '') {
+    if (typeof normalized.importDirectory !== 'string') {
         normalized.importDirectory = `telegram-import/${buildSafeDirectorySegment(normalized.name || 'channel')}`
+    } else if (normalized.importDirectory.trim() !== normalized.importDirectory) {
+        normalized.importDirectory = normalized.importDirectory.trim()
     }
     if (typeof normalized.webhookSecret !== 'string') {
         normalized.webhookSecret = ''
@@ -288,3 +290,4 @@ export async function getUploadConfig(db, env) {
 
     return settings
 }
+
