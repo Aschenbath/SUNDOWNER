@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Telegram Sync Admin</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --text: #18212f;
+      --muted: #65758b;
+      --line: #d8dfeb;
+      --primary: #2563eb;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --warning: #d97706;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --text: #e5eefc;
+        --muted: #94a3b8;
+        --line: #23324a;
+        --primary: #60a5fa;
+        --danger: #f87171;
+        --success: #4ade80;
+        --warning: #fbbf24;
+      }
+    }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", sans-serif;
+      background: linear-gradient(135deg, var(--bg), color-mix(in srgb, var(--bg) 70%, var(--panel)));
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+    .hero {
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+    }
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 20px 0 24px;
+    }
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    button.danger {
+      border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
+      color: var(--danger);
+    }
+    button:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+    .panel {
+      background: color-mix(in srgb, var(--panel) 92%, transparent);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+    }
+    .list {
+      display: grid;
+      gap: 16px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      background: var(--panel);
+    }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .card-head h2 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      border: 1px solid var(--line);
+    }
+    .badge.success { color: var(--success); border-color: color-mix(in srgb, var(--success) 50%, var(--line)); }
+    .badge.warning { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 50%, var(--line)); }
+    .badge.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, var(--line)); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px 14px;
+      margin: 14px 0;
+      font-size: 14px;
+    }
+    .item {
+      border: 1px dashed var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+    }
+    .item b {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .hint {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-top: 12px;
+    }
+    .status-line {
+      margin: 0 0 16px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--panel) 70%, var(--bg));
+      border: 1px solid var(--line);
+      font-size: 14px;
+    }
+    .error { color: var(--danger); }
+    .empty { color: var(--muted); text-align: center; padding: 32px 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>Telegram Sync Admin</h1>
+      <p>这个页面用于管理 Telegram 频道消息自动入库。支持查看状态、建立或删除 webhook，以及手动补偿同步。Bot API 只保证近期未消费更新，不支持任意历史全量回填。</p>
+    </div>
+    <div class="toolbar">
+      <button class="primary" id="refreshBtn">刷新状态</button>
+    </div>
+    <div class="status-line" id="statusLine">正在加载…</div>
+    <div class="panel">
+      <div class="list" id="channelList"></div>
+    </div>
+  </div>
+  <script>
+    const statusLine = document.getElementById('statusLine');
+    const channelList = document.getElementById('channelList');
+    const refreshBtn = document.getElementById('refreshBtn');
+
+    function fmtTime(value) {
+      if (!value) return '未记录';
+      const d = new Date(Number(value));
+      if (Number.isNaN(d.getTime())) return String(value);
+      return d.toLocaleString();
+    }
+
+    async function requestJson(url, options) {
+      const response = await fetch(url, options);
+      let data = {};
+      try { data = await response.json(); } catch (_) {}
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || response.statusText || 'Request failed');
+      }
+      return data;
+    }
+
+    function badge(label, kind = '') {
+      return `<span class="badge ${kind}">${label}</span>`;
+    }
+
+    function renderChannels(items) {
+      if (!items.length) {
+        channelList.innerHTML = '<div class="empty">没有可用的 Telegram 渠道。</div>';
+        return;
+      }
+      channelList.innerHTML = items.map(item => {
+        const webhookUrl = item.webhookInfo && item.webhookInfo.url ? item.webhookInfo.url : '';
+        const lastError = item.lastError ? `<div class="hint error">最近错误：${item.lastError}</div>` : '';
+        return `
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>${item.name}</h2>
+                <div class="meta">chatId: ${item.chatId || '未配置'} · importDirectory: ${item.importDirectory || '/'}</div>
+              </div>
+              <div class="badges">
+                ${badge(item.enabled ? '渠道启用' : '渠道禁用', item.enabled ? 'success' : 'danger')}
+                ${badge(item.syncEnabled ? '同步启用' : '同步关闭', item.syncEnabled ? 'success' : 'warning')}
+                ${badge(item.syncMode || 'webhook', item.syncMode === 'webhook' ? 'success' : 'warning')}
+                ${badge(webhookUrl ? 'Webhook Active' : 'Webhook Inactive', webhookUrl ? 'success' : 'warning')}
+              </div>
+            </div>
+            <div class="grid">
+              <div class="item"><b>Last Sync</b>${fmtTime(item.lastSyncAt)}</div>
+              <div class="item"><b>Last Source</b>${item.lastSyncSource || '未记录'}</div>
+              <div class="item"><b>Last Processed</b>${item.lastProcessedCount || 0}</div>
+              <div class="item"><b>Last Update Id</b>${item.lastUpdateId || 0}</div>
+              <div class="item"><b>Last Webhook Event</b>${fmtTime(item.lastWebhookEventAt)}</div>
+              <div class="item"><b>Webhook Queue</b>${item.webhookInfo && item.webhookInfo.pending_update_count != null ? item.webhookInfo.pending_update_count : '未知'}</div>
+            </div>
+            <div class="actions">
+              <button class="primary" data-action="setup" data-name="${item.name}">建立 Webhook</button>
+              <button data-action="run" data-name="${item.name}" ${item.manualRunAllowed ? '' : 'disabled'}>立即同步一次</button>
+              <button class="danger" data-action="delete" data-name="${item.name}">删除 Webhook</button>
+            </div>
+            <div class="hint">Webhook URL: ${webhookUrl || '未设置'}</div>
+            <div class="hint">说明：手动同步只补近期未消费更新；如果当前 webhook 正在生效，手动同步会被拒绝。</div>
+            ${lastError}
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function loadStatus() {
+      statusLine.textContent = '正在刷新状态…';
+      try {
+        const data = await requestJson('/api/manage/telegram-sync/status');
+        const items = Array.isArray(data.data) ? data.data : (data.data ? [data.data] : []);
+        renderChannels(items);
+        statusLine.textContent = `已加载 ${items.length} 个 Telegram 渠道。`;
+      } catch (error) {
+        channelList.innerHTML = '';
+        statusLine.innerHTML = `<span class="error">加载失败：${error.message}</span>`;
+      }
+    }
+
+    async function runAction(action, name) {
+      try {
+        statusLine.textContent = `正在执行 ${action} (${name})…`;
+        if (action === 'setup') {
+          await requestJson(`/api/manage/telegram-sync/webhook/setup?channelName=${encodeURIComponent(name)}`, { method: 'POST' });
+        } else if (action === 'delete') {
+          if (!confirm(`确认删除 ${name} 的 webhook 吗？`)) return;
+          await requestJson(`/api/manage/telegram-sync/webhook/delete?channelName=${encodeURIComponent(name)}`, { method: 'POST' });
+        } else if (action === 'run') {
+          await requestJson(`/api/manage/telegram-sync/run?channelName=${encodeURIComponent(name)}`, { method: 'POST' });
+        }
+        await loadStatus();
+      } catch (error) {
+        statusLine.innerHTML = `<span class="error">操作失败：${error.message}</span>`;
+      }
+    }
+
+    refreshBtn.addEventListener('click', loadStatus);
+    channelList.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      runAction(button.dataset.action, button.dataset.name);
+    });
+
+    loadStatus();
+  </script>
+</body>
+</html>
