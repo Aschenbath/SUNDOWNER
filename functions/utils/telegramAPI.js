@@ -1,5 +1,3 @@
-import { ProxyAgent } from 'undici'
-
 const DEFAULT_TELEGRAM_ORIGIN = 'https://api.telegram.org'
 const PROXY_ENV_KEYS = [
     'HTTPS_PROXY',
@@ -9,6 +7,8 @@ const PROXY_ENV_KEYS = [
     'HTTP_PROXY',
     'http_proxy',
 ]
+
+let proxyAgentFactoryPromise = null
 
 function hasScheme(value = '') {
     return /^[a-z][a-z0-9+.-]*:\/\//i.test(String(value).trim())
@@ -33,14 +33,29 @@ function resolveProxyEndpoint(proxyUrl = '') {
         return normalized
     }
 
+    const envObject = typeof process !== 'undefined' ? process.env || {} : {}
     for (const key of PROXY_ENV_KEYS) {
-        const value = String(process.env[key] || '').trim()
+        const value = String(envObject[key] || '').trim()
         if (value) {
             return value
         }
     }
 
     return ''
+}
+
+function shouldUseProxyDispatcher(proxyEndpoint = '') {
+    return !!proxyEndpoint && typeof process !== 'undefined' && !!process.versions?.node
+}
+
+async function loadProxyAgentFactory() {
+    if (!proxyAgentFactoryPromise) {
+        proxyAgentFactoryPromise = new Function('return import("undici")')()
+            .then(mod => mod.ProxyAgent || null)
+            .catch(() => null)
+    }
+
+    return proxyAgentFactoryPromise
 }
 
 /**
@@ -54,10 +69,33 @@ export class TelegramAPI {
         this.baseURL = `${this.apiOrigin}/bot${this.botToken}`
         this.fileDomain = this.apiOrigin
         this.proxyEndpoint = resolveProxyEndpoint(proxyUrl)
-        this.dispatcher = this.proxyEndpoint ? new ProxyAgent(this.proxyEndpoint) : undefined
+        this.dispatcher = null
+        this.dispatcherPromise = null
         this.defaultHeaders = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0',
         }
+    }
+
+    async resolveDispatcher() {
+        if (!shouldUseProxyDispatcher(this.proxyEndpoint)) {
+            return undefined
+        }
+
+        if (this.dispatcher) {
+            return this.dispatcher
+        }
+
+        if (!this.dispatcherPromise) {
+            this.dispatcherPromise = loadProxyAgentFactory().then(ProxyAgent => {
+                if (!ProxyAgent) {
+                    return undefined
+                }
+                this.dispatcher = new ProxyAgent(this.proxyEndpoint)
+                return this.dispatcher
+            })
+        }
+
+        return await this.dispatcherPromise
     }
 
     async request(methodName, options = {}) {
@@ -75,7 +113,11 @@ export class TelegramAPI {
                 ...this.defaultHeaders,
                 ...headers,
             },
-            dispatcher: this.dispatcher,
+        }
+
+        const dispatcher = await this.resolveDispatcher()
+        if (dispatcher) {
+            requestInit.dispatcher = dispatcher
         }
 
         if (params && Object.keys(params).length > 0) {
@@ -118,12 +160,17 @@ export class TelegramAPI {
             formData.append('caption', caption)
         }
 
-        const response = await fetch(`${this.baseURL}/${functionName}`, {
+        const requestInit = {
             method: 'POST',
             headers: this.defaultHeaders,
             body: formData,
-            dispatcher: this.dispatcher,
-        })
+        }
+        const dispatcher = await this.resolveDispatcher()
+        if (dispatcher) {
+            requestInit.dispatcher = dispatcher
+        }
+
+        const response = await fetch(`${this.baseURL}/${functionName}`, requestInit)
         if (!response.ok) {
             throw new Error(`Telegram API error: ${response.statusText}`)
         }
@@ -199,11 +246,16 @@ export class TelegramAPI {
             throw new Error(`File path not found for fileId: ${fileId}`)
         }
 
-        const fullURL = `${this.fileDomain}/file/bot${this.botToken}/${filePath}`
-        return await fetch(fullURL, {
+        const requestInit = {
             headers: this.defaultHeaders,
-            dispatcher: this.dispatcher,
-        })
+        }
+        const dispatcher = await this.resolveDispatcher()
+        if (dispatcher) {
+            requestInit.dispatcher = dispatcher
+        }
+
+        const fullURL = `${this.fileDomain}/file/bot${this.botToken}/${filePath}`
+        return await fetch(fullURL, requestInit)
     }
 
     async getUpdates(options = {}) {
