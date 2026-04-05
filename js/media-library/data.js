@@ -304,13 +304,14 @@ const rawItems = [
 
 export const navigationModel = {
   primary: ['Photos', 'Updates', 'Collections'],
-  secondary: ['Albums', 'Documents', 'Favourites']
+  secondary: ['Documents', 'Favourites']
 };
 
 export const storageSummary = {
-  usedGb: 412,
-  totalGb: 2048,
-  upgradeLabel: 'Upgrade storage'
+  usedMb: 0,
+  totalQuotaGb: 0,
+  totalCount: 0,
+  isLoading: true
 };
 
 export const mockMediaItems = rawItems

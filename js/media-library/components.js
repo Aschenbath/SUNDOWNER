@@ -37,6 +37,48 @@ function icon(name, extraClass = '') {
   return `<span class="cml-icon ${extraClass}">${icons[name] || ''}</span>`;
 }
 
+function formatCompactNumber(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return '0';
+  }
+  if (numeric >= 100) {
+    return String(Math.round(numeric));
+  }
+  if (numeric >= 10) {
+    return numeric.toFixed(1).replace(/\.0$/, '');
+  }
+  return numeric.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+}
+
+function formatStorageAmountFromMb(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return '0 MB';
+  }
+  if (numeric >= 1024 * 1024) {
+    return `${formatCompactNumber(numeric / (1024 * 1024))} TB`;
+  }
+  if (numeric >= 1024) {
+    return `${formatCompactNumber(numeric / 1024)} GB`;
+  }
+  return `${formatCompactNumber(numeric)} MB`;
+}
+
+function formatStorageAmountFromGb(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return '0 GB';
+  }
+  if (numeric >= 1024) {
+    return `${formatCompactNumber(numeric / 1024)} TB`;
+  }
+  if (numeric < 1) {
+    return formatStorageAmountFromMb(numeric * 1024);
+  }
+  return `${formatCompactNumber(numeric)} GB`;
+}
+
 function formatTakenAt(item) {
   if (item.displayTakenAt) {
     return item.displayTakenAt;
@@ -126,17 +168,31 @@ function renderMediaAsset(item, className, withControls = false) {
 }
 
 export function StorageCard(storage) {
-  const usedRatio = Math.max(4, Math.min(100, Math.round((storage.usedGb / storage.totalGb) * 100)));
+  const usedMb = Math.max(0, Number(storage?.usedMb) || 0);
+  const totalQuotaGb = Math.max(0, Number(storage?.totalQuotaGb) || 0);
+  const totalCount = Math.max(0, Number(storage?.totalCount) || 0);
+  const isLoading = Boolean(storage?.isLoading);
+  const hasQuota = totalQuotaGb > 0;
+  const usedRatio = hasQuota
+    ? Math.max(4, Math.min(100, Math.round((usedMb / (totalQuotaGb * 1024)) * 100)))
+    : Math.max(16, Math.min(52, totalCount ? 22 + totalCount : (isLoading ? 24 : 18)));
+  const usageLine = hasQuota
+    ? `${formatStorageAmountFromMb(usedMb)} of ${formatStorageAmountFromGb(totalQuotaGb)} used`
+    : (isLoading ? 'Reading live library usage' : `${formatStorageAmountFromMb(usedMb)} indexed`);
+  const detailLine = totalCount
+    ? `${totalCount} live file${totalCount === 1 ? '' : 's'} in the indexed library`
+    : (isLoading ? 'Refreshing from the live media index.' : 'No indexed media found yet.');
   return `
     <section class="cml-storage-card" aria-label="Storage usage">
       <div class="cml-storage-card__header">
         <div class="cml-storage-card__icon">${icon('cloud')}</div>
         <div>
           <p class="cml-storage-card__eyebrow">Private archive</p>
-          <strong>${storage.usedGb} GB of ${storage.totalGb} GB used</strong>
+          <strong>${usageLine}</strong>
+          <p class="cml-storage-card__copy">${detailLine}</p>
         </div>
       </div>
-      <div class="cml-storage-card__meter" aria-hidden="true">
+      <div class="cml-storage-card__meter ${hasQuota ? '' : 'is-open-ended'}" aria-hidden="true">
         <span style="width:${usedRatio}%"></span>
       </div>
     </section>
@@ -190,7 +246,7 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
 export function TopSearchBar({ state, canDeleteSelection = false }) {
   const selectedCount = state.selectedIds.size;
   const searchValue = escapeHtml(state.searchQuery);
-  const isAlbumView = state.secondaryFilter === 'Albums';
+  const canCreateAlbum = state.primaryFilter === 'Collections';
   if (selectedCount) {
     return `
       <header class="cml-topbar is-selection-mode">
@@ -216,7 +272,7 @@ export function TopSearchBar({ state, canDeleteSelection = false }) {
         </label>
       </div>
       <div class="cml-topbar__actions">
-        ${isAlbumView ? `
+        ${canCreateAlbum ? `
           <button type="button" class="cml-topbar__secondary-button" data-action="open-create-album">
             ${icon('plus')}
             <span>New album</span>
@@ -280,6 +336,56 @@ export function MediaTimelineSection({ section, state, layoutWidth }) {
         </div>
       </header>
       ${MediaGrid({ items: section.items, state, layoutWidth })}
+    </section>
+  `;
+}
+
+export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, itemCount = 0 }) {
+  const hasActiveAlbum = Boolean(activeAlbumName);
+  const title = hasActiveAlbum ? activeAlbumName : `${collectionCount} album${collectionCount === 1 ? '' : 's'}`;
+  const copy = hasActiveAlbum
+    ? `${itemCount} item${itemCount === 1 ? '' : 's'} in this album`
+    : 'Collections now show album categories first. Open an album to browse its photos.';
+  return `
+    <section class="cml-view-summary">
+      ${hasActiveAlbum ? `
+        <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-collection">
+          ${icon('previous')}
+          <span>All collections</span>
+        </button>
+      ` : ''}
+      <p class="cml-view-summary__eyebrow">${hasActiveAlbum ? 'Collection' : 'Collections'}</p>
+      <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
+      <p class="cml-view-summary__copy">${escapeHtml(copy)}</p>
+    </section>
+  `;
+}
+
+export function CollectionGrid({ collections }) {
+  return `
+    <section class="cml-collection-grid" aria-label="Album collections">
+      ${collections.map((collection) => `
+        <button
+          type="button"
+          class="cml-collection-card"
+          data-action="open-collection"
+          data-album-name="${escapeHtml(collection.name)}"
+          aria-label="Open album ${escapeHtml(collection.name)}"
+        >
+          <span class="cml-collection-card__cover ${collection.coverItem ? '' : 'is-empty'}">
+            ${collection.coverItem
+              ? renderMediaAsset(collection.coverItem, 'cml-collection-card__image')
+              : `<span class="cml-collection-card__placeholder">${icon('albums')}</span>`}
+            ${collection.coverItem?.type === 'video' ? `<span class="cml-collection-card__badge">${icon('play')}</span>` : ''}
+          </span>
+          <span class="cml-collection-card__body">
+            <span class="cml-collection-card__eyebrow">Album</span>
+            <strong class="cml-collection-card__title">${escapeHtml(collection.name)}</strong>
+            <span class="cml-collection-card__meta">${collection.itemCount} item${collection.itemCount === 1 ? '' : 's'}</span>
+            <span class="cml-collection-card__copy">${escapeHtml(collection.metaLine || 'Empty album')}</span>
+          </span>
+        </button>
+      `).join('')}
     </section>
   `;
 }
@@ -385,13 +491,18 @@ export function AlbumDialog({ state, albums }) {
   `;
 }
 
-export function EmptyState({ query, isLoading = false }) {
+export function EmptyState({ query, isLoading = false, mode = 'media' }) {
   const title = isLoading ? 'Loading your library' : 'Nothing to show right now';
+  const emptyCopy = mode === 'collections'
+    ? 'No albums are available for this view yet. Create a new album or add media to an existing one.'
+    : 'No real photos or videos are available for this view yet. Upload media to populate the library.';
   const copy = isLoading
     ? 'Pulling real photos and videos from the underlying library index.'
     : query
-      ? `No memories match \"${escapeHtml(query)}\". Try a place, person or album.`
-      : 'No real photos or videos are available for this view yet. Upload media to populate the library.';
+      ? (mode === 'collections'
+        ? `No albums match \"${escapeHtml(query)}\". Try an album name or related memory.`
+        : `No memories match \"${escapeHtml(query)}\". Try a place, person or album.`)
+      : emptyCopy;
   return `
     <section class="cml-empty-state">
       <div class="cml-empty-state__icon">${icon('memory')}</div>

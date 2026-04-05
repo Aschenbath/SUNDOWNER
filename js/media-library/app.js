@@ -1,6 +1,8 @@
-import { createTimelineLabel, navigationModel, storageSummary } from './data.js';
+import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js';
 import {
   AlbumDialog,
+  CollectionGrid,
+  CollectionSummary,
   EmptyState,
   MediaTimelineSection,
   PreviewModal,
@@ -104,6 +106,7 @@ function saveStringRecord(key, value) {
 const state = {
   primaryFilter: 'Photos',
   secondaryFilter: '',
+  activeAlbumName: '',
   searchQuery: '',
   selectedIds: new Set(),
   favoriteIds: loadStringSet(FAVORITES_STORAGE_KEY),
@@ -120,6 +123,7 @@ const state = {
   mediaItems: [],
   liveMediaSignature: '',
   isLibraryLoading: true,
+  storageSummary: { ...defaultStorageSummary },
   liveSyncAttempts: 0,
   layoutWidth: 0
 };
@@ -137,6 +141,7 @@ let liveObserver = null;
 let liveSyncRaf = 0;
 let liveSyncPromise = null;
 let pendingSyncForceRender = false;
+let storageSyncPromise = null;
 
 function shouldMount(pathname = window.location.pathname, search = window.location.search) {
   const params = new URLSearchParams(search);
@@ -582,6 +587,128 @@ function toPositiveNumber(value, fallback = 0) {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
 }
 
+function toFiniteNumber(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function getActiveAlbumName() {
+  return state.primaryFilter === 'Collections' ? normalizeText(state.activeAlbumName) : '';
+}
+
+function matchesSearchQuery(item, query) {
+  if (!query) {
+    return true;
+  }
+
+  const haystack = [
+    item.type,
+    item.album,
+    item.label,
+    item.location,
+    item.year,
+    item.monthLabel,
+    item.day,
+    item.timelineLabel,
+    ...item.tags,
+    ...item.personLabels
+  ].join(' ').toLowerCase();
+
+  return haystack.includes(query);
+}
+
+function buildStorageSummaryUpdate({ usedMb = 0, totalQuotaGb = 0, totalCount = 0, isLoading = false } = {}) {
+  return {
+    usedMb: Math.max(0, toFiniteNumber(usedMb, 0)),
+    totalQuotaGb: Math.max(0, toFiniteNumber(totalQuotaGb, 0)),
+    totalCount: Math.max(0, Math.round(toFiniteNumber(totalCount, 0))),
+    isLoading: Boolean(isLoading)
+  };
+}
+
+function sameStorageSummary(left, right) {
+  return left.usedMb === right.usedMb
+    && left.totalQuotaGb === right.totalQuotaGb
+    && left.totalCount === right.totalCount
+    && left.isLoading === right.isLoading;
+}
+
+function extractConfiguredQuotaGb(uploadConfig) {
+  return ['cfr2', 's3']
+    .flatMap((sectionKey) => safeArray(uploadConfig?.[sectionKey]?.channels))
+    .reduce((sum, channel) => {
+      const limit = Number(channel?.quota?.limitGB);
+      if (channel?.enabled === false || !channel?.quota?.enabled || !Number.isFinite(limit) || limit <= 0) {
+        return sum;
+      }
+      return sum + limit;
+    }, 0);
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json'
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`${url} returned ${response.status}`);
+  }
+  return response.json();
+}
+
+async function performStorageSummarySync({ forceRender = false } = {}) {
+  let nextSummary = buildStorageSummaryUpdate({ ...state.storageSummary, isLoading: false });
+
+  try {
+    const [quotaResult, uploadResult] = await Promise.allSettled([
+      fetchJson('/api/manage/quota'),
+      fetchJson('/api/manage/sysConfig/upload')
+    ]);
+
+    const quotaPayload = quotaResult.status === 'fulfilled' ? quotaResult.value : null;
+    const uploadPayload = uploadResult.status === 'fulfilled' ? uploadResult.value : null;
+
+    nextSummary = buildStorageSummaryUpdate({
+      usedMb: quotaPayload ? quotaPayload.totalSizeMB : state.storageSummary.usedMb,
+      totalQuotaGb: uploadPayload ? extractConfiguredQuotaGb(uploadPayload) : state.storageSummary.totalQuotaGb,
+      totalCount: quotaPayload ? quotaPayload.totalCount : state.storageSummary.totalCount,
+      isLoading: false
+    });
+  } catch (error) {
+    console.warn('[media-library] storage summary sync failed', error);
+  }
+
+  if (!sameStorageSummary(state.storageSummary, nextSummary)) {
+    state.storageSummary = nextSummary;
+    if (refs.root) {
+      render();
+    }
+    return;
+  }
+
+  if (forceRender && refs.root) {
+    render();
+  }
+}
+
+function syncStorageSummary(options = {}) {
+  if (storageSyncPromise) {
+    return storageSyncPromise;
+  }
+
+  storageSyncPromise = performStorageSummarySync(options)
+    .catch((error) => {
+      console.error('[media-library] storage summary request failed', error);
+    })
+    .finally(() => {
+      storageSyncPromise = null;
+    });
+
+  return storageSyncPromise;
+}
+
 function inferAlbumFromFileId(fileId, metadata) {
   const directAlbum = normalizeText(metadata.Album || metadata.album || '');
   if (directAlbum) {
@@ -886,6 +1013,39 @@ function closeAlbumDialog() {
   render();
 }
 
+function openCollection(albumName) {
+  const normalizedName = normalizeText(albumName);
+  if (!normalizedName) {
+    return;
+  }
+  state.primaryFilter = 'Collections';
+  state.activeAlbumName = normalizedName;
+  state.secondaryFilter = '';
+  state.searchQuery = '';
+  state.previewId = null;
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  render();
+  if (refs.scrollRegion) {
+    refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
+  }
+}
+
+function closeCollection() {
+  if (!state.activeAlbumName) {
+    return;
+  }
+  state.activeAlbumName = '';
+  state.searchQuery = '';
+  state.previewId = null;
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  render();
+  if (refs.scrollRegion) {
+    refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
+  }
+}
+
 function commitSelectionToAlbum(albumName) {
   const selectedItems = getSelectedItems();
   if (!selectedItems.length) {
@@ -910,7 +1070,9 @@ function commitSelectionToAlbum(albumName) {
   state.albumDialogOpen = false;
   state.albumDialogError = '';
   state.albumDraftName = '';
-  state.secondaryFilter = 'Albums';
+  state.primaryFilter = 'Collections';
+  state.activeAlbumName = canonicalAlbumName;
+  state.secondaryFilter = '';
   clearSelection({ shouldRender: false });
   resetLoadedCount();
   render();
@@ -932,7 +1094,9 @@ function submitAlbumDialog() {
   state.albumDialogOpen = false;
   state.albumDialogError = '';
   state.albumDraftName = '';
-  state.secondaryFilter = 'Albums';
+  state.primaryFilter = 'Collections';
+  state.activeAlbumName = canonicalAlbumName;
+  state.secondaryFilter = '';
   resetLoadedCount();
   render();
   return true;
@@ -993,6 +1157,7 @@ async function deleteSelectedItems() {
     persistAlbumAssignments();
     render();
     window.setTimeout(() => syncLiveMedia({ forceRender: true }), 600);
+    void syncStorageSummary({ forceRender: true });
   }
 
   if (failedItems.length) {
@@ -1001,14 +1166,15 @@ async function deleteSelectedItems() {
 }
 
 function getVisibleSecondaryFilters(items) {
+  if (state.primaryFilter === 'Collections') {
+    return [];
+  }
+
   if (!items.length && !state.favoriteIds.size && !state.albumNames.length) {
     return [];
   }
 
   const filters = [];
-  if (items.length || state.secondaryFilter === 'Albums' || state.albumNames.length) {
-    filters.push('Albums');
-  }
   if (items.some((item) => item.isDocumentLike) || state.secondaryFilter === 'Documents') {
     filters.push('Documents');
   }
@@ -1018,16 +1184,11 @@ function getVisibleSecondaryFilters(items) {
   return filters;
 }
 
-function isCollectionItem(item) {
-  return state.favoriteIds.has(item.id)
-    || item.isDocumentLike
-    || /travel|festival|night|sunset|memory|archive/.test(item.tags.join(' '));
-}
-
 function getFilteredItems() {
   const items = getAllItems();
   const now = new Date();
   const query = state.searchQuery.trim().toLowerCase();
+  const activeAlbumName = getActiveAlbumName();
 
   return items.filter((item) => {
     if (state.primaryFilter === 'Updates') {
@@ -1037,7 +1198,7 @@ function getFilteredItems() {
       }
     }
 
-    if (state.primaryFilter === 'Collections' && !isCollectionItem(item)) {
+    if (activeAlbumName && normalizeText(item.album).toLowerCase() !== activeAlbumName.toLowerCase()) {
       return false;
     }
 
@@ -1052,29 +1213,11 @@ function getFilteredItems() {
           return false;
         }
         break;
-      case 'Albums':
       default:
         break;
     }
 
-    if (!query) {
-      return true;
-    }
-
-    const haystack = [
-      item.type,
-      item.album,
-      item.label,
-      item.location,
-      item.year,
-      item.monthLabel,
-      item.day,
-      item.timelineLabel,
-      ...item.tags,
-      ...item.personLabels
-    ].join(' ').toLowerCase();
-
-    return haystack.includes(query);
+    return matchesSearchQuery(item, query);
   });
 }
 
@@ -1100,38 +1243,6 @@ function summarizeLocations(items) {
 
 function buildSections(items) {
   const renderedItems = items.slice(0, state.loadedCount);
-  const groupByAlbum = state.secondaryFilter === 'Albums';
-
-  if (groupByAlbum) {
-    const groups = new Map();
-    const ensureGroup = (label, year = new Date().getFullYear()) => {
-      const normalizedLabel = normalizeText(label) || 'Library';
-      const key = `album-${normalizedLabel.toLowerCase()}`;
-      if (!groups.has(key)) {
-        groups.set(key, {
-          key,
-          label: normalizedLabel,
-          year,
-          anchorId: `timeline-album-${normalizedLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-          items: []
-        });
-      }
-      return groups.get(key);
-    };
-
-    state.albumNames.forEach((albumName) => ensureGroup(albumName));
-    renderedItems.forEach((item) => {
-      const group = ensureGroup(item.album, item.year);
-      group.year = group.items[0]?.year || item.year;
-      group.items.push(item);
-    });
-
-    return [...groups.values()].map((group) => ({
-      ...group,
-      metaLine: group.items[0] ? group.items[0].displayTakenAt : 'Empty album'
-    }));
-  }
-
   const groups = [];
   renderedItems.forEach((item) => {
     const label = item.timelineLabel || createTimelineLabel(item.takenAt);
@@ -1157,17 +1268,79 @@ function buildSections(items) {
   }));
 }
 
+function buildCollectionSummaries(items) {
+  const groups = new Map();
+  const query = state.searchQuery.trim().toLowerCase();
+  const ensureGroup = (name) => {
+    const normalizedName = normalizeText(name) || 'Library';
+    const key = normalizedName.toLowerCase();
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        name: normalizedName,
+        items: []
+      });
+    }
+    return groups.get(key);
+  };
+
+  state.albumNames.forEach((albumName) => ensureGroup(albumName));
+  items.forEach((item) => {
+    ensureGroup(item.album).items.push(item);
+  });
+
+  return [...groups.values()]
+    .filter((group) => {
+      if (!query) {
+        return group.items.length > 0 || state.albumNames.some((albumName) => albumName.toLowerCase() === group.key);
+      }
+      if (group.name.toLowerCase().includes(query)) {
+        return true;
+      }
+      return group.items.some((item) => matchesSearchQuery(item, query));
+    })
+    .map((group) => {
+      const coverItem = group.items[0] || null;
+      const locationSummary = summarizeLocations(group.items);
+      const metaParts = [];
+      if (coverItem?.displayTakenAt) {
+        metaParts.push(coverItem.displayTakenAt);
+      }
+      if (locationSummary) {
+        metaParts.push(locationSummary);
+      }
+      return {
+        ...group,
+        coverItem,
+        itemCount: group.items.length,
+        metaLine: metaParts.join(' · ') || 'Empty album'
+      };
+    })
+    .sort((left, right) => {
+      const rightTime = right.coverItem ? Date.parse(right.coverItem.takenAt) : -Infinity;
+      const leftTime = left.coverItem ? Date.parse(left.coverItem.takenAt) : -Infinity;
+      if (rightTime !== leftTime) {
+        return rightTime - leftTime;
+      }
+      return left.name.localeCompare(right.name);
+    });
+}
+
 function getViewModel() {
   const visibleSecondaryFilters = getVisibleSecondaryFilters(getAllItems());
   if (state.secondaryFilter && !visibleSecondaryFilters.includes(state.secondaryFilter)) {
     state.secondaryFilter = '';
   }
 
+  const activeAlbumName = getActiveAlbumName();
   const filteredItems = getFilteredItems();
-  const sections = buildSections(filteredItems);
-  const years = state.secondaryFilter === 'Albums'
-    ? []
-    : [...new Set(filteredItems.map((item) => item.year))];
+  const allCollections = state.primaryFilter === 'Collections' && !activeAlbumName
+    ? buildCollectionSummaries(getAllItems())
+    : [];
+  const collectionCards = allCollections.slice(0, state.loadedCount);
+  const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName;
+  const sections = isCollectionRoot ? [] : buildSections(filteredItems);
+  const years = isCollectionRoot ? [] : [...new Set(filteredItems.map((item) => item.year))];
   const previewItems = filteredItems;
   const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
   const previewItem = previewIndex >= 0 ? previewItems[previewIndex] : null;
@@ -1182,6 +1355,10 @@ function getViewModel() {
       primary: navigationModel.primary,
       secondary: visibleSecondaryFilters
     },
+    activeAlbumName,
+    isCollectionRoot,
+    collectionCards,
+    totalCollectionCount: allCollections.length,
     filteredItems,
     sections,
     years,
@@ -1221,16 +1398,30 @@ function render() {
 
   refs.root.innerHTML = `
     <div class="cml-app-shell">
-      ${Sidebar({ navigationModel: viewModel.navigationModel, state, storageSummary })}
+      ${Sidebar({ navigationModel: viewModel.navigationModel, state, storageSummary: state.storageSummary })}
       <div class="cml-main-shell">
         ${TopSearchBar({ state, canDeleteSelection: viewModel.canDeleteSelection })}
         <div class="cml-main-content-shell">
           <main class="cml-main-content" tabindex="-1">
             <div class="cml-main-content__inner">
-              ${SearchSummary({ query: state.searchQuery.trim(), resultCount: viewModel.filteredItems.length })}
-              ${viewModel.sections.length
-                ? viewModel.sections.map((section) => MediaTimelineSection({ section, state, layoutWidth: state.layoutWidth })).join('')
-                : EmptyState({ query: state.searchQuery.trim(), isLoading: state.isLibraryLoading })}
+              ${state.primaryFilter === 'Collections'
+                ? CollectionSummary({
+                  activeAlbumName: viewModel.activeAlbumName,
+                  collectionCount: viewModel.totalCollectionCount,
+                  itemCount: viewModel.filteredItems.length
+                })
+                : ''}
+              ${SearchSummary({
+                query: state.searchQuery.trim(),
+                resultCount: viewModel.isCollectionRoot ? viewModel.totalCollectionCount : viewModel.filteredItems.length
+              })}
+              ${viewModel.isCollectionRoot
+                ? (viewModel.collectionCards.length
+                  ? CollectionGrid({ collections: viewModel.collectionCards })
+                  : EmptyState({ query: state.searchQuery.trim(), isLoading: state.isLibraryLoading, mode: 'collections' }))
+                : (viewModel.sections.length
+                  ? viewModel.sections.map((section) => MediaTimelineSection({ section, state, layoutWidth: state.layoutWidth })).join('')
+                  : EmptyState({ query: state.searchQuery.trim(), isLoading: state.isLibraryLoading }))}
             </div>
           </main>
           ${YearScroller({ years: viewModel.years, activeYear: state.activeYear })}
@@ -1293,6 +1484,7 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
     state.liveMediaSignature = signature;
     state.mediaItems = items;
     changed = true;
+    void syncStorageSummary();
   }
 
   const nextSelectedIds = new Set([...state.selectedIds].filter((id) => validIds.has(id)));
@@ -1386,6 +1578,7 @@ function mount() {
   document.body.classList.add('codex-media-library-active');
   state.liveSyncAttempts = 0;
   syncLiveMedia({ forceRender: true });
+  void syncStorageSummary({ forceRender: true });
   render();
   startLiveObserver();
   consumePendingUploadRequest();
@@ -1490,6 +1683,13 @@ function updateActiveYear() {
   }
 }
 
+function getScrollableResultCount() {
+  if (state.primaryFilter === 'Collections' && !getActiveAlbumName()) {
+    return buildCollectionSummaries(getAllItems()).length;
+  }
+  return getFilteredItems().length;
+}
+
 function handleWindowResize() {
   if (!document.body.classList.contains('codex-media-library-active')) {
     return;
@@ -1502,10 +1702,10 @@ function handleScroll() {
   if (!refs.scrollRegion) {
     return;
   }
-  const filteredItems = getFilteredItems();
+  const resultCount = getScrollableResultCount();
   const nearBottom = refs.scrollRegion.scrollTop + refs.scrollRegion.clientHeight >= refs.scrollRegion.scrollHeight - 720;
-  if (nearBottom && state.loadedCount < filteredItems.length) {
-    state.loadedCount = Math.min(filteredItems.length, state.loadedCount + 18);
+  if (nearBottom && state.loadedCount < resultCount) {
+    state.loadedCount = Math.min(resultCount, state.loadedCount + 18);
     render();
     return;
   }
@@ -1540,6 +1740,14 @@ function handleAction(actionTarget) {
       return true;
     case 'open-create-album':
       openAlbumDialog('create');
+      return true;
+    case 'open-collection':
+      if (actionTarget.dataset.albumName) {
+        openCollection(actionTarget.dataset.albumName);
+      }
+      return true;
+    case 'close-collection':
+      closeCollection();
       return true;
     case 'close-album-dialog':
       closeAlbumDialog();
@@ -1577,7 +1785,9 @@ function handleClick(event) {
     if (actionTarget.dataset.primary) {
       state.primaryFilter = actionTarget.dataset.primary;
       state.secondaryFilter = '';
+      state.activeAlbumName = '';
       state.searchQuery = '';
+      state.previewId = null;
       state.selectedIds.clear();
       resetLoadedCount();
       render();
@@ -1586,6 +1796,8 @@ function handleClick(event) {
 
     if (actionTarget.dataset.secondary) {
       state.secondaryFilter = actionTarget.dataset.secondary === state.secondaryFilter ? '' : actionTarget.dataset.secondary;
+      state.activeAlbumName = '';
+      state.previewId = null;
       state.selectedIds.clear();
       resetLoadedCount();
       render();
