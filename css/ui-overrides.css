@@ -429,6 +429,22 @@ body.codex-route-home .upload[data-v-66491cac] {
   align-content: start;
 }
 
+body.codex-route-home .upload-form {
+  display: grid;
+  gap: 18px;
+}
+
+body.codex-route-home .upload-card-wrapper {
+  margin: 0 !important;
+}
+
+body.codex-route-home .upload-list-card:not(.upload-list-busy) {
+  display: none !important;
+}
+
+body.codex-route-home .upload-list-card.upload-list-busy {
+  display: block !important;
+}
 body.codex-route-home .upload-card[data-v-37f80c81],
 body.codex-route-home .paste-card[data-v-37f80c81] {
   margin: 0 !important;
