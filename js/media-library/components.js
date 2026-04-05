@@ -3,11 +3,8 @@ const icons = {
   updates: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M12 16v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M4 12h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M16 12h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   collections: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="5" width="15" height="4.5" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="4.5" y="10.8" width="15" height="8.2" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   albums: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="6" width="15" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.5h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
-  documents: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3.8h6l4 4v12a1.8 1.8 0 0 1-1.8 1.8H8A1.8 1.8 0 0 1 6.2 19.8V5.6A1.8 1.8 0 0 1 8 3.8Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14 3.8v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
-  screens: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="5" width="15" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 19h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M12 15.5V19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  documents: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3.8h6l4 4v12A1.8 1.8 0 0 1 16.2 21H8a1.8 1.8 0 0 1-1.8-1.8V5.6A1.8 1.8 0 0 1 8 3.8Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14 3.8v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   favourites: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 5.4 1.9 3.8 4.2.6-3 2.9.7 4.1-3.8-2-3.8 2 .7-4.1-3-2.9 4.2-.6Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
-  people: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4.8 18a4.2 4.2 0 0 1 8.4 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="17.2" cy="9.6" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14.8 17.6a3.4 3.4 0 0 1 5.4-2.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
-  places: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.2s5.3-5.6 5.3-9.6A5.3 5.3 0 1 0 6.7 10.6c0 4 5.3 9.6 5.3 9.6Z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="10.2" r="1.9" fill="currentColor"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m15.2 15.2 4.3 4.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 12.8 3.7 3.7 7.5-8.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -15,6 +12,7 @@ const icons = {
   previous: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.8 5.8-6 6.2 6 6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.2 5.8 6 6.2-6 6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 5 2 4.1 4.5.7-3.2 3 .8 4.6-4.1-2.1-4.1 2.1.8-4.6-3.2-3 4.5-.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"/></svg>',
   memory: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18a7.5 7.5 0 0 1 15 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="9.4" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   cloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.8 18.3a4.3 4.3 0 1 1 .8-8.5 5.2 5.2 0 0 1 10.1 1.4A3.6 3.6 0 0 1 18 18.3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
@@ -22,10 +20,7 @@ const icons = {
 const secondaryIconMap = {
   Albums: 'albums',
   Documents: 'documents',
-  'Screenshots and recordings': 'screens',
-  Favourites: 'favourites',
-  'People and pets': 'people',
-  Places: 'places'
+  Favourites: 'favourites'
 };
 
 function escapeHtml(value) {
@@ -55,29 +50,29 @@ function formatTakenAt(item) {
 }
 
 function clampAspectRatio(value) {
-  return Math.max(0.58, Math.min(2.2, value || 1));
+  return Math.max(0.58, Math.min(2.4, value || 1));
 }
 
-function getLayoutConfig() {
+function getLayoutConfig(containerWidth, denseGrid) {
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
   const isMobile = viewportWidth <= 640;
   const isTablet = viewportWidth <= 960;
-  const sidebarWidth = isTablet ? 0 : 284;
-  const yearRailWidth = isTablet ? 0 : 62;
-  const horizontalPadding = isTablet ? 36 : 72;
   const gap = isMobile ? 6 : 8;
+  const fallbackWidth = Math.max(280, viewportWidth - (isTablet ? 36 : 410));
+  const availableWidth = Math.max(280, Math.floor(containerWidth || fallbackWidth));
+  const rowHeightBase = denseGrid ? (isMobile ? 118 : viewportWidth <= 1180 ? 160 : 188) : (isMobile ? 132 : viewportWidth <= 1180 ? 180 : 212);
   return {
-    availableWidth: Math.max(280, viewportWidth - sidebarWidth - yearRailWidth - horizontalPadding),
+    availableWidth,
     gap,
-    targetRowHeight: isMobile ? 132 : (viewportWidth <= 1180 ? 178 : 214),
-    minRowHeight: isMobile ? 112 : 148,
-    maxRowHeight: isMobile ? 168 : 248,
-    maxItemsPerRow: isMobile ? 3 : 5
+    targetRowHeight: rowHeightBase,
+    minRowHeight: denseGrid ? (isMobile ? 98 : 134) : (isMobile ? 110 : 148),
+    maxRowHeight: denseGrid ? (isMobile ? 148 : 206) : (isMobile ? 168 : 248),
+    maxItemsPerRow: isMobile ? 3 : denseGrid ? 6 : 5
   };
 }
 
-function buildJustifiedRows(items) {
-  const { availableWidth, gap, targetRowHeight, minRowHeight, maxRowHeight, maxItemsPerRow } = getLayoutConfig();
+function buildJustifiedRows(items, options = {}) {
+  const { availableWidth, gap, targetRowHeight, minRowHeight, maxRowHeight, maxItemsPerRow } = getLayoutConfig(options.containerWidth, options.denseGrid);
   const rows = [];
   let currentRow = [];
   let aspectSum = 0;
@@ -95,8 +90,8 @@ function buildJustifiedRows(items) {
       return;
     }
 
-    const canFillRow = projectedWidth >= availableWidth && currentRow.length > 1;
-    const fittedHeight = canFillRow
+    const shouldFillWidth = projectedWidth >= availableWidth && currentRow.length > 1;
+    const fittedHeight = shouldFillWidth
       ? (availableWidth - gap * (currentRow.length - 1)) / aspectSum
       : Math.min(targetRowHeight, (availableWidth - gap * (currentRow.length - 1)) / aspectSum);
     const rowHeight = Math.max(minRowHeight, Math.min(maxRowHeight, fittedHeight));
@@ -114,6 +109,19 @@ function buildJustifiedRows(items) {
   });
 
   return rows;
+}
+
+function renderMediaAsset(item, className, withControls = false) {
+  const mediaUrl = escapeHtml(item.type === 'video' ? (item.sourceUrl || item.thumbnailUrl) : item.thumbnailUrl);
+  const alt = escapeHtml(item.label || item.album || 'Library item');
+  if (item.type === 'video' && item.thumbnailUrl === (item.sourceUrl || item.thumbnailUrl)) {
+    return `<video class="${className}" src="${mediaUrl}" ${withControls ? 'controls' : ''} muted playsinline preload="metadata"></video>`;
+  }
+  if (item.type === 'video' && withControls) {
+    const poster = item.posterUrl ? ` poster="${escapeHtml(item.posterUrl)}"` : '';
+    return `<video class="${className}" src="${mediaUrl}"${poster} controls playsinline preload="metadata"></video>`;
+  }
+  return `<img class="${className}" src="${escapeHtml(item.thumbnailUrl)}" alt="${alt}" loading="lazy" decoding="async" />`;
 }
 
 export function StorageCard(storage) {
@@ -157,18 +165,20 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
           `;
         }).join('')}
       </nav>
-      <div class="cml-sidebar__section-label">Browse</div>
-      <div class="cml-sidebar__subnav">
-        ${navigationModel.secondary.map((label) => {
-          const active = state.secondaryFilter === label ? 'is-active' : '';
-          return `
-            <button type="button" class="cml-sidebar__subnav-item ${active}" data-secondary="${escapeHtml(label)}">
-              ${icon(secondaryIconMap[label])}
-              <span>${escapeHtml(label)}</span>
-            </button>
-          `;
-        }).join('')}
-      </div>
+      ${navigationModel.secondary.length ? `
+        <div class="cml-sidebar__section-label">Browse</div>
+        <div class="cml-sidebar__subnav">
+          ${navigationModel.secondary.map((label) => {
+            const active = state.secondaryFilter === label ? 'is-active' : '';
+            return `
+              <button type="button" class="cml-sidebar__subnav-item ${active}" data-secondary="${escapeHtml(label)}">
+                ${icon(secondaryIconMap[label])}
+                <span>${escapeHtml(label)}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      ` : ''}
       <div class="cml-sidebar__footer">
         ${StorageCard(storageSummary)}
       </div>
@@ -206,14 +216,19 @@ export function MediaTile({ item, selected, layout }) {
       <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
-      <img class="cml-media-tile__image" src="${escapeHtml(item.thumbnailUrl)}" alt="${escapeHtml(item.label || item.album)}" loading="lazy" decoding="async" />
+      ${renderMediaAsset(item, 'cml-media-tile__image')}
+      ${item.type === 'video' ? `<span class="cml-media-tile__video-badge" aria-hidden="true">${icon('play')}</span>` : ''}
       <div class="cml-media-tile__scrim"></div>
     </article>
   `;
 }
 
-export function MediaGrid({ items, state }) {
-  const rows = buildJustifiedRows(items);
+export function MediaGrid({ items, state, layoutWidth }) {
+  const rows = buildJustifiedRows(items, {
+    containerWidth: layoutWidth,
+    denseGrid: false
+  });
+
   return `
     <div class="cml-media-grid">
       ${rows.map((row) => `
@@ -229,16 +244,19 @@ export function MediaGrid({ items, state }) {
   `;
 }
 
-export function MediaTimelineSection({ section, state }) {
+export function MediaTimelineSection({ section, state, layoutWidth }) {
   return `
     <section class="cml-timeline-section" id="${escapeHtml(section.anchorId)}" data-year="${escapeHtml(section.year)}">
       <header class="cml-timeline-section__header">
-        <div>
-          <h2 class="cml-timeline-section__title">${escapeHtml(section.label)}</h2>
+        <div class="cml-timeline-section__heading">
+          <div class="cml-timeline-section__heading-line">
+            <h2 class="cml-timeline-section__title">${escapeHtml(section.label)}</h2>
+            ${section.metaLine ? `<p class="cml-timeline-section__summary">${escapeHtml(section.metaLine)}</p>` : ''}
+          </div>
           <p class="cml-timeline-section__count">${section.items.length} memories</p>
         </div>
       </header>
-      ${MediaGrid({ items: section.items, state })}
+      ${MediaGrid({ items: section.items, state, layoutWidth })}
     </section>
   `;
 }
@@ -281,7 +299,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
         <div class="cml-preview__body">
           <button type="button" class="cml-preview__nav is-prev" data-action="preview-previous" aria-label="Previous item">${icon('previous')}</button>
           <figure class="cml-preview__figure">
-            <img src="${escapeHtml(item.thumbnailUrl)}" alt="${escapeHtml(item.label || item.album)}" class="cml-preview__image" />
+            ${renderMediaAsset(item, 'cml-preview__media', true)}
             <figcaption class="cml-preview__caption">
               <strong>${escapeHtml(item.location || item.label || item.album || 'Private library')}</strong>
               <span>${escapeHtml(detailLine)}</span>
@@ -301,10 +319,10 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
 export function EmptyState({ query, isLoading = false }) {
   const title = isLoading ? 'Loading your library' : 'Nothing to show right now';
   const copy = isLoading
-    ? 'Waiting for real photos and videos from the underlying library view.'
+    ? 'Pulling real photos and videos from the underlying library index.'
     : query
-      ? `No memories match "${escapeHtml(query)}". Try a place, person or album.`
-      : 'No real photos or videos are visible on this page yet. Upload media to populate the library.';
+      ? `No memories match \"${escapeHtml(query)}\". Try a place, person or album.`
+      : 'No real photos or videos are available for this view yet. Upload media to populate the library.';
   return `
     <section class="cml-empty-state">
       <div class="cml-empty-state__icon">${icon('memory')}</div>
@@ -321,7 +339,7 @@ export function SearchSummary({ query, resultCount }) {
   return `
     <section class="cml-search-summary">
       <p class="cml-search-summary__eyebrow">Search results</p>
-      <h2 class="cml-search-summary__title">${resultCount} matches for "${escapeHtml(query)}"</h2>
+      <h2 class="cml-search-summary__title">${resultCount} matches for \"${escapeHtml(query)}\"</h2>
     </section>
   `;
 }

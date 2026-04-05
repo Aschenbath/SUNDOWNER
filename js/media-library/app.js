@@ -19,11 +19,8 @@ const MONTH_INDEX = Object.fromEntries(MONTH_NAMES.map((month, index) => [month.
 const WEEKDAY_INDEX = Object.fromEntries(WEEKDAY_NAMES.map((weekday, index) => [weekday.toLowerCase(), index]));
 
 const FAVORITES_STORAGE_KEY = 'codex-media-library-favorites';
-const SETTINGS_STORAGE_KEY = 'codex-media-library-settings';
-const DEFAULT_SETTINGS = {
-  denseGrid: false,
-  hideSidebar: false
-};
+const API_PAGE_SIZE = 400;
+const API_MAX_ITEMS = 1600;
 
 const LIVE_MEDIA_QUERY = [
   '#app .list-view img[src]',
@@ -54,6 +51,7 @@ const EXCLUDED_MEDIA_ROOT = [
 
 const FILE_EXTENSION_PATTERN = /\.(?:jpg|jpeg|png|webp|gif|bmp|avif|heic|heif|mp4|mov|m4v|webm|avi)$/i;
 const VIDEO_EXTENSION_PATTERN = /\.(?:mp4|mov|m4v|webm|avi)$/i;
+const DOCUMENT_HINT_PATTERN = /\b(document|documents|scan|receipt|invoice|contract|paper|archive|notes?)\b/i;
 
 function loadJson(key, fallback) {
   try {
@@ -73,18 +71,6 @@ function saveStringSet(key, set) {
   window.localStorage.setItem(key, JSON.stringify([...set]));
 }
 
-function loadSettings() {
-  const saved = loadJson(SETTINGS_STORAGE_KEY, {});
-  return {
-    ...DEFAULT_SETTINGS,
-    ...(saved && typeof saved === 'object' ? saved : {})
-  };
-}
-
-function saveSettings(settings) {
-  window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-}
-
 const state = {
   primaryFilter: 'Photos',
   secondaryFilter: '',
@@ -93,27 +79,28 @@ const state = {
   favoriteIds: loadStringSet(FAVORITES_STORAGE_KEY),
   previewId: null,
   loadedCount: 24,
-  isCreateMenuOpen: false,
   activeYear: null,
   focusedTileId: null,
   mediaItems: [],
   liveMediaSignature: '',
   isLibraryLoading: true,
   liveSyncAttempts: 0,
-  activePanel: '',
-  settings: loadSettings()
+  layoutWidth: 0
 };
 
 const refs = {
   root: null,
   scrollRegion: null,
-  sectionAnchors: []
+  sectionAnchors: [],
+  contentInner: null
 };
 
 let mounted = false;
 let historyPatched = false;
 let liveObserver = null;
 let liveSyncRaf = 0;
+let liveSyncPromise = null;
+let pendingSyncForceRender = false;
 
 function shouldMount(pathname = window.location.pathname, search = window.location.search) {
   const params = new URLSearchParams(search);
@@ -158,23 +145,69 @@ function hashString(value) {
   return Math.abs(hash).toString(36);
 }
 
+function stripExtension(value) {
+  return String(value || '').replace(FILE_EXTENSION_PATTERN, '');
+}
+
+function createLookupKey(value) {
+  return stripExtension(decodeValue(normalizeText(value))).toLowerCase();
+}
+
+function getLookupKeys(fileId, fileName, label) {
+  const pathName = String(fileId || '').split('/').filter(Boolean).pop() || '';
+  const values = [fileId, pathName, fileName, label]
+    .map(createLookupKey)
+    .filter(Boolean);
+  return [...new Set(values)];
+}
+
+function encodePathForRoute(fileId) {
+  return String(fileId || '')
+    .split('/')
+    .filter(Boolean)
+    .map((part) => encodeURIComponent(part))
+    .join('/');
+}
+
+function buildFileRoute(fileId) {
+  const encodedPath = encodePathForRoute(fileId);
+  return encodedPath ? `/file/${encodedPath}` : '/file/';
+}
+
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function parseTimestamp(value, fallbackIndex = 0) {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return numeric < 1000000000000 ? numeric * 1000 : numeric;
+  }
+  const parsed = Date.parse(value);
+  if (Number.isFinite(parsed)) {
+    return parsed;
+  }
+  return Date.now() - fallbackIndex * 60000;
+}
+
 function getDateDisplay(date) {
   const hh = String(date.getHours()).padStart(2, '0');
   const mm = String(date.getMinutes()).padStart(2, '0');
   return `${MONTH_NAMES[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} ${hh}:${mm}`;
 }
 
-function createDateParts(date, timelineLabel, displayTakenAt) {
+function createDatePartsFromDate(date, now = new Date()) {
   return {
     takenAt: date.toISOString(),
     year: date.getFullYear(),
     month: date.getMonth() + 1,
     day: date.getDate(),
     monthLabel: MONTH_NAMES[date.getMonth()],
-    timelineLabel,
-    displayTakenAt
+    timelineLabel: createTimelineLabel(date, now),
+    displayTakenAt: getDateDisplay(date)
   };
 }
+
 function resolveRelativeWeekday(label, now = new Date()) {
   const weekday = WEEKDAY_INDEX[label.toLowerCase()];
   if (weekday === undefined) {
@@ -213,20 +246,26 @@ function parseDateMetadata(candidates, domIndex) {
         const [hours, minutes, seconds = '0'] = absoluteMatch[2].split(':');
         date.setHours(Number(hours), Number(minutes), Number(seconds), 0);
       }
-      return createDateParts(date, createTimelineLabel(date, now), getDateDisplay(date));
+      return createDatePartsFromDate(date, now);
     }
 
     if (/\btoday\b/i.test(candidate)) {
       const date = new Date(now);
       date.setHours(12, 0, 0, 0);
-      return createDateParts(date, 'Today', 'Today');
+      const parts = createDatePartsFromDate(date, now);
+      parts.timelineLabel = 'Today';
+      parts.displayTakenAt = 'Today';
+      return parts;
     }
 
     if (/\byesterday\b/i.test(candidate)) {
       const date = new Date(now);
       date.setHours(12, 0, 0, 0);
       date.setDate(date.getDate() - 1);
-      return createDateParts(date, 'Yesterday', 'Yesterday');
+      const parts = createDatePartsFromDate(date, now);
+      parts.timelineLabel = 'Yesterday';
+      parts.displayTakenAt = 'Yesterday';
+      return parts;
     }
 
     const monthYearMatch = candidate.match(monthYearPattern);
@@ -234,14 +273,20 @@ function parseDateMetadata(candidates, domIndex) {
       const month = MONTH_INDEX[monthYearMatch[1].toLowerCase()];
       const year = Number(monthYearMatch[2]);
       const date = new Date(year, month, 1, 12, 0, 0, 0);
-      return createDateParts(date, `${MONTH_NAMES[month]} ${year}`, `${MONTH_NAMES[month]} ${year}`);
+      const parts = createDatePartsFromDate(date, now);
+      parts.timelineLabel = `${MONTH_NAMES[month]} ${year}`;
+      parts.displayTakenAt = `${MONTH_NAMES[month]} ${year}`;
+      return parts;
     }
 
     const weekdayLabel = WEEKDAY_NAMES.find((weekday) => new RegExp(`\\b${weekday}\\b`, 'i').test(candidate));
     if (weekdayLabel) {
       const date = resolveRelativeWeekday(weekdayLabel, now);
       if (date) {
-        return createDateParts(date, weekdayLabel, weekdayLabel);
+        const parts = createDatePartsFromDate(date, now);
+        parts.timelineLabel = weekdayLabel;
+        parts.displayTakenAt = weekdayLabel;
+        return parts;
       }
     }
 
@@ -249,16 +294,19 @@ function parseDateMetadata(candidates, domIndex) {
     if (yearMatch) {
       const year = Number(yearMatch[1]);
       const date = new Date(year, 0, 1, 12, 0, 0, 0);
-      return createDateParts(date, String(year), String(year));
+      const parts = createDatePartsFromDate(date, now);
+      parts.timelineLabel = String(year);
+      parts.displayTakenAt = String(year);
+      return parts;
     }
   }
 
   const fallbackDate = new Date(now.getTime() - domIndex * 60000);
-  return createDateParts(fallbackDate, 'Recent', 'Recent');
+  return createDatePartsFromDate(fallbackDate, now);
 }
 
-function extractFileNameFromUrl(url) {
-  const raw = String(url || '').split('#')[0].split('?')[0];
+function extractFileNameFromPath(pathLike) {
+  const raw = String(pathLike || '').split('#')[0].split('?')[0];
   const parts = raw.split('/');
   return decodeValue(parts[parts.length - 1] || '');
 }
@@ -298,24 +346,24 @@ function collectMetadataCandidates(node) {
   return [...candidates];
 }
 
-function inferFileLabel(candidates, src) {
-  const filePattern = /([A-Za-z0-9][A-Za-z0-9 _-]{0,120}\.(?:jpg|jpeg|png|webp|gif|bmp|avif|heic|heif|mp4|mov|m4v|webm|avi))/i;
+function inferFileLabel(candidates, sourceValue) {
+  const filePattern = /([A-Za-z0-9][A-Za-z0-9 _-]{0,160}\.(?:jpg|jpeg|png|webp|gif|bmp|avif|heic|heif|mp4|mov|m4v|webm|avi))/i;
   for (const candidate of candidates) {
     const match = candidate.match(filePattern);
     if (match) {
       return match[1];
     }
   }
-  const fromUrl = extractFileNameFromUrl(src);
-  if (FILE_EXTENSION_PATTERN.test(fromUrl)) {
-    return fromUrl;
+  const fromSource = extractFileNameFromPath(sourceValue);
+  if (FILE_EXTENSION_PATTERN.test(fromSource)) {
+    return fromSource;
   }
   return 'Library item';
 }
 
-function inferMediaType(candidates, src, node) {
+function inferMediaType(candidates, sourceValue, node) {
   const candidateBlob = candidates.join(' ');
-  if (VIDEO_EXTENSION_PATTERN.test(candidateBlob) || VIDEO_EXTENSION_PATTERN.test(src)) {
+  if (VIDEO_EXTENSION_PATTERN.test(candidateBlob) || VIDEO_EXTENSION_PATTERN.test(sourceValue)) {
     return 'video';
   }
   if (node instanceof Element && node.closest('[class*="video"], [data-type="video"]')) {
@@ -324,7 +372,7 @@ function inferMediaType(candidates, src, node) {
   return 'photo';
 }
 
-function inferLocation(candidates) {
+function inferLocationFromCandidates(candidates) {
   const locationPattern = /\b([A-Z][A-Za-z]+(?:,\s*[A-Z][A-Za-z]+)+)\b/;
   for (const candidate of candidates) {
     const match = normalizeText(candidate).match(locationPattern);
@@ -335,18 +383,19 @@ function inferLocation(candidates) {
   return '';
 }
 
-function inferTags(fileLabel, type) {
-  const base = fileLabel.replace(FILE_EXTENSION_PATTERN, '');
-  const baseTags = base
+function inferTagsFromFileName(fileLabel, type) {
+  const base = stripExtension(fileLabel);
+  const tags = base
     .split(/[_\-\s]+/)
     .map((part) => part.trim().toLowerCase())
     .filter((part) => part && !/^\d+$/.test(part) && part.length > 1)
     .slice(0, 6);
-  if (type === 'video' && !baseTags.includes('video')) {
-    baseTags.push('video');
+  if (type === 'video' && !tags.includes('video')) {
+    tags.push('video');
   }
-  return baseTags;
+  return tags;
 }
+
 function extractLiveMediaItems() {
   const seen = new Set();
   const items = [];
@@ -376,13 +425,16 @@ function extractLiveMediaItems() {
     const fileLabel = inferFileLabel(candidates, src);
     const type = inferMediaType(candidates, src, node);
     const dateParts = parseDateMetadata(candidates, domIndex);
-    const album = fileLabel.replace(FILE_EXTENSION_PATTERN, '') || 'Library item';
+    const album = stripExtension(fileLabel) || 'Library';
 
     seen.add(src);
     items.push({
       id: `live-${hashString(src)}`,
-      type,
+      sourceId: src,
+      sourceUrl: src,
       thumbnailUrl: src,
+      posterUrl: '',
+      type,
       width,
       height,
       takenAt: dateParts.takenAt,
@@ -393,11 +445,12 @@ function extractLiveMediaItems() {
       day: dateParts.day,
       monthLabel: dateParts.monthLabel,
       album,
-      tags: inferTags(fileLabel, type),
-      location: inferLocation(candidates),
+      tags: inferTagsFromFileName(fileLabel, type),
+      location: inferLocationFromCandidates(candidates),
       favorite: false,
       personLabels: [],
       label: fileLabel,
+      isDocumentLike: DOCUMENT_HINT_PATTERN.test(`${src} ${fileLabel}`),
       sortOrder: Date.parse(dateParts.takenAt),
       domIndex
     });
@@ -415,6 +468,166 @@ function extractLiveMediaItems() {
 
 function hasUnderlyingSurface() {
   return Boolean(document.querySelector(LIVE_SURFACE_QUERY));
+}
+
+function buildDomLookup(items) {
+  const lookup = new Map();
+  items.forEach((item) => {
+    getLookupKeys(item.sourceId, item.label, item.label).forEach((key) => {
+      if (key && !lookup.has(key)) {
+        lookup.set(key, item);
+      }
+    });
+  });
+  return lookup;
+}
+
+function toPositiveNumber(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
+}
+
+function inferAlbumFromFileId(fileId, metadata) {
+  const directAlbum = normalizeText(metadata.Album || metadata.album || '');
+  if (directAlbum) {
+    return directAlbum;
+  }
+  const parts = String(fileId || '').split('/').filter(Boolean).map(decodeValue);
+  if (parts.length > 1) {
+    return normalizeText(parts[parts.length - 2]) || 'Library';
+  }
+  const channelName = normalizeText(metadata.ChannelName || '');
+  return channelName || 'Library';
+}
+
+function inferLocationFromMetadata(metadata, domMatch) {
+  const direct = [metadata.Location, metadata.Place, metadata.City, metadata.Country]
+    .map((value) => normalizeText(value))
+    .find(Boolean);
+  return direct || domMatch?.location || '';
+}
+
+function inferTagsFromMetadata(metadata, fileLabel, type) {
+  const tags = safeArray(metadata.Tags)
+    .map((tag) => normalizeText(tag).toLowerCase())
+    .filter(Boolean);
+  const fallbackTags = inferTagsFromFileName(fileLabel, type);
+  return [...new Set([...tags, ...fallbackTags])].slice(0, 8);
+}
+
+function isDocumentLikeSource(fileId, fileLabel, tags) {
+  return DOCUMENT_HINT_PATTERN.test(`${fileId} ${fileLabel} ${tags.join(' ')}`);
+}
+
+function buildIndexedMediaItem(record, domLookup, index) {
+  const metadata = record && typeof record === 'object' ? (record.metadata || {}) : {};
+  const fileId = normalizeText(record?.name || record?.id || '');
+  if (!fileId) {
+    return null;
+  }
+
+  const mimeType = normalizeText(metadata.FileType || '').toLowerCase();
+  if (!mimeType.startsWith('image/') && !mimeType.startsWith('video/')) {
+    return null;
+  }
+
+  const fileName = normalizeText(metadata.FileName || extractFileNameFromPath(fileId) || 'Library item');
+  const lookupKeys = getLookupKeys(fileId, fileName, fileName);
+  const domMatch = lookupKeys.map((key) => domLookup.get(key)).find(Boolean) || null;
+  const type = mimeType.startsWith('video/') ? 'video' : 'photo';
+  const width = toPositiveNumber(metadata.Width, toPositiveNumber(domMatch?.width, type === 'video' ? 1280 : 1200));
+  const height = toPositiveNumber(metadata.Height, toPositiveNumber(domMatch?.height, type === 'video' ? 720 : 900));
+  const timestamp = parseTimestamp(metadata.TimeStamp, index);
+  const date = new Date(timestamp);
+  const dateParts = createDatePartsFromDate(date);
+  const sourceUrl = buildFileRoute(fileId);
+  const posterUrl = domMatch && domMatch.thumbnailUrl !== sourceUrl ? domMatch.thumbnailUrl : '';
+  const tags = inferTagsFromMetadata(metadata, fileName, type);
+  const label = fileName || inferAlbumFromFileId(fileId, metadata);
+
+  return {
+    id: `managed-${hashString(fileId)}`,
+    sourceId: fileId,
+    sourceUrl,
+    thumbnailUrl: domMatch?.thumbnailUrl || sourceUrl,
+    posterUrl,
+    type,
+    width,
+    height,
+    takenAt: dateParts.takenAt,
+    displayTakenAt: dateParts.displayTakenAt,
+    timelineLabel: dateParts.timelineLabel,
+    year: dateParts.year,
+    month: dateParts.month,
+    day: dateParts.day,
+    monthLabel: dateParts.monthLabel,
+    album: inferAlbumFromFileId(fileId, metadata),
+    tags,
+    location: inferLocationFromMetadata(metadata, domMatch),
+    favorite: false,
+    personLabels: safeArray(metadata.PersonLabels).map(normalizeText).filter(Boolean),
+    label,
+    isDocumentLike: isDocumentLikeSource(fileId, fileName, tags),
+    sortOrder: timestamp,
+    domIndex: index
+  };
+}
+
+async function fetchListPage(start) {
+  const params = new URLSearchParams({
+    start: String(start),
+    count: String(API_PAGE_SIZE),
+    recursive: 'true',
+    fileType: 'image,video'
+  });
+  const response = await fetch(`/api/manage/list?${params.toString()}`, {
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`List API returned ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function fetchIndexedMediaItems(domItems) {
+  const domLookup = buildDomLookup(domItems);
+  const files = [];
+  let start = 0;
+
+  while (start < API_MAX_ITEMS) {
+    const payload = await fetchListPage(start);
+    const pageFiles = safeArray(payload?.files);
+    if (!pageFiles.length) {
+      break;
+    }
+
+    files.push(...pageFiles);
+    const returnedCount = toPositiveNumber(payload?.returnedCount, pageFiles.length);
+    const totalCount = toPositiveNumber(payload?.totalCount, files.length);
+    const shouldStop = returnedCount < API_PAGE_SIZE || files.length >= totalCount || files.length >= API_MAX_ITEMS;
+    if (shouldStop) {
+      break;
+    }
+
+    start += returnedCount;
+  }
+
+  return files
+    .slice(0, API_MAX_ITEMS)
+    .map((record, index) => buildIndexedMediaItem(record, domLookup, index))
+    .filter(Boolean)
+    .sort((left, right) => {
+      if (right.sortOrder !== left.sortOrder) {
+        return right.sortOrder - left.sortOrder;
+      }
+      return left.label.localeCompare(right.label);
+    })
+    .map(({ sortOrder, domIndex, ...item }) => item);
 }
 
 function getAllItems() {
@@ -443,16 +656,8 @@ function getNativeUrl(pathname) {
   return `${url.pathname}${url.search}`;
 }
 
-function openPhotoLibrary(pathname) {
-  window.location.assign(getPhotoLibraryUrl(pathname));
-}
-
 function openNativeView(pathname) {
   window.location.assign(getNativeUrl(pathname));
-}
-
-function openTelegramAdmin() {
-  window.location.assign('/telegram-sync-admin.html');
 }
 
 function hasPendingUploadRequest() {
@@ -531,38 +736,260 @@ function persistFavorites() {
   saveStringSet(FAVORITES_STORAGE_KEY, state.favoriteIds);
 }
 
-function persistSettings() {
-  saveSettings(state.settings);
+function getVisibleSecondaryFilters(items) {
+  if (!items.length && !state.favoriteIds.size) {
+    return [];
+  }
+
+  const filters = [];
+  if (items.length || state.secondaryFilter === 'Albums') {
+    filters.push('Albums');
+  }
+  if (items.some((item) => item.isDocumentLike) || state.secondaryFilter === 'Documents') {
+    filters.push('Documents');
+  }
+  if (state.favoriteIds.size || state.secondaryFilter === 'Favourites') {
+    filters.push('Favourites');
+  }
+  return filters;
 }
 
-function togglePanel(panelName) {
-  state.isCreateMenuOpen = false;
-  state.activePanel = state.activePanel === panelName ? '' : panelName;
-  render();
+function isCollectionItem(item) {
+  return state.favoriteIds.has(item.id)
+    || item.isDocumentLike
+    || /travel|festival|night|sunset|memory|archive/.test(item.tags.join(' '));
 }
 
-function reloadMediaLibrary() {
-  state.liveSyncAttempts = 0;
-  state.isLibraryLoading = true;
-  syncLiveMedia({ forceRender: true });
+function getFilteredItems() {
+  const items = getAllItems();
+  const now = new Date();
+  const query = state.searchQuery.trim().toLowerCase();
+
+  return items.filter((item) => {
+    if (state.primaryFilter === 'Updates') {
+      const diffDays = Math.floor((now.getTime() - new Date(item.takenAt).getTime()) / 86400000);
+      if (diffDays > 45) {
+        return false;
+      }
+    }
+
+    if (state.primaryFilter === 'Collections' && !isCollectionItem(item)) {
+      return false;
+    }
+
+    switch (state.secondaryFilter) {
+      case 'Documents':
+        if (!item.isDocumentLike) {
+          return false;
+        }
+        break;
+      case 'Favourites':
+        if (!state.favoriteIds.has(item.id)) {
+          return false;
+        }
+        break;
+      case 'Albums':
+      default:
+        break;
+    }
+
+    if (!query) {
+      return true;
+    }
+
+    const haystack = [
+      item.type,
+      item.album,
+      item.label,
+      item.location,
+      item.year,
+      item.monthLabel,
+      item.day,
+      item.timelineLabel,
+      ...item.tags,
+      ...item.personLabels
+    ].join(' ').toLowerCase();
+
+    return haystack.includes(query);
+  });
 }
 
-function toggleSetting(settingName) {
-  if (!(settingName in state.settings)) {
+function summarizeLocations(items) {
+  const counts = new Map();
+  items.forEach((item) => {
+    const location = normalizeText(item.location);
+    if (!location) {
+      return;
+    }
+    counts.set(location, (counts.get(location) || 0) + 1);
+  });
+
+  const ordered = [...counts.entries()].sort((left, right) => right[1] - left[1]);
+  if (!ordered.length) {
+    return '';
+  }
+  if (ordered.length === 1) {
+    return ordered[0][0];
+  }
+  return `${ordered[0][0]} & ${ordered.length - 1} more`;
+}
+
+function buildSections(items) {
+  const renderedItems = items.slice(0, state.loadedCount);
+  const groups = [];
+  const groupByAlbum = state.secondaryFilter === 'Albums';
+
+  renderedItems.forEach((item) => {
+    const label = groupByAlbum ? item.album : (item.timelineLabel || createTimelineLabel(item.takenAt));
+    const key = groupByAlbum ? `album-${label.toLowerCase()}` : `${item.year}-${label}`;
+    const existing = groups[groups.length - 1];
+
+    if (!existing || existing.key !== key) {
+      groups.push({
+        key,
+        label,
+        year: item.year,
+        anchorId: `timeline-${item.year}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        items: [item]
+      });
+    } else {
+      existing.items.push(item);
+    }
+  });
+
+  return groups.map((group) => ({
+    ...group,
+    metaLine: groupByAlbum
+      ? (group.items[0] ? group.items[0].displayTakenAt : '')
+      : summarizeLocations(group.items)
+  }));
+}
+
+function getViewModel() {
+  const visibleSecondaryFilters = getVisibleSecondaryFilters(getAllItems());
+  if (state.secondaryFilter && !visibleSecondaryFilters.includes(state.secondaryFilter)) {
+    state.secondaryFilter = '';
+  }
+
+  const filteredItems = getFilteredItems();
+  const sections = buildSections(filteredItems);
+  const years = state.secondaryFilter === 'Albums'
+    ? []
+    : [...new Set(filteredItems.map((item) => item.year))];
+  const previewItems = filteredItems;
+  const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
+  const previewItem = previewIndex >= 0 ? previewItems[previewIndex] : null;
+
+  if (years.length && !years.some((year) => String(year) === String(state.activeYear))) {
+    state.activeYear = years[0];
+  }
+
+  return {
+    navigationModel: {
+      primary: navigationModel.primary,
+      secondary: visibleSecondaryFilters
+    },
+    filteredItems,
+    sections,
+    years,
+    previewItems,
+    previewIndex,
+    previewItem
+  };
+}
+
+function syncLayoutWidth() {
+  if (!refs.contentInner) {
     return;
   }
-  state.settings = {
-    ...state.settings,
-    [settingName]: !state.settings[settingName]
-  };
-  persistSettings();
-  render();
+  const nextWidth = Math.max(280, Math.round(refs.contentInner.clientWidth - 4));
+  if (Math.abs(nextWidth - state.layoutWidth) <= 2) {
+    return;
+  }
+  state.layoutWidth = nextWidth;
+  window.requestAnimationFrame(() => {
+    if (refs.root) {
+      render();
+    }
+  });
 }
-function syncLiveMedia({ forceRender = false } = {}) {
+
+function render() {
+  if (!refs.root) {
+    return;
+  }
+
+  const previousScrollTop = refs.scrollRegion ? refs.scrollRegion.scrollTop : 0;
+  const searchWasFocused = document.activeElement instanceof HTMLInputElement
+    && document.activeElement.classList.contains('cml-topbar__search-input');
+  const viewModel = getViewModel();
+
+  refs.root.innerHTML = `
+    <div class="cml-app-shell">
+      ${Sidebar({ navigationModel: viewModel.navigationModel, state, storageSummary })}
+      <div class="cml-main-shell">
+        ${TopSearchBar({ state })}
+        <div class="cml-main-content-shell">
+          <main class="cml-main-content" tabindex="-1">
+            <div class="cml-main-content__inner">
+              ${SearchSummary({ query: state.searchQuery.trim(), resultCount: viewModel.filteredItems.length })}
+              ${viewModel.sections.length
+                ? viewModel.sections.map((section) => MediaTimelineSection({ section, state, layoutWidth: state.layoutWidth })).join('')
+                : EmptyState({ query: state.searchQuery.trim(), isLoading: state.isLibraryLoading })}
+            </div>
+          </main>
+          ${YearScroller({ years: viewModel.years, activeYear: state.activeYear })}
+        </div>
+      </div>
+      ${PreviewModal({
+        item: viewModel.previewItem,
+        selected: viewModel.previewItem ? state.selectedIds.has(viewModel.previewItem.id) : false,
+        favorited: viewModel.previewItem ? state.favoriteIds.has(viewModel.previewItem.id) : false,
+        currentIndex: Math.max(viewModel.previewIndex, 0),
+        totalCount: viewModel.previewItems.length
+      })}
+    </div>
+  `;
+
+  refs.scrollRegion = refs.root.querySelector('.cml-main-content');
+  refs.sectionAnchors = [...refs.root.querySelectorAll('.cml-timeline-section')];
+  refs.contentInner = refs.root.querySelector('.cml-main-content__inner');
+
+  if (refs.scrollRegion) {
+    refs.scrollRegion.scrollTop = previousScrollTop;
+    refs.scrollRegion.onscroll = handleScroll;
+  }
+
+  if (searchWasFocused) {
+    focusSearchInput();
+  }
+
+  syncLayoutWidth();
+}
+
+async function performSyncLiveMedia({ forceRender = false } = {}) {
   state.liveSyncAttempts += 1;
-  const items = extractLiveMediaItems();
-  const surfaceReady = hasUnderlyingSurface();
-  const signature = items.map((item) => `${item.id}:${item.takenAt}:${item.thumbnailUrl}`).join('|');
+
+  const domItems = extractLiveMediaItems();
+  let items = domItems;
+  let surfaceReady = hasUnderlyingSurface();
+
+  try {
+    const indexedItems = await fetchIndexedMediaItems(domItems);
+    if (indexedItems.length) {
+      items = indexedItems;
+      surfaceReady = true;
+    }
+  } catch (error) {
+    console.warn('[media-library] falling back to DOM extraction', error);
+  }
+
+  const visibleSecondaryFilters = getVisibleSecondaryFilters(items);
+  if (state.secondaryFilter && !visibleSecondaryFilters.includes(state.secondaryFilter)) {
+    state.secondaryFilter = '';
+  }
+
+  const signature = items.map((item) => `${item.id}:${item.takenAt}:${item.thumbnailUrl}:${item.width}x${item.height}`).join('|');
   const validIds = new Set(items.map((item) => item.id));
   let changed = false;
 
@@ -592,6 +1019,28 @@ function syncLiveMedia({ forceRender = false } = {}) {
   if ((changed || forceRender) && refs.root) {
     render();
   }
+}
+
+function syncLiveMedia(options = {}) {
+  if (liveSyncPromise) {
+    pendingSyncForceRender = pendingSyncForceRender || options.forceRender;
+    return liveSyncPromise;
+  }
+
+  liveSyncPromise = performSyncLiveMedia(options)
+    .catch((error) => {
+      console.error('[media-library] sync failed', error);
+    })
+    .finally(() => {
+      liveSyncPromise = null;
+      if (pendingSyncForceRender) {
+        const rerender = pendingSyncForceRender;
+        pendingSyncForceRender = false;
+        syncLiveMedia({ forceRender: rerender });
+      }
+    });
+
+  return liveSyncPromise;
 }
 
 function scheduleLiveSync() {
@@ -636,308 +1085,11 @@ function stopLiveObserver() {
   }
 }
 
-function getFilteredItems() {
-  const items = getAllItems();
-  const now = new Date();
-  const query = state.searchQuery.trim().toLowerCase();
-
-  return items.filter((item) => {
-    if (state.primaryFilter === 'Updates') {
-      const diffDays = Math.floor((now.getTime() - new Date(item.takenAt).getTime()) / 86400000);
-      if (diffDays > 45) {
-        return false;
-      }
-    }
-
-    if (state.primaryFilter === 'Collections') {
-      const isCollectionItem = state.favoriteIds.has(item.id) || item.personLabels.length > 0 || /travel|festival|night/i.test(item.tags.join(' '));
-      if (!isCollectionItem) {
-        return false;
-      }
-    }
-
-    switch (state.secondaryFilter) {
-      case 'Documents':
-        if (!(item.album === 'Documents' || item.tags.includes('scan') || item.tags.includes('archive') || item.tags.includes('invoice'))) {
-          return false;
-        }
-        break;
-      case 'Screenshots and recordings':
-        if (!(item.album === 'Screenshots and recordings' || item.type === 'video')) {
-          return false;
-        }
-        break;
-      case 'Favourites':
-        if (!state.favoriteIds.has(item.id)) {
-          return false;
-        }
-        break;
-      case 'People and pets':
-        if (!item.personLabels.length) {
-          return false;
-        }
-        break;
-      case 'Places':
-        if (!item.location) {
-          return false;
-        }
-        break;
-      case 'Albums':
-      default:
-        break;
-    }
-
-    if (!query) {
-      return true;
-    }
-
-    const haystack = [
-      item.type,
-      item.album,
-      item.label,
-      item.location,
-      item.year,
-      item.monthLabel,
-      item.day,
-      item.timelineLabel,
-      ...item.tags,
-      ...item.personLabels
-    ].join(' ').toLowerCase();
-
-    return haystack.includes(query);
-  });
-}
-
-function buildSections(items) {
-  const renderedItems = items.slice(0, state.loadedCount);
-  const groups = [];
-
-  renderedItems.forEach((item) => {
-    const label = item.timelineLabel || createTimelineLabel(item.takenAt);
-    const key = `${item.year}-${label}`;
-    const existing = groups[groups.length - 1];
-    if (!existing || existing.key !== key) {
-      groups.push({
-        key,
-        label,
-        year: item.year,
-        anchorId: `timeline-${item.year}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-        items: [item]
-      });
-    } else {
-      existing.items.push(item);
-    }
-  });
-
-  return groups;
-}
-
-function getViewModel() {
-  const filteredItems = getFilteredItems();
-  const sections = buildSections(filteredItems);
-  const years = [...new Set(filteredItems.map((item) => item.year))];
-  const previewItems = filteredItems;
-  const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
-  const previewItem = previewIndex >= 0 ? previewItems[previewIndex] : null;
-
-  if (years.length && !years.some((year) => String(year) === String(state.activeYear))) {
-    state.activeYear = years[0];
-  }
-
-  return {
-    filteredItems,
-    sections,
-    years,
-    previewItems,
-    previewIndex,
-    previewItem
-  };
-}
-
-function renderActionButton(label, action, description = '', tone = '') {
-  return `
-    <button type="button" class="cml-utility__action ${tone}" data-action="${action}">
-      <span>${label}</span>
-      ${description ? `<small>${description}</small>` : ''}
-    </button>
-  `;
-}
-
-function renderToggleButton(label, settingName, enabled, description = '') {
-  return `
-    <button type="button" class="cml-utility__toggle ${enabled ? 'is-on' : ''}" data-action="toggle-setting" data-setting="${settingName}">
-      <span>${label}</span>
-      <strong>${enabled ? 'On' : 'Off'}</strong>
-      ${description ? `<small>${description}</small>` : ''}
-    </button>
-  `;
-}
-function renderUtilityPanel() {
-  if (!state.activePanel) {
-    return '';
-  }
-
-  const itemCount = getAllItems().length;
-  const favoriteCount = state.favoriteIds.size;
-  let title = '';
-  let eyebrow = 'Library tools';
-  let body = '';
-
-  if (state.activePanel === 'help') {
-    title = 'Help and shortcuts';
-    body = `
-      <section class="cml-utility__section">
-        <h4>Keyboard</h4>
-        <div class="cml-shortcuts">
-          <div class="cml-shortcut"><span>Focus search</span><kbd>Ctrl/Cmd + K</kbd></div>
-          <div class="cml-shortcut"><span>Open help</span><kbd>?</kbd></div>
-          <div class="cml-shortcut"><span>Preview current tile</span><kbd>Enter</kbd></div>
-          <div class="cml-shortcut"><span>Select current tile</span><kbd>Space</kbd></div>
-          <div class="cml-shortcut"><span>Move around grid</span><kbd>Arrows</kbd></div>
-          <div class="cml-shortcut"><span>Close panel or preview</span><kbd>Esc</kbd></div>
-        </div>
-      </section>
-      <section class="cml-utility__section">
-        <h4>Quick actions</h4>
-        <div class="cml-utility__actions-grid">
-          ${renderActionButton('Upload media', 'open-upload', 'Use the underlying uploader and keep the real upload chain.')}
-          ${renderActionButton('Reload media scan', 'reload-library', 'Re-scan the hidden app DOM for new photos and videos.')}
-          ${renderActionButton('Open original manager', 'open-native-dashboard', 'Jump back to the native dashboard view.')}
-        </div>
-      </section>
-    `;
-  } else if (state.activePanel === 'settings') {
-    title = 'Library settings';
-    body = `
-      <section class="cml-utility__section">
-        <h4>Interface</h4>
-        <div class="cml-utility__actions-grid">
-          ${renderToggleButton('Dense grid', 'denseGrid', state.settings.denseGrid, 'Fit more media into the timeline without changing the sort order.')}
-          ${renderToggleButton('Hide sidebar', 'hideSidebar', state.settings.hideSidebar, 'Collapse the fixed navigation rail and expand the canvas.')}
-        </div>
-      </section>
-      <section class="cml-utility__section">
-        <h4>Maintenance</h4>
-        <div class="cml-utility__actions-grid">
-          ${renderActionButton('Reload media scan', 'reload-library', 'Refresh the real-photo index from the live page DOM.')}
-          ${renderActionButton('Open native home', 'open-native-home', 'Use the upstream upload workspace without the overlay.')}
-          ${renderActionButton('Open native dashboard', 'open-native-dashboard', 'Use the original file-manager surface directly.')}
-        </div>
-      </section>
-    `;
-  } else if (state.activePanel === 'apps') {
-    title = 'Launchers';
-    body = `
-      <section class="cml-utility__section">
-        <h4>Surfaces</h4>
-        <div class="cml-utility__actions-grid">
-          ${renderActionButton('Photo library home', 'open-photo-home', 'Open the overlay home route.')}
-          ${renderActionButton('Photo library dashboard', 'open-photo-dashboard', 'Open the overlay dashboard route.')}
-          ${renderActionButton('Original file manager', 'open-native-dashboard', 'Bypass the overlay and use the upstream manager.')}
-          ${renderActionButton('Telegram sync admin', 'open-telegram-admin', 'Open the existing Telegram import admin page.')}
-        </div>
-      </section>
-    `;
-  } else if (state.activePanel === 'account') {
-    eyebrow = 'Session';
-    title = 'Current library session';
-    body = `
-      <section class="cml-utility__section">
-        <h4>Overview</h4>
-        <div class="cml-utility__stats">
-          <div class="cml-utility__stat"><strong>${itemCount}</strong><span>Indexed items</span></div>
-          <div class="cml-utility__stat"><strong>${favoriteCount}</strong><span>Favourites saved locally</span></div>
-          <div class="cml-utility__stat"><strong>${window.location.pathname}</strong><span>Current route</span></div>
-        </div>
-      </section>
-      <section class="cml-utility__section">
-        <h4>Actions</h4>
-        <div class="cml-utility__actions-grid">
-          ${renderActionButton('Reload photo library', 'reload-library', 'Refresh the current live-media extraction.')}
-          ${renderActionButton('Open login page', 'open-login', 'Jump to the existing login route.')}
-          ${renderActionButton('Open original home', 'open-native-home', 'Leave the overlay and use the native home view.')}
-        </div>
-      </section>
-    `;
-  }
-
-  return `
-    <div class="cml-utility" role="dialog" aria-modal="true" aria-label="${title}">
-      <div class="cml-utility__backdrop" data-action="close-panel"></div>
-      <div class="cml-utility__panel">
-        <header class="cml-utility__header">
-          <div>
-            <p class="cml-utility__eyebrow">${eyebrow}</p>
-            <h3 class="cml-utility__title">${title}</h3>
-          </div>
-          <button type="button" class="cml-utility__close" data-action="close-panel" aria-label="Close panel">×</button>
-        </header>
-        <div class="cml-utility__body">
-          ${body}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function render() {
-  if (!refs.root) {
-    return;
-  }
-
-  refs.root.dataset.density = state.settings.denseGrid ? 'dense' : 'comfortable';
-  refs.root.dataset.sidebar = state.settings.hideSidebar ? 'hidden' : 'visible';
-
-  const previousScrollTop = refs.scrollRegion ? refs.scrollRegion.scrollTop : 0;
-  const searchWasFocused = document.activeElement instanceof HTMLInputElement
-    && document.activeElement.classList.contains('cml-topbar__search-input');
-  const viewModel = getViewModel();
-
-  refs.root.innerHTML = `
-    <div class="cml-app-shell">
-      ${Sidebar({ navigationModel, state, storageSummary })}
-      <div class="cml-main-shell">
-        ${TopSearchBar({ state })}
-        <div class="cml-main-content-shell">
-          <main class="cml-main-content" tabindex="-1">
-            <div class="cml-main-content__inner">
-              ${SearchSummary({ query: state.searchQuery.trim(), resultCount: viewModel.filteredItems.length })}
-              ${viewModel.sections.length
-                ? viewModel.sections.map((section) => MediaTimelineSection({ section, state })).join('')
-                : EmptyState({ query: state.searchQuery.trim(), isLoading: state.isLibraryLoading })}
-            </div>
-          </main>
-          ${YearScroller({ years: viewModel.years, activeYear: state.activeYear })}
-        </div>
-      </div>
-      ${PreviewModal({
-        item: viewModel.previewItem,
-        selected: viewModel.previewItem ? state.selectedIds.has(viewModel.previewItem.id) : false,
-        favorited: viewModel.previewItem ? state.favoriteIds.has(viewModel.previewItem.id) : false,
-        currentIndex: Math.max(viewModel.previewIndex, 0),
-        totalCount: viewModel.previewItems.length
-      })}
-    </div>
-  `;
-
-  refs.scrollRegion = refs.root.querySelector('.cml-main-content');
-  refs.sectionAnchors = [...refs.root.querySelectorAll('.cml-timeline-section')];
-
-  if (refs.scrollRegion) {
-    refs.scrollRegion.scrollTop = previousScrollTop;
-    refs.scrollRegion.onscroll = handleScroll;
-  }
-
-  if (searchWasFocused) {
-    focusSearchInput();
-  }
-}
-
 function mount() {
   ensureRoot();
   document.body.classList.add('codex-media-library-active');
   state.liveSyncAttempts = 0;
-  syncLiveMedia();
+  syncLiveMedia({ forceRender: true });
   render();
   startLiveObserver();
   consumePendingUploadRequest();
@@ -961,6 +1113,7 @@ function unmount() {
   }
   refs.scrollRegion = null;
   refs.sectionAnchors = [];
+  refs.contentInner = null;
 }
 
 function syncMount() {
@@ -1042,9 +1195,11 @@ function updateActiveYear() {
 }
 
 function handleWindowResize() {
-  if (document.body.classList.contains('codex-media-library-active')) {
-    render();
+  if (!document.body.classList.contains('codex-media-library-active')) {
+    return;
   }
+  syncLayoutWidth();
+  render();
 }
 
 function handleScroll() {
@@ -1060,55 +1215,11 @@ function handleScroll() {
   }
   updateActiveYear();
 }
+
 function handleAction(actionTarget) {
   switch (actionTarget.dataset.action) {
-    case 'toggle-create-menu':
-      state.isCreateMenuOpen = !state.isCreateMenuOpen;
-      render();
-      return true;
     case 'open-upload':
-      state.isCreateMenuOpen = false;
-      state.activePanel = '';
       requestNativeUpload();
-      return true;
-    case 'open-photo-home':
-      openPhotoLibrary('/');
-      return true;
-    case 'open-photo-dashboard':
-      openPhotoLibrary('/dashboard');
-      return true;
-    case 'open-native-home':
-      openNativeView('/');
-      return true;
-    case 'open-native-dashboard':
-      openNativeView('/dashboard');
-      return true;
-    case 'open-telegram-admin':
-      openTelegramAdmin();
-      return true;
-    case 'open-login':
-      window.location.assign('/login');
-      return true;
-    case 'help':
-    case 'settings':
-    case 'apps':
-    case 'account':
-      togglePanel(actionTarget.dataset.action);
-      return true;
-    case 'upgrade':
-      togglePanel('settings');
-      return true;
-    case 'close-panel':
-      state.activePanel = '';
-      render();
-      return true;
-    case 'reload-library':
-      reloadMediaLibrary();
-      return true;
-    case 'toggle-setting':
-      if (actionTarget.dataset.setting) {
-        toggleSetting(actionTarget.dataset.setting);
-      }
       return true;
     case 'toggle-select':
       if (actionTarget.dataset.id) {
@@ -1118,11 +1229,6 @@ function handleAction(actionTarget) {
     case 'toggle-favorite':
       if (actionTarget.dataset.id) {
         toggleFavorite(actionTarget.dataset.id);
-      }
-      return true;
-    case 'open-preview':
-      if (actionTarget.dataset.id) {
-        openPreview(actionTarget.dataset.id);
       }
       return true;
     case 'close-preview':
@@ -1149,8 +1255,6 @@ function handleClick(event) {
       state.secondaryFilter = '';
       state.searchQuery = '';
       state.selectedIds.clear();
-      state.isCreateMenuOpen = false;
-      state.activePanel = '';
       resetLoadedCount();
       render();
       return;
@@ -1159,8 +1263,6 @@ function handleClick(event) {
     if (actionTarget.dataset.secondary) {
       state.secondaryFilter = actionTarget.dataset.secondary === state.secondaryFilter ? '' : actionTarget.dataset.secondary;
       state.selectedIds.clear();
-      state.isCreateMenuOpen = false;
-      state.activePanel = '';
       resetLoadedCount();
       render();
       return;
@@ -1193,7 +1295,6 @@ function handleInput(event) {
   }
   state.searchQuery = input.value;
   state.selectedIds.clear();
-  state.isCreateMenuOpen = false;
   resetLoadedCount();
   render();
 }
@@ -1230,12 +1331,6 @@ function handleKeyDown(event) {
     return;
   }
 
-  if (event.key === '?') {
-    event.preventDefault();
-    togglePanel('help');
-    return;
-  }
-
   if (state.previewId) {
     if (event.key === 'Escape') {
       closePreview();
@@ -1244,12 +1339,6 @@ function handleKeyDown(event) {
     } else if (event.key === 'ArrowLeft') {
       movePreview(-1);
     }
-    return;
-  }
-
-  if (state.activePanel && event.key === 'Escape') {
-    state.activePanel = '';
-    render();
     return;
   }
 
