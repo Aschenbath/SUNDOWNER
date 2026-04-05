@@ -430,7 +430,7 @@
     const inferDateLabel = (node) => {
       const candidates = [];
       let current = node instanceof Element ? node : null;
-      for (let depth = 0; current && depth < 5; depth += 1, current = current.parentElement) {
+      for (let depth = 0; current && depth < 6; depth += 1, current = current.parentElement) {
         const prev = current.previousElementSibling;
         if (prev instanceof HTMLElement) {
           candidates.push(prev.textContent || '');
@@ -451,9 +451,6 @@
         if (/yesterday/i.test(value)) {
           return 'Yesterday';
         }
-        if ((/[一二三四五六日天]|周|星期/i.test(value) || /\d+\s*(day|days)\s*ago/i.test(value)) && value.length <= 40) {
-          return value;
-        }
       }
       return 'Recent';
     };
@@ -472,35 +469,36 @@
       shell = document.createElement('section');
       shell.className = 'codex-home-shell codex-home-shell-v2';
       shell.innerHTML = `
-        <div class="codex-home-main codex-home-main-v2">
-          <header class="codex-home-topbar codex-home-topbar-v2">
-            <div class="codex-home-topbar__left">${brandMarkup}</div>
-            <div class="codex-home-actions codex-home-actions-v2">
-              <button type="button" class="codex-home-action codex-home-action--upload" data-action="upload" aria-label="Upload" title="Upload">
-                <span class="codex-home-action__icon">+</span>
-                <span class="codex-home-action__label">Upload</span>
+        <div class="codex-home-googlebar">
+          <div class="codex-home-googlebar__brand">${brandMarkup}</div>
+          <button type="button" class="codex-home-googlebar__search" data-href="/dashboard" aria-label="Search photos">
+            <span class="codex-home-googlebar__search-icon">⌕</span>
+            <span class="codex-home-googlebar__search-text">Search photos</span>
+          </button>
+          <div class="codex-home-googlebar__actions">
+            <button type="button" class="codex-home-googlebar__upload" data-action="upload" aria-label="Upload" title="Upload">
+              <span class="codex-home-googlebar__upload-plus">+</span>
+              <span>Upload</span>
+            </button>
+            <button type="button" class="codex-home-googlebar__icon" data-action="more" aria-label="Library options" title="Library options">⋮</button>
+          </div>
+        </div>
+        <section class="codex-home-stream codex-home-stream-v2">
+          <div class="codex-home-stream__groups"></div>
+        </section>
+        <section class="codex-home-empty codex-home-empty-v2">
+          <div class="codex-home-empty__inner">
+            ${brandMarkup}
+            <h2 class="codex-home-empty__title">Your photos will appear here</h2>
+            <p class="codex-home-empty__copy">Use the upload button in the top right to add photos, then browse them in a day-based timeline.</p>
+            <div class="codex-home-empty__actions">
+              <button type="button" class="codex-home-googlebar__upload" data-action="upload">
+                <span class="codex-home-googlebar__upload-plus">+</span>
+                <span>Upload</span>
               </button>
-              <button type="button" class="codex-home-action" data-href="/dashboard" aria-label="Browse files" title="Browse files">Files</button>
-              <button type="button" class="codex-home-action" data-action="more" aria-label="More" title="More">Menu</button>
             </div>
-          </header>
-          <section class="codex-home-stream codex-home-stream-v2">
-            <div class="codex-home-stream__groups"></div>
-          </section>
-          <section class="codex-home-empty codex-home-empty-v2">
-            <div class="codex-home-empty__inner">
-              ${brandMarkup}
-              <h2 class="codex-home-empty__title">Start your photo library</h2>
-              <p class="codex-home-empty__copy">Use the upload button in the top-right corner to add new photos. The home page stays focused on the photo timeline.</p>
-              <div class="codex-home-empty__actions">
-                <button type="button" class="codex-home-action codex-home-action--upload" data-action="upload">
-                  <span class="codex-home-action__icon">+</span>
-                  <span class="codex-home-action__label">Upload</span>
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>`;
+          </div>
+        </section>`;
       home.insertBefore(shell, home.firstChild);
     }
 
@@ -528,7 +526,7 @@
       });
     }
 
-    home.querySelectorAll('.upload-list-item .file-index, .upload-list-item .index, .upload-list-item .order, .list-view .file-index, .history-container .file-index, .upload-list-item .el-badge, .upload-list-item .el-tag').forEach(hideElement);
+    home.querySelectorAll('.upload-list-item .file-index, .upload-list-item .index, .upload-list-item .order, .list-view .file-index, .history-container .file-index, .upload-list-item .el-badge, .upload-list-item .el-tag, .upload-list-item .file-name, .upload-list-item .file-title, .upload-list-item .file-meta, .history-container .file-name, .history-container .file-meta').forEach(hideElement);
 
     const media = [];
     const seen = new Set();
@@ -749,7 +747,6 @@
     patchDialogTitles(root);
     root.querySelectorAll('a[href]').forEach(markBlockedLink);
     patchLogin(root);
-    patchUploadHome(root);
     patchUploadHomeV2(root);
     patchDashboard(root);
     patchPublicBrowse(root);
