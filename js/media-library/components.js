@@ -14,7 +14,8 @@ const icons = {
   star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 5 2 4.1 4.5.7-3.2 3 .8 4.6-4.1-2.1-4.1 2.1.8-4.6-3.2-3 4.5-.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"/></svg>',
   memory: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18a7.5 7.5 0 0 1 15 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="9.4" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
-  cloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.8 18.3a4.3 4.3 0 1 1 .8-8.5 5.2 5.2 0 0 1 10.1 1.4A3.6 3.6 0 0 1 18 18.3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  cloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.8 18.3a4.3 4.3 0 1 1 .8-8.5 5.2 5.2 0 0 1 10.1 1.4A3.6 3.6 0 0 1 18 18.3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.8 7.2h12.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.4 4.8h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.2 7.2v10.2a1.8 1.8 0 0 0 1.8 1.8h4a1.8 1.8 0 0 0 1.8-1.8V7.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
 
 const secondaryIconMap = {
@@ -186,19 +187,41 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
   `;
 }
 
-export function TopSearchBar({ state }) {
+export function TopSearchBar({ state, canDeleteSelection = false }) {
   const selectedCount = state.selectedIds.size;
   const searchValue = escapeHtml(state.searchQuery);
+  const isAlbumView = state.secondaryFilter === 'Albums';
+  if (selectedCount) {
+    return `
+      <header class="cml-topbar is-selection-mode">
+        <div class="cml-topbar__selection-shell">
+          <div class="cml-topbar__selection-meta">
+            <button type="button" class="cml-topbar__clear-button" data-action="clear-selection" aria-label="Clear selection">${icon('close')}</button>
+            <strong>${selectedCount} selected</strong>
+          </div>
+          <div class="cml-topbar__selection-actions">
+            <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-album">Add to album</button>
+            <button type="button" class="cml-topbar__secondary-button is-destructive" data-action="delete-selected" ${canDeleteSelection ? '' : 'disabled'}>${icon('trash')}<span>Delete</span></button>
+          </div>
+        </div>
+      </header>
+    `;
+  }
   return `
     <header class="cml-topbar">
-      <div class="cml-topbar__search-shell ${selectedCount ? 'is-selection-mode' : ''}">
+      <div class="cml-topbar__search-shell">
         <label class="cml-topbar__search" aria-label="Search memories">
           ${icon('search', 'cml-topbar__search-icon')}
           <input type="search" class="cml-topbar__search-input" placeholder="Search memories, places, albums and people" value="${searchValue}" />
         </label>
-        ${selectedCount ? `<div class="cml-topbar__selection-pill">${selectedCount} selected</div>` : ''}
       </div>
       <div class="cml-topbar__actions">
+        ${isAlbumView ? `
+          <button type="button" class="cml-topbar__secondary-button" data-action="open-create-album">
+            ${icon('plus')}
+            <span>New album</span>
+          </button>
+        ` : ''}
         <button type="button" class="cml-topbar__upload-button" data-action="open-upload">
           ${icon('plus')}
           <span>Upload</span>
@@ -212,7 +235,7 @@ export function MediaTile({ item, selected, layout }) {
   const previewLabel = `${item.label || item.album} - ${formatTakenAt(item)}`;
   const style = `width:${layout.width}px;height:${layout.height}px;`;
   return `
-    <article class="cml-media-tile ${selected ? 'is-selected' : ''}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}">
+    <article class="cml-media-tile ${selected ? 'is-selected' : ''}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}">
       <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
@@ -310,6 +333,52 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
         <footer class="cml-preview__footer">
           <span>${currentIndex + 1} / ${totalCount}</span>
           <span>${escapeHtml(item.personLabels.join(', ') || item.label || 'No people labels')}</span>
+        </footer>
+      </div>
+    </div>
+  `;
+}
+export function AlbumDialog({ state, albums }) {
+  if (!state.albumDialogOpen) {
+    return '';
+  }
+  const selectedCount = state.selectedIds.size;
+  const isAssignMode = state.albumDialogMode === 'assign';
+  const title = isAssignMode ? 'Add to album' : 'Create album';
+  const description = isAssignMode
+    ? `Add ${selectedCount} selected item${selectedCount === 1 ? '' : 's'} to an existing album or create a new one.`
+    : 'Create a new album shell now and fill it later from the library.';
+  return `
+    <div class="cml-dialog" role="dialog" aria-modal="true" aria-label="${title}">
+      <div class="cml-dialog__backdrop" data-action="close-album-dialog"></div>
+      <div class="cml-dialog__panel cml-album-dialog">
+        <header class="cml-dialog__header">
+          <div>
+            <h3 class="cml-dialog__title">${title}</h3>
+            <p class="cml-dialog__copy">${description}</p>
+          </div>
+          <button type="button" class="cml-dialog__close" data-action="close-album-dialog" aria-label="Close dialog">${icon('close')}</button>
+        </header>
+        ${isAssignMode && albums.length ? `
+          <div class="cml-album-dialog__section">
+            <p class="cml-album-dialog__label">Existing albums</p>
+            <div class="cml-album-dialog__list">
+              ${albums.map((album) => `
+                <button type="button" class="cml-album-dialog__album-chip" data-action="assign-album" data-album-name="${escapeHtml(album)}">${escapeHtml(album)}</button>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+        <div class="cml-album-dialog__section">
+          <label class="cml-album-dialog__field">
+            <span class="cml-album-dialog__label">New album name</span>
+            <input type="text" class="cml-album-dialog__input" value="${escapeHtml(state.albumDraftName || '')}" placeholder="Weekend in Guangzhou" maxlength="64" />
+          </label>
+          ${state.albumDialogError ? `<p class="cml-album-dialog__error">${escapeHtml(state.albumDialogError)}</p>` : ''}
+        </div>
+        <footer class="cml-dialog__footer">
+          <button type="button" class="cml-topbar__secondary-button" data-action="close-album-dialog">Cancel</button>
+          <button type="button" class="cml-topbar__upload-button" data-action="submit-album-dialog">${isAssignMode ? 'Create and add' : 'Create album'}</button>
         </footer>
       </div>
     </div>

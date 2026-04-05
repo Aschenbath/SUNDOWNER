@@ -267,40 +267,89 @@ body.codex-media-library-active #app {
   color: #7b8594;
 }
 
-#codex-media-library-root .cml-topbar__selection-pill {
-  display: inline-flex;
+#codex-media-library-root .cml-topbar__actions,
+#codex-media-library-root .cml-topbar__selection-actions {
+  display: flex;
   align-items: center;
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: rgba(214, 185, 138, 0.14);
-  color: #f1dfbe;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-#codex-media-library-root .cml-topbar__actions {
+  gap: 12px;
   flex: 0 0 auto;
 }
 
+#codex-media-library-root .cml-topbar__selection-shell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+#codex-media-library-root .cml-topbar__selection-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 46px;
+  color: #f4e5cc;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+#codex-media-library-root .cml-topbar__clear-button,
+#codex-media-library-root .cml-topbar__secondary-button,
 #codex-media-library-root .cml-topbar__upload-button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   min-height: 46px;
   padding: 0 18px;
   border: 0;
   border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease, opacity 160ms ease;
+}
+
+#codex-media-library-root .cml-topbar__clear-button {
+  width: 46px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: #edf2f7;
+}
+
+#codex-media-library-root .cml-topbar__secondary-button {
+  background: rgba(255, 255, 255, 0.06);
+  color: #edf2f7;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#codex-media-library-root .cml-topbar__secondary-button.is-destructive {
+  background: rgba(139, 44, 61, 0.26);
+  color: #ffd7de;
+}
+
+#codex-media-library-root .cml-topbar__upload-button {
   background: rgba(214, 185, 138, 0.18);
   color: #f4e5cc;
   font-size: 14px;
   font-weight: 600;
-  cursor: pointer;
-  transition: background-color 160ms ease;
+}
+
+#codex-media-library-root .cml-topbar__clear-button:hover,
+#codex-media-library-root .cml-topbar__secondary-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+#codex-media-library-root .cml-topbar__secondary-button.is-destructive:hover {
+  background: rgba(139, 44, 61, 0.38);
 }
 
 #codex-media-library-root .cml-topbar__upload-button:hover {
   background: rgba(214, 185, 138, 0.26);
+}
+
+#codex-media-library-root button[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 #codex-media-library-root .cml-main-content-shell {
@@ -440,6 +489,7 @@ body.codex-media-library-active #app {
   border-radius: 26px;
   background: rgba(255, 255, 255, 0.04);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
+  cursor: zoom-in;
 }
 
 #codex-media-library-root .cml-media-tile.is-selected {
@@ -453,6 +503,7 @@ body.codex-media-library-active #app {
   display: block;
   object-fit: cover;
   background: rgba(255, 255, 255, 0.03);
+  pointer-events: none;
 }
 
 #codex-media-library-root .cml-media-tile__scrim {
@@ -461,6 +512,7 @@ body.codex-media-library-active #app {
   background: linear-gradient(180deg, rgba(15, 17, 21, 0.02), rgba(15, 17, 21, 0.02) 38%, rgba(15, 17, 21, 0.24));
   opacity: 0;
   transition: opacity 160ms ease;
+  pointer-events: none;
 }
 
 #codex-media-library-root .cml-media-tile__select {
@@ -480,6 +532,7 @@ body.codex-media-library-active #app {
   transform: translateY(6px);
   transition: opacity 160ms ease, transform 160ms ease;
   backdrop-filter: blur(12px);
+  cursor: pointer;
 }
 
 #codex-media-library-root .cml-media-tile__select-ring {
@@ -547,6 +600,118 @@ body.codex-media-library-active #app {
   color: #f2dfc2;
 }
 
+#codex-media-library-root .cml-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+#codex-media-library-root .cml-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 10, 13, 0.62);
+  backdrop-filter: blur(8px);
+}
+
+#codex-media-library-root .cml-dialog__panel {
+  position: relative;
+  z-index: 1;
+  width: min(520px, calc(100vw - 40px));
+  margin: 10vh auto 0;
+  padding: 22px;
+  border-radius: 28px;
+  background: rgba(18, 22, 28, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.36);
+}
+
+#codex-media-library-root .cml-dialog__header,
+#codex-media-library-root .cml-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+#codex-media-library-root .cml-dialog__title {
+  margin: 0;
+  font-size: 22px;
+}
+
+#codex-media-library-root .cml-dialog__copy {
+  margin: 6px 0 0;
+  color: #94a0b2;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+#codex-media-library-root .cml-dialog__close {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: #edf2f7;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-album-dialog__section {
+  margin-top: 22px;
+}
+
+#codex-media-library-root .cml-album-dialog__label {
+  display: block;
+  margin: 0 0 10px;
+  color: #a8b3c2;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#codex-media-library-root .cml-album-dialog__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#codex-media-library-root .cml-album-dialog__album-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #edf2f7;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-album-dialog__field {
+  display: block;
+}
+
+#codex-media-library-root .cml-album-dialog__input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(31, 37, 46, 0.94);
+  color: #edf2f7;
+  font-size: 15px;
+}
+
+#codex-media-library-root .cml-album-dialog__error {
+  margin: 10px 0 0;
+  color: #ffb8c5;
+  font-size: 13px;
+}
+
+#codex-media-library-root .cml-dialog__footer {
+  margin-top: 24px;
+}
 #codex-media-library-root .cml-preview {
   position: fixed;
   inset: 0;

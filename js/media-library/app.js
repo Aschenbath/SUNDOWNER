@@ -1,5 +1,6 @@
 import { createTimelineLabel, navigationModel, storageSummary } from './data.js';
 import {
+  AlbumDialog,
   EmptyState,
   MediaTimelineSection,
   PreviewModal,
@@ -19,6 +20,8 @@ const MONTH_INDEX = Object.fromEntries(MONTH_NAMES.map((month, index) => [month.
 const WEEKDAY_INDEX = Object.fromEntries(WEEKDAY_NAMES.map((weekday, index) => [weekday.toLowerCase(), index]));
 
 const FAVORITES_STORAGE_KEY = 'codex-media-library-favorites';
+const ALBUMS_STORAGE_KEY = 'codex-media-library-albums';
+const ALBUM_ASSIGNMENTS_STORAGE_KEY = 'codex-media-library-album-assignments';
 const API_PAGE_SIZE = 400;
 const API_MAX_ITEMS = 1600;
 
@@ -71,12 +74,45 @@ function saveStringSet(key, set) {
   window.localStorage.setItem(key, JSON.stringify([...set]));
 }
 
+function loadStringArray(key) {
+  const values = loadJson(key, []);
+  return Array.isArray(values)
+    ? values.map((value) => normalizeText(value)).filter(Boolean)
+    : [];
+}
+
+function saveStringArray(key, values) {
+  window.localStorage.setItem(key, JSON.stringify(values));
+}
+
+function loadStringRecord(key) {
+  const value = loadJson(key, {});
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([entryKey, entryValue]) => [normalizeText(entryKey), normalizeText(entryValue)])
+      .filter(([entryKey, entryValue]) => entryKey && entryValue)
+  );
+}
+
+function saveStringRecord(key, value) {
+  window.localStorage.setItem(key, JSON.stringify(value));
+}
+
 const state = {
   primaryFilter: 'Photos',
   secondaryFilter: '',
   searchQuery: '',
   selectedIds: new Set(),
   favoriteIds: loadStringSet(FAVORITES_STORAGE_KEY),
+  albumNames: loadStringArray(ALBUMS_STORAGE_KEY),
+  albumAssignments: loadStringRecord(ALBUM_ASSIGNMENTS_STORAGE_KEY),
+  albumDialogOpen: false,
+  albumDialogMode: 'create',
+  albumDraftName: '',
+  albumDialogError: '',
   previewId: null,
   loadedCount: 24,
   activeYear: null,
@@ -143,6 +179,65 @@ function hashString(value) {
     hash = ((hash << 5) - hash + input.charCodeAt(index)) | 0;
   }
   return Math.abs(hash).toString(36);
+}
+
+function getPersistentItemKey(item) {
+  return normalizeText(item?.sourceId || item?.id || '');
+}
+
+function getAssignedAlbumName(item) {
+  const key = getPersistentItemKey(item);
+  return key ? normalizeText(state.albumAssignments[key] || '') : '';
+}
+
+function resolveItemAlbum(item) {
+  return getAssignedAlbumName(item) || normalizeText(item?.album || '') || 'Library';
+}
+
+function applyAlbumOverride(item) {
+  const album = resolveItemAlbum(item);
+  return album !== item.album ? { ...item, album } : item;
+}
+
+function getAvailableAlbumNames() {
+  const names = [];
+  const seen = new Set();
+  const pushAlbum = (value) => {
+    const albumName = normalizeText(value);
+    const lookupKey = albumName.toLowerCase();
+    if (!albumName || seen.has(lookupKey)) {
+      return;
+    }
+    seen.add(lookupKey);
+    names.push(albumName);
+  };
+
+  state.albumNames.forEach(pushAlbum);
+  state.mediaItems.forEach((item) => pushAlbum(resolveItemAlbum(item)));
+  Object.values(state.albumAssignments).forEach(pushAlbum);
+  return names;
+}
+
+function persistAlbumNames() {
+  saveStringArray(ALBUMS_STORAGE_KEY, state.albumNames);
+}
+
+function persistAlbumAssignments() {
+  saveStringRecord(ALBUM_ASSIGNMENTS_STORAGE_KEY, state.albumAssignments);
+}
+
+function ensureAlbumName(value) {
+  const albumName = normalizeText(value).replace(/\s+/g, ' ');
+  if (!albumName) {
+    return '';
+  }
+  const existing = state.albumNames.find((item) => item.toLowerCase() === albumName.toLowerCase());
+  if (existing) {
+    return existing;
+  }
+  state.albumNames = [...state.albumNames, albumName];
+  persistAlbumNames();
+  return albumName;
 }
 
 function stripExtension(value) {
@@ -631,7 +726,25 @@ async function fetchIndexedMediaItems(domItems) {
 }
 
 function getAllItems() {
-  return state.mediaItems;
+  return state.mediaItems.map((item) => applyAlbumOverride(item));
+}
+
+function getSelectedItems() {
+  const lookup = new Map(getAllItems().map((item) => [item.id, item]));
+  return [...state.selectedIds].map((id) => lookup.get(id)).filter(Boolean);
+}
+
+function canDeleteItem(item) {
+  return Boolean(item && item.id.startsWith('managed-') && normalizeText(item.sourceId));
+}
+
+function buildDeleteRoute(fileId) {
+  const encodedPath = String(fileId || '')
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join(',');
+  return encodedPath ? `/api/manage/delete/${encodedPath}` : '/api/manage/delete';
 }
 
 function focusSearchInput() {
@@ -736,13 +849,164 @@ function persistFavorites() {
   saveStringSet(FAVORITES_STORAGE_KEY, state.favoriteIds);
 }
 
+function focusAlbumInput() {
+  const input = refs.root ? refs.root.querySelector('.cml-album-dialog__input') : null;
+  if (input instanceof HTMLInputElement) {
+    input.focus();
+    input.select();
+  }
+}
+
+function clearSelection({ shouldRender = true } = {}) {
+  if (!state.selectedIds.size) {
+    return;
+  }
+  state.selectedIds.clear();
+  if (shouldRender) {
+    render();
+  }
+}
+
+function openAlbumDialog(mode = 'create') {
+  state.albumDialogOpen = true;
+  state.albumDialogMode = mode;
+  state.albumDraftName = '';
+  state.albumDialogError = '';
+  render();
+  window.setTimeout(focusAlbumInput, 30);
+}
+
+function closeAlbumDialog() {
+  if (!state.albumDialogOpen) {
+    return;
+  }
+  state.albumDialogOpen = false;
+  state.albumDialogError = '';
+  state.albumDraftName = '';
+  render();
+}
+
+function commitSelectionToAlbum(albumName) {
+  const selectedItems = getSelectedItems();
+  if (!selectedItems.length) {
+    return false;
+  }
+  const canonicalAlbumName = ensureAlbumName(albumName);
+  if (!canonicalAlbumName) {
+    state.albumDialogError = 'Album name is required.';
+    render();
+    window.setTimeout(focusAlbumInput, 30);
+    return false;
+  }
+  const nextAssignments = { ...state.albumAssignments };
+  selectedItems.forEach((item) => {
+    const key = getPersistentItemKey(item);
+    if (key) {
+      nextAssignments[key] = canonicalAlbumName;
+    }
+  });
+  state.albumAssignments = nextAssignments;
+  persistAlbumAssignments();
+  state.albumDialogOpen = false;
+  state.albumDialogError = '';
+  state.albumDraftName = '';
+  state.secondaryFilter = 'Albums';
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  render();
+  return true;
+}
+
+function submitAlbumDialog() {
+  const draftName = normalizeText(state.albumDraftName);
+  if (state.albumDialogMode === 'assign') {
+    return commitSelectionToAlbum(draftName);
+  }
+  const canonicalAlbumName = ensureAlbumName(draftName);
+  if (!canonicalAlbumName) {
+    state.albumDialogError = 'Album name is required.';
+    render();
+    window.setTimeout(focusAlbumInput, 30);
+    return false;
+  }
+  state.albumDialogOpen = false;
+  state.albumDialogError = '';
+  state.albumDraftName = '';
+  state.secondaryFilter = 'Albums';
+  resetLoadedCount();
+  render();
+  return true;
+}
+
+function assignSelectionToAlbum(albumName) {
+  return commitSelectionToAlbum(albumName);
+}
+
+async function deleteSelectedItems() {
+  const selectedItems = getSelectedItems().filter((item) => canDeleteItem(item));
+  if (!selectedItems.length) {
+    return;
+  }
+  const confirmationLabel = selectedItems.length === 1
+    ? (selectedItems[0].label || selectedItems[0].album || 'this item')
+    : `${selectedItems.length} selected items`;
+  if (!window.confirm(`Delete ${confirmationLabel}? This cannot be undone.`)) {
+    return;
+  }
+
+  const deletedIds = new Set();
+  const deletedKeys = new Set();
+  const failedItems = [];
+
+  for (const item of selectedItems) {
+    try {
+      const response = await fetch(buildDeleteRoute(item.sourceId), {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json'
+        }
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.success === false) {
+        throw new Error(payload?.error || payload?.message || `Delete failed with ${response.status}`);
+      }
+      deletedIds.add(item.id);
+      deletedKeys.add(getPersistentItemKey(item));
+    } catch (error) {
+      console.error('[media-library] delete failed', error);
+      failedItems.push(item.label || item.sourceId);
+    }
+  }
+
+  if (deletedIds.size) {
+    state.mediaItems = state.mediaItems.filter((item) => !deletedIds.has(item.id));
+    state.selectedIds = new Set([...state.selectedIds].filter((id) => !deletedIds.has(id)));
+    if (state.previewId && deletedIds.has(state.previewId)) {
+      state.previewId = null;
+    }
+    const nextAssignments = { ...state.albumAssignments };
+    deletedKeys.forEach((key) => {
+      delete nextAssignments[key];
+    });
+    state.albumAssignments = nextAssignments;
+    persistAlbumAssignments();
+    render();
+    window.setTimeout(() => syncLiveMedia({ forceRender: true }), 600);
+  }
+
+  if (failedItems.length) {
+    window.alert(`Failed to delete ${failedItems.length} item${failedItems.length === 1 ? '' : 's'}.`);
+  }
+}
+
 function getVisibleSecondaryFilters(items) {
-  if (!items.length && !state.favoriteIds.size) {
+  if (!items.length && !state.favoriteIds.size && !state.albumNames.length) {
     return [];
   }
 
   const filters = [];
-  if (items.length || state.secondaryFilter === 'Albums') {
+  if (items.length || state.secondaryFilter === 'Albums' || state.albumNames.length) {
     filters.push('Albums');
   }
   if (items.some((item) => item.isDocumentLike) || state.secondaryFilter === 'Documents') {
@@ -836,12 +1100,42 @@ function summarizeLocations(items) {
 
 function buildSections(items) {
   const renderedItems = items.slice(0, state.loadedCount);
-  const groups = [];
   const groupByAlbum = state.secondaryFilter === 'Albums';
 
+  if (groupByAlbum) {
+    const groups = new Map();
+    const ensureGroup = (label, year = new Date().getFullYear()) => {
+      const normalizedLabel = normalizeText(label) || 'Library';
+      const key = `album-${normalizedLabel.toLowerCase()}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          label: normalizedLabel,
+          year,
+          anchorId: `timeline-album-${normalizedLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+          items: []
+        });
+      }
+      return groups.get(key);
+    };
+
+    state.albumNames.forEach((albumName) => ensureGroup(albumName));
+    renderedItems.forEach((item) => {
+      const group = ensureGroup(item.album, item.year);
+      group.year = group.items[0]?.year || item.year;
+      group.items.push(item);
+    });
+
+    return [...groups.values()].map((group) => ({
+      ...group,
+      metaLine: group.items[0] ? group.items[0].displayTakenAt : 'Empty album'
+    }));
+  }
+
+  const groups = [];
   renderedItems.forEach((item) => {
-    const label = groupByAlbum ? item.album : (item.timelineLabel || createTimelineLabel(item.takenAt));
-    const key = groupByAlbum ? `album-${label.toLowerCase()}` : `${item.year}-${label}`;
+    const label = item.timelineLabel || createTimelineLabel(item.takenAt);
+    const key = `${item.year}-${label}`;
     const existing = groups[groups.length - 1];
 
     if (!existing || existing.key !== key) {
@@ -859,9 +1153,7 @@ function buildSections(items) {
 
   return groups.map((group) => ({
     ...group,
-    metaLine: groupByAlbum
-      ? (group.items[0] ? group.items[0].displayTakenAt : '')
-      : summarizeLocations(group.items)
+    metaLine: summarizeLocations(group.items)
   }));
 }
 
@@ -879,6 +1171,7 @@ function getViewModel() {
   const previewItems = filteredItems;
   const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
   const previewItem = previewIndex >= 0 ? previewItems[previewIndex] : null;
+  const selectedItems = getSelectedItems();
 
   if (years.length && !years.some((year) => String(year) === String(state.activeYear))) {
     state.activeYear = years[0];
@@ -894,7 +1187,9 @@ function getViewModel() {
     years,
     previewItems,
     previewIndex,
-    previewItem
+    previewItem,
+    availableAlbums: getAvailableAlbumNames(),
+    canDeleteSelection: selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item))
   };
 }
 
@@ -928,7 +1223,7 @@ function render() {
     <div class="cml-app-shell">
       ${Sidebar({ navigationModel: viewModel.navigationModel, state, storageSummary })}
       <div class="cml-main-shell">
-        ${TopSearchBar({ state })}
+        ${TopSearchBar({ state, canDeleteSelection: viewModel.canDeleteSelection })}
         <div class="cml-main-content-shell">
           <main class="cml-main-content" tabindex="-1">
             <div class="cml-main-content__inner">
@@ -948,6 +1243,7 @@ function render() {
         currentIndex: Math.max(viewModel.previewIndex, 0),
         totalCount: viewModel.previewItems.length
       })}
+      ${AlbumDialog({ state, albums: viewModel.availableAlbums })}
     </div>
   `;
 
@@ -1218,6 +1514,11 @@ function handleScroll() {
 
 function handleAction(actionTarget) {
   switch (actionTarget.dataset.action) {
+    case 'open-preview':
+      if (actionTarget.dataset.id) {
+        openPreview(actionTarget.dataset.id);
+      }
+      return true;
     case 'open-upload':
       requestNativeUpload();
       return true;
@@ -1230,6 +1531,29 @@ function handleAction(actionTarget) {
       if (actionTarget.dataset.id) {
         toggleFavorite(actionTarget.dataset.id);
       }
+      return true;
+    case 'clear-selection':
+      clearSelection();
+      return true;
+    case 'open-add-to-album':
+      openAlbumDialog('assign');
+      return true;
+    case 'open-create-album':
+      openAlbumDialog('create');
+      return true;
+    case 'close-album-dialog':
+      closeAlbumDialog();
+      return true;
+    case 'submit-album-dialog':
+      submitAlbumDialog();
+      return true;
+    case 'assign-album':
+      if (actionTarget.dataset.albumName) {
+        assignSelectionToAlbum(actionTarget.dataset.albumName);
+      }
+      return true;
+    case 'delete-selected':
+      void deleteSelectedItems();
       return true;
     case 'close-preview':
       closePreview();
@@ -1290,13 +1614,22 @@ function handleClick(event) {
 
 function handleInput(event) {
   const input = event.target;
-  if (!(input instanceof HTMLInputElement) || !input.classList.contains('cml-topbar__search-input')) {
+  if (!(input instanceof HTMLInputElement)) {
     return;
   }
-  state.searchQuery = input.value;
-  state.selectedIds.clear();
-  resetLoadedCount();
-  render();
+  if (input.classList.contains('cml-topbar__search-input')) {
+    state.searchQuery = input.value;
+    clearSelection({ shouldRender: false });
+    resetLoadedCount();
+    render();
+    return;
+  }
+  if (input.classList.contains('cml-album-dialog__input')) {
+    state.albumDraftName = input.value;
+    if (state.albumDialogError) {
+      state.albumDialogError = '';
+    }
+  }
 }
 
 function handleFocusIn(event) {
@@ -1328,6 +1661,18 @@ function handleKeyDown(event) {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault();
     focusSearchInput();
+    return;
+  }
+
+  if (state.albumDialogOpen) {
+    if (event.key === 'Escape') {
+      closeAlbumDialog();
+      return;
+    }
+    if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.classList.contains('cml-album-dialog__input')) {
+      event.preventDefault();
+      submitAlbumDialog();
+    }
     return;
   }
 
