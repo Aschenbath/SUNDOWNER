@@ -1,10 +1,13 @@
 (function () {
+  const BRAND_NAME = 'SUNDOWNER';
+  const LOGO_PATH = '/logo-sundowner.svg';
   const BRAND_REPLACEMENTS = [
-    [/Sanyue ImgHub/gi, 'Moments Drive'],
-    [/Sanyue 鍥惧簥/gi, 'Moments Drive'],
-    [/SanyueQi/gi, 'Aschenbath'],
-    [/sanyue_imghub/gi, 'moments_drive'],
-    [/Sanyue/gi, 'Moments']
+    [/Moments Drive/gi, BRAND_NAME],
+    [/Sanyue ImgHub/gi, BRAND_NAME],
+    [/Sanyue 鍥惧簥/gi, BRAND_NAME],
+    [/SanyueQi/gi, BRAND_NAME],
+    [/sanyue_imghub/gi, 'sundowner'],
+    [/Sanyue/gi, BRAND_NAME]
   ];
 
   const BLOCKED_URL_PATTERNS = [
@@ -52,7 +55,10 @@
   function hidePersonalCredits(root) {
     root.querySelectorAll('a[href]').forEach(markBlockedLink);
 
-    root.querySelectorAll('p,span,div,strong,small').forEach((el) => {
+    root.querySelectorAll('a,p,span,strong,small').forEach((el) => {
+      if (el.children && el.children.length > 0) {
+        return;
+      }
       const text = (el.textContent || '').trim();
       if (!text || text.length > 120) {
         return;
@@ -64,9 +70,7 @@
   }
 
   function patchTitle() {
-    if (document.title) {
-      document.title = replaceBrandingInText(document.title);
-    }
+    document.title = BRAND_NAME;
   }
 
   function patchMeta() {
@@ -74,6 +78,27 @@
       if (meta.content) {
         meta.content = replaceBrandingInText(meta.content);
       }
+    });
+  }
+
+  function patchLogos(root) {
+    root.querySelectorAll('img[src], source[srcset]').forEach((node) => {
+      const value = node.tagName === 'SOURCE' ? node.getAttribute('srcset') : node.getAttribute('src');
+      if (!value) {
+        return;
+      }
+      if (/logo(\.|-)|sanyue/i.test(value)) {
+        if (node.tagName === 'SOURCE') {
+          node.setAttribute('srcset', LOGO_PATH);
+        } else {
+          node.setAttribute('src', LOGO_PATH);
+          node.setAttribute('alt', BRAND_NAME);
+        }
+      }
+    });
+
+    document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"], link[rel="mask-icon"]').forEach((link) => {
+      link.setAttribute('href', LOGO_PATH);
     });
   }
 
@@ -110,6 +135,7 @@
     }
     patchTitle();
     patchMeta();
+    patchLogos(root);
     neutralizeElementText(root);
     hidePersonalCredits(root);
     optimizeMedia(root);

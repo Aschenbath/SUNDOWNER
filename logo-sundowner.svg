@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 420" role="img" aria-labelledby="title desc">
+  <title id="title">SUNDOWNER Archive</title>
+  <desc id="desc">SUNDOWNER wordmark with small ARCHIVE subtitle.</desc>
+  <defs>
+    <style>
+      .brand { fill: #181818; }
+      .subtitle { fill: #1f1f1f; letter-spacing: 11px; }
+      @media (prefers-color-scheme: dark) {
+        .brand { fill: #efe5d8; }
+        .subtitle { fill: #d9c8b2; }
+      }
+    </style>
+  </defs>
+  <rect width="1600" height="420" fill="transparent"/>
+  <text x="60" y="250" class="brand" font-family="'Times New Roman', Georgia, serif" font-size="250" font-weight="400">SUN</text>
+  <text x="420" y="250" class="brand" font-family="'Times New Roman', Georgia, serif" font-size="250" font-style="italic" font-weight="400">DOWNER</text>
+  <line x1="78" y1="285" x2="585" y2="285" stroke="#6a5646" stroke-width="4" opacity="0.55"/>
+  <text x="1230" y="315" class="subtitle" font-family="'Times New Roman', Georgia, serif" font-size="42" font-weight="700">ARCHIVE</text>
+</svg>
