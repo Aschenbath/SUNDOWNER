@@ -411,6 +411,202 @@
     }).join('');
   }
 
+
+  function patchUploadHomeV2(root) {
+    if (!(root instanceof Element || root instanceof Document)) {
+      return;
+    }
+    const home = root instanceof Element && root.matches('.upload-home') ? root : root.querySelector('.upload-home');
+    if (!(home instanceof HTMLElement)) {
+      return;
+    }
+
+    const escapeHtml = (value) => String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
+    const inferDateLabel = (node) => {
+      const candidates = [];
+      let current = node instanceof Element ? node : null;
+      for (let depth = 0; current && depth < 5; depth += 1, current = current.parentElement) {
+        const prev = current.previousElementSibling;
+        if (prev instanceof HTMLElement) {
+          candidates.push(prev.textContent || '');
+        }
+        candidates.push(current.getAttribute('title') || '');
+        candidates.push(current.getAttribute('aria-label') || '');
+        candidates.push(current.textContent || '');
+      }
+
+      for (const value of candidates.map((item) => replaceBrandingInText(String(item || '')).replace(/\s+/g, ' ').trim()).filter(Boolean)) {
+        const absolute = value.match(/((?:20)?\d{2}[-/.]\d{1,2}[-/.]\d{1,2})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?/);
+        if (absolute) {
+          return absolute[1].replace(/[/.]/g, '-');
+        }
+        if (/today/i.test(value)) {
+          return 'Today';
+        }
+        if (/yesterday/i.test(value)) {
+          return 'Yesterday';
+        }
+        if ((/[一二三四五六日天]|周|星期/i.test(value) || /\d+\s*(day|days)\s*ago/i.test(value)) && value.length <= 40) {
+          return value;
+        }
+      }
+      return 'Recent';
+    };
+
+    const openUpload = () => {
+      home.classList.add('codex-home-upload-open');
+      const target = home.querySelector('.upload[data-v-66491cac], .upload');
+      if (target instanceof HTMLElement) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
+
+    let shell = home.querySelector('.codex-home-shell-v2');
+    if (!(shell instanceof HTMLElement)) {
+      const brandMarkup = buildBrandLockup({ className: 'codex-home-brand', compact: true }).outerHTML;
+      shell = document.createElement('section');
+      shell.className = 'codex-home-shell codex-home-shell-v2';
+      shell.innerHTML = `
+        <div class="codex-home-main codex-home-main-v2">
+          <header class="codex-home-topbar codex-home-topbar-v2">
+            <div class="codex-home-topbar__left">${brandMarkup}</div>
+            <div class="codex-home-actions codex-home-actions-v2">
+              <button type="button" class="codex-home-action codex-home-action--upload" data-action="upload" aria-label="Upload" title="Upload">
+                <span class="codex-home-action__icon">+</span>
+                <span class="codex-home-action__label">Upload</span>
+              </button>
+              <button type="button" class="codex-home-action" data-href="/dashboard" aria-label="Browse files" title="Browse files">Files</button>
+              <button type="button" class="codex-home-action" data-action="more" aria-label="More" title="More">Menu</button>
+            </div>
+          </header>
+          <section class="codex-home-stream codex-home-stream-v2">
+            <div class="codex-home-stream__groups"></div>
+          </section>
+          <section class="codex-home-empty codex-home-empty-v2">
+            <div class="codex-home-empty__inner">
+              ${brandMarkup}
+              <h2 class="codex-home-empty__title">Start your photo library</h2>
+              <p class="codex-home-empty__copy">Use the upload button in the top-right corner to add new photos. The home page stays focused on the photo timeline.</p>
+              <div class="codex-home-empty__actions">
+                <button type="button" class="codex-home-action codex-home-action--upload" data-action="upload">
+                  <span class="codex-home-action__icon">+</span>
+                  <span class="codex-home-action__label">Upload</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>`;
+      home.insertBefore(shell, home.firstChild);
+    }
+
+    if (!shell.dataset.codexBound) {
+      shell.dataset.codexBound = 'true';
+      shell.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target.closest('[data-action], [data-href]') : null;
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+        if (target.dataset.href) {
+          window.location.assign(target.dataset.href);
+          return;
+        }
+        if (target.dataset.action === 'upload') {
+          openUpload();
+          return;
+        }
+        if (target.dataset.action === 'more') {
+          const more = home.querySelector('.more-dropdown .more-button[data-v-66491cac], .mobile-more-button[data-v-66491cac], .more-dropdown .more-button, .mobile-more-button');
+          if (more instanceof HTMLElement) {
+            more.click();
+          }
+        }
+      });
+    }
+
+    home.querySelectorAll('.upload-list-item .file-index, .upload-list-item .index, .upload-list-item .order, .list-view .file-index, .history-container .file-index, .upload-list-item .el-badge, .upload-list-item .el-tag').forEach(hideElement);
+
+    const media = [];
+    const seen = new Set();
+    home.querySelectorAll('.history-container img[src], .upload-list-item img[src], .list-view img[src], .el-image__inner[src], .image-wrapper img[src]').forEach((node) => {
+      if (!(node instanceof HTMLImageElement)) {
+        return;
+      }
+      const src = node.getAttribute('src');
+      if (!src || src === LOGO_PATH || seen.has(src)) {
+        return;
+      }
+      if (node.closest('.codex-home-shell, .codex-brand-lockup, .empty-state, .el-empty')) {
+        return;
+      }
+      const width = node.naturalWidth || node.width;
+      const height = node.naturalHeight || node.height;
+      if (width && height && (width < 80 || height < 80)) {
+        return;
+      }
+      seen.add(src);
+      media.push({
+        src,
+        label: node.getAttribute('alt') || node.getAttribute('title') || '',
+        dateLabel: inferDateLabel(node)
+      });
+    });
+
+    const groups = shell.querySelector('.codex-home-stream__groups');
+    const stream = shell.querySelector('.codex-home-stream');
+    const empty = shell.querySelector('.codex-home-empty');
+    if (!(groups instanceof HTMLElement) || !(stream instanceof HTMLElement) || !(empty instanceof HTMLElement)) {
+      return;
+    }
+
+    if (!media.length) {
+      groups.innerHTML = '';
+      stream.hidden = true;
+      empty.hidden = false;
+      home.dataset.codexHasMedia = 'false';
+      return;
+    }
+
+    home.dataset.codexHasMedia = 'true';
+    stream.hidden = false;
+    empty.hidden = true;
+
+    const groupedMedia = [];
+    for (const item of media) {
+      const lastGroup = groupedMedia[groupedMedia.length - 1];
+      if (!lastGroup || lastGroup.label !== item.dateLabel) {
+        groupedMedia.push({ label: item.dateLabel, items: [item] });
+      } else {
+        lastGroup.items.push(item);
+      }
+    }
+
+    groups.innerHTML = groupedMedia.map((group) => {
+      const cards = group.items.map((item, index) => {
+        const cardClass = index === 0 && group.items.length > 2
+          ? 'codex-home-media-card is-featured'
+          : ((index % 8 === 2 || index % 8 === 5)
+            ? 'codex-home-media-card is-wide'
+            : ((index % 6 === 3 || index % 6 === 4)
+              ? 'codex-home-media-card is-tall'
+              : 'codex-home-media-card'));
+        const alt = item.label || 'Photo';
+        return `<article class="${cardClass}"><div class="codex-home-media-card__media"><img class="codex-home-media-card__asset" src="${escapeHtml(item.src)}" alt="${escapeHtml(alt)}" loading="lazy"></div></article>`;
+      }).join('');
+
+      return `
+        <section class="codex-home-day-group">
+          <header class="codex-home-day-group__header">
+            <h2 class="codex-home-day-group__title">${escapeHtml(group.label)}</h2>
+          </header>
+          <div class="codex-home-gallery">${cards}</div>
+        </section>`;
+    }).join('');
+  }
   function patchDashboard(root) {
     if (!(root instanceof Element || root instanceof Document)) {
       return;
@@ -554,6 +750,7 @@
     root.querySelectorAll('a[href]').forEach(markBlockedLink);
     patchLogin(root);
     patchUploadHome(root);
+    patchUploadHomeV2(root);
     patchDashboard(root);
     patchPublicBrowse(root);
     patchEmptyStates(root);
