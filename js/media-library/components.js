@@ -57,7 +57,13 @@ function tileSpanClass(item) {
 }
 
 function formatTakenAt(item) {
+  if (item.displayTakenAt) {
+    return item.displayTakenAt;
+  }
   const date = new Date(item.takenAt);
+  if (Number.isNaN(date.getTime())) {
+    return item.timelineLabel || 'Unknown date';
+  }
   const hh = String(date.getHours()).padStart(2, '0');
   const mm = String(date.getMinutes()).padStart(2, '0');
   return `${item.monthLabel} ${item.day}, ${item.year} ${hh}:${mm}`;
@@ -77,7 +83,7 @@ export function StorageCard(storage) {
       <div class="cml-storage-card__meter" aria-hidden="true">
         <span style="width:${usedRatio}%"></span>
       </div>
-      <button class="cml-storage-card__cta" type="button" data-action="upgrade">${escapeHtml(storage.upgradeLabel)}</button>
+      <button class="cml-storage-card__cta" type="button" data-action="upgrade">Library settings</button>
     </section>
   `;
 }
@@ -144,9 +150,9 @@ export function TopSearchBar({ state }) {
           </button>
           ${state.isCreateMenuOpen ? `
             <div class="cml-topbar__menu" role="menu">
-              <button type="button" data-action="mock-upload">Upload media</button>
-              <button type="button" data-action="mock-album">New album</button>
-              <button type="button" data-action="mock-collection">Highlight reel</button>
+              <button type="button" data-action="open-upload">Upload media</button>
+              <button type="button" data-action="open-photo-home">Photo library home</button>
+              <button type="button" data-action="open-native-dashboard">Original file manager</button>
             </div>
           ` : ''}
         </div>
@@ -160,7 +166,7 @@ export function TopSearchBar({ state }) {
 }
 
 export function MediaTile({ item, selected, favorited }) {
-  const previewLabel = `${item.album} - ${formatTakenAt(item)}`;
+  const previewLabel = `${item.label || item.album} - ${formatTakenAt(item)}`;
   const favoriteClass = favorited ? 'is-favorited' : '';
   return `
     <article class="cml-media-tile ${tileSpanClass(item)} ${selected ? 'is-selected' : ''}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}">
@@ -173,11 +179,11 @@ export function MediaTile({ item, selected, favorited }) {
       <button type="button" class="cml-media-tile__info" data-action="open-preview" data-id="${escapeHtml(item.id)}" aria-label="Open preview">
         ${icon('info')}
       </button>
-      <img class="cml-media-tile__image" src="${escapeHtml(item.thumbnailUrl)}" alt="${escapeHtml(item.album)}" loading="lazy" decoding="async" />
+      <img class="cml-media-tile__image" src="${escapeHtml(item.thumbnailUrl)}" alt="${escapeHtml(item.label || item.album)}" loading="lazy" decoding="async" />
       <div class="cml-media-tile__scrim"></div>
       <div class="cml-media-tile__meta">
         <span>${item.type === 'video' ? 'Video' : 'Photo'}</span>
-        <span>${escapeHtml(item.location)}</span>
+        <span>${escapeHtml(item.location || item.displayTakenAt || item.timelineLabel || 'Private library')}</span>
       </div>
     </article>
   `;
@@ -226,13 +232,16 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
   if (!item) {
     return '';
   }
+  const detailLine = item.tags && item.tags.length
+    ? item.tags.join(' · ')
+    : (item.displayTakenAt || item.timelineLabel || 'No additional details');
   return `
     <div class="cml-preview" role="dialog" aria-modal="true">
       <div class="cml-preview__backdrop" data-action="close-preview"></div>
       <div class="cml-preview__panel">
         <header class="cml-preview__header">
           <div>
-            <p class="cml-preview__eyebrow">${escapeHtml(item.album)}</p>
+            <p class="cml-preview__eyebrow">${escapeHtml(item.album || 'Library item')}</p>
             <h3 class="cml-preview__title">${escapeHtml(formatTakenAt(item))}</h3>
           </div>
           <div class="cml-preview__header-actions">
@@ -244,31 +253,34 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
         <div class="cml-preview__body">
           <button type="button" class="cml-preview__nav is-prev" data-action="preview-previous" aria-label="Previous item">${icon('previous')}</button>
           <figure class="cml-preview__figure">
-            <img src="${escapeHtml(item.thumbnailUrl)}" alt="${escapeHtml(item.album)}" class="cml-preview__image" />
+            <img src="${escapeHtml(item.thumbnailUrl)}" alt="${escapeHtml(item.label || item.album)}" class="cml-preview__image" />
             <figcaption class="cml-preview__caption">
-              <strong>${escapeHtml(item.location)}</strong>
-              <span>${escapeHtml(item.tags.join(' - '))}</span>
+              <strong>${escapeHtml(item.location || item.label || item.album || 'Private library')}</strong>
+              <span>${escapeHtml(detailLine)}</span>
             </figcaption>
           </figure>
           <button type="button" class="cml-preview__nav is-next" data-action="preview-next" aria-label="Next item">${icon('next')}</button>
         </div>
         <footer class="cml-preview__footer">
           <span>${currentIndex + 1} / ${totalCount}</span>
-          <span>${escapeHtml(item.personLabels.join(', ') || 'No people labels')}</span>
+          <span>${escapeHtml(item.personLabels.join(', ') || item.label || 'No people labels')}</span>
         </footer>
       </div>
     </div>
   `;
 }
 
-export function EmptyState({ query }) {
-  const copy = query
-    ? `No memories match \"${escapeHtml(query)}\". Try a place, person or album.`
-    : 'No memories are visible yet. Try another collection or add mock uploads.';
+export function EmptyState({ query, isLoading = false }) {
+  const title = isLoading ? 'Loading your library' : 'Nothing to show right now';
+  const copy = isLoading
+    ? 'Waiting for real photos and videos from the underlying library view.'
+    : query
+      ? `No memories match "${escapeHtml(query)}". Try a place, person or album.`
+      : 'No real photos or videos are visible on this page yet. Open the native workspace or upload media to populate the library.';
   return `
     <section class="cml-empty-state">
       <div class="cml-empty-state__icon">${icon('memory')}</div>
-      <h2 class="cml-empty-state__title">Nothing to show right now</h2>
+      <h2 class="cml-empty-state__title">${title}</h2>
       <p class="cml-empty-state__copy">${copy}</p>
     </section>
   `;
