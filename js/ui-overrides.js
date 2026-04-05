@@ -1,6 +1,7 @@
 (function () {
   const BRAND_NAME = 'SUNDOWNER';
   const LOGO_PATH = '/logo-sundowner.svg';
+  const ROUTE_CLASSES = ['codex-route-login', 'codex-route-home', 'codex-route-dashboard', 'codex-route-browse'];
   const BLOCKED_URL_PATTERNS = [
     /cfbed\.sanyue\.de/i,
     /github\.com\/MarSeventh\/CloudFlare-ImgBed/i,
@@ -9,7 +10,7 @@
     /star-history\.com\/#MarSeventh/i
   ];
   const HIDE_TEXT_PATTERNS = [
-    /图床/i,
+    /\u56fe\u5e8a/iu,
     /Designed by/i,
     /Moments Drive/i,
     /CloudFlare-ImgBed/i,
@@ -20,23 +21,20 @@
     /^LinJiang$/i
   ];
   const BRAND_REPLACEMENTS = [
-    [/登录到\s*.*?图床/gi, BRAND_NAME],
-    [/登录到\s*.*?archive/gi, BRAND_NAME],
-    [/登录到\s*SUNDOWNER\s*图床/gi, BRAND_NAME],
-    [/登录到\s*SUNDOWNER/gi, BRAND_NAME],
-    [/SUNDOWNER\s*图床/gi, BRAND_NAME],
+    [/\u767b\u5f55\u5230\s*.*?\u56fe\u5e8a/giu, BRAND_NAME],
+    [/\u767b\u5f55\u5230\s*.*?archive/giu, BRAND_NAME],
+    [/SUNDOWNER\s*\u56fe\u5e8a/giu, BRAND_NAME],
     [/CloudFlare-ImgBed/gi, BRAND_NAME],
     [/Moments Drive/gi, BRAND_NAME],
     [/Sanyue ImgHub/gi, BRAND_NAME],
-    [/ImgHub/gi, ''],
     [/SanyueQi/gi, BRAND_NAME],
     [/sanyue_imghub/gi, 'sundowner'],
+    [/ImgHub/gi, ''],
     [/Sanyue/gi, BRAND_NAME],
-    [/图床/gi, ''],
+    [/\u56fe\u5e8a/giu, ''],
     [/Designed by\s*.*?for You!?/gi, ''],
     [/for You!?/gi, '']
   ];
-  const ROUTE_CLASSES = ['codex-route-login', 'codex-route-home', 'codex-route-dashboard', 'codex-route-browse'];
 
   function replaceBrandingInText(text) {
     let value = text || '';
@@ -85,15 +83,6 @@
     nodes.forEach(neutralizeTextNode);
   }
 
-  function markBlockedLink(link) {
-    if (!(link instanceof HTMLAnchorElement) || !link.href) {
-      return;
-    }
-    if (BLOCKED_URL_PATTERNS.some((pattern) => pattern.test(link.href))) {
-      hideElement(link);
-    }
-  }
-
   function patchTitle() {
     document.title = BRAND_NAME;
   }
@@ -106,20 +95,29 @@
     });
   }
 
+  function markBlockedLink(link) {
+    if (!(link instanceof HTMLAnchorElement) || !link.href) {
+      return;
+    }
+    if (BLOCKED_URL_PATTERNS.some((pattern) => pattern.test(link.href))) {
+      hideElement(link);
+    }
+  }
+
   function patchLogos(root) {
     if (!(root instanceof Element || root instanceof Document)) {
       return;
     }
+
     root.querySelectorAll('img[src], source[srcset]').forEach((node) => {
-      const value = node.tagName === 'SOURCE' ? node.getAttribute('srcset') : node.getAttribute('src');
+      const attrName = node.tagName === 'SOURCE' ? 'srcset' : 'src';
+      const value = node.getAttribute(attrName);
       if (!value) {
         return;
       }
       if (/logo(\.|-)|sanyue|imghub/i.test(value)) {
-        if (node.tagName === 'SOURCE') {
-          node.setAttribute('srcset', LOGO_PATH);
-        } else {
-          node.setAttribute('src', LOGO_PATH);
+        node.setAttribute(attrName, LOGO_PATH);
+        if (node.tagName !== 'SOURCE') {
           node.setAttribute('alt', BRAND_NAME);
         }
       }
@@ -175,7 +173,7 @@
       if (!text) {
         return;
       }
-      if (/Sanyue|ImgHub|CloudFlare-ImgBed|图床|Moments Drive/i.test(text)) {
+      if (/Sanyue|ImgHub|CloudFlare-ImgBed|Moments Drive|\u56fe\u5e8a/i.test(text)) {
         title.textContent = BRAND_NAME;
       }
     });
@@ -200,7 +198,7 @@
       }
       login.querySelectorAll('.login-title, .footer-name, .footer-link-icon').forEach((el) => {
         const text = normalizedText(el);
-        if (/图床|ImgHub|Sanyue|Designed by|for You/i.test(text)) {
+        if (/ImgHub|Sanyue|Designed by|for You|\u56fe\u5e8a/i.test(text)) {
           hideElement(el);
         }
       });
@@ -215,6 +213,7 @@
     if (!(home instanceof HTMLElement)) {
       return;
     }
+
     home.classList.add('codex-photos-home');
 
     const hero = home.querySelector('.header');
@@ -224,9 +223,9 @@
       hero.querySelectorAll('.title').forEach(hideElement);
     }
 
-    const topbar = home.querySelector('.upload-list-dashboard');
-    if (topbar instanceof HTMLElement) {
-      topbar.classList.add('codex-photos-topbar');
+    const dashboard = home.querySelector('.upload-list-dashboard');
+    if (dashboard instanceof HTMLElement) {
+      dashboard.classList.add('codex-photos-topbar');
     }
 
     const stage = home.querySelector('.upload');
@@ -251,6 +250,7 @@
     if (!(view instanceof HTMLElement)) {
       return;
     }
+
     view.classList.add('codex-photos-dashboard');
 
     const header = view.querySelector('.header-content');
@@ -279,17 +279,17 @@
     if (!(browse instanceof HTMLElement)) {
       return;
     }
+
     browse.classList.add('codex-photos-browse');
 
     const header = browse.querySelector('.header');
     if (header instanceof HTMLElement) {
       header.classList.add('codex-photos-topbar');
-    }
-
-    const brandHost = browse.querySelector('.header-center') || header;
-    if (brandHost instanceof HTMLElement) {
-      ensureLockup(brandHost, { className: 'codex-browse-brand', compact: true, wordmark: true });
-      brandHost.querySelectorAll('.logo').forEach(hideElement);
+      const brandHost = browse.querySelector('.header-left') || browse.querySelector('.header-center') || header;
+      if (brandHost instanceof HTMLElement) {
+        ensureLockup(brandHost, { className: 'codex-browse-brand', compact: true, wordmark: true });
+        brandHost.querySelectorAll('.logo').forEach(hideElement);
+      }
     }
 
     const gallery = browse.querySelector('.gallery-container');
@@ -373,6 +373,7 @@
     if (!(root instanceof Element || root instanceof Document)) {
       return;
     }
+
     applyRouteClass();
     patchTitle();
     patchMeta();
