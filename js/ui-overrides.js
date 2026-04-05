@@ -618,24 +618,171 @@
 
     view.classList.add('codex-photos-dashboard');
 
+    const escapeHtml = (value) => String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
+    const inferDateLabel = (node) => {
+      const candidates = [];
+      let current = node instanceof Element ? node : null;
+      for (let depth = 0; current && depth < 6; depth += 1, current = current.parentElement) {
+        const prev = current.previousElementSibling;
+        if (prev instanceof HTMLElement) {
+          candidates.push(prev.textContent || '');
+        }
+        candidates.push(current.getAttribute('title') || '');
+        candidates.push(current.getAttribute('aria-label') || '');
+        candidates.push(current.textContent || '');
+      }
+      for (const value of candidates.map((item) => replaceBrandingInText(String(item || '')).replace(/\s+/g, ' ').trim()).filter(Boolean)) {
+        const absolute = value.match(/((?:20)?\d{2}[-/.]\d{1,2}[-/.]\d{1,2})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?/);
+        if (absolute) {
+          return absolute[1].replace(/[/.]/g, '-');
+        }
+        if (/today/i.test(value)) {
+          return 'Today';
+        }
+        if (/yesterday/i.test(value)) {
+          return 'Yesterday';
+        }
+      }
+      return 'Recent';
+    };
+
     const header = view.querySelector('.header-content');
     if (header instanceof HTMLElement) {
       header.classList.add('codex-photos-topbar');
-      ensureLockup(header, { className: 'codex-dashboard-brand', compact: true, wordmark: true });
+      hideElement(header);
     }
 
-    const main = view.querySelector('.main-container');
-    if (main instanceof HTMLElement) {
-      main.classList.add('codex-photos-stage');
+    const originalList = view.querySelector('.list-view');
+    if (originalList instanceof HTMLElement) {
+      originalList.classList.add('codex-dashboard-source-list');
+      hideElement(originalList);
     }
 
-    view.querySelectorAll('.search-card, .list-view, .empty-state, .mobile-drawer, .bottom-sheet, .move-drawer').forEach((card) => {
+    view.querySelectorAll('.search-card, .empty-state, .mobile-drawer, .bottom-sheet, .move-drawer, .floating-page-indicator, .pagination-container, .page-turn-button, .page-turn').forEach((card) => {
       if (card instanceof HTMLElement) {
-        card.classList.add('codex-photos-card');
+        hideElement(card);
       }
     });
-  }
 
+    let shell = view.querySelector('.codex-dashboard-shell-v2');
+    if (!(shell instanceof HTMLElement)) {
+      const brandMarkup = buildBrandLockup({ className: 'codex-dashboard-brand-v2', compact: true }).outerHTML;
+      shell = document.createElement('section');
+      shell.className = 'codex-dashboard-shell-v2';
+      shell.innerHTML = `
+        <div class="codex-dashboard-googlebar">
+          <div class="codex-dashboard-googlebar__brand">${brandMarkup}</div>
+          <button type="button" class="codex-dashboard-googlebar__search" data-href="/dashboard" aria-label="Search photos">
+            <span class="codex-dashboard-googlebar__search-icon">⌕</span>
+            <span class="codex-dashboard-googlebar__search-text">Search photos</span>
+          </button>
+          <div class="codex-dashboard-googlebar__actions">
+            <button type="button" class="codex-dashboard-googlebar__upload" data-href="/" aria-label="Upload" title="Upload">
+              <span class="codex-dashboard-googlebar__upload-plus">+</span>
+              <span>Upload</span>
+            </button>
+          </div>
+        </div>
+        <div class="codex-dashboard-stream"></div>
+        <section class="codex-dashboard-empty" hidden>
+          <div class="codex-dashboard-empty__inner">
+            ${brandMarkup}
+            <h2 class="codex-dashboard-empty__title">Your photos will appear here</h2>
+            <p class="codex-dashboard-empty__copy">Upload from the top right, then browse everything in a day-based timeline.</p>
+          </div>
+        </section>`;
+      view.insertBefore(shell, view.firstChild);
+    }
+
+    if (!shell.dataset.codexBound) {
+      shell.dataset.codexBound = 'true';
+      shell.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target.closest('[data-href]') : null;
+        if (target instanceof HTMLElement && target.dataset.href) {
+          window.location.assign(target.dataset.href);
+        }
+      });
+    }
+
+    const media = [];
+    const seen = new Set();
+    view.querySelectorAll('.list-view img[src], .el-image__inner[src], .image-wrapper img[src]').forEach((node) => {
+      if (!(node instanceof HTMLImageElement)) {
+        return;
+      }
+      const src = node.getAttribute('src');
+      if (!src || src === LOGO_PATH || seen.has(src)) {
+        return;
+      }
+      if (node.closest('.codex-dashboard-shell-v2, .codex-brand-lockup, .el-empty')) {
+        return;
+      }
+      const width = node.naturalWidth || node.width;
+      const height = node.naturalHeight || node.height;
+      if (width && height && (width < 80 || height < 80)) {
+        return;
+      }
+      seen.add(src);
+      media.push({
+        src,
+        label: node.getAttribute('alt') || node.getAttribute('title') || '',
+        dateLabel: inferDateLabel(node)
+      });
+    });
+
+    const stream = shell.querySelector('.codex-dashboard-stream');
+    const empty = shell.querySelector('.codex-dashboard-empty');
+    if (!(stream instanceof HTMLElement) || !(empty instanceof HTMLElement)) {
+      return;
+    }
+
+    if (!media.length) {
+      stream.innerHTML = '';
+      stream.hidden = true;
+      empty.hidden = false;
+      return;
+    }
+
+    stream.hidden = false;
+    empty.hidden = true;
+
+    const groupedMedia = [];
+    for (const item of media) {
+      const lastGroup = groupedMedia[groupedMedia.length - 1];
+      if (!lastGroup || lastGroup.label !== item.dateLabel) {
+        groupedMedia.push({ label: item.dateLabel, items: [item] });
+      } else {
+        lastGroup.items.push(item);
+      }
+    }
+
+    stream.innerHTML = groupedMedia.map((group) => {
+      const cards = group.items.map((item, index) => {
+        const cardClass = index === 0 && group.items.length > 2
+          ? 'codex-dashboard-media-card is-featured'
+          : ((index % 8 === 2 || index % 8 === 5)
+            ? 'codex-dashboard-media-card is-wide'
+            : ((index % 6 === 3 || index % 6 === 4)
+              ? 'codex-dashboard-media-card is-tall'
+              : 'codex-dashboard-media-card'));
+        const alt = item.label || 'Photo';
+        return `<article class="${cardClass}"><img class="codex-dashboard-media-card__asset" src="${escapeHtml(item.src)}" alt="${escapeHtml(alt)}" loading="lazy"></article>`;
+      }).join('');
+
+      return `
+        <section class="codex-dashboard-day-group">
+          <header class="codex-dashboard-day-group__header">
+            <h2 class="codex-dashboard-day-group__title">${escapeHtml(group.label)}</h2>
+          </header>
+          <div class="codex-dashboard-gallery">${cards}</div>
+        </section>`;
+    }).join('');
+  }
   function patchPublicBrowse(root) {
     if (!(root instanceof Element || root instanceof Document)) {
       return;
