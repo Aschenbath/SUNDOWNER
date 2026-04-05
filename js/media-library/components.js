@@ -10,15 +10,11 @@ const icons = {
   places: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.2s5.3-5.6 5.3-9.6A5.3 5.3 0 1 0 6.7 10.6c0 4 5.3 9.6 5.3 9.6Z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="10.2" r="1.9" fill="currentColor"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m15.2 15.2 4.3 4.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-  help: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.7 9a2.5 2.5 0 1 1 4.4 1.6c-.9.8-1.9 1.3-1.9 2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1" fill="currentColor"/></svg>',
-  settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 4.3v2.1M12 17.6v2.1M19.7 12h-2.1M6.4 12H4.3M17.5 6.5 16 8M8 16l-1.5 1.5M17.5 17.5 16 16M8 8 6.5 6.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
-  apps: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="4" height="4" rx="1" fill="currentColor"/><rect x="10" y="5" width="4" height="4" rx="1" fill="currentColor"/><rect x="15" y="5" width="4" height="4" rx="1" fill="currentColor"/><rect x="5" y="10" width="4" height="4" rx="1" fill="currentColor"/><rect x="10" y="10" width="4" height="4" rx="1" fill="currentColor"/><rect x="15" y="10" width="4" height="4" rx="1" fill="currentColor"/><rect x="5" y="15" width="4" height="4" rx="1" fill="currentColor"/><rect x="10" y="15" width="4" height="4" rx="1" fill="currentColor"/><rect x="15" y="15" width="4" height="4" rx="1" fill="currentColor"/></svg>',
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 12.8 3.7 3.7 7.5-8.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6 18 18M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
   previous: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.8 5.8-6 6.2 6 6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.2 5.8 6 6.2-6 6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 5 2 4.1 4.5.7-3.2 3 .8 4.6-4.1-2.1-4.1 2.1.8-4.6-3.2-3 4.5-.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
-  info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 10.3v5.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1" fill="currentColor"/></svg>',
   memory: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18a7.5 7.5 0 0 1 15 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="9.4" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   cloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.8 18.3a4.3 4.3 0 1 1 .8-8.5 5.2 5.2 0 0 1 10.1 1.4A3.6 3.6 0 0 1 18 18.3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
@@ -45,17 +41,6 @@ function icon(name, extraClass = '') {
   return `<span class="cml-icon ${extraClass}">${icons[name] || ''}</span>`;
 }
 
-function tileSpanClass(item) {
-  const ratio = item.width / item.height;
-  if (ratio >= 1.58) {
-    return 'is-wide';
-  }
-  if (ratio <= 0.84) {
-    return 'is-tall';
-  }
-  return 'is-standard';
-}
-
 function formatTakenAt(item) {
   if (item.displayTakenAt) {
     return item.displayTakenAt;
@@ -67,6 +52,68 @@ function formatTakenAt(item) {
   const hh = String(date.getHours()).padStart(2, '0');
   const mm = String(date.getMinutes()).padStart(2, '0');
   return `${item.monthLabel} ${item.day}, ${item.year} ${hh}:${mm}`;
+}
+
+function clampAspectRatio(value) {
+  return Math.max(0.58, Math.min(2.2, value || 1));
+}
+
+function getLayoutConfig() {
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
+  const isMobile = viewportWidth <= 640;
+  const isTablet = viewportWidth <= 960;
+  const sidebarWidth = isTablet ? 0 : 284;
+  const yearRailWidth = isTablet ? 0 : 62;
+  const horizontalPadding = isTablet ? 36 : 72;
+  const gap = isMobile ? 6 : 8;
+  return {
+    availableWidth: Math.max(280, viewportWidth - sidebarWidth - yearRailWidth - horizontalPadding),
+    gap,
+    targetRowHeight: isMobile ? 132 : (viewportWidth <= 1180 ? 178 : 214),
+    minRowHeight: isMobile ? 112 : 148,
+    maxRowHeight: isMobile ? 168 : 248,
+    maxItemsPerRow: isMobile ? 3 : 5
+  };
+}
+
+function buildJustifiedRows(items) {
+  const { availableWidth, gap, targetRowHeight, minRowHeight, maxRowHeight, maxItemsPerRow } = getLayoutConfig();
+  const rows = [];
+  let currentRow = [];
+  let aspectSum = 0;
+
+  items.forEach((item, index) => {
+    const aspectRatio = clampAspectRatio(item.width / item.height);
+    currentRow.push({ item, aspectRatio });
+    aspectSum += aspectRatio;
+
+    const projectedWidth = aspectSum * targetRowHeight + gap * (currentRow.length - 1);
+    const isLastItem = index === items.length - 1;
+    const shouldFlush = projectedWidth >= availableWidth || currentRow.length >= maxItemsPerRow || isLastItem;
+
+    if (!shouldFlush) {
+      return;
+    }
+
+    const canFillRow = projectedWidth >= availableWidth && currentRow.length > 1;
+    const fittedHeight = canFillRow
+      ? (availableWidth - gap * (currentRow.length - 1)) / aspectSum
+      : Math.min(targetRowHeight, (availableWidth - gap * (currentRow.length - 1)) / aspectSum);
+    const rowHeight = Math.max(minRowHeight, Math.min(maxRowHeight, fittedHeight));
+
+    rows.push({
+      items: currentRow.map(({ item: rowItem, aspectRatio: rowAspectRatio }) => ({
+        item: rowItem,
+        width: Math.max(88, Math.round(rowAspectRatio * rowHeight)),
+        height: Math.round(rowHeight)
+      }))
+    });
+
+    currentRow = [];
+    aspectSum = 0;
+  });
+
+  return rows;
 }
 
 export function StorageCard(storage) {
@@ -83,7 +130,6 @@ export function StorageCard(storage) {
       <div class="cml-storage-card__meter" aria-hidden="true">
         <span style="width:${usedRatio}%"></span>
       </div>
-      <button class="cml-storage-card__cta" type="button" data-action="upgrade">Library settings</button>
     </section>
   `;
 }
@@ -143,60 +189,42 @@ export function TopSearchBar({ state }) {
         ${selectedCount ? `<div class="cml-topbar__selection-pill">${selectedCount} selected</div>` : ''}
       </div>
       <div class="cml-topbar__actions">
-        <div class="cml-topbar__create-wrap">
-          <button type="button" class="cml-topbar__create-button" data-action="toggle-create-menu">
-            ${icon('plus')}
-            <span>Create</span>
-          </button>
-          ${state.isCreateMenuOpen ? `
-            <div class="cml-topbar__menu" role="menu">
-              <button type="button" data-action="open-upload">Upload media</button>
-              <button type="button" data-action="open-photo-home">Photo library home</button>
-              <button type="button" data-action="open-native-dashboard">Original file manager</button>
-            </div>
-          ` : ''}
-        </div>
-        <button type="button" class="cml-topbar__icon-button" data-action="help" aria-label="Help">${icon('help')}</button>
-        <button type="button" class="cml-topbar__icon-button" data-action="settings" aria-label="Settings">${icon('settings')}</button>
-        <button type="button" class="cml-topbar__icon-button" data-action="apps" aria-label="Apps">${icon('apps')}</button>
-        <button type="button" class="cml-topbar__avatar" data-action="account" aria-label="Account">SU</button>
+        <button type="button" class="cml-topbar__upload-button" data-action="open-upload">
+          ${icon('plus')}
+          <span>Upload</span>
+        </button>
       </div>
     </header>
   `;
 }
 
-export function MediaTile({ item, selected, favorited }) {
+export function MediaTile({ item, selected, layout }) {
   const previewLabel = `${item.label || item.album} - ${formatTakenAt(item)}`;
-  const favoriteClass = favorited ? 'is-favorited' : '';
+  const style = `width:${layout.width}px;height:${layout.height}px;`;
   return `
-    <article class="cml-media-tile ${tileSpanClass(item)} ${selected ? 'is-selected' : ''}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}">
+    <article class="cml-media-tile ${selected ? 'is-selected' : ''}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}">
       <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
-      <button type="button" class="cml-media-tile__favorite ${favoriteClass}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="Toggle favourite">
-        ${icon('star')}
-      </button>
-      <button type="button" class="cml-media-tile__info" data-action="open-preview" data-id="${escapeHtml(item.id)}" aria-label="Open preview">
-        ${icon('info')}
-      </button>
       <img class="cml-media-tile__image" src="${escapeHtml(item.thumbnailUrl)}" alt="${escapeHtml(item.label || item.album)}" loading="lazy" decoding="async" />
       <div class="cml-media-tile__scrim"></div>
-      <div class="cml-media-tile__meta">
-        <span>${item.type === 'video' ? 'Video' : 'Photo'}</span>
-        <span>${escapeHtml(item.location || item.displayTakenAt || item.timelineLabel || 'Private library')}</span>
-      </div>
     </article>
   `;
 }
 
 export function MediaGrid({ items, state }) {
+  const rows = buildJustifiedRows(items);
   return `
     <div class="cml-media-grid">
-      ${items.map((item) => MediaTile({
-        item,
-        selected: state.selectedIds.has(item.id),
-        favorited: state.favoriteIds.has(item.id)
-      })).join('')}
+      ${rows.map((row) => `
+        <div class="cml-media-row">
+          ${row.items.map((layout) => MediaTile({
+            item: layout.item,
+            layout,
+            selected: state.selectedIds.has(layout.item.id)
+          })).join('')}
+        </div>
+      `).join('')}
     </div>
   `;
 }
@@ -216,7 +244,7 @@ export function MediaTimelineSection({ section, state }) {
 }
 
 export function YearScroller({ years, activeYear }) {
-  if (!years.length) {
+  if (years.length < 2) {
     return '';
   }
   return `
@@ -233,7 +261,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
     return '';
   }
   const detailLine = item.tags && item.tags.length
-    ? item.tags.join(' · ')
+    ? item.tags.join(' / ')
     : (item.displayTakenAt || item.timelineLabel || 'No additional details');
   return `
     <div class="cml-preview" role="dialog" aria-modal="true">
@@ -276,7 +304,7 @@ export function EmptyState({ query, isLoading = false }) {
     ? 'Waiting for real photos and videos from the underlying library view.'
     : query
       ? `No memories match "${escapeHtml(query)}". Try a place, person or album.`
-      : 'No real photos or videos are visible on this page yet. Open the native workspace or upload media to populate the library.';
+      : 'No real photos or videos are visible on this page yet. Upload media to populate the library.';
   return `
     <section class="cml-empty-state">
       <div class="cml-empty-state__icon">${icon('memory')}</div>

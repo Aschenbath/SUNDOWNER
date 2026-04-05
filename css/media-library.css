@@ -998,3 +998,91 @@ body.codex-media-library-active #app {
     margin: 78px auto 0;
   }
 }
+#codex-media-library-root .cml-topbar__actions {
+  flex: 0 0 auto;
+}
+
+#codex-media-library-root .cml-topbar__upload-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(214, 185, 138, 0.18);
+  color: #f4e5cc;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-storage-card__cta,
+#codex-media-library-root .cml-topbar__create-wrap,
+#codex-media-library-root .cml-topbar__icon-button,
+#codex-media-library-root .cml-topbar__avatar,
+#codex-media-library-root .cml-media-tile__favorite,
+#codex-media-library-root .cml-media-tile__info,
+#codex-media-library-root .cml-media-tile__meta {
+  display: none !important;
+}
+
+#codex-media-library-root .cml-media-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+#codex-media-library-root .cml-media-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+#codex-media-library-root .cml-media-tile {
+  flex: 0 0 auto;
+  border-radius: 28px;
+}
+
+#codex-media-library-root .cml-media-tile:hover {
+  transform: none;
+}
+
+#codex-media-library-root .cml-media-tile__select {
+  width: 36px;
+  height: 36px;
+  background: rgba(12, 15, 20, 0.42);
+}
+
+#codex-media-library-root .cml-media-tile__scrim {
+  background: linear-gradient(180deg, rgba(15, 17, 21, 0.02), rgba(15, 17, 21, 0.01) 40%, rgba(15, 17, 21, 0.22));
+}
+
+#codex-media-library-root .cml-media-tile:hover .cml-media-tile__scrim,
+#codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__scrim {
+  opacity: 1;
+}
+
+#codex-media-library-root .cml-year-scroller {
+  top: 142px;
+}
+
+@media (max-width: 960px) {
+  #codex-media-library-root .cml-topbar__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  #codex-media-library-root .cml-media-grid,
+  #codex-media-library-root .cml-media-row {
+    gap: 6px;
+  }
+
+  #codex-media-library-root .cml-topbar__upload-button {
+    min-height: 42px;
+    padding: 0 16px;
+  }
+}

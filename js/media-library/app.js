@@ -910,7 +910,6 @@ function render() {
           ${YearScroller({ years: viewModel.years, activeYear: state.activeYear })}
         </div>
       </div>
-      ${renderUtilityPanel()}
       ${PreviewModal({
         item: viewModel.previewItem,
         selected: viewModel.previewItem ? state.selectedIds.has(viewModel.previewItem.id) : false,
@@ -948,6 +947,7 @@ function mount() {
     refs.root.addEventListener('input', handleInput);
     refs.root.addEventListener('focusin', handleFocusIn);
     document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleWindowResize);
     mounted = true;
   }
 }
@@ -1037,6 +1037,12 @@ function updateActiveYear() {
   });
   if (active && active !== state.activeYear) {
     state.activeYear = active;
+    render();
+  }
+}
+
+function handleWindowResize() {
+  if (document.body.classList.contains('codex-media-library-active')) {
     render();
   }
 }
