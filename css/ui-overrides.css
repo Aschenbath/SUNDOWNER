@@ -371,6 +371,48 @@ body.codex-route-home .upload-list-dashboard[data-v-37f80c81] {
   margin-bottom: 16px !important;
 }
 
+body.codex-route-home .upload-list-dashboard[data-v-37f80c81] {
+  overflow: visible !important;
+}
+
+body.codex-route-home .upload-list-dashboard[data-v-37f80c81] > * {
+  position: static !important;
+  inset: auto !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  align-self: center !important;
+  transform: none !important;
+}
+
+body.codex-route-home .upload-list-dashboard[data-v-37f80c81] > :first-child {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+body.codex-route-home .upload-list-dashboard[data-v-37f80c81] > :last-child {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px;
+  margin-left: auto !important;
+  flex: 0 0 auto;
+}
+
+body.codex-route-home .upload-list-dashboard[data-v-37f80c81] .modern-action-group[data-v-37f80c81],
+body.codex-route-home .upload-list-dashboard[data-v-37f80c81] .modern-action-group,
+body.codex-route-home .upload-list-dashboard[data-v-37f80c81] .upload-list-dashboard-title[data-v-37f80c81],
+body.codex-route-home .upload-list-dashboard[data-v-37f80c81] .upload-list-dashboard-title {
+  position: static !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+
+body.codex-route-home .upload-list-dashboard[data-v-37f80c81] .modern-action-btn[data-v-37f80c81],
+body.codex-route-home .upload-list-dashboard[data-v-37f80c81] .modern-action-btn {
+  flex: 0 0 40px;
+}
 body.codex-route-home .upload-list-dashboard-title[data-v-37f80c81] {
   flex: 1 1 220px;
   min-width: 0;
