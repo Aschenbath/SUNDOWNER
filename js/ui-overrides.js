@@ -205,7 +205,7 @@
     });
   }
 
-  function patchUploadHome(root) {
+    function patchUploadHome(root) {
     if (!(root instanceof Element || root instanceof Document)) {
       return;
     }
@@ -240,19 +240,6 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
 
-    const syncView = () => {
-      const shell = home.querySelector('.codex-home-shell');
-      if (!(shell instanceof HTMLElement)) {
-        return;
-      }
-      const view = home.dataset.codexView || 'photos';
-      shell.querySelectorAll('.codex-home-nav__item[data-view]').forEach((item) => {
-        item.classList.toggle('is-active', item.getAttribute('data-view') === view);
-      });
-      shell.classList.toggle('is-albums-view', view === 'albums');
-      shell.classList.toggle('is-empty', home.dataset.codexHasMedia !== 'true');
-    };
-
     const openUpload = () => {
       home.classList.add('codex-home-upload-open');
       const target = home.querySelector('.upload[data-v-66491cac], .upload');
@@ -263,73 +250,65 @@
 
     let shell = home.querySelector('.codex-home-shell');
     if (!(shell instanceof HTMLElement)) {
-      const brandMarkup = buildBrandLockup({ className: 'codex-home-brand' }).outerHTML;
-      const emptyBrandMarkup = buildBrandLockup({ className: 'codex-home-empty__brand', compact: true }).outerHTML;
+      const brandMarkup = buildBrandLockup({ className: 'codex-home-brand', compact: true }).outerHTML;
       shell = document.createElement('section');
       shell.className = 'codex-home-shell';
       shell.innerHTML = `
         <aside class="codex-home-rail">
           ${brandMarkup}
-          <p class="codex-home-rail__meta">Your archive, arranged like a photo library.</p>
           <nav class="codex-home-nav">
-            <button type="button" class="codex-home-nav__item" data-action="view" data-view="photos">Photos</button>
-            <button type="button" class="codex-home-nav__item" data-action="view" data-view="albums">Albums</button>
+            <button type="button" class="codex-home-nav__item is-active">Photos</button>
+            <button type="button" class="codex-home-nav__item" data-href="/dashboard">Albums</button>
             <button type="button" class="codex-home-nav__item" data-href="/dashboard">Browse Files</button>
             <button type="button" class="codex-home-nav__item" data-action="upload">Upload</button>
             <button type="button" class="codex-home-nav__item" data-action="settings">Settings</button>
           </nav>
+          <div class="codex-home-rail__section">Collections</div>
+          <div class="codex-home-rail__list">
+            <span>Screenshots</span>
+            <span>Favourites</span>
+            <span>People and pets</span>
+            <span>Places</span>
+          </div>
           <div class="codex-home-rail__footer">
-            <span class="codex-home-rail__eyebrow">${BRAND_NAME}</span>
-            <p class="codex-home-rail__copy">Neutral controls, warm ambient backgrounds, and a stable homepage shell.</p>
+            <span class="codex-home-rail__storage">SUNDOWNER archive</span>
+            <span class="codex-home-rail__copy">Photo-first home</span>
           </div>
         </aside>
         <div class="codex-home-main">
           <header class="codex-home-topbar">
-            <button type="button" class="codex-home-search" data-action="browse" aria-label="Search library">
-              <span class="codex-home-search__icon">O</span>
+            <button type="button" class="codex-home-search" data-href="/dashboard" aria-label="Search library">
+              <span class="codex-home-search__icon">⌕</span>
               <span class="codex-home-search__text">Search your library</span>
             </button>
             <div class="codex-home-actions">
-              <button type="button" class="codex-home-action" data-action="upload" aria-label="Open upload workspace" title="Open upload workspace">+</button>
-              <button type="button" class="codex-home-action" data-action="browse" aria-label="Browse files" title="Browse files">F</button>
-              <button type="button" class="codex-home-action" data-action="theme" aria-label="Toggle theme" title="Toggle theme">T</button>
-              <button type="button" class="codex-home-action" data-action="more" aria-label="More actions" title="More actions">...</button>
+              <button type="button" class="codex-home-action" data-action="upload" aria-label="Upload" title="Upload">+</button>
+              <button type="button" class="codex-home-action" data-href="/dashboard" aria-label="Browse files" title="Browse files">□</button>
+              <button type="button" class="codex-home-action" data-action="theme" aria-label="Toggle theme" title="Toggle theme">◐</button>
+              <button type="button" class="codex-home-action" data-action="more" aria-label="More" title="More">⋮</button>
             </div>
           </header>
-          <div class="codex-home-content">
-            <section class="codex-home-hero">
-              <span class="codex-home-eyebrow">Google Photos direction</span>
-              <h1 class="codex-home-title">A photo-first homepage for SUNDOWNER.</h1>
-              <p class="codex-home-summary">The home route now favors albums, recent media, and explicit upload entry points instead of a floating upload workbench.</p>
-              <div class="codex-home-hero__actions">
-                <button type="button" class="codex-home-nav__item" data-action="upload">Open Upload</button>
-                <button type="button" class="codex-home-nav__item" data-href="/dashboard">Browse Library</button>
+          <section class="codex-home-stream">
+            <div class="codex-home-stream__header">
+              <div>
+                <span class="codex-home-stream__eyebrow">Photos</span>
+                <h1 class="codex-home-stream__title">Recent media</h1>
               </div>
-            </section>
-            <section class="codex-home-section codex-home-section--albums">
-              <div class="codex-home-section__header">
-                <span class="codex-home-section__eyebrow">Albums</span>
-                <h2 class="codex-home-section__title">Featured collections</h2>
-              </div>
-              <div class="codex-home-albums"></div>
-            </section>
-            <section class="codex-home-section codex-home-section--photos">
-              <div class="codex-home-section__header">
-                <span class="codex-home-section__eyebrow">Photos</span>
-                <h2 class="codex-home-section__title">Recent media</h2>
-              </div>
-              <div class="codex-home-gallery"></div>
-            </section>
-            <section class="codex-home-empty">
-              ${emptyBrandMarkup}
-              <h2 class="codex-home-empty__title">Build your library from explicit upload entry points.</h2>
-              <p class="codex-home-empty__copy">When your media feed is empty, the homepage stays clean and points you to upload instead of rendering the upstream workbench as the default view.</p>
+              <button type="button" class="codex-home-stream__upload" data-action="upload">Upload</button>
+            </div>
+            <div class="codex-home-gallery"></div>
+          </section>
+          <section class="codex-home-empty">
+            <div class="codex-home-empty__inner">
+              ${brandMarkup}
+              <h2 class="codex-home-empty__title">Start your photo library</h2>
+              <p class="codex-home-empty__copy">Upload from the rail or top bar. The home route stays focused on media instead of the upstream upload workbench.</p>
               <div class="codex-home-empty__actions">
                 <button type="button" class="codex-home-nav__item" data-action="upload">Upload now</button>
                 <button type="button" class="codex-home-nav__item" data-href="/dashboard">Browse files</button>
               </div>
-            </section>
-          </div>
+            </div>
+          </section>
         </div>`;
       home.insertBefore(shell, home.firstChild);
     }
@@ -346,17 +325,8 @@
           return;
         }
         const action = target.dataset.action;
-        if (action === 'view') {
-          home.dataset.codexView = target.dataset.view || 'photos';
-          syncView();
-          return;
-        }
         if (action === 'upload') {
           openUpload();
-          return;
-        }
-        if (action === 'browse') {
-          window.location.assign('/dashboard');
           return;
         }
         if (action === 'theme') {
@@ -407,49 +377,38 @@
       media.push({ src, label: node.getAttribute('alt') || node.getAttribute('title') || '' });
     });
 
-    const albums = shell.querySelector('.codex-home-albums');
     const gallery = shell.querySelector('.codex-home-gallery');
+    const stream = shell.querySelector('.codex-home-stream');
     const empty = shell.querySelector('.codex-home-empty');
-    if (!(albums instanceof HTMLElement) || !(gallery instanceof HTMLElement) || !(empty instanceof HTMLElement)) {
+    if (!(gallery instanceof HTMLElement) || !(stream instanceof HTMLElement) || !(empty instanceof HTMLElement)) {
       return;
-    }
-
-    if (!home.dataset.codexView) {
-      home.dataset.codexView = 'photos';
     }
 
     if (!media.length) {
       home.dataset.codexHasMedia = 'false';
-      albums.innerHTML = '';
       gallery.innerHTML = '';
+      stream.hidden = true;
       empty.hidden = false;
-      syncView();
+      shell.classList.add('is-empty');
       return;
     }
 
     home.dataset.codexHasMedia = 'true';
+    shell.classList.remove('is-empty');
+    stream.hidden = false;
     empty.hidden = true;
 
-    const albumDeck = [
-      { title: 'Recent Uploads', subtitle: 'Newest additions', item: media[0] },
-      { title: 'Shared Moments', subtitle: 'Pinned highlights', item: media[1] || media[0] },
-      { title: 'Archive View', subtitle: 'Browse by collection', item: media[2] || media[0] }
-    ];
-
-    albums.innerHTML = albumDeck.map((entry) => {
-      if (!entry.item) {
-        return '';
-      }
-      return `<article class="codex-home-album"><article class="codex-home-album-card"><div class="codex-home-album-card__media"><img class="codex-home-album-card__asset" src="${escapeHtml(entry.item.src)}" alt="${escapeHtml(entry.title)}"></div><div class="codex-home-album-card__body"><h3 class="codex-home-album-card__title">${escapeHtml(entry.title)}</h3><p class="codex-home-album-card__subtitle">${escapeHtml(entry.subtitle)}</p></div></article></article>`;
-    }).join('');
-
     gallery.innerHTML = media.map((item, index) => {
-      const cardClass = index === 0 ? 'codex-home-media-card is-featured' : ((index % 7 === 0 || index % 7 === 4) ? 'codex-home-media-card is-wide' : ((index % 5 === 0 || index % 5 === 3) ? 'codex-home-media-card is-tall' : 'codex-home-media-card'));
-      const title = index === 0 ? 'Latest capture' : `Recent item ${String(index + 1).padStart(2, '0')}`;
-      return `<article class="${cardClass}"><div class="codex-home-media-card__media"><img class="codex-home-media-card__asset" src="${escapeHtml(item.src)}" alt="${escapeHtml(title)}"></div><div class="codex-home-media-card__body"><h3 class="codex-home-media-card__title">${escapeHtml(title)}</h3></div></article>`;
+      const cardClass = index === 0
+        ? 'codex-home-media-card is-featured'
+        : ((index % 7 === 0 || index % 7 === 4)
+          ? 'codex-home-media-card is-wide'
+          : ((index % 5 === 0 || index % 5 === 3)
+            ? 'codex-home-media-card is-tall'
+            : 'codex-home-media-card'));
+      const alt = item.label || `Photo ${index + 1}`;
+      return `<article class="${cardClass}"><div class="codex-home-media-card__media"><img class="codex-home-media-card__asset" src="${escapeHtml(item.src)}" alt="${escapeHtml(alt)}"></div></article>`;
     }).join('');
-
-    syncView();
   }
 
   function patchDashboard(root) {
