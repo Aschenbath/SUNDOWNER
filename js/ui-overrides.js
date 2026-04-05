@@ -432,8 +432,8 @@
 
     const albumDeck = [
       { title: 'Recent Uploads', subtitle: 'Newest additions', item: media[0] },
-      { title: 'Quiet Selections', subtitle: 'Photo-first browsing', item: media[1] || media[0] },
-      { title: 'Shared Library', subtitle: 'Files ready to reuse', item: media[2] || media[0] }
+      { title: 'Shared Moments', subtitle: 'Pinned highlights', item: media[1] || media[0] },
+      { title: 'Archive View', subtitle: 'Browse by collection', item: media[2] || media[0] }
     ];
 
     albums.innerHTML = albumDeck.map((entry) => {
@@ -444,9 +444,9 @@
     }).join('');
 
     gallery.innerHTML = media.map((item, index) => {
+      const cardClass = index === 0 ? 'codex-home-media-card is-featured' : ((index % 7 === 0 || index % 7 === 4) ? 'codex-home-media-card is-wide' : ((index % 5 === 0 || index % 5 === 3) ? 'codex-home-media-card is-tall' : 'codex-home-media-card'));
       const title = index === 0 ? 'Latest capture' : `Recent item ${String(index + 1).padStart(2, '0')}`;
-      const meta = item.label ? `<p class="codex-home-media-card__meta">${escapeHtml(item.label)}</p>` : '';
-      return `<article class="codex-home-media-card"><div class="codex-home-media-card__media"><img class="codex-home-media-card__asset" src="${escapeHtml(item.src)}" alt="${escapeHtml(title)}"></div><div class="codex-home-media-card__body"><h3 class="codex-home-media-card__title">${escapeHtml(title)}</h3>${meta}</div></article>`;
+      return `<article class="${cardClass}"><div class="codex-home-media-card__media"><img class="codex-home-media-card__asset" src="${escapeHtml(item.src)}" alt="${escapeHtml(title)}"></div><div class="codex-home-media-card__body"><h3 class="codex-home-media-card__title">${escapeHtml(title)}</h3></div></article>`;
     }).join('');
 
     syncView();
