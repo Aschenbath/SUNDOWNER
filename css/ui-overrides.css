@@ -329,9 +329,78 @@ video {
   box-shadow: var(--ui-panel-shadow) !important;
 }
 
+.codex-brand-lockup {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.codex-brand-lockup__wordmark {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.codex-route-home .codex-home-brand {
+  width: 100%;
+  max-width: 100%;
+  justify-content: flex-start;
+}
+
+body.codex-route-home .codex-home-brand .codex-brand-lockup__logo {
+  width: 44px;
+  flex: 0 0 44px;
+}
+
+body.codex-route-home .codex-home-brand .codex-brand-lockup__wordmark {
+  font-size: clamp(14px, 1.1vw, 18px);
+  letter-spacing: 0.14em;
+}
+
+body.codex-route-home .upload-home[data-v-66491cac] {
+  grid-template-columns: 260px minmax(0, 1fr) auto auto auto;
+}
+
+body.codex-route-home .upload-list-dashboard[data-v-37f80c81] {
+  position: relative !important;
+  top: auto !important;
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  row-gap: 12px;
+  column-gap: 14px;
+  margin-bottom: 16px !important;
+}
+
+body.codex-route-home .upload-list-dashboard-title[data-v-37f80c81] {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+body.codex-route-home .modern-action-group[data-v-37f80c81] {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+body.codex-route-home .upload[data-v-66491cac] {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+body.codex-route-home .upload-card[data-v-37f80c81],
+body.codex-route-home .paste-card[data-v-37f80c81] {
+  margin: 0 !important;
+}
+
+body.codex-route-home .footer[data-v-66491cac],
+body.codex-route-home .page-footer[data-v-08acbaa9],
+body.codex-route-home .footer-name[data-v-08acbaa9],
+body.codex-route-home .footer-link-icon[data-v-08acbaa9] {
+  display: none !important;
+}
 body.codex-route-home .upload-home[data-v-66491cac] {
   display: grid !important;
-  grid-template-columns: 240px minmax(0, 1fr) auto auto auto;
+  grid-template-columns: 260px minmax(0, 1fr) auto auto auto;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 20px;
   align-items: start;
@@ -439,14 +508,20 @@ body.codex-route-home .upload-folder.active[data-v-66491cac] {
 body.codex-route-home .upload-list-dashboard[data-v-37f80c81] {
   grid-column: 2 / 6;
   grid-row: 2;
-  position: sticky !important;
-  top: 24px !important;
+  position: relative !important;
+  top: auto !important;
   left: auto !important;
   right: auto !important;
   min-height: 74px;
   height: auto;
-  margin: 0 !important;
+  margin: 0 0 16px !important;
   padding: 14px 18px;
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  row-gap: 12px;
+  column-gap: 14px;
   border-radius: 28px;
   background: var(--ui-shell-overlay) !important;
   border: 1px solid var(--ui-panel-border);
@@ -460,6 +535,9 @@ body.codex-route-home .upload[data-v-66491cac] {
   width: 100%;
   margin: 0 !important;
   top: auto !important;
+  display: grid;
+  gap: 16px;
+  align-content: start;
 }
 
 body.codex-route-home .upload-card[data-v-37f80c81],
