@@ -5,6 +5,8 @@ import { getUploadConfig, normalizeUploadSettings } from '../api/manage/sysConfi
 import { sanitizeUploadFolder, sanitizeFileName, resolveFileExt, moderateContent } from '../upload/uploadTools.js'
 
 const TELEGRAM_ALLOWED_UPDATES = ['channel_post', 'edited_channel_post']
+const TELEGRAM_ALBUM_COMMAND_PREFIX = 'telegram-sync@album-command@'
+const TELEGRAM_ALBUM_COMMAND_TTL_MS = 10 * 60 * 1000
 const TELEGRAM_SYNC_RESPONSE_HEADERS = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
@@ -24,10 +26,21 @@ function normalizeChatId(value) {
     return String(value ?? '').trim()
 }
 
-function createImportDirectory(channelName, importDirectory) {
+function getChannelImportRoot(channelName, importDirectory) {
     const fallback = typeof importDirectory === 'string' ? importDirectory : `telegram-import/${channelName}`
-    const normalized = sanitizeUploadFolder(fallback)
+    return sanitizeUploadFolder(fallback)
+}
+
+function createImportDirectory(channelName, importDirectory) {
+    const normalized = getChannelImportRoot(channelName, importDirectory)
     return normalized ? `${normalized}/` : ''
+}
+
+function createScopedImportDirectory(channel, albumPath = '') {
+    const baseRoot = getChannelImportRoot(channel.name, channel.importDirectory)
+    const scopedPath = sanitizeUploadFolder(albumPath || '')
+    const combined = [baseRoot, scopedPath].filter(Boolean).join('/')
+    return combined ? `${combined}/` : ''
 }
 
 function buildImportedBaseName(channelName, messageId, fileUniqueId) {
@@ -94,6 +107,161 @@ function buildMessagePrefix(channelName, importDirectory, messageId) {
     const normalizedDirectory = sanitizeUploadFolder(importDirectory || '')
     const baseNamePrefix = `tg_${sanitizeFileName(channelName)}_${messageId}_`
     return normalizedDirectory ? `${normalizedDirectory}/${baseNamePrefix}` : baseNamePrefix
+}
+
+function buildAlbumCommandKey(channelName) {
+    return `${TELEGRAM_ALBUM_COMMAND_PREFIX}${sanitizeFileName(channelName)}`
+}
+
+function extractAlbumCommand(message) {
+    const text = typeof message?.text === 'string' ? message.text.trim() : ''
+    const match = text.match(/^\/album(?:@[\w_]+)?(?:\s+(.+))?$/i)
+    if (!match) {
+        return null
+    }
+
+    const rawArgument = String(match[1] || '').trim()
+    if (!rawArgument || /^clear$/i.test(rawArgument)) {
+        return { action: 'invalid', albumPath: '' }
+    }
+
+    const albumPath = sanitizeUploadFolder(rawArgument)
+    if (!albumPath) {
+        return { action: 'invalid', albumPath: '' }
+    }
+
+    return { action: 'set', albumPath }
+}
+
+async function loadAlbumCommandState(db, channelName) {
+    const key = buildAlbumCommandKey(channelName)
+    const raw = await db.get(key)
+    if (!raw) {
+        return null
+    }
+
+    try {
+        const parsed = JSON.parse(raw)
+        const expiresAt = Number(parsed?.expiresAt || 0)
+        if (expiresAt && expiresAt > Date.now()) {
+            return parsed
+        }
+    } catch (error) {
+        // fall through and clear invalid state
+    }
+
+    await db.delete(key)
+    return null
+}
+
+async function saveAlbumCommandState(db, channelName, state) {
+    await db.put(buildAlbumCommandKey(channelName), JSON.stringify(state))
+}
+
+async function clearAlbumCommandState(db, channelName) {
+    await db.delete(buildAlbumCommandKey(channelName))
+}
+
+async function handleAlbumCommandMessage(context, channel, update, message, command) {
+    const db = getDatabase(context.env)
+
+    if (command.action === 'invalid') {
+        return {
+            ignored: true,
+            reason: 'album_command_invalid',
+            albumCommand: true,
+        }
+    }
+
+    const now = Date.now()
+    await saveAlbumCommandState(db, channel.name, {
+        albumPath: command.albumPath,
+        commandUpdateId: Number(update.update_id || 0),
+        commandMessageId: Number(message.message_id || 0),
+        createdAt: now,
+        expiresAt: now + TELEGRAM_ALBUM_COMMAND_TTL_MS,
+        consumedMessageId: 0,
+        consumedMediaGroupId: '',
+        lastTouchedAt: 0,
+    })
+
+    return {
+        ignored: true,
+        reason: 'album_command_set',
+        albumCommand: true,
+        albumPath: command.albumPath,
+    }
+}
+
+async function resolveAlbumPathForMessage(context, channel, update, message) {
+    const db = getDatabase(context.env)
+    const state = await loadAlbumCommandState(db, channel.name)
+    const defaultImportDirectory = createImportDirectory(channel.name, channel.importDirectory)
+    if (!state?.albumPath) {
+        return {
+            albumPath: '',
+            importDirectory: defaultImportDirectory,
+        }
+    }
+
+    const updateId = Number(update.update_id || 0)
+    const messageId = Number(message.message_id || 0)
+    const mediaGroupId = String(message.media_group_id || '').trim()
+    const commandUpdateId = Number(state.commandUpdateId || 0)
+    const shouldApplyToCurrentMessage = !commandUpdateId || updateId > commandUpdateId
+
+    if (state.consumedMediaGroupId) {
+        if (mediaGroupId && mediaGroupId === state.consumedMediaGroupId) {
+            state.lastTouchedAt = Date.now()
+            state.expiresAt = Date.now() + TELEGRAM_ALBUM_COMMAND_TTL_MS
+            await saveAlbumCommandState(db, channel.name, state)
+            return {
+                albumPath: state.albumPath,
+                importDirectory: createScopedImportDirectory(channel, state.albumPath),
+            }
+        }
+        return {
+            albumPath: '',
+            importDirectory: defaultImportDirectory,
+        }
+    }
+
+    if (state.consumedMessageId) {
+        if (messageId && messageId === Number(state.consumedMessageId)) {
+            state.lastTouchedAt = Date.now()
+            state.expiresAt = Date.now() + TELEGRAM_ALBUM_COMMAND_TTL_MS
+            await saveAlbumCommandState(db, channel.name, state)
+            return {
+                albumPath: state.albumPath,
+                importDirectory: createScopedImportDirectory(channel, state.albumPath),
+            }
+        }
+        return {
+            albumPath: '',
+            importDirectory: defaultImportDirectory,
+        }
+    }
+
+    if (!shouldApplyToCurrentMessage) {
+        return {
+            albumPath: '',
+            importDirectory: defaultImportDirectory,
+        }
+    }
+
+    const nextState = {
+        ...state,
+        lastTouchedAt: Date.now(),
+        expiresAt: Date.now() + TELEGRAM_ALBUM_COMMAND_TTL_MS,
+        consumedMessageId: mediaGroupId ? 0 : messageId,
+        consumedMediaGroupId: mediaGroupId || '',
+    }
+    await saveAlbumCommandState(db, channel.name, nextState)
+
+    return {
+        albumPath: state.albumPath,
+        importDirectory: createScopedImportDirectory(channel, state.albumPath),
+    }
 }
 
 function createSyncSnapshot(channel) {
@@ -200,12 +368,12 @@ async function cleanupStaleImportedFiles(context, prefix, keepFileId) {
     return staleFileIds
 }
 
-async function buildImportedMetadata(context, channel, message, source, mediaInfo, filePath) {
+async function buildImportedMetadata(context, channel, message, source, mediaInfo, filePath, importContext = {}) {
     const { kind, media } = mediaInfo
     const fileType = inferFileType(kind, media)
     const ext = inferExtension(kind, media, filePath)
     const fileName = sanitizeFileName(media.file_name || buildDefaultFileName(kind, message.message_id, ext))
-    const importDirectory = createImportDirectory(channel.name, channel.importDirectory)
+    const importDirectory = importContext.importDirectory || createImportDirectory(channel.name, channel.importDirectory)
     const timestamp = Number(message.edit_date || message.date || Math.floor(Date.now() / 1000)) * 1000
 
     const metadata = {
@@ -228,6 +396,11 @@ async function buildImportedMetadata(context, channel, message, source, mediaInf
         TgFileUniqueId: media.file_unique_id,
         TgMessageId: message.message_id,
         TgUpdateSource: source,
+    }
+
+    if (importContext.albumPath) {
+        metadata.Album = importContext.albumPath
+        metadata.TgAlbumPath = importContext.albumPath
     }
 
     if (channel.proxyUrl) {
@@ -256,16 +429,22 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
         return { ignored: true, reason: 'channel_mismatch' }
     }
 
+    const albumCommand = extractAlbumCommand(message)
     const mediaInfo = extractMediaFromMessage(message)
+    if (albumCommand && !mediaInfo) {
+        return await handleAlbumCommandMessage(context, channel, update, message, albumCommand)
+    }
     if (!mediaInfo) {
         return { ignored: true, reason: 'no_supported_media' }
     }
 
     const telegramAPI = new TelegramAPI(channel.botToken, channel.proxyUrl || '')
     const filePath = await telegramAPI.getFilePath(mediaInfo.media.file_id)
-    const { metadata, ext } = await buildImportedMetadata(context, channel, message, source, mediaInfo, filePath)
-    const fileId = buildImportedFileId(channel.name, channel.importDirectory, message.message_id, mediaInfo.media.file_unique_id || mediaInfo.media.file_id, ext)
-    const prefix = buildMessagePrefix(channel.name, channel.importDirectory, message.message_id)
+    const importContext = await resolveAlbumPathForMessage(context, channel, update, message)
+    const { metadata, ext } = await buildImportedMetadata(context, channel, message, source, mediaInfo, filePath, importContext)
+    const directoryKey = sanitizeUploadFolder(importContext.importDirectory || '')
+    const fileId = buildImportedFileId(channel.name, directoryKey, message.message_id, mediaInfo.media.file_unique_id || mediaInfo.media.file_id, ext)
+    const prefix = buildMessagePrefix(channel.name, directoryKey, message.message_id)
 
     const db = getDatabase(context.env)
     const staleFileIds = await cleanupStaleImportedFiles(context, prefix, fileId)
