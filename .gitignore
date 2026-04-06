@@ -7,3 +7,5 @@ wrangler.toml
 .kiro/
 .vscode/
 .claude/
+
+*.log
