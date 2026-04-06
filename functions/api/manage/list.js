@@ -3,6 +3,7 @@ import {
     getIndexInfo, getIndexStorageStats
 } from '../../utils/indexManager.js';
 import { getDatabase } from '../../utils/databaseAdapter.js';
+import { cleanupExpiredRecycleBin, isRecycleBinMetadata } from '../../utils/recycleBin.js';
 
 // CORS 跨域响应头
 const corsHeaders = {
@@ -32,6 +33,11 @@ export async function onRequest(context) {
     let label = url.searchParams.get('label') || '';
     let fileType = url.searchParams.get('fileType') || '';
     let channelName = url.searchParams.get('channelName') || '';
+    let recycleBinMode = url.searchParams.get('recycleBin') || 'exclude';
+
+    if (!['exclude', 'include', 'only'].includes(recycleBinMode)) {
+        recycleBinMode = 'exclude';
+    }
 
     // 处理搜索关键字
     if (search) {
@@ -63,6 +69,8 @@ export async function onRequest(context) {
     }
 
     try {
+        waitUntil(cleanupExpiredRecycleBin(context));
+
         // 特殊操作：重建索引
         if (action === 'rebuild') {
             waitUntil(rebuildIndex(context, (processed) => {
@@ -121,6 +129,7 @@ export async function onRequest(context) {
                 channelName: channelNameArray,
                 includeTags: includeTagsArray,
                 excludeTags: excludeTagsArray,
+                recycleBinMode,
                 countOnly: true
             });
 
@@ -146,12 +155,13 @@ export async function onRequest(context) {
             channelName: channelNameArray,
             includeTags: includeTagsArray,
             excludeTags: excludeTagsArray,
+            recycleBinMode,
             includeSubdirFiles: recursive,
         });
 
         // 索引读取失败，直接从 KV 中获取所有文件记录
         if (!result.success) {
-            const dbRecords = await getAllFileRecords(context.env, dir);
+            const dbRecords = await getAllFileRecords(context.env, dir, recycleBinMode);
 
             return new Response(JSON.stringify({
                 files: dbRecords.files,
@@ -198,7 +208,7 @@ export async function onRequest(context) {
     }
 }
 
-async function getAllFileRecords(env, dir) {
+async function getAllFileRecords(env, dir, recycleBinMode = 'exclude') {
     const allRecords = [];
     let cursor = null;
 
@@ -228,6 +238,14 @@ async function getAllFileRecords(env, dir) {
 
                 // 跳过没有元数据的文件
                 if (!item.metadata || !item.metadata.TimeStamp) {
+                    continue;
+                }
+
+                const inRecycleBin = isRecycleBinMetadata(item.metadata || {});
+                if (recycleBinMode === 'only' && !inRecycleBin) {
+                    continue;
+                }
+                if (recycleBinMode !== 'include' && recycleBinMode !== 'only' && inRecycleBin) {
                     continue;
                 }
 

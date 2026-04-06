@@ -501,6 +501,7 @@ export async function readIndex(context, options = {}) {
             channelName = [],
             includeTags = [],
             excludeTags = [],
+            recycleBinMode = 'exclude',
             countOnly = false,
             includeSubdirFiles = false
         } = options;
@@ -529,6 +530,12 @@ export async function readIndex(context, options = {}) {
         }
 
         let filteredFiles = index.files;
+
+        if (recycleBinMode === 'only') {
+            filteredFiles = filteredFiles.filter(file => String(file.metadata?.RecycleBin || '').toLowerCase() === 'true');
+        } else if (recycleBinMode !== 'include') {
+            filteredFiles = filteredFiles.filter(file => String(file.metadata?.RecycleBin || '').toLowerCase() !== 'true');
+        }
 
         // 目录过滤
         if (directory) {

@@ -1,8 +1,10 @@
 import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js';
 import {
   AlbumDialog,
+  BinGrid,
   CollectionGrid,
   CollectionSummary,
+  ConfirmDialog,
   EmptyState,
   MediaTimelineSection,
   PreviewModal,
@@ -135,6 +137,13 @@ const state = {
   albumDialogMode: 'create',
   albumDraftName: '',
   albumDialogError: '',
+  confirmDialogOpen: false,
+  confirmDialogMode: '',
+  confirmDialogTitle: '',
+  confirmDialogCopy: '',
+  confirmDialogConfirmLabel: '',
+  confirmDialogSelectionCount: 0,
+  confirmDialogBusy: false,
   previewId: null,
   loadedCount: 24,
   activeYear: null,
@@ -144,7 +153,14 @@ const state = {
   isLibraryLoading: true,
   storageSummary: { ...defaultStorageSummary },
   liveSyncAttempts: 0,
-  layoutWidth: 0
+  layoutWidth: 0,
+  binItems: [],
+  isBinLoading: false,
+  binSelectedIds: new Set(),
+  toastMessage: '',
+  toastType: 'error',
+  toastTimeoutId: 0,
+  infoOpen: false
 };
 
 const refs = {
@@ -974,6 +990,203 @@ function buildDeleteRoute(fileId) {
   return encodedPath ? `/api/manage/delete/${encodedPath}` : '/api/manage/delete';
 }
 
+function buildBinItem(record) {
+  const fileId = normalizeText(record?.id || '');
+  if (!fileId) {
+    return null;
+  }
+  const metadata = record?.metadata || {};
+  const mimeType = normalizeText(metadata.FileType || '').toLowerCase();
+  if (!mimeType.startsWith('image/') && !mimeType.startsWith('video/')) {
+    return null;
+  }
+  const type = mimeType.startsWith('video/') ? 'video' : 'photo';
+  const fileName = normalizeText(metadata.FileName || extractFileNameFromPath(fileId) || 'Deleted item');
+  return {
+    id: fileId,
+    label: fileName,
+    thumbnailUrl: buildFileRoute(fileId),
+    sourceUrl: buildFileRoute(fileId),
+    posterUrl: '',
+    type,
+    width: toPositiveNumber(metadata.Width, type === 'video' ? 1280 : 1200),
+    height: toPositiveNumber(metadata.Height, type === 'video' ? 720 : 900),
+    daysLeft: Math.max(0, Number(record.daysLeft) || 0),
+    deletedAt: Number(record.deletedAt) || 0
+  };
+}
+
+async function fetchBinItems() {
+  if (state.isBinLoading) {
+    return;
+  }
+  state.isBinLoading = true;
+  render();
+  try {
+    const response = await fetch('/api/manage/bin/list?limit=200', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    });
+    if (!response.ok) {
+      throw new Error(`Bin list failed with ${response.status}`);
+    }
+    const payload = await response.json().catch(() => ({}));
+    const records = safeArray(payload?.files);
+    state.binItems = records.map(buildBinItem).filter(Boolean);
+  } catch (error) {
+    console.error('[media-library] fetchBinItems failed', error);
+    state.binItems = [];
+    showToast('Failed to load Bin. Refresh and try again.');
+  } finally {
+    state.isBinLoading = false;
+    render();
+  }
+}
+
+async function restoreBinSelection() {
+  const fileIds = [...state.binSelectedIds];
+  if (!fileIds.length) {
+    return;
+  }
+  state.confirmDialogBusy = true;
+  render();
+  try {
+    const response = await fetch('/api/manage/bin/batch', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action: 'restore', fileIds })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.success === false) {
+      throw new Error(payload?.error || `Restore failed with ${response.status}`);
+    }
+    const restoredIds = new Set(safeArray(payload?.succeededIds).map(normalizeText).filter(Boolean));
+    const failedIds = safeArray(payload?.failedIds).map(normalizeText).filter(Boolean);
+    state.binItems = state.binItems.filter((item) => !restoredIds.has(item.id));
+    state.binSelectedIds = new Set([...state.binSelectedIds].filter((id) => failedIds.includes(id)));
+    if (restoredIds.size) {
+      showToast(`Restored ${restoredIds.size} item${restoredIds.size === 1 ? '' : 's'} from Bin.`, 'success');
+    }
+    if (failedIds.length) {
+      showToast(`Failed to restore ${failedIds.length} item${failedIds.length === 1 ? '' : 's'}. Try again.`, 'error');
+      void fetchBinItems();
+    }
+  } catch (error) {
+    console.error('[media-library] restoreBinSelection failed', error);
+    showToast('Failed to restore the selected Bin items.');
+  } finally {
+    state.confirmDialogBusy = false;
+    render();
+    void syncStorageSummary({ forceRender: true });
+  }
+}
+
+async function deleteBinSelectionPermanently() {
+  const fileIds = [...state.binSelectedIds];
+  if (!fileIds.length) {
+    return;
+  }
+  state.confirmDialogBusy = true;
+  render();
+  try {
+    const response = await fetch('/api/manage/bin/batch', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action: 'delete', fileIds })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.success === false) {
+      throw new Error(payload?.error || `Delete failed with ${response.status}`);
+    }
+    const deletedIds = new Set(safeArray(payload?.succeededIds).map(normalizeText).filter(Boolean));
+    const failedIds = safeArray(payload?.failedIds).map(normalizeText).filter(Boolean);
+    state.binItems = state.binItems.filter((item) => !deletedIds.has(item.id));
+    state.binSelectedIds = new Set([...state.binSelectedIds].filter((id) => failedIds.includes(id)));
+    if (deletedIds.size) {
+      showToast(`Deleted ${deletedIds.size} item${deletedIds.size === 1 ? '' : 's'} forever.`, 'success');
+    }
+    if (failedIds.length) {
+      showToast(`Failed to delete ${failedIds.length} Bin item${failedIds.length === 1 ? '' : 's'} forever.`, 'error');
+      void fetchBinItems();
+    }
+  } catch (error) {
+    console.error('[media-library] deleteBinSelectionPermanently failed', error);
+    showToast('Failed to permanently delete the selected Bin items.');
+  } finally {
+    state.confirmDialogBusy = false;
+    render();
+    void syncStorageSummary({ forceRender: true });
+  }
+}
+
+async function emptyBin() {
+  if (!state.binItems.length) {
+    return;
+  }
+  state.confirmDialogBusy = true;
+  render();
+  try {
+    const response = await fetch('/api/manage/bin/empty', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.success === false) {
+      throw new Error(payload?.error || `Empty bin failed with ${response.status}`);
+    }
+    const deletedIds = new Set(safeArray(payload?.deletedIds).map(normalizeText).filter(Boolean));
+    const failedIds = safeArray(payload?.failedIds).map(normalizeText).filter(Boolean);
+    if (failedIds.length) {
+      state.binItems = state.binItems.filter((item) => !deletedIds.has(item.id));
+      state.binSelectedIds = new Set(failedIds);
+      showToast(`Deleted ${deletedIds.size} item${deletedIds.size === 1 ? '' : 's'}, but ${failedIds.length} failed.`, 'error');
+      void fetchBinItems();
+    } else {
+      state.binItems = [];
+      state.binSelectedIds.clear();
+      showToast('Bin emptied.', 'success');
+    }
+  } catch (error) {
+    console.error('[media-library] emptyBin failed', error);
+    showToast('Failed to empty Bin.');
+  } finally {
+    state.confirmDialogBusy = false;
+    resetConfirmDialog();
+    render();
+    void syncStorageSummary({ forceRender: true });
+  }
+}
+
+function requestEmptyBin() {
+  if (!state.binItems.length) {
+    return;
+  }
+  openConfirmDialog({
+    mode: 'empty-bin',
+    title: 'Empty bin?',
+    copy: `${state.binItems.length} item${state.binItems.length === 1 ? '' : 's'} will be permanently deleted and cannot be restored.`,
+    confirmLabel: 'Empty bin',
+    selectionCount: state.binItems.length
+  });
+}
+
+function requestDeleteBinSelectionPermanently() {
+  const fileIds = [...state.binSelectedIds];
+  if (!fileIds.length) {
+    return;
+  }
+  openConfirmDialog({
+    mode: 'delete-bin-permanently',
+    title: 'Delete forever?',
+    copy: `${fileIds.length} Bin item${fileIds.length === 1 ? '' : 's'} will be permanently deleted and cannot be restored.`,
+    confirmLabel: 'Delete forever',
+    selectionCount: fileIds.length
+  });
+}
+
 function focusSearchInput() {
   const searchInput = refs.root ? refs.root.querySelector('.cml-topbar__search-input') : null;
   if (searchInput instanceof HTMLInputElement) {
@@ -1110,6 +1323,58 @@ function closeAlbumDialog() {
   state.albumDialogOpen = false;
   state.albumDialogError = '';
   state.albumDraftName = '';
+  render();
+}
+
+function openConfirmDialog(options = {}) {
+  state.confirmDialogOpen = true;
+  state.confirmDialogMode = normalizeText(options.mode || '');
+  state.confirmDialogTitle = normalizeText(options.title || 'Confirm action');
+  state.confirmDialogCopy = normalizeText(options.copy || '');
+  state.confirmDialogConfirmLabel = normalizeText(options.confirmLabel || 'Confirm');
+  state.confirmDialogSelectionCount = Number(options.selectionCount) || 0;
+  state.confirmDialogBusy = false;
+  render();
+}
+
+function resetConfirmDialog() {
+  state.confirmDialogOpen = false;
+  state.confirmDialogMode = '';
+  state.confirmDialogTitle = '';
+  state.confirmDialogCopy = '';
+  state.confirmDialogConfirmLabel = '';
+  state.confirmDialogSelectionCount = 0;
+  state.confirmDialogBusy = false;
+}
+
+function closeConfirmDialog() {
+  if (!state.confirmDialogOpen || state.confirmDialogBusy) {
+    return;
+  }
+  resetConfirmDialog();
+  render();
+}
+
+function showToast(message, type = 'error') {
+  if (state.toastTimeoutId) {
+    window.clearTimeout(state.toastTimeoutId);
+  }
+  state.toastMessage = String(message || '');
+  state.toastType = String(type || 'error');
+  render();
+  state.toastTimeoutId = window.setTimeout(() => {
+    state.toastMessage = '';
+    state.toastTimeoutId = 0;
+    render();
+  }, 4500);
+}
+
+function dismissToast() {
+  if (state.toastTimeoutId) {
+    window.clearTimeout(state.toastTimeoutId);
+    state.toastTimeoutId = 0;
+  }
+  state.toastMessage = '';
   render();
 }
 
@@ -1284,17 +1549,12 @@ function setSelectedItemAsAlbumCover() {
   return true;
 }
 
-async function deleteSelectedItems() {
+async function deleteSelectedItems(options = {}) {
   const selectedItems = getSelectedItems().filter((item) => canDeleteItem(item));
   if (!selectedItems.length) {
     return;
   }
-  const confirmationLabel = selectedItems.length === 1
-    ? (selectedItems[0].label || selectedItems[0].album || 'this item')
-    : `${selectedItems.length} selected items`;
-  if (!window.confirm(`Delete ${confirmationLabel}? This cannot be undone.`)) {
-    return;
-  }
+  const permanent = Boolean(options.permanent);
 
   const deletedIds = new Set();
   const deletedKeys = new Set();
@@ -1302,7 +1562,10 @@ async function deleteSelectedItems() {
 
   for (const item of selectedItems) {
     try {
-      const response = await fetch(buildDeleteRoute(item.sourceId), {
+      const route = permanent
+        ? `${buildDeleteRoute(item.sourceId)}?permanent=true`
+        : buildDeleteRoute(item.sourceId);
+      const response = await fetch(route, {
         method: 'DELETE',
         credentials: 'same-origin',
         headers: {
@@ -1340,28 +1603,47 @@ async function deleteSelectedItems() {
   }
 
   if (failedItems.length) {
-    window.alert(`Failed to delete ${failedItems.length} item${failedItems.length === 1 ? '' : 's'}.`);
+    showToast(`Failed to delete ${failedItems.length} item${failedItems.length === 1 ? '' : 's'}. Check your connection and try again.`);
   }
 }
 
+function requestDeleteSelection(permanent = false) {
+  const selectedItems = getSelectedItems().filter((item) => canDeleteItem(item));
+  if (!selectedItems.length) {
+    return;
+  }
+  const isSingle = selectedItems.length === 1;
+  const itemLabel = isSingle
+    ? (selectedItems[0].label || selectedItems[0].album || 'this item')
+    : `${selectedItems.length} selected items`;
+  openConfirmDialog({
+    mode: permanent ? 'delete-permanently' : 'delete',
+    title: permanent ? 'Delete forever?' : 'Move to bin?',
+    copy: permanent
+      ? `${itemLabel} will be removed permanently and cannot be restored.`
+      : `${itemLabel} will leave your main library and stay in Bin for up to 45 days before permanent deletion.`,
+    confirmLabel: permanent ? 'Delete forever' : 'Move to bin',
+    selectionCount: selectedItems.length
+  });
+}
+
 function getVisibleSecondaryFilters(items) {
-  if (state.primaryFilter === 'Collections') {
+  if (state.primaryFilter !== 'Photos') {
     return [];
   }
 
-  const browseableItems = items.filter((item) => !resolveCollectionAlbum(item));
-  if (!browseableItems.length && !state.secondaryFilter) {
+  if (!items.length && !state.secondaryFilter) {
     return [];
   }
 
   const filters = [];
-  if (browseableItems.some((item) => item.type === 'video') || state.secondaryFilter === 'Videos') {
+  if (items.some((item) => item.type === 'video') || state.secondaryFilter === 'Videos') {
     filters.push('Videos');
   }
-  if (browseableItems.some((item) => item.isDocumentLike) || state.secondaryFilter === 'Documents') {
+  if (items.some((item) => item.isDocumentLike) || state.secondaryFilter === 'Documents') {
     filters.push('Documents');
   }
-  if (browseableItems.some((item) => state.favoriteIds.has(item.id)) || state.secondaryFilter === 'Favourites') {
+  if (items.some((item) => state.favoriteIds.has(item.id)) || state.secondaryFilter === 'Favourites') {
     filters.push('Favourites');
   }
   return filters;
@@ -1377,13 +1659,6 @@ function getFilteredItems() {
   return items.filter((item) => {
     const albumName = resolveCollectionAlbum(item);
 
-    if (state.primaryFilter === 'Updates') {
-      const diffDays = Math.floor((now.getTime() - new Date(item.takenAt).getTime()) / 86400000);
-      if (diffDays > 45) {
-        return false;
-      }
-    }
-
     if (activeAlbumName && albumName.toLowerCase() !== activeAlbumName.toLowerCase()) {
       return false;
     }
@@ -1392,7 +1667,7 @@ function getFilteredItems() {
       return false;
     }
 
-    if (state.primaryFilter !== 'Collections' && albumName) {
+    if (state.primaryFilter === 'Collections' && !activeAlbumName) {
       return false;
     }
 
@@ -1572,7 +1847,7 @@ function getViewModel() {
   return {
     navigationModel: {
       primary: navigationModel.primary,
-      secondary: visibleSecondaryFilters
+      secondary: state.primaryFilter === 'Bin' ? [] : visibleSecondaryFilters
     },
     activeAlbumName,
     activeAlbumCoverId: activeAlbumCover.item?.id || '',
@@ -1591,7 +1866,10 @@ function getViewModel() {
     previewItem,
     availableAlbums: getAvailableAlbumNames(),
     canSetAlbumCover,
-    canDeleteSelection: selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item))
+    canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item)),
+    binItems: state.binItems,
+    isBinLoading: state.isBinLoading,
+    binSelectedIds: state.binSelectedIds
   };
 }
 
@@ -1633,40 +1911,42 @@ function render() {
         <div class="cml-main-content-shell">
           <main class="cml-main-content" tabindex="-1">
             <div class="cml-main-content__inner">
-              ${state.primaryFilter === 'Collections'
-                ? CollectionSummary({
-                  activeAlbumName: viewModel.activeAlbumName,
-                  collectionCount: viewModel.totalCollectionCount,
-                  itemCount: viewModel.filteredItems.length,
-                  coverLabel: viewModel.activeAlbumCoverLabel,
-                  hasCustomCover: viewModel.hasCustomAlbumCover
-                })
-                : ''}
-              ${SearchSummary({
-                query: state.searchQuery.trim(),
-                resultCount: viewModel.isCollectionRoot ? viewModel.totalCollectionCount : viewModel.filteredItems.length
-              })}
-              ${viewModel.isCollectionRoot
-                ? (viewModel.collectionCards.length
-                  ? CollectionGrid({ collections: viewModel.collectionCards })
-                  : EmptyState({ query: state.searchQuery.trim(), isLoading: state.isLibraryLoading, mode: 'collections' }))
-                : (viewModel.sections.length
-                  ? viewModel.sections.map((section) => MediaTimelineSection({
-                    section,
-                    state,
-                    layoutWidth: state.layoutWidth,
-                    coverItemId: viewModel.activeAlbumCoverId
-                  })).join('')
-                  : EmptyState({
-                    query: state.searchQuery.trim(),
-                    isLoading: state.isLibraryLoading,
-                    mode: viewModel.activeAlbumName ? 'album-detail' : (viewModel.isAlbumPickerMode ? 'album-picker' : 'media'),
-                    actionLabel: viewModel.activeAlbumName ? 'Add from library' : (viewModel.isAlbumPickerMode ? 'Back to album' : ''),
-                    actionAction: viewModel.activeAlbumName ? 'open-add-to-current-album' : (viewModel.isAlbumPickerMode ? 'cancel-add-to-current-album' : '')
-                  }))}
+              ${state.primaryFilter === 'Bin'
+                ? BinGrid({ items: viewModel.binItems, binSelectedIds: viewModel.binSelectedIds, isBinLoading: viewModel.isBinLoading })
+                : `${state.primaryFilter === 'Collections'
+                  ? CollectionSummary({
+                    activeAlbumName: viewModel.activeAlbumName,
+                    collectionCount: viewModel.totalCollectionCount,
+                    itemCount: viewModel.filteredItems.length,
+                    coverLabel: viewModel.activeAlbumCoverLabel,
+                    hasCustomCover: viewModel.hasCustomAlbumCover
+                  })
+                  : ''}
+                ${SearchSummary({
+                  query: state.searchQuery.trim(),
+                  resultCount: viewModel.isCollectionRoot ? viewModel.totalCollectionCount : viewModel.filteredItems.length
+                })}
+                ${viewModel.isCollectionRoot
+                  ? (viewModel.collectionCards.length
+                    ? CollectionGrid({ collections: viewModel.collectionCards })
+                    : EmptyState({ query: state.searchQuery.trim(), isLoading: state.isLibraryLoading, mode: 'collections' }))
+                  : (viewModel.sections.length
+                    ? viewModel.sections.map((section) => MediaTimelineSection({
+                      section,
+                      state,
+                      layoutWidth: state.layoutWidth,
+                      coverItemId: viewModel.activeAlbumCoverId
+                    })).join('')
+                    : EmptyState({
+                      query: state.searchQuery.trim(),
+                      isLoading: state.isLibraryLoading,
+                      mode: viewModel.activeAlbumName ? 'album-detail' : (viewModel.isAlbumPickerMode ? 'album-picker' : 'media'),
+                      actionLabel: viewModel.activeAlbumName ? 'Add from library' : (viewModel.isAlbumPickerMode ? 'Back to album' : ''),
+                      actionAction: viewModel.activeAlbumName ? 'open-add-to-current-album' : (viewModel.isAlbumPickerMode ? 'cancel-add-to-current-album' : '')
+                    }))}`}
             </div>
           </main>
-          ${YearScroller({ years: viewModel.years, activeYear: state.activeYear })}
+          ${state.primaryFilter !== 'Bin' ? YearScroller({ years: viewModel.years, activeYear: state.activeYear }) : ''}
         </div>
       </div>
       ${PreviewModal({
@@ -1674,9 +1954,17 @@ function render() {
         selected: viewModel.previewItem ? state.selectedIds.has(viewModel.previewItem.id) : false,
         favorited: viewModel.previewItem ? state.favoriteIds.has(viewModel.previewItem.id) : false,
         currentIndex: Math.max(viewModel.previewIndex, 0),
-        totalCount: viewModel.previewItems.length
+        totalCount: viewModel.previewItems.length,
+        infoOpen: state.infoOpen
       })}
       ${AlbumDialog({ state, albums: viewModel.availableAlbums })}
+      ${ConfirmDialog({ state })}
+      ${state.toastMessage ? `
+        <div class="cml-toast cml-toast--${state.toastType}" role="alert" aria-live="polite">
+          <span class="cml-toast__message">${state.toastMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+          <button type="button" class="cml-toast__dismiss" data-action="dismiss-toast" aria-label="Dismiss">✕</button>
+        </div>
+      ` : ''}
     </div>
   `;
 
@@ -1866,6 +2154,7 @@ function openPreview(itemId) {
 
 function closePreview() {
   state.previewId = null;
+  state.infoOpen = false;
   render();
 }
 
@@ -2018,8 +2307,62 @@ function handleAction(actionTarget) {
     case 'set-album-cover':
       setSelectedItemAsAlbumCover();
       return true;
+    case 'toggle-bin-select': {
+      const binId = normalizeText(actionTarget.dataset.binId);
+      if (binId) {
+        if (state.binSelectedIds.has(binId)) {
+          state.binSelectedIds.delete(binId);
+        } else {
+          state.binSelectedIds.add(binId);
+        }
+        render();
+      }
+      return true;
+    }
+    case 'restore-bin-selection':
+      void restoreBinSelection();
+      return true;
+    case 'delete-bin-permanently':
+      requestDeleteBinSelectionPermanently();
+      return true;
+    case 'request-empty-bin':
+      requestEmptyBin();
+      return true;
     case 'delete-selected':
-      void deleteSelectedItems();
+      requestDeleteSelection(false);
+      return true;
+    case 'confirm-delete-selected':
+      if (!state.confirmDialogBusy) {
+        if (state.confirmDialogMode === 'empty-bin') {
+          void emptyBin();
+        } else if (state.confirmDialogMode === 'delete-bin-permanently') {
+          state.confirmDialogBusy = true;
+          render();
+          void deleteBinSelectionPermanently()
+            .finally(() => {
+              resetConfirmDialog();
+              render();
+            });
+        } else {
+          state.confirmDialogBusy = true;
+          render();
+          void deleteSelectedItems({ permanent: state.confirmDialogMode === 'delete-permanently' })
+            .finally(() => {
+              resetConfirmDialog();
+              render();
+            });
+        }
+      }
+      return true;
+    case 'dismiss-toast':
+      dismissToast();
+      return true;
+    case 'close-confirm-dialog':
+      closeConfirmDialog();
+      return true;
+    case 'toggle-info':
+      state.infoOpen = !state.infoOpen;
+      render();
       return true;
     case 'close-preview':
       closePreview();
@@ -2048,8 +2391,12 @@ function handleClick(event) {
       state.searchQuery = '';
       state.previewId = null;
       state.selectedIds.clear();
+      state.binSelectedIds.clear();
       resetLoadedCount();
       render();
+      if (state.primaryFilter === 'Bin') {
+        void fetchBinItems();
+      }
       return;
     }
 

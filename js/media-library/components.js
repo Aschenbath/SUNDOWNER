@@ -15,7 +15,9 @@ const icons = {
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"/></svg>',
   memory: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18a7.5 7.5 0 0 1 15 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="9.4" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   cloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.8 18.3a4.3 4.3 0 1 1 .8-8.5 5.2 5.2 0 0 1 10.1 1.4A3.6 3.6 0 0 1 18 18.3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.8 7.2h12.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.4 4.8h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.2 7.2v10.2a1.8 1.8 0 0 0 1.8 1.8h4a1.8 1.8 0 0 0 1.8-1.8V7.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.8 7.2h12.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.4 4.8h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.2 7.2v10.2a1.8 1.8 0 0 0 1.8 1.8h4a1.8 1.8 0 0 0 1.8-1.8V7.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  restore: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 1.8-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 6.2V12H10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="8" r="0.9" fill="currentColor"/></svg>'
 };
 
 const secondaryIconMap = {
@@ -216,7 +218,7 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
         ${navigationModel.primary.map((label) => {
           const key = label.toLowerCase();
           const active = state.primaryFilter === label ? 'is-active' : '';
-          const iconName = key === 'photos' ? 'photos' : 'collections';
+          const iconName = key === 'photos' ? 'photos' : key === 'bin' ? 'trash' : 'collections';
           return `
             <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}">
               ${icon(iconName)}
@@ -445,15 +447,62 @@ export function YearScroller({ years, activeYear }) {
   `;
 }
 
-export function PreviewModal({ item, selected, favorited, currentIndex, totalCount }) {
+export function PreviewModal({ item, selected, favorited, currentIndex, totalCount, infoOpen = false }) {
   if (!item) {
     return '';
   }
   const detailLine = item.tags && item.tags.length
     ? item.tags.join(' / ')
     : (item.displayTakenAt || item.timelineLabel || 'No additional details');
+
+  const infoPanel = `
+    <aside class="cml-preview__info ${infoOpen ? 'is-open' : ''}" aria-label="Photo details">
+      <div class="cml-preview__info-inner">
+        <div class="cml-preview__info-thumb">
+          <img src="${escapeHtml(item.thumbnailUrl || item.sourceUrl)}" alt="" loading="lazy" />
+        </div>
+        <dl class="cml-preview__info-meta">
+          ${item.label ? `
+            <dt class="cml-preview__info-label">File</dt>
+            <dd class="cml-preview__info-value cml-preview__info-value--filename" title="${escapeHtml(item.label)}">${escapeHtml(item.label)}</dd>
+          ` : ''}
+          ${item.displayTakenAt ? `
+            <dt class="cml-preview__info-label">Date</dt>
+            <dd class="cml-preview__info-value">${escapeHtml(item.displayTakenAt)}</dd>
+          ` : ''}
+          ${item.location ? `
+            <dt class="cml-preview__info-label">Location</dt>
+            <dd class="cml-preview__info-value">${escapeHtml(item.location)}</dd>
+          ` : ''}
+          ${item.width && item.height ? `
+            <dt class="cml-preview__info-label">Dimensions</dt>
+            <dd class="cml-preview__info-value">${item.width} × ${item.height}</dd>
+          ` : ''}
+          <dt class="cml-preview__info-label">Type</dt>
+          <dd class="cml-preview__info-value">${item.type === 'video' ? 'Video' : 'Photo'}</dd>
+          ${item.album ? `
+            <dt class="cml-preview__info-label">Album</dt>
+            <dd class="cml-preview__info-value">${escapeHtml(item.album)}</dd>
+          ` : ''}
+          ${item.personLabels && item.personLabels.length ? `
+            <dt class="cml-preview__info-label">People</dt>
+            <dd class="cml-preview__info-value">${escapeHtml(item.personLabels.join(', '))}</dd>
+          ` : ''}
+          ${item.tags && item.tags.length ? `
+            <dt class="cml-preview__info-label">Tags</dt>
+            <dd class="cml-preview__info-value">
+              <span class="cml-preview__info-tags">
+                ${item.tags.map((tag) => `<span class="cml-preview__info-tag">${escapeHtml(tag)}</span>`).join('')}
+              </span>
+            </dd>
+          ` : ''}
+        </dl>
+      </div>
+    </aside>
+  `;
+
   return `
-    <div class="cml-preview" role="dialog" aria-modal="true">
+    <div class="cml-preview ${infoOpen ? 'has-info' : ''}" role="dialog" aria-modal="true">
       <div class="cml-preview__backdrop" data-action="close-preview"></div>
       <div class="cml-preview__panel">
         <header class="cml-preview__header">
@@ -464,6 +513,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
           <div class="cml-preview__header-actions">
             <button type="button" class="cml-preview__chip ${selected ? 'is-selected' : ''}" data-action="toggle-select" data-id="${escapeHtml(item.id)}">${selected ? 'Selected' : 'Select'}</button>
             <button type="button" class="cml-preview__chip ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}">Favourite</button>
+            <button type="button" class="cml-preview__chip ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="Photo details">${icon('info')}</button>
             <button type="button" class="cml-preview__close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
           </div>
         </header>
@@ -484,6 +534,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
           <span>${currentIndex + 1} / ${totalCount}</span>
           <span>${escapeHtml(item.personLabels.join(', ') || item.label || 'No people labels')}</span>
         </footer>
+        ${infoPanel}
       </div>
     </div>
   `;
@@ -535,6 +586,41 @@ export function AlbumDialog({ state, albums }) {
   `;
 }
 
+export function ConfirmDialog({ state }) {
+  if (!state.confirmDialogOpen) {
+    return '';
+  }
+
+  const isDestructive = ['delete', 'delete-permanently', 'delete-bin-permanently', 'empty-bin'].includes(state.confirmDialogMode);
+  const countLabel = state.confirmDialogSelectionCount > 1
+    ? `${state.confirmDialogSelectionCount} items selected`
+    : state.confirmDialogSelectionCount === 1
+      ? '1 item selected'
+      : '';
+
+  return `
+    <div class="cml-dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(state.confirmDialogTitle || 'Confirm action')}">
+      <div class="cml-dialog__backdrop" data-action="close-confirm-dialog"></div>
+      <div class="cml-dialog__panel cml-confirm-dialog">
+        <header class="cml-dialog__header">
+          <div>
+            <p class="cml-confirm-dialog__eyebrow">${escapeHtml(countLabel || 'Action confirmation')}</p>
+            <h3 class="cml-dialog__title">${escapeHtml(state.confirmDialogTitle || 'Confirm action')}</h3>
+            <p class="cml-dialog__copy">${escapeHtml(state.confirmDialogCopy || '')}</p>
+          </div>
+          <button type="button" class="cml-dialog__close" data-action="close-confirm-dialog" aria-label="Close dialog">${icon('close')}</button>
+        </header>
+        <footer class="cml-dialog__footer">
+          <button type="button" class="cml-topbar__secondary-button" data-action="close-confirm-dialog" ${state.confirmDialogBusy ? 'disabled' : ''}>Cancel</button>
+          <button type="button" class="cml-topbar__secondary-button ${isDestructive ? 'is-destructive' : ''}" data-action="confirm-delete-selected" ${state.confirmDialogBusy ? 'disabled' : ''}>
+            ${state.confirmDialogBusy ? 'Working…' : escapeHtml(state.confirmDialogConfirmLabel || 'Confirm')}
+          </button>
+        </footer>
+      </div>
+    </div>
+  `;
+}
+
 export function EmptyState({ query, isLoading = false, mode = 'media', actionLabel = '', actionAction = '' }) {
   const title = isLoading ? 'Loading your library' : 'Nothing to show right now';
   const emptyCopy = mode === 'collections'
@@ -576,5 +662,72 @@ export function SearchSummary({ query, resultCount }) {
       <p class="cml-search-summary__eyebrow">Search results</p>
       <h2 class="cml-search-summary__title">${resultCount} matches for \"${escapeHtml(query)}\"</h2>
     </section>
+  `;
+}
+
+export function BinGrid({ items, binSelectedIds, isBinLoading }) {
+  const selectedCount = binSelectedIds.size;
+  const hasItems = items.length > 0;
+
+  const headerActions = selectedCount > 0
+    ? `
+      <button type="button" class="cml-topbar__upload-button" data-action="restore-bin-selection">
+        ${icon('restore')}<span>Restore (${selectedCount})</span>
+      </button>
+      <button type="button" class="cml-topbar__secondary-button is-destructive" data-action="delete-bin-permanently">
+        ${icon('trash')}<span>Delete forever (${selectedCount})</span>
+      </button>
+    `
+    : hasItems
+      ? `<button type="button" class="cml-topbar__secondary-button is-destructive" data-action="request-empty-bin">Empty bin</button>`
+      : '';
+
+  const gridContent = isBinLoading
+    ? `<div class="cml-bin-loading"><span class="cml-bin-loading__text">Loading bin…</span></div>`
+    : !hasItems
+      ? `
+        <section class="cml-empty-state">
+          <div class="cml-empty-state__icon">${icon('trash')}</div>
+          <h2 class="cml-empty-state__title">Bin is empty</h2>
+          <p class="cml-empty-state__copy">Items you delete will appear here for up to 45 days before permanent removal.</p>
+        </section>
+      `
+      : `
+        <div class="cml-bin-grid">
+          ${items.map((item) => {
+            const selected = binSelectedIds.has(item.id);
+            const urgency = item.daysLeft <= 7 ? 'is-urgent' : item.daysLeft <= 14 ? 'is-warning' : '';
+            const daysLabel = item.daysLeft === 1 ? '1 day left' : `${item.daysLeft} days left`;
+            return `
+              <div class="cml-bin-tile ${selected ? 'is-selected' : ''}" data-bin-id="${escapeHtml(item.id)}">
+                <label class="cml-bin-tile__thumb-wrap">
+                  <input type="checkbox" class="cml-bin-tile__checkbox" data-action="toggle-bin-select" data-bin-id="${escapeHtml(item.id)}" ${selected ? 'checked' : ''} aria-label="Select ${escapeHtml(item.label)}" />
+                  ${renderMediaAsset(item, 'cml-bin-tile__image')}
+                  ${item.type === 'video' ? `<span class="cml-media-tile__video-badge" aria-hidden="true">${icon('play')}</span>` : ''}
+                  <span class="cml-bin-tile__expiry ${urgency}">${escapeHtml(daysLabel)}</span>
+                </label>
+                <div class="cml-bin-tile__info">
+                  <span class="cml-bin-tile__name" title="${escapeHtml(item.label)}">${escapeHtml(item.label)}</span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+  return `
+    <div class="cml-bin-view">
+      <header class="cml-bin-view__header">
+        <div class="cml-bin-view__meta">
+          ${selectedCount > 0
+            ? `<strong>${selectedCount} selected</strong>`
+            : hasItems
+              ? `<span>${items.length} item${items.length === 1 ? '' : 's'} in bin</span>`
+              : ''}
+        </div>
+        <div class="cml-bin-view__actions">${headerActions}</div>
+      </header>
+      ${gridContent}
+    </div>
   `;
 }
