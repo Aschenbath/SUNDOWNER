@@ -208,6 +208,7 @@ function _tzMid(touches) {
 
 function _tzApply(el) {
   el.style.transform = `scale(${touchZoom.currentScale}) translate(${touchZoom.tx / touchZoom.currentScale}px,${touchZoom.ty / touchZoom.currentScale}px)`;
+  el.style.cursor = touchZoom.currentScale > 1.05 ? 'zoom-out' : 'zoom-in';
 }
 
 function _tzReset(el) {
@@ -307,6 +308,7 @@ function setupPreviewTouchHandlers() {
     }
   }, { passive: true });
 }
+
 let storageSyncPromise = null;
 
 function shouldMount(pathname = window.location.pathname, search = window.location.search) {
