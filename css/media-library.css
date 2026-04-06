@@ -457,6 +457,10 @@ body.codex-media-library-active #app {
   line-height: 1.7;
 }
 
+#codex-media-library-root .cml-empty-state__actions {
+  margin-top: 24px;
+}
+
 #codex-media-library-root .cml-empty-state__icon {
   display: inline-flex;
   width: 56px;

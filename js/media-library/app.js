@@ -107,6 +107,7 @@ const state = {
   primaryFilter: 'Photos',
   secondaryFilter: '',
   activeAlbumName: '',
+  albumSelectionTarget: '',
   searchQuery: '',
   selectedIds: new Set(),
   favoriteIds: loadStringSet(FAVORITES_STORAGE_KEY),
@@ -596,6 +597,10 @@ function getActiveAlbumName() {
   return state.primaryFilter === 'Collections' ? normalizeText(state.activeAlbumName) : '';
 }
 
+function getAlbumSelectionTarget() {
+  return normalizeText(state.albumSelectionTarget);
+}
+
 function matchesSearchQuery(item, query) {
   if (!query) {
     return true;
@@ -1020,6 +1025,7 @@ function openCollection(albumName) {
   }
   state.primaryFilter = 'Collections';
   state.activeAlbumName = normalizedName;
+  state.albumSelectionTarget = '';
   state.secondaryFilter = '';
   state.searchQuery = '';
   state.previewId = null;
@@ -1036,6 +1042,7 @@ function closeCollection() {
     return;
   }
   state.activeAlbumName = '';
+  state.albumSelectionTarget = '';
   state.searchQuery = '';
   state.previewId = null;
   clearSelection({ shouldRender: false });
@@ -1044,6 +1051,52 @@ function closeCollection() {
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
   }
+}
+
+function openAlbumSelection(albumName = getActiveAlbumName()) {
+  const normalizedName = normalizeText(albumName);
+  if (!normalizedName) {
+    return;
+  }
+  state.albumSelectionTarget = normalizedName;
+  state.primaryFilter = 'Photos';
+  state.activeAlbumName = '';
+  state.secondaryFilter = '';
+  state.searchQuery = '';
+  state.previewId = null;
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  render();
+  if (refs.scrollRegion) {
+    refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
+  }
+}
+
+function closeAlbumSelection() {
+  const targetAlbum = getAlbumSelectionTarget();
+  if (!targetAlbum) {
+    return;
+  }
+  state.albumSelectionTarget = '';
+  state.primaryFilter = 'Collections';
+  state.activeAlbumName = targetAlbum;
+  state.secondaryFilter = '';
+  state.searchQuery = '';
+  state.previewId = null;
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  render();
+  if (refs.scrollRegion) {
+    refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
+  }
+}
+
+function confirmAlbumSelection() {
+  const targetAlbum = getAlbumSelectionTarget();
+  if (!targetAlbum || !state.selectedIds.size) {
+    return false;
+  }
+  return commitSelectionToAlbum(targetAlbum);
 }
 
 function commitSelectionToAlbum(albumName) {
@@ -1070,6 +1123,7 @@ function commitSelectionToAlbum(albumName) {
   state.albumDialogOpen = false;
   state.albumDialogError = '';
   state.albumDraftName = '';
+  state.albumSelectionTarget = '';
   state.primaryFilter = 'Collections';
   state.activeAlbumName = canonicalAlbumName;
   state.secondaryFilter = '';
@@ -1094,6 +1148,7 @@ function submitAlbumDialog() {
   state.albumDialogOpen = false;
   state.albumDialogError = '';
   state.albumDraftName = '';
+  state.albumSelectionTarget = '';
   state.primaryFilter = 'Collections';
   state.activeAlbumName = canonicalAlbumName;
   state.secondaryFilter = '';
@@ -1189,6 +1244,7 @@ function getFilteredItems() {
   const now = new Date();
   const query = state.searchQuery.trim().toLowerCase();
   const activeAlbumName = getActiveAlbumName();
+  const albumSelectionTarget = getAlbumSelectionTarget();
 
   return items.filter((item) => {
     if (state.primaryFilter === 'Updates') {
@@ -1199,6 +1255,10 @@ function getFilteredItems() {
     }
 
     if (activeAlbumName && normalizeText(item.album).toLowerCase() !== activeAlbumName.toLowerCase()) {
+      return false;
+    }
+
+    if (albumSelectionTarget && normalizeText(item.album).toLowerCase() === albumSelectionTarget.toLowerCase()) {
       return false;
     }
 
@@ -1333,12 +1393,14 @@ function getViewModel() {
   }
 
   const activeAlbumName = getActiveAlbumName();
+  const albumSelectionTarget = getAlbumSelectionTarget();
   const filteredItems = getFilteredItems();
   const allCollections = state.primaryFilter === 'Collections' && !activeAlbumName
     ? buildCollectionSummaries(getAllItems())
     : [];
   const collectionCards = allCollections.slice(0, state.loadedCount);
   const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName;
+  const isAlbumPickerMode = Boolean(albumSelectionTarget);
   const sections = isCollectionRoot ? [] : buildSections(filteredItems);
   const years = isCollectionRoot ? [] : [...new Set(filteredItems.map((item) => item.year))];
   const previewItems = filteredItems;
@@ -1356,6 +1418,8 @@ function getViewModel() {
       secondary: visibleSecondaryFilters
     },
     activeAlbumName,
+    albumSelectionTarget,
+    isAlbumPickerMode,
     isCollectionRoot,
     collectionCards,
     totalCollectionCount: allCollections.length,
@@ -1421,7 +1485,13 @@ function render() {
                   : EmptyState({ query: state.searchQuery.trim(), isLoading: state.isLibraryLoading, mode: 'collections' }))
                 : (viewModel.sections.length
                   ? viewModel.sections.map((section) => MediaTimelineSection({ section, state, layoutWidth: state.layoutWidth })).join('')
-                  : EmptyState({ query: state.searchQuery.trim(), isLoading: state.isLibraryLoading }))}
+                  : EmptyState({
+                    query: state.searchQuery.trim(),
+                    isLoading: state.isLibraryLoading,
+                    mode: viewModel.activeAlbumName ? 'album-detail' : (viewModel.isAlbumPickerMode ? 'album-picker' : 'media'),
+                    actionLabel: viewModel.activeAlbumName ? 'Add from library' : (viewModel.isAlbumPickerMode ? 'Back to album' : ''),
+                    actionAction: viewModel.activeAlbumName ? 'open-add-to-current-album' : (viewModel.isAlbumPickerMode ? 'cancel-add-to-current-album' : '')
+                  }))}
             </div>
           </main>
           ${YearScroller({ years: viewModel.years, activeYear: state.activeYear })}
@@ -1738,6 +1808,15 @@ function handleAction(actionTarget) {
     case 'open-add-to-album':
       openAlbumDialog('assign');
       return true;
+    case 'open-add-to-current-album':
+      openAlbumSelection();
+      return true;
+    case 'cancel-add-to-current-album':
+      closeAlbumSelection();
+      return true;
+    case 'confirm-add-to-current-album':
+      confirmAlbumSelection();
+      return true;
     case 'open-create-album':
       openAlbumDialog('create');
       return true;
@@ -1786,6 +1865,7 @@ function handleClick(event) {
       state.primaryFilter = actionTarget.dataset.primary;
       state.secondaryFilter = '';
       state.activeAlbumName = '';
+      state.albumSelectionTarget = '';
       state.searchQuery = '';
       state.previewId = null;
       state.selectedIds.clear();
@@ -1797,6 +1877,7 @@ function handleClick(event) {
     if (actionTarget.dataset.secondary) {
       state.secondaryFilter = actionTarget.dataset.secondary === state.secondaryFilter ? '' : actionTarget.dataset.secondary;
       state.activeAlbumName = '';
+      state.albumSelectionTarget = '';
       state.previewId = null;
       state.selectedIds.clear();
       resetLoadedCount();

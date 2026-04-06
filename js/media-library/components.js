@@ -246,8 +246,27 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
 export function TopSearchBar({ state, canDeleteSelection = false }) {
   const selectedCount = state.selectedIds.size;
   const searchValue = escapeHtml(state.searchQuery);
-  const canCreateAlbum = state.primaryFilter === 'Collections';
+  const activeAlbumName = String(state.activeAlbumName || '');
+  const albumSelectionTarget = String(state.albumSelectionTarget || '');
+  const isAlbumPickerMode = Boolean(albumSelectionTarget);
+  const canCreateAlbum = state.primaryFilter === 'Collections' && !activeAlbumName;
   if (selectedCount) {
+    if (isAlbumPickerMode) {
+      return `
+        <header class="cml-topbar is-selection-mode">
+          <div class="cml-topbar__selection-shell">
+            <div class="cml-topbar__selection-meta">
+              <button type="button" class="cml-topbar__clear-button" data-action="clear-selection" aria-label="Clear selection">${icon('close')}</button>
+              <strong>${selectedCount} selected</strong>
+            </div>
+            <div class="cml-topbar__selection-actions">
+              <button type="button" class="cml-topbar__secondary-button" data-action="cancel-add-to-current-album">Cancel</button>
+              <button type="button" class="cml-topbar__upload-button" data-action="confirm-add-to-current-album">Add to ${escapeHtml(albumSelectionTarget)}</button>
+            </div>
+          </div>
+        </header>
+      `;
+    }
     return `
       <header class="cml-topbar is-selection-mode">
         <div class="cml-topbar__selection-shell">
@@ -272,7 +291,17 @@ export function TopSearchBar({ state, canDeleteSelection = false }) {
         </label>
       </div>
       <div class="cml-topbar__actions">
-        ${canCreateAlbum ? `
+        ${isAlbumPickerMode ? `
+          <button type="button" class="cml-topbar__secondary-button" data-action="cancel-add-to-current-album">
+            ${icon('previous')}
+            <span>Back to album</span>
+          </button>
+        ` : activeAlbumName ? `
+          <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-current-album">
+            ${icon('plus')}
+            <span>Add photos</span>
+          </button>
+        ` : canCreateAlbum ? `
           <button type="button" class="cml-topbar__secondary-button" data-action="open-create-album">
             ${icon('plus')}
             <span>New album</span>
@@ -491,16 +520,22 @@ export function AlbumDialog({ state, albums }) {
   `;
 }
 
-export function EmptyState({ query, isLoading = false, mode = 'media' }) {
+export function EmptyState({ query, isLoading = false, mode = 'media', actionLabel = '', actionAction = '' }) {
   const title = isLoading ? 'Loading your library' : 'Nothing to show right now';
   const emptyCopy = mode === 'collections'
     ? 'No albums are available for this view yet. Create a new album or add media to an existing one.'
+    : mode === 'album-detail'
+      ? 'This album is empty. Pick from your uploaded photos to start filling it.'
+      : mode === 'album-picker'
+        ? 'No uploaded photos are available to add from the current library view.'
     : 'No real photos or videos are available for this view yet. Upload media to populate the library.';
   const copy = isLoading
     ? 'Pulling real photos and videos from the underlying library index.'
     : query
       ? (mode === 'collections'
         ? `No albums match \"${escapeHtml(query)}\". Try an album name or related memory.`
+        : mode === 'album-picker'
+          ? `No uploaded photos match \"${escapeHtml(query)}\" for adding to this album.`
         : `No memories match \"${escapeHtml(query)}\". Try a place, person or album.`)
       : emptyCopy;
   return `
@@ -508,6 +543,11 @@ export function EmptyState({ query, isLoading = false, mode = 'media' }) {
       <div class="cml-empty-state__icon">${icon('memory')}</div>
       <h2 class="cml-empty-state__title">${title}</h2>
       <p class="cml-empty-state__copy">${copy}</p>
+      ${!isLoading && !query && actionLabel && actionAction ? `
+        <div class="cml-empty-state__actions">
+          <button type="button" class="cml-topbar__secondary-button" data-action="${escapeHtml(actionAction)}">${escapeHtml(actionLabel)}</button>
+        </div>
+      ` : ''}
     </section>
   `;
 }
