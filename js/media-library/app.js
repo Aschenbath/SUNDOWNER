@@ -1225,15 +1225,19 @@ function getVisibleSecondaryFilters(items) {
     return [];
   }
 
-  if (!items.length && !state.favoriteIds.size && !state.albumNames.length) {
+  const browseableItems = items.filter((item) => !normalizeText(item.album));
+  if (!browseableItems.length && !state.secondaryFilter) {
     return [];
   }
 
   const filters = [];
-  if (items.some((item) => item.isDocumentLike) || state.secondaryFilter === 'Documents') {
+  if (browseableItems.some((item) => item.type === 'video') || state.secondaryFilter === 'Videos') {
+    filters.push('Videos');
+  }
+  if (browseableItems.some((item) => item.isDocumentLike) || state.secondaryFilter === 'Documents') {
     filters.push('Documents');
   }
-  if (state.favoriteIds.size || state.secondaryFilter === 'Favourites') {
+  if (browseableItems.some((item) => state.favoriteIds.has(item.id)) || state.secondaryFilter === 'Favourites') {
     filters.push('Favourites');
   }
   return filters;
@@ -1247,6 +1251,8 @@ function getFilteredItems() {
   const albumSelectionTarget = getAlbumSelectionTarget();
 
   return items.filter((item) => {
+    const albumName = normalizeText(item.album);
+
     if (state.primaryFilter === 'Updates') {
       const diffDays = Math.floor((now.getTime() - new Date(item.takenAt).getTime()) / 86400000);
       if (diffDays > 45) {
@@ -1254,15 +1260,24 @@ function getFilteredItems() {
       }
     }
 
-    if (activeAlbumName && normalizeText(item.album).toLowerCase() !== activeAlbumName.toLowerCase()) {
+    if (activeAlbumName && albumName.toLowerCase() !== activeAlbumName.toLowerCase()) {
       return false;
     }
 
-    if (albumSelectionTarget && normalizeText(item.album).toLowerCase() === albumSelectionTarget.toLowerCase()) {
+    if (albumSelectionTarget && albumName.toLowerCase() === albumSelectionTarget.toLowerCase()) {
+      return false;
+    }
+
+    if (state.primaryFilter !== 'Collections' && albumName) {
       return false;
     }
 
     switch (state.secondaryFilter) {
+      case 'Videos':
+        if (item.type !== 'video') {
+          return false;
+        }
+        break;
       case 'Documents':
         if (!item.isDocumentLike) {
           return false;
@@ -1332,7 +1347,10 @@ function buildCollectionSummaries(items) {
   const groups = new Map();
   const query = state.searchQuery.trim().toLowerCase();
   const ensureGroup = (name) => {
-    const normalizedName = normalizeText(name) || 'Library';
+    const normalizedName = normalizeText(name);
+    if (!normalizedName) {
+      return null;
+    }
     const key = normalizedName.toLowerCase();
     if (!groups.has(key)) {
       groups.set(key, {
@@ -1346,7 +1364,10 @@ function buildCollectionSummaries(items) {
 
   state.albumNames.forEach((albumName) => ensureGroup(albumName));
   items.forEach((item) => {
-    ensureGroup(item.album).items.push(item);
+    const group = ensureGroup(item.album);
+    if (group) {
+      group.items.push(item);
+    }
   });
 
   return [...groups.values()]

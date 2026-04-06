@@ -304,7 +304,7 @@ const rawItems = [
 
 export const navigationModel = {
   primary: ['Photos', 'Updates', 'Collections'],
-  secondary: ['Documents', 'Favourites']
+  secondary: ['Videos', 'Documents', 'Favourites']
 };
 
 export const storageSummary = {

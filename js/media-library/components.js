@@ -20,6 +20,7 @@ const icons = {
 
 const secondaryIconMap = {
   Albums: 'albums',
+  Videos: 'play',
   Documents: 'documents',
   Favourites: 'favourites'
 };
@@ -155,16 +156,18 @@ function buildJustifiedRows(items, options = {}) {
 }
 
 function renderMediaAsset(item, className, withControls = false) {
-  const mediaUrl = escapeHtml(item.type === 'video' ? (item.sourceUrl || item.thumbnailUrl) : item.thumbnailUrl);
+  const sourceUrl = item.sourceUrl || item.thumbnailUrl;
+  const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
+  const mediaUrl = escapeHtml(item.type === 'video' ? sourceUrl : imageUrl);
   const alt = escapeHtml(item.label || item.album || 'Library item');
-  if (item.type === 'video' && item.thumbnailUrl === (item.sourceUrl || item.thumbnailUrl)) {
+  if (item.type === 'video' && item.thumbnailUrl === sourceUrl) {
     return `<video class="${className}" src="${mediaUrl}" ${withControls ? 'controls' : ''} muted playsinline preload="metadata"></video>`;
   }
   if (item.type === 'video' && withControls) {
     const poster = item.posterUrl ? ` poster="${escapeHtml(item.posterUrl)}"` : '';
     return `<video class="${className}" src="${mediaUrl}"${poster} controls playsinline preload="metadata"></video>`;
   }
-  return `<img class="${className}" src="${escapeHtml(item.thumbnailUrl)}" alt="${alt}" loading="lazy" decoding="async" />`;
+  return `<img class="${className}" src="${mediaUrl}" alt="${alt}" loading="lazy" decoding="async" />`;
 }
 
 export function StorageCard(storage) {
@@ -457,7 +460,9 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
         <div class="cml-preview__body">
           <button type="button" class="cml-preview__nav is-prev" data-action="preview-previous" aria-label="Previous item">${icon('previous')}</button>
           <figure class="cml-preview__figure">
-            ${renderMediaAsset(item, 'cml-preview__media', true)}
+            <div class="cml-preview__stage">
+              ${renderMediaAsset(item, 'cml-preview__media', true)}
+            </div>
             <figcaption class="cml-preview__caption">
               <strong>${escapeHtml(item.location || item.label || item.album || 'Private library')}</strong>
               <span>${escapeHtml(detailLine)}</span>
