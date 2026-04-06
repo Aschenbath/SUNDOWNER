@@ -216,7 +216,7 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
         ${navigationModel.primary.map((label) => {
           const key = label.toLowerCase();
           const active = state.primaryFilter === label ? 'is-active' : '';
-          const iconName = key === 'photos' ? 'photos' : key === 'updates' ? 'updates' : 'collections';
+          const iconName = key === 'photos' ? 'photos' : 'collections';
           return `
             <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}">
               ${icon(iconName)}
@@ -246,7 +246,7 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
   `;
 }
 
-export function TopSearchBar({ state, canDeleteSelection = false }) {
+export function TopSearchBar({ state, canDeleteSelection = false, canSetAlbumCover = false }) {
   const selectedCount = state.selectedIds.size;
   const searchValue = escapeHtml(state.searchQuery);
   const activeAlbumName = String(state.activeAlbumName || '');
@@ -279,6 +279,9 @@ export function TopSearchBar({ state, canDeleteSelection = false }) {
           </div>
           <div class="cml-topbar__selection-actions">
             <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-album">Add to album</button>
+            ${activeAlbumName && canSetAlbumCover ? `
+              <button type="button" class="cml-topbar__secondary-button" data-action="set-album-cover">Set as cover</button>
+            ` : ''}
             <button type="button" class="cml-topbar__secondary-button is-destructive" data-action="delete-selected" ${canDeleteSelection ? '' : 'disabled'}>${icon('trash')}<span>Delete</span></button>
           </div>
         </div>
@@ -319,7 +322,7 @@ export function TopSearchBar({ state, canDeleteSelection = false }) {
   `;
 }
 
-export function MediaTile({ item, selected, layout }) {
+export function MediaTile({ item, selected, layout, isCover = false }) {
   const previewLabel = `${item.label || item.album} - ${formatTakenAt(item)}`;
   const style = `width:${layout.width}px;height:${layout.height}px;`;
   return `
@@ -329,12 +332,13 @@ export function MediaTile({ item, selected, layout }) {
       </button>
       ${renderMediaAsset(item, 'cml-media-tile__image')}
       ${item.type === 'video' ? `<span class="cml-media-tile__video-badge" aria-hidden="true">${icon('play')}</span>` : ''}
+      ${isCover ? `<span class="cml-media-tile__cover-badge" aria-label="Album cover">${icon('star')}</span>` : ''}
       <div class="cml-media-tile__scrim"></div>
     </article>
   `;
 }
 
-export function MediaGrid({ items, state, layoutWidth }) {
+export function MediaGrid({ items, state, layoutWidth, coverItemId = '' }) {
   const rows = buildJustifiedRows(items, {
     containerWidth: layoutWidth,
     denseGrid: false
@@ -347,7 +351,8 @@ export function MediaGrid({ items, state, layoutWidth }) {
           ${row.items.map((layout) => MediaTile({
             item: layout.item,
             layout,
-            selected: state.selectedIds.has(layout.item.id)
+            selected: state.selectedIds.has(layout.item.id),
+            isCover: coverItemId && layout.item.id === coverItemId
           })).join('')}
         </div>
       `).join('')}
@@ -355,7 +360,7 @@ export function MediaGrid({ items, state, layoutWidth }) {
   `;
 }
 
-export function MediaTimelineSection({ section, state, layoutWidth }) {
+export function MediaTimelineSection({ section, state, layoutWidth, coverItemId = '' }) {
   return `
     <section class="cml-timeline-section" id="${escapeHtml(section.anchorId)}" data-year="${escapeHtml(section.year)}">
       <header class="cml-timeline-section__header">
@@ -367,17 +372,20 @@ export function MediaTimelineSection({ section, state, layoutWidth }) {
           <p class="cml-timeline-section__count">${section.items.length} memories</p>
         </div>
       </header>
-      ${MediaGrid({ items: section.items, state, layoutWidth })}
+      ${MediaGrid({ items: section.items, state, layoutWidth, coverItemId })}
     </section>
   `;
 }
 
-export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, itemCount = 0 }) {
+export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, itemCount = 0, coverLabel = '', hasCustomCover = false }) {
   const hasActiveAlbum = Boolean(activeAlbumName);
   const title = hasActiveAlbum ? activeAlbumName : `${collectionCount} album${collectionCount === 1 ? '' : 's'}`;
   const copy = hasActiveAlbum
     ? `${itemCount} item${itemCount === 1 ? '' : 's'} in this album`
     : 'Collections now show album categories first. Open an album to browse its photos.';
+  const coverLine = hasActiveAlbum && coverLabel
+    ? `${hasCustomCover ? 'Custom cover' : 'Cover'}: ${coverLabel}`
+    : '';
   return `
     <section class="cml-view-summary">
       ${hasActiveAlbum ? `
@@ -389,6 +397,7 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
       <p class="cml-view-summary__eyebrow">${hasActiveAlbum ? 'Collection' : 'Collections'}</p>
       <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
       <p class="cml-view-summary__copy">${escapeHtml(copy)}</p>
+      ${coverLine ? `<p class="cml-view-summary__cover">${escapeHtml(coverLine)}</p>` : ''}
     </section>
   `;
 }
@@ -408,6 +417,7 @@ export function CollectionGrid({ collections }) {
             ${collection.coverItem
               ? renderMediaAsset(collection.coverItem, 'cml-collection-card__image')
               : `<span class="cml-collection-card__placeholder">${icon('albums')}</span>`}
+            ${collection.hasCustomCover ? `<span class="cml-collection-card__cover-badge">Cover</span>` : ''}
             ${collection.coverItem?.type === 'video' ? `<span class="cml-collection-card__badge">${icon('play')}</span>` : ''}
           </span>
           <span class="cml-collection-card__body">

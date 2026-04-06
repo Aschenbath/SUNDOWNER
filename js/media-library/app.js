@@ -24,6 +24,7 @@ const WEEKDAY_INDEX = Object.fromEntries(WEEKDAY_NAMES.map((weekday, index) => [
 const FAVORITES_STORAGE_KEY = 'codex-media-library-favorites';
 const ALBUMS_STORAGE_KEY = 'codex-media-library-albums';
 const ALBUM_ASSIGNMENTS_STORAGE_KEY = 'codex-media-library-album-assignments';
+const ALBUM_COVERS_STORAGE_KEY = 'codex-media-library-album-covers';
 const API_PAGE_SIZE = 400;
 const API_MAX_ITEMS = 1600;
 
@@ -103,6 +104,22 @@ function saveStringRecord(key, value) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
+function loadAlbumCoverRecord() {
+  const value = loadJson(ALBUM_COVERS_STORAGE_KEY, {});
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([albumName, itemKey]) => [normalizeAlbumKey(albumName), normalizeText(itemKey)])
+      .filter(([albumName, itemKey]) => albumName && itemKey)
+  );
+}
+
+function saveAlbumCoverRecord(value) {
+  window.localStorage.setItem(ALBUM_COVERS_STORAGE_KEY, JSON.stringify(value));
+}
+
 const state = {
   primaryFilter: 'Photos',
   secondaryFilter: '',
@@ -113,6 +130,7 @@ const state = {
   favoriteIds: loadStringSet(FAVORITES_STORAGE_KEY),
   albumNames: loadStringArray(ALBUMS_STORAGE_KEY),
   albumAssignments: loadStringRecord(ALBUM_ASSIGNMENTS_STORAGE_KEY),
+  albumCovers: loadAlbumCoverRecord(),
   albumDialogOpen: false,
   albumDialogMode: 'create',
   albumDraftName: '',
@@ -170,6 +188,10 @@ function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+function normalizeAlbumKey(value) {
+  return normalizeText(value).toLowerCase();
+}
+
 function decodeValue(value) {
   try {
     return decodeURIComponent(value);
@@ -189,6 +211,34 @@ function hashString(value) {
 
 function getPersistentItemKey(item) {
   return normalizeText(item?.sourceId || item?.id || '');
+}
+
+function isSameRecord(left, right) {
+  const leftEntries = Object.entries(left || {});
+  const rightEntries = Object.entries(right || {});
+  return leftEntries.length === rightEntries.length
+    && leftEntries.every(([key, value]) => right[key] === value);
+}
+
+function getStoredAlbumCoverKey(albumName) {
+  const albumKey = normalizeAlbumKey(albumName);
+  return albumKey ? normalizeText(state.albumCovers[albumKey] || '') : '';
+}
+
+function findAlbumCoverItem(albumName, items) {
+  const albumKey = normalizeAlbumKey(albumName);
+  const albumItems = safeArray(items).filter((item) => normalizeAlbumKey(resolveCollectionAlbum(item)) === albumKey);
+  if (!albumItems.length) {
+    return { item: null, isCustom: false };
+  }
+  const customCoverKey = getStoredAlbumCoverKey(albumName);
+  if (customCoverKey) {
+    const customItem = albumItems.find((item) => getPersistentItemKey(item) === customCoverKey);
+    if (customItem) {
+      return { item: customItem, isCustom: true };
+    }
+  }
+  return { item: albumItems[0], isCustom: false };
 }
 
 function getAssignedAlbumName(item) {
@@ -242,6 +292,10 @@ function persistAlbumNames() {
 
 function persistAlbumAssignments() {
   saveStringRecord(ALBUM_ASSIGNMENTS_STORAGE_KEY, state.albumAssignments);
+}
+
+function persistAlbumCovers() {
+  saveAlbumCoverRecord(state.albumCovers);
 }
 
 function ensureAlbumName(value) {
@@ -874,6 +928,34 @@ function getAllItems() {
   return state.mediaItems.map((item) => applyAlbumOverride(item));
 }
 
+function syncAlbumCovers(items = getAllItems()) {
+  const validKeysByAlbum = new Map();
+
+  safeArray(items).forEach((item) => {
+    const albumKey = normalizeAlbumKey(resolveCollectionAlbum(item));
+    const itemKey = getPersistentItemKey(item);
+    if (!albumKey || !itemKey) {
+      return;
+    }
+    if (!validKeysByAlbum.has(albumKey)) {
+      validKeysByAlbum.set(albumKey, new Set());
+    }
+    validKeysByAlbum.get(albumKey).add(itemKey);
+  });
+
+  const nextAlbumCovers = Object.fromEntries(
+    Object.entries(state.albumCovers).filter(([albumKey, itemKey]) => validKeysByAlbum.get(albumKey)?.has(normalizeText(itemKey)))
+  );
+
+  if (isSameRecord(nextAlbumCovers, state.albumCovers)) {
+    return false;
+  }
+
+  state.albumCovers = nextAlbumCovers;
+  persistAlbumCovers();
+  return true;
+}
+
 function getSelectedItems() {
   const lookup = new Map(getAllItems().map((item) => [item.id, item]));
   return [...state.selectedIds].map((id) => lookup.get(id)).filter(Boolean);
@@ -1174,6 +1256,34 @@ function assignSelectionToAlbum(albumName) {
   return commitSelectionToAlbum(albumName);
 }
 
+function setSelectedItemAsAlbumCover() {
+  const activeAlbumName = getActiveAlbumName();
+  const selectedItems = getSelectedItems();
+  if (!activeAlbumName || selectedItems.length !== 1) {
+    return false;
+  }
+
+  const [selectedItem] = selectedItems;
+  if (normalizeAlbumKey(resolveCollectionAlbum(selectedItem)) !== normalizeAlbumKey(activeAlbumName)) {
+    return false;
+  }
+
+  const albumKey = normalizeAlbumKey(activeAlbumName);
+  const itemKey = getPersistentItemKey(selectedItem);
+  if (!albumKey || !itemKey) {
+    return false;
+  }
+
+  state.albumCovers = {
+    ...state.albumCovers,
+    [albumKey]: itemKey
+  };
+  persistAlbumCovers();
+  clearSelection({ shouldRender: false });
+  render();
+  return true;
+}
+
 async function deleteSelectedItems() {
   const selectedItems = getSelectedItems().filter((item) => canDeleteItem(item));
   if (!selectedItems.length) {
@@ -1223,6 +1333,7 @@ async function deleteSelectedItems() {
     });
     state.albumAssignments = nextAssignments;
     persistAlbumAssignments();
+    syncAlbumCovers();
     render();
     window.setTimeout(() => syncLiveMedia({ forceRender: true }), 600);
     void syncStorageSummary({ forceRender: true });
@@ -1394,7 +1505,7 @@ function buildCollectionSummaries(items) {
       return group.items.some((item) => matchesSearchQuery(item, query));
     })
     .map((group) => {
-      const coverItem = group.items[0] || null;
+      const { item: coverItem, isCustom } = findAlbumCoverItem(group.name, group.items);
       const locationSummary = summarizeLocations(group.items);
       const metaParts = [];
       if (coverItem?.displayTakenAt) {
@@ -1406,6 +1517,7 @@ function buildCollectionSummaries(items) {
       return {
         ...group,
         coverItem,
+        hasCustomCover: isCustom,
         itemCount: group.items.length,
         metaLine: metaParts.join(' · ') || 'Empty album'
       };
@@ -1429,6 +1541,13 @@ function getViewModel() {
   const activeAlbumName = getActiveAlbumName();
   const albumSelectionTarget = getAlbumSelectionTarget();
   const filteredItems = getFilteredItems();
+  const selectedItems = getSelectedItems();
+  const activeAlbumItems = activeAlbumName
+    ? getAllItems().filter((item) => normalizeAlbumKey(resolveCollectionAlbum(item)) === normalizeAlbumKey(activeAlbumName))
+    : [];
+  const activeAlbumCover = activeAlbumName
+    ? findAlbumCoverItem(activeAlbumName, activeAlbumItems)
+    : { item: null, isCustom: false };
   const allCollections = state.primaryFilter === 'Collections' && !activeAlbumName
     ? buildCollectionSummaries(getAllItems())
     : [];
@@ -1440,7 +1559,11 @@ function getViewModel() {
   const previewItems = filteredItems;
   const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
   const previewItem = previewIndex >= 0 ? previewItems[previewIndex] : null;
-  const selectedItems = getSelectedItems();
+  const canSetAlbumCover = Boolean(
+    activeAlbumName
+    && selectedItems.length === 1
+    && normalizeAlbumKey(resolveCollectionAlbum(selectedItems[0])) === normalizeAlbumKey(activeAlbumName)
+  );
 
   if (years.length && !years.some((year) => String(year) === String(state.activeYear))) {
     state.activeYear = years[0];
@@ -1452,6 +1575,9 @@ function getViewModel() {
       secondary: visibleSecondaryFilters
     },
     activeAlbumName,
+    activeAlbumCoverId: activeAlbumCover.item?.id || '',
+    activeAlbumCoverLabel: activeAlbumCover.item?.label || activeAlbumCover.item?.displayTakenAt || '',
+    hasCustomAlbumCover: activeAlbumCover.isCustom,
     albumSelectionTarget,
     isAlbumPickerMode,
     isCollectionRoot,
@@ -1464,6 +1590,7 @@ function getViewModel() {
     previewIndex,
     previewItem,
     availableAlbums: getAvailableAlbumNames(),
+    canSetAlbumCover,
     canDeleteSelection: selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item))
   };
 }
@@ -1498,7 +1625,11 @@ function render() {
     <div class="cml-app-shell">
       ${Sidebar({ navigationModel: viewModel.navigationModel, state, storageSummary: state.storageSummary })}
       <div class="cml-main-shell">
-        ${TopSearchBar({ state, canDeleteSelection: viewModel.canDeleteSelection })}
+        ${TopSearchBar({
+          state,
+          canDeleteSelection: viewModel.canDeleteSelection,
+          canSetAlbumCover: viewModel.canSetAlbumCover
+        })}
         <div class="cml-main-content-shell">
           <main class="cml-main-content" tabindex="-1">
             <div class="cml-main-content__inner">
@@ -1506,7 +1637,9 @@ function render() {
                 ? CollectionSummary({
                   activeAlbumName: viewModel.activeAlbumName,
                   collectionCount: viewModel.totalCollectionCount,
-                  itemCount: viewModel.filteredItems.length
+                  itemCount: viewModel.filteredItems.length,
+                  coverLabel: viewModel.activeAlbumCoverLabel,
+                  hasCustomCover: viewModel.hasCustomAlbumCover
                 })
                 : ''}
               ${SearchSummary({
@@ -1518,7 +1651,12 @@ function render() {
                   ? CollectionGrid({ collections: viewModel.collectionCards })
                   : EmptyState({ query: state.searchQuery.trim(), isLoading: state.isLibraryLoading, mode: 'collections' }))
                 : (viewModel.sections.length
-                  ? viewModel.sections.map((section) => MediaTimelineSection({ section, state, layoutWidth: state.layoutWidth })).join('')
+                  ? viewModel.sections.map((section) => MediaTimelineSection({
+                    section,
+                    state,
+                    layoutWidth: state.layoutWidth,
+                    coverItemId: viewModel.activeAlbumCoverId
+                  })).join('')
                   : EmptyState({
                     query: state.searchQuery.trim(),
                     isLoading: state.isLibraryLoading,
@@ -1589,6 +1727,10 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
     state.mediaItems = items;
     changed = true;
     void syncStorageSummary();
+  }
+
+  if (syncAlbumCovers(items.map((item) => applyAlbumOverride(item)))) {
+    changed = true;
   }
 
   const nextSelectedIds = new Set([...state.selectedIds].filter((id) => validIds.has(id)));
@@ -1872,6 +2014,9 @@ function handleAction(actionTarget) {
       if (actionTarget.dataset.albumName) {
         assignSelectionToAlbum(actionTarget.dataset.albumName);
       }
+      return true;
+    case 'set-album-cover':
+      setSelectedItemAsAlbumCover();
       return true;
     case 'delete-selected':
       void deleteSelectedItems();
