@@ -160,7 +160,8 @@ const state = {
   toastMessage: '',
   toastType: 'error',
   toastTimeoutId: 0,
-  infoOpen: false
+  infoOpen: false,
+  lastSelectedId: null
 };
 
 const refs = {
@@ -307,6 +308,66 @@ function setupPreviewTouchHandlers() {
       touchZoom.isPan = false;
     }
   }, { passive: true });
+}
+
+let yearScrollerDragActive = false;
+
+function setupYearScrollerDrag() {
+  if (!refs.root) {
+    return;
+  }
+  const scroller = refs.root.querySelector('.cml-year-scroller');
+  if (!scroller) {
+    return;
+  }
+
+  scroller.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) {
+      return;
+    }
+    yearScrollerDragActive = true;
+    scroller.setPointerCapture(e.pointerId);
+    scroller.style.cursor = 'grabbing';
+    hitYearButton(scroller, e.clientY);
+  });
+
+  scroller.addEventListener('pointermove', (e) => {
+    if (!yearScrollerDragActive) {
+      return;
+    }
+    hitYearButton(scroller, e.clientY);
+  });
+
+  const endDrag = () => {
+    if (!yearScrollerDragActive) {
+      return;
+    }
+    yearScrollerDragActive = false;
+    scroller.style.cursor = '';
+    render();
+  };
+
+  scroller.addEventListener('pointerup', endDrag);
+  scroller.addEventListener('pointercancel', endDrag);
+}
+
+function hitYearButton(scroller, clientY) {
+  const buttons = scroller.querySelectorAll('[data-year]');
+  let hit = null;
+  for (const btn of buttons) {
+    const rect = btn.getBoundingClientRect();
+    if (clientY >= rect.top && clientY <= rect.bottom) {
+      hit = btn;
+      break;
+    }
+  }
+  if (hit && hit.dataset.year !== state.activeYear) {
+    state.activeYear = hit.dataset.year;
+    scrollToYear(hit.dataset.year);
+    scroller.querySelectorAll('[data-year]').forEach(btn => {
+      btn.classList.toggle('is-active', btn.dataset.year === state.activeYear);
+    });
+  }
 }
 
 let storageSyncPromise = null;
@@ -1435,6 +1496,7 @@ function clearSelection({ shouldRender = true } = {}) {
     return;
   }
   state.selectedIds.clear();
+  state.lastSelectedId = null;
   if (shouldRender) {
     render();
   }
@@ -2116,6 +2178,7 @@ function render() {
 
   syncLayoutWidth();
   setupPreviewTouchHandlers();
+  setupYearScrollerDrag();
 }
 
 async function performSyncLiveMedia({ forceRender = false } = {}) {
@@ -2559,6 +2622,22 @@ function handleClick(event) {
       return;
     }
 
+    if (actionTarget.dataset.action === 'toggle-select' && actionTarget.dataset.id) {
+      if (event.shiftKey && state.lastSelectedId) {
+        const items = getFilteredItems();
+        const fromIdx = items.findIndex(item => item.id === state.lastSelectedId);
+        const toIdx = items.findIndex(item => item.id === actionTarget.dataset.id);
+        if (fromIdx >= 0 && toIdx >= 0) {
+          const lo = Math.min(fromIdx, toIdx);
+          const hi = Math.max(fromIdx, toIdx);
+          items.slice(lo, hi + 1).forEach(item => state.selectedIds.add(item.id));
+          render();
+          return;
+        }
+      }
+      state.lastSelectedId = actionTarget.dataset.id;
+    }
+
     if (handleAction(actionTarget)) {
       return;
     }
@@ -2643,7 +2722,18 @@ function handleKeyDown(event) {
       movePreview(1);
     } else if (event.key === 'ArrowLeft') {
       movePreview(-1);
+    } else if (event.key === 'f' || event.key === 'F') {
+      toggleFavorite(state.previewId);
+    } else if (event.key === 'i' || event.key === 'I') {
+      state.infoOpen = !state.infoOpen;
+      render();
     }
+    return;
+  }
+
+  if (event.key === 'Delete' && state.selectedIds.size > 0 && state.primaryFilter !== 'Bin') {
+    event.preventDefault();
+    requestDeleteSelection(false);
     return;
   }
 

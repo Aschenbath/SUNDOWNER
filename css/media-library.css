@@ -1468,3 +1468,10 @@ body.codex-media-library-active #app {
   will-change: transform;
   cursor: zoom-in;
 }
+
+/* ── YearScroller drag ─────────────────────────────────────────── */
+
+#codex-media-library-root .cml-year-scroller {
+  cursor: grab;
+  touch-action: none;
+}
