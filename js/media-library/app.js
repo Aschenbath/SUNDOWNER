@@ -196,13 +196,25 @@ function getAssignedAlbumName(item) {
   return key ? normalizeText(state.albumAssignments[key] || '') : '';
 }
 
+function getStoredCollectionAlbum(item) {
+  return normalizeText(item?.collectionAlbum || item?.tgAlbumPath || item?.metadataAlbum || '');
+}
+
+function resolveCollectionAlbum(item) {
+  return getAssignedAlbumName(item) || getStoredCollectionAlbum(item);
+}
+
 function resolveItemAlbum(item) {
-  return getAssignedAlbumName(item) || normalizeText(item?.album || '') || 'Library';
+  return resolveCollectionAlbum(item) || normalizeText(item?.album || '') || 'Library';
 }
 
 function applyAlbumOverride(item) {
   const album = resolveItemAlbum(item);
-  return album !== item.album ? { ...item, album } : item;
+  const collectionAlbum = resolveCollectionAlbum(item);
+  if (album !== item.album || collectionAlbum !== normalizeText(item?.collectionAlbum || '')) {
+    return { ...item, album, collectionAlbum };
+  }
+  return item;
 }
 
 function getAvailableAlbumNames() {
@@ -219,7 +231,7 @@ function getAvailableAlbumNames() {
   };
 
   state.albumNames.forEach(pushAlbum);
-  state.mediaItems.forEach((item) => pushAlbum(resolveItemAlbum(item)));
+  state.mediaItems.forEach((item) => pushAlbum(resolveCollectionAlbum(item)));
   Object.values(state.albumAssignments).forEach(pushAlbum);
   return names;
 }
@@ -789,6 +801,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     day: dateParts.day,
     monthLabel: dateParts.monthLabel,
     album: inferAlbumFromFileId(fileId, metadata),
+    collectionAlbum: normalizeText(metadata.TgAlbumPath || metadata.Album || ''),
     tags,
     location: inferLocationFromMetadata(metadata, domMatch),
     favorite: false,
@@ -1225,7 +1238,7 @@ function getVisibleSecondaryFilters(items) {
     return [];
   }
 
-  const browseableItems = items.filter((item) => !normalizeText(item.album));
+  const browseableItems = items.filter((item) => !resolveCollectionAlbum(item));
   if (!browseableItems.length && !state.secondaryFilter) {
     return [];
   }
@@ -1251,7 +1264,7 @@ function getFilteredItems() {
   const albumSelectionTarget = getAlbumSelectionTarget();
 
   return items.filter((item) => {
-    const albumName = normalizeText(item.album);
+    const albumName = resolveCollectionAlbum(item);
 
     if (state.primaryFilter === 'Updates') {
       const diffDays = Math.floor((now.getTime() - new Date(item.takenAt).getTime()) / 86400000);
@@ -1364,7 +1377,7 @@ function buildCollectionSummaries(items) {
 
   state.albumNames.forEach((albumName) => ensureGroup(albumName));
   items.forEach((item) => {
-    const group = ensureGroup(item.album);
+    const group = ensureGroup(resolveCollectionAlbum(item));
     if (group) {
       group.items.push(item);
     }
