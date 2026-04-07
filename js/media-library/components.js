@@ -186,7 +186,12 @@ function renderMediaAsset(item, className, withControls = false) {
   return `<img class="${className}" src="${mediaUrl}" alt="${alt}" loading="lazy" decoding="async" />`;
 }
 
-export function StorageCard(storage) {
+function formatItemCount(count) {
+  const numeric = Math.max(0, Number(count) || 0);
+  return `${numeric} item${numeric === 1 ? '' : 's'}`;
+}
+
+export function StorageCard(storage, isActive = false) {
   const usedMb = Math.max(0, Number(storage?.usedMb) || 0);
   const totalQuotaGb = Math.max(0, Number(storage?.totalQuotaGb) || 0);
   const totalCount = Math.max(0, Number(storage?.totalCount) || 0);
@@ -199,10 +204,15 @@ export function StorageCard(storage) {
     ? `${formatStorageAmountFromMb(usedMb)} of ${formatStorageAmountFromGb(totalQuotaGb)} used`
     : (isLoading ? 'Calculating...' : `${formatStorageAmountFromMb(usedMb)} indexed`);
   return `
-    <div class="cml-storage-strip" aria-label="Storage usage">
+    <button type="button" class="cml-storage-strip ${isActive ? 'is-active' : ''}" data-action="open-storage-panel" aria-label="Storage usage" aria-pressed="${isActive}">
+      <span class="cml-storage-strip__heading">
+        ${icon('cloud')}
+        <span>Storage</span>
+      </span>
       <div class="cml-storage-strip__meter" aria-hidden="true"><span style="width:${usedRatio}%"></span></div>
       <p class="cml-storage-strip__text">${usageLine}</p>
-    </div>
+      <p class="cml-storage-strip__meta">${formatItemCount(totalCount)}</p>
+    </button>
   `;
 }
 
@@ -247,11 +257,7 @@ export function Sidebar({ navigationModel, state, storageSummary, searchQuery = 
         </div>
       ` : ''}
       <div class="cml-sidebar__footer">
-        ${StorageCard(storageSummary)}
-        <button type="button" class="cml-sidebar__admin-link" data-action="open-admin-dashboard">
-          ${icon('settings')}
-          <span>Admin</span>
-        </button>
+        ${StorageCard(storageSummary, Boolean(state.storagePanelOpen))}
         <div class="cml-sidebar__legal">privacy · terms of service</div>
       </div>
     </aside>
@@ -730,7 +736,27 @@ export function SearchSummary({ query, resultCount }) {
   `;
 }
 
-export function BinGrid({ items, binSelectedIds, isBinLoading }) {
+function BinMediaTile({ item, selected, layout }) {
+  const urgency = item.daysLeft <= 7 ? 'is-urgent' : item.daysLeft <= 14 ? 'is-warning' : '';
+  const daysLabel = item.daysLeft === 1 ? '1 day left' : `${item.daysLeft} days left`;
+  const style = `width:${layout.width}px;height:${layout.height}px;`;
+  return `
+    <article class="cml-media-tile cml-bin-media-tile ${selected ? 'is-selected' : ''}" style="${style}" aria-label="${escapeHtml(item.label)}">
+      <button type="button" class="cml-media-tile__select" data-action="toggle-bin-select" data-bin-id="${escapeHtml(item.id)}" aria-label="Select ${escapeHtml(item.label)}">
+        ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
+      </button>
+      ${renderMediaAsset(item, 'cml-media-tile__image')}
+      <div class="cml-media-tile__scrim"></div>
+      ${item.type === 'video' ? `<span class="cml-media-tile__video-badge" aria-hidden="true">${icon('play')}</span>` : ''}
+      <div class="cml-bin-media-tile__meta">
+        <span class="cml-bin-media-tile__name" title="${escapeHtml(item.label)}">${escapeHtml(item.label)}</span>
+        <span class="cml-bin-media-tile__expiry ${urgency}">${escapeHtml(daysLabel)}</span>
+      </div>
+    </article>
+  `;
+}
+
+export function BinGrid({ items, binSelectedIds, isBinLoading, layoutWidth }) {
   const selectedCount = binSelectedIds.size;
   const hasItems = items.length > 0;
 
@@ -759,35 +785,30 @@ export function BinGrid({ items, binSelectedIds, isBinLoading }) {
       `
       : `
         <div class="cml-bin-grid">
-          ${items.map((item) => {
-            const selected = binSelectedIds.has(item.id);
-            const urgency = item.daysLeft <= 7 ? 'is-urgent' : item.daysLeft <= 14 ? 'is-warning' : '';
-            const daysLabel = item.daysLeft === 1 ? '1 day left' : `${item.daysLeft} days left`;
-            return `
-              <div class="cml-bin-tile ${selected ? 'is-selected' : ''}" data-bin-id="${escapeHtml(item.id)}">
-                <label class="cml-bin-tile__thumb-wrap">
-                  <input type="checkbox" class="cml-bin-tile__checkbox" data-action="toggle-bin-select" data-bin-id="${escapeHtml(item.id)}" ${selected ? 'checked' : ''} aria-label="Select ${escapeHtml(item.label)}" />
-                  ${renderMediaAsset(item, 'cml-bin-tile__image')}
-                  ${item.type === 'video' ? `<span class="cml-media-tile__video-badge" aria-hidden="true">${icon('play')}</span>` : ''}
-                  <span class="cml-bin-tile__expiry ${urgency}">${escapeHtml(daysLabel)}</span>
-                </label>
-                <div class="cml-bin-tile__info">
-                  <span class="cml-bin-tile__name" title="${escapeHtml(item.label)}">${escapeHtml(item.label)}</span>
-                </div>
-              </div>
-            `;
-          }).join('')}
+          ${buildJustifiedRows(items, {
+            containerWidth: layoutWidth,
+            denseGrid: false
+          }).map((row) => `
+            <div class="cml-media-row">
+              ${row.items.map((layout) => BinMediaTile({
+                item: layout.item,
+                selected: binSelectedIds.has(layout.item.id),
+                layout
+              })).join('')}
+            </div>
+          `).join('')}
         </div>
       `;
 
   return `
     <div class="cml-bin-view">
       <header class="cml-bin-view__header">
-        <div class="cml-bin-view__meta">
+        <div class="cml-bin-view__meta cml-view-summary">
+          <p class="cml-view-summary__eyebrow">Recycle bin</p>
           ${selectedCount > 0
-            ? `<strong>${selectedCount} selected</strong>`
+            ? `<h2 class="cml-view-summary__title">${selectedCount} selected</h2><p class="cml-view-summary__copy">Restore or permanently delete the selected items.</p>`
             : hasItems
-              ? `<span>${items.length} item${items.length === 1 ? '' : 's'} in bin</span>`
+              ? `<h2 class="cml-view-summary__title">${items.length} item${items.length === 1 ? '' : 's'} in bin</h2><p class="cml-view-summary__copy">Deleted items stay here for up to 45 days before permanent removal.</p>`
               : ''}
         </div>
         <div class="cml-bin-view__actions">${headerActions}</div>
@@ -924,8 +945,10 @@ export function AdminPanel({ state, storageSummary }) {
         </label>
       </div>
       ${statusHtml}
-      <div class="cml-admin-panel__footer-actions">
-        <button type="button" class="cml-admin-panel__primary" data-action="save-admin-account" ${state.adminPanelBusy ? 'disabled' : ''}>${icon('save')}<span>${state.adminPanelBusy ? 'Saving...' : 'Save account'}</span></button>
+      <div class="cml-admin-panel__section-footer">
+        <div class="cml-admin-panel__footer-actions">
+          <button type="button" class="cml-admin-panel__primary" data-action="save-admin-account" ${state.adminPanelBusy ? 'disabled' : ''}>${icon('save')}<span>${state.adminPanelBusy ? 'Saving...' : 'Save account'}</span></button>
+        </div>
       </div>
     </section>
   `;
@@ -964,8 +987,10 @@ export function AdminPanel({ state, storageSummary }) {
         </label>
       </div>
       ${statusHtml}
-      <div class="cml-admin-panel__footer-actions">
-        <button type="button" class="cml-admin-panel__primary" data-action="save-admin-site" ${state.adminPanelBusy ? 'disabled' : ''}>${icon('save')}<span>${state.adminPanelBusy ? 'Saving...' : 'Save site settings'}</span></button>
+      <div class="cml-admin-panel__section-footer">
+        <div class="cml-admin-panel__footer-actions">
+          <button type="button" class="cml-admin-panel__primary" data-action="save-admin-site" ${state.adminPanelBusy ? 'disabled' : ''}>${icon('save')}<span>${state.adminPanelBusy ? 'Saving...' : 'Save site settings'}</span></button>
+        </div>
       </div>
     </section>
   `;
@@ -976,6 +1001,7 @@ export function AdminPanel({ state, storageSummary }) {
         <p class="cml-admin-panel__eyebrow">Cloud operations</p>
         <h3 class="cml-admin-panel__section-title">Service controls</h3>
         <p class="cml-admin-panel__copy">Review current usage and tune the public access surfaces exposed by this cloud disk.</p>
+        <button type="button" class="cml-admin-panel__inline-link" data-action="open-native-dashboard">Open original dashboard</button>
       </div>
       <div class="cml-admin-panel__stats">
         <article class="cml-admin-panel__stat-card">
@@ -1012,9 +1038,10 @@ export function AdminPanel({ state, storageSummary }) {
         </label>
       </div>
       ${statusHtml}
-      <div class="cml-admin-panel__footer-actions">
-        <button type="button" class="cml-admin-panel__primary" data-action="save-admin-cloud" ${state.adminPanelBusy ? 'disabled' : ''}>${icon('save')}<span>${state.adminPanelBusy ? 'Saving...' : 'Save cloud settings'}</span></button>
-        <button type="button" class="cml-admin-panel__ghost" data-action="open-native-dashboard">Open original dashboard</button>
+      <div class="cml-admin-panel__section-footer">
+        <div class="cml-admin-panel__footer-actions">
+          <button type="button" class="cml-admin-panel__primary" data-action="save-admin-cloud" ${state.adminPanelBusy ? 'disabled' : ''}>${icon('save')}<span>${state.adminPanelBusy ? 'Saving...' : 'Save cloud settings'}</span></button>
+        </div>
       </div>
     </section>
   `;
@@ -1050,6 +1077,54 @@ export function AdminPanel({ state, storageSummary }) {
           <div class="cml-admin-panel__content">
             ${panelBody}
           </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+export function StoragePanel({ state, insights }) {
+  if (!state.storagePanelOpen) {
+    return '';
+  }
+
+  return `
+    <div class="cml-dialog cml-storage-panel" role="dialog" aria-modal="true" aria-labelledby="cml-storage-panel-title">
+      <div class="cml-dialog__backdrop" data-action="close-storage-panel"></div>
+      <div class="cml-dialog__panel cml-storage-panel__panel">
+        <div class="cml-dialog__header">
+          <div>
+            <h2 class="cml-dialog__title" id="cml-storage-panel-title">Review and delete</h2>
+            <p class="cml-dialog__copy">A Google-Photos-style storage summary for the current library and recycle bin.</p>
+          </div>
+          <button type="button" class="cml-dialog__close" data-action="close-storage-panel" aria-label="Close">${icon('close')}</button>
+        </div>
+        <div class="cml-storage-panel__summary">
+          <div class="cml-storage-panel__summary-card">
+            <span class="cml-storage-panel__summary-label">Used storage</span>
+            <strong class="cml-storage-panel__summary-value">${escapeHtml(insights.totalUsageLabel)}</strong>
+            <span class="cml-storage-panel__summary-meta">${escapeHtml(insights.quotaLabel)}</span>
+          </div>
+          <div class="cml-storage-panel__summary-card">
+            <span class="cml-storage-panel__summary-label">Indexed items</span>
+            <strong class="cml-storage-panel__summary-value">${escapeHtml(String(insights.totalCount))}</strong>
+            <span class="cml-storage-panel__summary-meta">${escapeHtml(insights.totalCountLabel)}</span>
+          </div>
+        </div>
+        <div class="cml-storage-panel__list">
+          ${insights.categories.map((entry) => `
+            <div class="cml-storage-panel__row">
+              <div class="cml-storage-panel__icon">${icon(entry.iconName)}</div>
+              <div class="cml-storage-panel__body">
+                <strong class="cml-storage-panel__row-title">${escapeHtml(entry.title)}</strong>
+                <span class="cml-storage-panel__row-copy">${escapeHtml(entry.copy)}</span>
+              </div>
+              <div class="cml-storage-panel__metric">
+                <strong>${escapeHtml(entry.sizeLabel)}</strong>
+                <span>${escapeHtml(entry.countLabel)}</span>
+              </div>
+            </div>
+          `).join('')}
         </div>
       </div>
     </div>

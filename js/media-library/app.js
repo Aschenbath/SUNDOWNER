@@ -12,6 +12,7 @@ import {
   PreviewModal,
   SearchSummary,
   Sidebar,
+  StoragePanel,
   TopSearchBar,
   YearScroller
 } from './components.js';
@@ -214,7 +215,8 @@ const state = {
   adminPageDraft: createEmptyAdminPageDraft(),
   adminCloudDraft: createEmptyAdminCloudDraft(),
   adminPageConfigSource: [],
-  adminOthersConfigSource: null
+  adminOthersConfigSource: null,
+  storagePanelOpen: false
 };
 
 const refs = {
@@ -518,6 +520,98 @@ function normalizeText(value) {
 
 function toBoolean(value) {
   return value === true || value === 'true' || value === 1;
+}
+
+function formatStorageLabel(valueMb) {
+  const numeric = Math.max(0, Number(valueMb) || 0);
+  if (numeric >= 1024 * 1024) {
+    return `${(numeric / (1024 * 1024)).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')} TB`;
+  }
+  if (numeric >= 1024) {
+    return `${(numeric / 1024).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')} GB`;
+  }
+  return `${numeric.toFixed(numeric >= 100 ? 0 : numeric >= 10 ? 1 : 2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')} MB`;
+}
+
+function formatQuotaSummary(totalQuotaGb) {
+  const numeric = Math.max(0, Number(totalQuotaGb) || 0);
+  if (!numeric) {
+    return 'No quota limit configured';
+  }
+  if (numeric >= 1024) {
+    return `${(numeric / 1024).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')} TB total quota`;
+  }
+  return `${numeric.toFixed(numeric >= 100 ? 0 : numeric >= 10 ? 1 : 2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')} GB total quota`;
+}
+
+function itemCountLabel(count) {
+  const numeric = Math.max(0, Number(count) || 0);
+  return `${numeric} item${numeric === 1 ? '' : 's'}`;
+}
+
+function buildStorageInsights() {
+  const liveItems = safeArray(state.mediaItems);
+  const binItems = safeArray(state.binItems);
+  const totalUsedMb = Math.max(0, Number(state.storageSummary?.usedMb) || 0);
+  const totalQuotaGb = Math.max(0, Number(state.storageSummary?.totalQuotaGb) || 0);
+  const liveCount = liveItems.length;
+  const binCount = binItems.length;
+  const totalCount = liveCount + binCount;
+  const allItems = [...liveItems, ...binItems];
+
+  const sumSizeMb = (items) => items.reduce((sum, item) => sum + Math.max(0, Number(item?.sizeMb) || 0), 0);
+  const totalKnownMb = sumSizeMb(allItems);
+  const estimateSizeMb = (items) => {
+    const knownMb = sumSizeMb(items);
+    if (knownMb > 0 || !totalKnownMb || !totalUsedMb || !items.length || !totalCount) {
+      return knownMb;
+    }
+    return (totalUsedMb * items.length) / totalCount;
+  };
+
+  const categories = [
+    {
+      title: 'Large photos and videos',
+      copy: 'Items above 25 MB that are taking the most room.',
+      iconName: 'photos',
+      items: allItems.filter((item) => Math.max(0, Number(item?.sizeMb) || 0) >= 25)
+    },
+    {
+      title: 'Videos',
+      copy: 'Video files usually account for the largest storage share.',
+      iconName: 'play',
+      items: allItems.filter((item) => item?.type === 'video')
+    },
+    {
+      title: 'Documents',
+      copy: 'Document-like captures and scans currently in the library.',
+      iconName: 'documents',
+      items: allItems.filter((item) => item?.isDocumentLike)
+    },
+    {
+      title: 'Recycle bin',
+      copy: 'Deleted items that still occupy cloud storage until expiry.',
+      iconName: 'trash',
+      items: binItems
+    }
+  ].map((entry) => {
+    const sizeMb = estimateSizeMb(entry.items);
+    return {
+      iconName: entry.iconName,
+      title: entry.title,
+      copy: entry.copy,
+      sizeLabel: entry.items.length ? formatStorageLabel(sizeMb) : '0 MB',
+      countLabel: itemCountLabel(entry.items.length)
+    };
+  });
+
+  return {
+    totalUsageLabel: formatStorageLabel(totalUsedMb),
+    quotaLabel: formatQuotaSummary(totalQuotaGb),
+    totalCount,
+    totalCountLabel: `${itemCountLabel(totalCount)} across library and bin`,
+    categories
+  };
 }
 
 function getPageConfigValue(config, id) {
@@ -1044,6 +1138,7 @@ function extractLiveMediaItems() {
       favorite: false,
       personLabels: [],
       label: fileLabel,
+      sizeMb: 0,
       isDocumentLike: DOCUMENT_HINT_PATTERN.test(`${src} ${fileLabel}`),
       sortOrder: Date.parse(dateParts.takenAt),
       domIndex
@@ -1268,6 +1363,7 @@ async function performLogout() {
   state.adminAvatarData = '';
   state.avatarMenuOpen = false;
   state.adminPanelOpen = false;
+  state.storagePanelOpen = false;
   state.adminPanelError = '';
   state.adminPanelBusy = false;
   state.adminProfileDraft = createEmptyAdminProfileDraft();
@@ -1409,6 +1505,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     favorite: false,
     personLabels: safeArray(metadata.PersonLabels).map(normalizeText).filter(Boolean),
     label,
+    sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
     isDocumentLike: isDocumentLikeSource(fileId, fileName, tags),
     sortOrder: timestamp,
     domIndex: index
@@ -1538,8 +1635,10 @@ function buildBinItem(record) {
     type,
     width: toPositiveNumber(metadata.Width, type === 'video' ? 1280 : 1200),
     height: toPositiveNumber(metadata.Height, type === 'video' ? 720 : 900),
+    sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
     daysLeft: Math.max(0, Number(record.daysLeft) || 0),
-    deletedAt: Number(record.deletedAt) || 0
+    deletedAt: Number(record.deletedAt) || 0,
+    isDocumentLike: DOCUMENT_HINT_PATTERN.test(`${fileId} ${fileName}`)
   };
 }
 
@@ -1899,6 +1998,7 @@ function dismissToast() {
 
 function openAdminPanel(tab = 'account') {
   state.avatarMenuOpen = false;
+  state.storagePanelOpen = false;
   state.adminPanelOpen = true;
   state.adminPanelTab = normalizeText(tab) || 'account';
   state.adminPanelError = '';
@@ -1913,6 +2013,16 @@ function closeAdminPanel() {
   state.adminPanelOpen = false;
   state.adminPanelError = '';
   resetAdminPasswordDraft();
+  render();
+}
+
+function toggleStoragePanel(forceOpen = null) {
+  const nextOpen = typeof forceOpen === 'boolean' ? forceOpen : !state.storagePanelOpen;
+  if (nextOpen) {
+    state.avatarMenuOpen = false;
+    state.adminPanelOpen = false;
+  }
+  state.storagePanelOpen = nextOpen;
   render();
 }
 
@@ -2588,6 +2698,7 @@ function render() {
   const searchWasFocused = document.activeElement instanceof HTMLInputElement
     && document.activeElement.classList.contains('cml-topbar__search-input');
   const viewModel = getViewModel();
+  const storageInsights = buildStorageInsights();
 
   refs.root.innerHTML = `
     <div class="cml-app-shell">
@@ -2602,7 +2713,12 @@ function render() {
           <main class="cml-main-content" tabindex="-1">
             <div class="cml-main-content__inner">
               ${state.primaryFilter === 'Bin'
-                ? BinGrid({ items: viewModel.binItems, binSelectedIds: viewModel.binSelectedIds, isBinLoading: viewModel.isBinLoading })
+                ? BinGrid({
+                  items: viewModel.binItems,
+                  binSelectedIds: viewModel.binSelectedIds,
+                  isBinLoading: viewModel.isBinLoading,
+                  layoutWidth: state.layoutWidth
+                })
                 : `${state.primaryFilter === 'Collections'
                   ? CollectionSummary({
                     activeAlbumName: viewModel.activeAlbumName,
@@ -2648,6 +2764,7 @@ function render() {
         infoOpen: state.infoOpen
       })}
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
+      ${StoragePanel({ state, insights: storageInsights })}
       ${AlbumDialog({ state, albums: viewModel.availableAlbums })}
       ${ConfirmDialog({ state })}
       ${state.toastMessage ? `
@@ -3105,6 +3222,12 @@ function handleAction(actionTarget) {
     case 'open-admin-dashboard':
       openAdminPanel('account');
       return true;
+    case 'open-storage-panel':
+      toggleStoragePanel();
+      return true;
+    case 'close-storage-panel':
+      toggleStoragePanel(false);
+      return true;
     case 'close-admin-panel':
       closeAdminPanel();
       return true;
@@ -3172,6 +3295,7 @@ function handleClick(event) {
 
     if (actionTarget.dataset.primary) {
       state.primaryFilter = actionTarget.dataset.primary;
+      state.storagePanelOpen = false;
       state.secondaryFilter = '';
       state.activeAlbumName = '';
       state.albumSelectionTarget = '';
@@ -3189,6 +3313,7 @@ function handleClick(event) {
 
     if (actionTarget.dataset.secondary) {
       state.secondaryFilter = actionTarget.dataset.secondary === state.secondaryFilter ? '' : actionTarget.dataset.secondary;
+      state.storagePanelOpen = false;
       state.activeAlbumName = '';
       state.albumSelectionTarget = '';
       state.previewId = null;
@@ -3309,6 +3434,13 @@ function handleKeyDown(event) {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault();
     focusSearchInput();
+    return;
+  }
+
+  if (state.storagePanelOpen) {
+    if (event.key === 'Escape') {
+      toggleStoragePanel(false);
+    }
     return;
   }
 
