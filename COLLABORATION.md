@@ -14,14 +14,14 @@
 | 2026-04-07 10:02 | CSS cache bust + dashboard skip-mount flag | Added `?v=2` cache busting to the `media-library.css` link in `index.html`, and switched admin-dashboard bypass from `?cmlNative=1` URL state to a one-shot `sessionStorage` flag so Vue router URL cleanup no longer remounts the overlay on top of `/dashboard`. |
 | 2026-04-07 10:09 | Login URL credential leak hardening | Hardened the media-library login overlay so credentials no longer fall back to a native GET submit: the form now falls back to `POST`, the sign-in button no longer uses `type="submit"`, and the delegated login submit handler now intercepts in capture phase while the button click path also prevents default submission. |
 
-| 2026-04-07 11:25 | Codex | Security audit found 4 open issues: SSRF in /api/fetchRes, authCode URL/Referer auth leakage, reversible admin_auth cookie credentials, per-file persisted backend secrets in metadata. | No code changes yet; findings only. |
+| 2026-04-07 11:25 | Claude Code | Security audit found 4 open issues: SSRF in /api/fetchRes, authCode URL/Referer auth leakage, reversible admin_auth cookie credentials, per-file persisted backend secrets in metadata. | No code changes yet; findings only. |
 
 ## Current Phase Direction
 
 ### Architecture Constraints
 
 - The upstream main app UI is a precompiled Vue bundle under `js/*.js`, not editable source. Direct UI changes to the original dashboard are effectively blocked without recovering or forking the upstream Vue source from `MarSeventh/CloudFlare-ImgBed`.
-- The current controllable UI surface is the media-library overlay plus CSS overrides. Future UI work should assume Codex can reliably change `js/media-library/*`, `css/media-library.css`, `css/ui-overrides.css`, and `js/ui-overrides.js`, but not the compiled Vue internals.
+- The current controllable UI surface is the media-library overlay plus CSS overrides. Future UI work should assume the coding agent can reliably change `js/media-library/*`, `css/media-library.css`, `css/ui-overrides.css`, and `js/ui-overrides.js`, but not the compiled Vue internals.
 - The current media-library runs as an overlay layered above `#app` with fixed positioning and very high z-index. This architecture is inherently fragile because two UI trees coexist and can conflict.
 - Preferred long-term direction: either fork and modify the real Vue source, or evolve the media-library into a full replacement shell that truly takes over the UI instead of remaining a visual overlay.
 
@@ -45,9 +45,9 @@
 - The current dark/moody palette is not the Google Photos target. Preferred direction is simpler, flatter, more minimal color treatment.
 - Sidebar width should be reduced toward a compact icon rail with optional expansion rather than a permanently wide column.
 - Card radii should be tightened; overly large radii make dense photo grids feel loose and unlike Google Photos.
-- When asking Codex for UI changes, prefer concrete CSS values and component-scoped requests instead of broad visual goals.
+- When asking Claude Code for UI changes, prefer concrete CSS values and component-scoped requests instead of broad visual goals.
 
-### Codex Collaboration Rules For This Phase
+### Claude Code Collaboration Rules For This Phase
 
 - Change one component at a time.
 - Prefer CSS-first refinement before adding new JS interaction layers.
