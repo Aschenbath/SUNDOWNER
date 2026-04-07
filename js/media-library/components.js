@@ -243,10 +243,6 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
       ` : ''}
       <div class="cml-sidebar__footer">
         ${StorageCard(storageSummary)}
-        <button type="button" class="cml-sidebar__logout-btn" data-action="logout" title="Sign out">
-          <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="m16 17 5-5-5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          Sign out
-        </button>
       </div>
     </aside>
   `;
@@ -264,10 +260,10 @@ function AvatarButton({ adminUsername = '', avatarMenuOpen = false }) {
         </div>
       </div>
       <div class="cml-avatar-menu__divider"></div>
-      <a class="cml-avatar-menu__item" href="/dashboard" data-action="close-avatar-menu" role="menuitem">
+      <button type="button" class="cml-avatar-menu__item" data-action="open-admin-dashboard" role="menuitem">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="9 22 9 12 15 12 15 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Admin dashboard
-      </a>
+      </button>
       <div class="cml-avatar-menu__divider"></div>
       <button type="button" class="cml-avatar-menu__item cml-avatar-menu__item--danger" data-action="logout" role="menuitem">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="m16 17 5-5-5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -784,7 +780,7 @@ export function LoginOverlay({ error = '', isLoading = false } = {}) {
   const logoSvg = `<svg class="cml-login__logo" viewBox="0 0 40 40" fill="none" aria-hidden="true">
     <circle cx="20" cy="20" r="18" stroke="#8ab4f8" stroke-width="1.6"/>
     <path d="M10 26 Q20 10 30 26" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" fill="none"/>
-    <circle cx="20" cy="20" r="3.5" fill="#c2b280"/>
+    <circle cx="20" cy="20" r="3.5" fill="#8ab4f8"/>
   </svg>`;
 
   const errorHtml = error

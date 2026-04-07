@@ -341,6 +341,8 @@ function setupImageLoadAnimations() {
       return;
     }
     if (img.complete && img.naturalWidth > 0) {
+      // Skip fade-in for already-cached images (avoids flash on every render)
+      img.style.transition = 'none';
       tile.classList.add('is-img-loaded');
       return;
     }
@@ -2721,9 +2723,9 @@ function handleAction(actionTarget) {
       state.avatarMenuOpen = !state.avatarMenuOpen;
       render();
       return true;
-    case 'close-avatar-menu':
+    case 'open-admin-dashboard':
       state.avatarMenuOpen = false;
-      render();
+      window.location.assign('/dashboard?cmlNative=1');
       return true;
     case 'submit-login':
       void submitLogin();
