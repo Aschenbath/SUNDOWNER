@@ -449,52 +449,35 @@ function snapshotRect(element) {
 }
 
 function animatePreviewOpenFromTile() {
-  if (!refs.root || !state.previewTransitionRect || previewTransitionInFlight) {
-    state.previewTransitionRect = null;
+  if (!refs.root || previewTransitionInFlight) {
     return;
   }
-  const stage = refs.root.querySelector('.cml-preview__stage');
+  const panel = refs.root.querySelector('.cml-preview__panel');
   const backdrop = refs.root.querySelector('.cml-preview__backdrop');
-  if (!(stage instanceof HTMLElement) || typeof stage.animate !== 'function') {
-    state.previewTransitionRect = null;
-    return;
-  }
-
-  const fromRect = state.previewTransitionRect;
-  const toRect = stage.getBoundingClientRect();
-  if (!toRect.width || !toRect.height) {
-    state.previewTransitionRect = null;
+  if (!(panel instanceof HTMLElement) || typeof panel.animate !== 'function') {
     return;
   }
 
   previewTransitionInFlight = true;
-  const deltaX = fromRect.left - toRect.left;
-  const deltaY = fromRect.top - toRect.top;
-  const scaleX = fromRect.width / toRect.width;
-  const scaleY = fromRect.height / toRect.height;
 
   backdrop?.animate?.(
     [{ opacity: 0 }, { opacity: 1 }],
-    { duration: 220, easing: 'ease-out', fill: 'both' }
+    { duration: 150, easing: 'ease-out', fill: 'both' }
   );
-  const animation = stage.animate(
+  const animation = panel.animate(
     [
       {
-        transformOrigin: 'top left',
-        transform: `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`,
-        borderRadius: '8px',
-        opacity: 0.84
+        transform: 'translateY(16px) scale(0.985)',
+        opacity: 0
       },
       {
-        transformOrigin: 'top left',
-        transform: 'translate(0px, 0px) scale(1, 1)',
-        borderRadius: '20px',
+        transform: 'translateY(0px) scale(1)',
         opacity: 1
       }
     ],
     {
-      duration: 260,
-      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      duration: 180,
+      easing: 'cubic-bezier(0.2, 0.9, 0.2, 1)',
       fill: 'both'
     }
   );
@@ -503,7 +486,6 @@ function animatePreviewOpenFromTile() {
     .catch(() => {})
     .finally(() => {
       previewTransitionInFlight = false;
-      state.previewTransitionRect = null;
     });
 }
 
@@ -515,51 +497,33 @@ function animatePreviewCloseToTile(onComplete) {
     onComplete();
     return;
   }
-  const stage = refs.root.querySelector('.cml-preview__stage');
+  const panel = refs.root.querySelector('.cml-preview__panel');
   const backdrop = refs.root.querySelector('.cml-preview__backdrop');
-  const sourceTile = state.previewId
-    ? refs.root.querySelector(`.cml-media-tile[data-tile-id="${state.previewId}"]`)
-    : null;
-  if (!(stage instanceof HTMLElement) || !(sourceTile instanceof HTMLElement) || typeof stage.animate !== 'function') {
-    onComplete();
-    return;
-  }
-
-  const fromRect = stage.getBoundingClientRect();
-  const toRect = sourceTile.getBoundingClientRect();
-  if (!fromRect.width || !fromRect.height || !toRect.width || !toRect.height) {
+  if (!(panel instanceof HTMLElement) || typeof panel.animate !== 'function') {
     onComplete();
     return;
   }
 
   previewTransitionInFlight = true;
-  const deltaX = toRect.left - fromRect.left;
-  const deltaY = toRect.top - fromRect.top;
-  const scaleX = toRect.width / fromRect.width;
-  const scaleY = toRect.height / fromRect.height;
 
   backdrop?.animate?.(
     [{ opacity: 1 }, { opacity: 0 }],
-    { duration: 180, easing: 'ease-in', fill: 'both' }
+    { duration: 120, easing: 'ease-in', fill: 'both' }
   );
-  const animation = stage.animate(
+  const animation = panel.animate(
     [
       {
-        transformOrigin: 'top left',
-        transform: 'translate(0px, 0px) scale(1, 1)',
-        borderRadius: '20px',
+        transform: 'translateY(0px) scale(1)',
         opacity: 1
       },
       {
-        transformOrigin: 'top left',
-        transform: `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`,
-        borderRadius: '8px',
-        opacity: 0.84
+        transform: 'translateY(14px) scale(0.985)',
+        opacity: 0
       }
     ],
     {
-      duration: 220,
-      easing: 'cubic-bezier(0.4, 0, 1, 1)',
+      duration: 140,
+      easing: 'ease-in',
       fill: 'both'
     }
   );
@@ -570,6 +534,41 @@ function animatePreviewCloseToTile(onComplete) {
       previewTransitionInFlight = false;
       onComplete();
     });
+}
+
+function setPreviewInfoOpen(isOpen, { allowRenderFallback = true } = {}) {
+  const nextOpen = Boolean(isOpen);
+  state.infoOpen = nextOpen;
+  if (!refs.root) {
+    if (allowRenderFallback) {
+      render();
+    }
+    return;
+  }
+  const preview = refs.root.querySelector('.cml-preview');
+  const infoPanel = refs.root.querySelector('.cml-preview__info');
+  const toggleButton = refs.root.querySelector('.cml-preview__chip[data-action="toggle-info"]');
+  const toggleLabels = refs.root.querySelectorAll('[data-info-toggle-label]');
+  const infoBackButton = refs.root.querySelector('.cml-preview__info-back');
+
+  if (!(preview instanceof HTMLElement) || !(infoPanel instanceof HTMLElement) || !(toggleButton instanceof HTMLElement)) {
+    if (allowRenderFallback) {
+      render();
+    }
+    return;
+  }
+
+  preview.classList.toggle('has-info', nextOpen);
+  infoPanel.classList.toggle('is-open', nextOpen);
+  infoPanel.setAttribute('aria-hidden', nextOpen ? 'false' : 'true');
+  toggleButton.classList.toggle('is-selected', nextOpen);
+  toggleButton.setAttribute('aria-label', nextOpen ? 'Hide details' : 'Show details');
+  if (infoBackButton instanceof HTMLElement) {
+    infoBackButton.setAttribute('aria-label', nextOpen ? 'Back to photo' : 'Open details');
+  }
+  toggleLabels.forEach((node) => {
+    node.textContent = nextOpen ? 'Hide details' : 'Show details';
+  });
 }
 
 let yearScrollerDragActive = false;
@@ -3277,7 +3276,7 @@ function openPreview(itemId) {
     : null;
   state.previewId = itemId;
   state.previewTransitionRect = snapshotRect(sourceTile);
-  state.infoOpen = window.innerWidth > 1120;
+  state.infoOpen = false;
   touchZoom.currentScale = 1;
   touchZoom.tx = 0;
   touchZoom.ty = 0;
@@ -3564,8 +3563,7 @@ function handleAction(actionTarget) {
       closeConfirmDialog();
       return true;
     case 'toggle-info':
-      state.infoOpen = !state.infoOpen;
-      render();
+      setPreviewInfoOpen(!state.infoOpen);
       return true;
     case 'toggle-avatar':
       state.avatarMenuOpen = !state.avatarMenuOpen;
@@ -3826,7 +3824,11 @@ function handleKeyDown(event) {
 
   if (state.previewId) {
     if (event.key === 'Escape') {
-      closePreview();
+      if (state.infoOpen) {
+        setPreviewInfoOpen(false, { allowRenderFallback: false });
+      } else {
+        closePreview();
+      }
     } else if (event.key === 'ArrowRight') {
       movePreview(1);
     } else if (event.key === 'ArrowLeft') {
@@ -3834,8 +3836,7 @@ function handleKeyDown(event) {
     } else if (event.key === 'f' || event.key === 'F') {
       toggleFavorite(state.previewId);
     } else if (event.key === 'i' || event.key === 'I') {
-      state.infoOpen = !state.infoOpen;
-      render();
+      setPreviewInfoOpen(!state.infoOpen, { allowRenderFallback: false });
     }
     return;
   }

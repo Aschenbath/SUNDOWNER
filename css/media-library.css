@@ -2641,6 +2641,11 @@ body.codex-media-library-active #app {
   background: rgba(32, 33, 36, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 36px 90px rgba(0, 0, 0, 0.42);
+  will-change: transform, opacity;
+}
+
+#codex-media-library-root .cml-preview__backdrop {
+  will-change: opacity;
 }
 
 #codex-media-library-root .cml-preview__header {
@@ -2756,10 +2761,67 @@ body.codex-media-library-active #app {
   width: 360px;
   background: rgba(32, 33, 36, 0.98);
   border-left: 1px solid rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(28px);
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    opacity 140ms ease,
+    visibility 0s linear 180ms;
+  will-change: transform, opacity;
+}
+
+#codex-media-library-root .cml-preview__info.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    opacity 140ms ease;
 }
 
 #codex-media-library-root .cml-preview__info-inner {
   padding: 0 0 24px;
+}
+
+#codex-media-library-root .cml-preview__info-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  background: rgba(32, 33, 36, 0.92);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#codex-media-library-root .cml-preview__info-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #dfe3eb;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+#codex-media-library-root .cml-preview__info-back:hover {
+  background: rgba(138, 180, 248, 0.16);
+  border-color: rgba(138, 180, 248, 0.34);
+  color: #e8f0fe;
+}
+
+#codex-media-library-root .cml-preview__info-back .cml-icon {
+  width: 16px;
+  height: 16px;
 }
 
 #codex-media-library-root .cml-preview__info-thumb {

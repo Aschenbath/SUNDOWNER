@@ -588,8 +588,14 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
   ].filter(Boolean);
 
   const infoPanel = `
-    <aside class="cml-preview__info ${infoOpen ? 'is-open' : ''}" aria-label="Photo details">
+    <aside class="cml-preview__info ${infoOpen ? 'is-open' : ''}" aria-label="Photo details" aria-hidden="${infoOpen ? 'false' : 'true'}">
       <div class="cml-preview__info-inner">
+        <div class="cml-preview__info-toolbar">
+          <button type="button" class="cml-preview__info-back" data-action="toggle-info" aria-label="Back to photo">
+            ${icon('previous')}
+            <span>Back to photo</span>
+          </button>
+        </div>
         <div class="cml-preview__info-thumb">
           <img src="${escapeHtml(item.thumbnailUrl || item.sourceUrl)}" alt="" loading="lazy" />
         </div>
@@ -649,7 +655,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
           <div class="cml-preview__header-actions">
             <button type="button" class="cml-preview__chip ${selected ? 'is-selected' : ''}" data-action="toggle-select" data-id="${escapeHtml(item.id)}">${selected ? 'Selected' : 'Select'}</button>
             <button type="button" class="cml-preview__chip ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}">Favourite</button>
-            <button type="button" class="cml-preview__chip ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="Photo details">${icon('info')}<span>${infoOpen ? 'Hide details' : 'Show details'}</span></button>
+            <button type="button" class="cml-preview__chip ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="${infoOpen ? 'Hide details' : 'Show details'}">${icon('info')}<span data-info-toggle-label>${infoOpen ? 'Hide details' : 'Show details'}</span></button>
             <button type="button" class="cml-preview__close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
           </div>
         </header>
