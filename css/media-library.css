@@ -826,6 +826,11 @@ body.codex-media-library-active #app {
   overflow: hidden;
 }
 
+#codex-media-library-root .cml-media-grid__spacer {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
 #codex-media-library-root .cml-media-row {
   display: flex;
   gap: 2px;

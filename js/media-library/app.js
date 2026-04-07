@@ -14,7 +14,8 @@ import {
   Sidebar,
   StoragePanel,
   TopSearchBar,
-  YearScroller
+  YearScroller,
+  buildJustifiedRows
 } from './components.js';
 
 const MONTH_NAMES = [
@@ -33,6 +34,12 @@ const ALBUM_ASSIGNMENTS_STORAGE_KEY = 'codex-media-library-album-assignments';
 const ALBUM_COVERS_STORAGE_KEY = 'codex-media-library-album-covers';
 const API_PAGE_SIZE = 400;
 const API_MAX_ITEMS = 1600;
+const COLLECTION_PAGE_SIZE = 24;
+const TIMELINE_ROW_GAP = 2;
+const TIMELINE_SECTION_CHROME_ESTIMATE = 92;
+const TIMELINE_SECTION_GAP = 28;
+const BIN_TIMELINE_SECTION_GAP = 24;
+const TIMELINE_VIRTUAL_OVERSCAN = 960;
 
 function createEmptyAdminProfileDraft() {
   return {
@@ -182,12 +189,14 @@ const state = {
   confirmDialogBusy: false,
   previewId: null,
   previewTransitionRect: null,
-  loadedCount: 24,
+  loadedCount: COLLECTION_PAGE_SIZE,
   activeYear: null,
   activeSectionAnchor: '',
   activeScrubberLabel: '',
   isYearScrubbing: false,
   scrubberVisible: false,
+  virtualScrollTop: 0,
+  virtualViewportHeight: 0,
   focusedTileId: null,
   mediaItems: [],
   liveMediaSignature: '',
@@ -229,7 +238,10 @@ const refs = {
   root: null,
   scrollRegion: null,
   sectionAnchors: [],
-  contentInner: null
+  contentInner: null,
+  sectionItemIds: new Map(),
+  timelineLayoutSections: [],
+  timelineVirtualSignature: ''
 };
 
 let mounted = false;
@@ -238,6 +250,7 @@ let liveObserver = null;
 let liveSyncRaf = 0;
 let liveSyncPromise = null;
 let pendingSyncForceRender = false;
+let timelineRenderRaf = 0;
 
 const touchZoom = {
   active: false,
@@ -2126,7 +2139,7 @@ function requestNativeUpload() {
 }
 
 function resetLoadedCount() {
-  state.loadedCount = 24;
+  state.loadedCount = COLLECTION_PAGE_SIZE;
 }
 
 function persistFavorites() {
@@ -2772,9 +2785,8 @@ function buildSections(items, {
   getMetaLine = summarizeLocations,
   getScrubberLabel = (item) => formatScrubberLabel(item.takenAt)
 } = {}) {
-  const renderedItems = items.slice(0, state.loadedCount);
   const groups = [];
-  renderedItems.forEach((item) => {
+  items.forEach((item) => {
     const label = getLabel(item);
     const year = String(getYear(item) || '');
     const key = `${year}-${label}`;
@@ -2798,6 +2810,117 @@ function buildSections(items, {
     ...group,
     metaLine: getMetaLine(group.items)
   }));
+}
+
+function buildTimelineLayoutSections(sections, { sectionGap = TIMELINE_SECTION_GAP } = {}) {
+  return sections.map((section) => {
+    const rows = buildJustifiedRows(section.items, {
+      containerWidth: state.layoutWidth,
+      denseGrid: false
+    });
+    let offset = 0;
+    const rowOffsets = rows.map((row, index) => {
+      const rowTop = offset;
+      offset += Number(row.height || row.items?.[0]?.height || 0);
+      if (index < rows.length - 1) {
+        offset += TIMELINE_ROW_GAP;
+      }
+      return rowTop;
+    });
+
+    return {
+      ...section,
+      rows,
+      rowOffsets,
+      totalRowsHeight: offset,
+      estimatedHeight: TIMELINE_SECTION_CHROME_ESTIMATE + offset + sectionGap
+    };
+  });
+}
+
+function getVisibleRowRange(section, scrollTop, viewportHeight) {
+  const overscanStart = Math.max(0, scrollTop - TIMELINE_VIRTUAL_OVERSCAN);
+  const overscanEnd = scrollTop + Math.max(viewportHeight, window.innerHeight || 900) + TIMELINE_VIRTUAL_OVERSCAN;
+  const sectionBodyStart = section.estimatedTop + TIMELINE_SECTION_CHROME_ESTIMATE;
+  const bodyStart = overscanStart - sectionBodyStart;
+  const bodyEnd = overscanEnd - sectionBodyStart;
+  const rows = section.rows || [];
+
+  if (!rows.length || bodyEnd <= 0 || bodyStart >= section.totalRowsHeight) {
+    return {
+      startIndex: -1,
+      endIndex: -1,
+      topSpacerHeight: bodyStart >= section.totalRowsHeight ? section.totalRowsHeight : 0,
+      bottomSpacerHeight: bodyEnd <= 0 ? section.totalRowsHeight : 0,
+      visibleRows: []
+    };
+  }
+
+  let startIndex = 0;
+  while (startIndex < rows.length) {
+    const rowTop = section.rowOffsets[startIndex];
+    const rowBottom = rowTop + Number(rows[startIndex].height || rows[startIndex].items?.[0]?.height || 0);
+    if (rowBottom >= bodyStart) {
+      break;
+    }
+    startIndex += 1;
+  }
+
+  let endIndex = rows.length - 1;
+  while (endIndex >= startIndex) {
+    const rowTop = section.rowOffsets[endIndex];
+    if (rowTop <= bodyEnd) {
+      break;
+    }
+    endIndex -= 1;
+  }
+
+  if (startIndex >= rows.length || endIndex < startIndex) {
+    return {
+      startIndex: -1,
+      endIndex: -1,
+      topSpacerHeight: bodyStart >= section.totalRowsHeight ? section.totalRowsHeight : 0,
+      bottomSpacerHeight: bodyEnd <= 0 ? section.totalRowsHeight : 0,
+      visibleRows: []
+    };
+  }
+
+  const topSpacerHeight = section.rowOffsets[startIndex];
+  const visibleHeight = section.rowOffsets[endIndex]
+    + Number(rows[endIndex].height || rows[endIndex].items?.[0]?.height || 0)
+    - topSpacerHeight;
+  const bottomSpacerHeight = Math.max(0, section.totalRowsHeight - topSpacerHeight - visibleHeight);
+
+  return {
+    startIndex,
+    endIndex,
+    topSpacerHeight,
+    bottomSpacerHeight,
+    visibleRows: rows.slice(startIndex, endIndex + 1)
+  };
+}
+
+function applyTimelineVirtualWindow(sections, { scrollTop = 0, viewportHeight = 0 } = {}) {
+  let estimatedTop = 0;
+  const signatureParts = [];
+  const virtualSections = sections.map((section) => {
+    const sectionWithOffset = {
+      ...section,
+      estimatedTop
+    };
+    const range = getVisibleRowRange(sectionWithOffset, scrollTop, viewportHeight);
+    estimatedTop += section.estimatedHeight;
+    signatureParts.push(`${section.anchorId}:${range.startIndex}-${range.endIndex}`);
+    return {
+      ...sectionWithOffset,
+      ...range
+    };
+  });
+
+  return {
+    sections: virtualSections,
+    signature: signatureParts.join('|')
+  };
 }
 
 function buildCollectionSummaries(items) {
@@ -2890,7 +3013,7 @@ function getViewModel() {
   const timelineItems = state.primaryFilter === 'Bin'
     ? state.binItems
     : filteredItems;
-  const sections = isCollectionRoot
+  const baseSections = isCollectionRoot
     ? []
     : buildSections(timelineItems, state.primaryFilter === 'Bin'
       ? {
@@ -2901,6 +3024,18 @@ function getViewModel() {
           getScrubberLabel: (item) => formatScrubberLabel(item.deletedAt || item.takenAt)
         }
       : undefined);
+  const laidOutSections = isCollectionRoot
+    ? []
+    : buildTimelineLayoutSections(baseSections, {
+        sectionGap: state.primaryFilter === 'Bin' ? BIN_TIMELINE_SECTION_GAP : TIMELINE_SECTION_GAP
+      });
+  const virtualWindow = isCollectionRoot
+    ? { sections: [], signature: '' }
+    : applyTimelineVirtualWindow(laidOutSections, {
+        scrollTop: state.virtualScrollTop,
+        viewportHeight: state.virtualViewportHeight
+      });
+  const sections = virtualWindow.sections;
   const years = isCollectionRoot
     ? []
     : [...new Set(timelineItems.map((item) => String(item.year)))]
@@ -2943,6 +3078,8 @@ function getViewModel() {
     totalCollectionCount: allCollections.length,
     filteredItems,
     sections,
+    timelineLayoutSections: laidOutSections,
+    timelineVirtualSignature: virtualWindow.signature,
     years,
     scrubberSections,
     previewItems,
@@ -2989,7 +3126,7 @@ function render() {
     return;
   }
 
-  const previousScrollTop = refs.scrollRegion ? refs.scrollRegion.scrollTop : 0;
+  const previousScrollTop = refs.scrollRegion ? refs.scrollRegion.scrollTop : state.virtualScrollTop;
   const searchWasFocused = document.activeElement instanceof HTMLInputElement
     && document.activeElement.classList.contains('cml-topbar__search-input');
   const viewModel = getViewModel();
@@ -3079,9 +3216,17 @@ function render() {
   refs.scrollRegion = refs.root.querySelector('.cml-main-content');
   refs.sectionAnchors = [...refs.root.querySelectorAll('.cml-timeline-section')];
   refs.contentInner = refs.root.querySelector('.cml-main-content__inner');
+  refs.sectionItemIds = new Map(viewModel.sections.map((section) => [
+    section.anchorId,
+    section.items.map((item) => item.id)
+  ]));
+  refs.timelineLayoutSections = viewModel.timelineLayoutSections || [];
+  refs.timelineVirtualSignature = viewModel.timelineVirtualSignature || '';
 
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTop = previousScrollTop;
+    state.virtualScrollTop = previousScrollTop;
+    state.virtualViewportHeight = refs.scrollRegion.clientHeight;
     refs.scrollRegion.onscroll = handleScroll;
   }
 
@@ -3253,6 +3398,10 @@ function mount() {
 function unmount() {
   document.body.classList.remove('codex-media-library-active');
   stopLiveObserver();
+  if (timelineRenderRaf) {
+    window.cancelAnimationFrame(timelineRenderRaf);
+    timelineRenderRaf = 0;
+  }
   if (refs.root) {
     refs.root.remove();
     refs.root = null;
@@ -3260,6 +3409,9 @@ function unmount() {
   refs.scrollRegion = null;
   refs.sectionAnchors = [];
   refs.contentInner = null;
+  refs.sectionItemIds = new Map();
+  refs.timelineLayoutSections = [];
+  refs.timelineVirtualSignature = '';
 }
 
 function syncMount() {
@@ -3342,6 +3494,18 @@ function scrollToYear(year) {
   }
 }
 
+function scheduleTimelineRender() {
+  if (timelineRenderRaf || !refs.root) {
+    return;
+  }
+  timelineRenderRaf = window.requestAnimationFrame(() => {
+    timelineRenderRaf = 0;
+    if (refs.root) {
+      render();
+    }
+  });
+}
+
 function updateActiveYear() {
   if (!refs.scrollRegion || !refs.sectionAnchors.length) {
     return;
@@ -3382,6 +3546,10 @@ function handleWindowResize() {
   if (!document.body.classList.contains('codex-media-library-active')) {
     return;
   }
+  if (refs.scrollRegion) {
+    state.virtualViewportHeight = refs.scrollRegion.clientHeight;
+    state.virtualScrollTop = refs.scrollRegion.scrollTop;
+  }
   syncLayoutWidth();
   render();
 }
@@ -3391,12 +3559,25 @@ function handleScroll() {
     return;
   }
   revealScrubber();
-  const resultCount = getScrollableResultCount();
-  const nearBottom = refs.scrollRegion.scrollTop + refs.scrollRegion.clientHeight >= refs.scrollRegion.scrollHeight - 720;
-  if (nearBottom && state.loadedCount < resultCount) {
-    state.loadedCount = Math.min(resultCount, state.loadedCount + 18);
-    render();
-    return;
+  state.virtualScrollTop = refs.scrollRegion.scrollTop;
+  state.virtualViewportHeight = refs.scrollRegion.clientHeight;
+  const isCollectionRoot = state.primaryFilter === 'Collections' && !getActiveAlbumName();
+  if (isCollectionRoot) {
+    const resultCount = getScrollableResultCount();
+    const nearBottom = refs.scrollRegion.scrollTop + refs.scrollRegion.clientHeight >= refs.scrollRegion.scrollHeight - 720;
+    if (nearBottom && state.loadedCount < resultCount) {
+      state.loadedCount = Math.min(resultCount, state.loadedCount + 18);
+      render();
+      return;
+    }
+  } else {
+    const nextVirtualWindow = applyTimelineVirtualWindow(refs.timelineLayoutSections || [], {
+      scrollTop: state.virtualScrollTop,
+      viewportHeight: state.virtualViewportHeight
+    });
+    if (nextVirtualWindow.signature !== refs.timelineVirtualSignature) {
+      scheduleTimelineRender();
+    }
   }
   updateActiveYear();
   updateScrubberThumb();
@@ -3489,9 +3670,8 @@ function handleAction(actionTarget) {
       return true;
     case 'select-section': {
       const sectionId = normalizeText(actionTarget.dataset.section);
-      const section = sectionId ? document.getElementById(sectionId) : null;
-      const itemIds = section
-        ? [...section.querySelectorAll('.cml-media-tile[data-tile-id]')].map((tile) => normalizeText(tile.getAttribute('data-tile-id')))
+      const itemIds = sectionId
+        ? (refs.sectionItemIds.get(sectionId) || [])
         : [];
       if (toggleSectionSelection(sectionId, { selectionSet: state.selectedIds, itemIds })) {
         render();
@@ -3500,9 +3680,8 @@ function handleAction(actionTarget) {
     }
     case 'select-bin-section': {
       const sectionId = normalizeText(actionTarget.dataset.section);
-      const section = sectionId ? document.getElementById(sectionId) : null;
-      const itemIds = section
-        ? [...section.querySelectorAll('.cml-media-tile[data-tile-id]')].map((tile) => normalizeText(tile.getAttribute('data-tile-id')))
+      const itemIds = sectionId
+        ? (refs.sectionItemIds.get(sectionId) || [])
         : [];
       if (toggleSectionSelection(sectionId, { selectionSet: state.binSelectedIds, itemIds })) {
         render();

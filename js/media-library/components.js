@@ -149,7 +149,7 @@ function getLayoutConfig(containerWidth, denseGrid) {
   };
 }
 
-function buildJustifiedRows(items, options = {}) {
+export function buildJustifiedRows(items, options = {}) {
   const { availableWidth, gap, targetRowHeight, minRowHeight, maxRowHeight, maxItemsPerRow } = getLayoutConfig(options.containerWidth, options.denseGrid);
   const rows = [];
   let currentRow = [];
@@ -179,10 +179,11 @@ function buildJustifiedRows(items, options = {}) {
     const shouldFillWidth = projectedWidth >= availableWidth && currentRow.length > 1;
     const fittedHeight = shouldFillWidth
       ? (availableWidth - gap * (currentRow.length - 1)) / aspectSum
-      : Math.min(targetRowHeight, (availableWidth - gap * (currentRow.length - 1)) / aspectSum);
+      : Math.min(effectiveMaxHeight, (availableWidth - gap * (currentRow.length - 1)) / aspectSum);
     const rowHeight = Math.max(minRowHeight, Math.min(effectiveMaxHeight, fittedHeight));
 
     rows.push({
+      height: Math.round(rowHeight),
       items: currentRow.map(({ item: rowItem, aspectRatio: rowAspectRatio }) => ({
         item: rowItem,
         width: Math.max(88, Math.round(rowAspectRatio * rowHeight)),
@@ -430,24 +431,25 @@ export function MediaTile({ item, selected, layout, isCover = false }) {
   `;
 }
 
-export function MediaGrid({ items, state, layoutWidth, coverItemId = '' }) {
-  const rows = buildJustifiedRows(items, {
-    containerWidth: layoutWidth,
-    denseGrid: false
-  });
+function renderMediaRows(rows, state, coverItemId = '') {
+  return rows.map((row) => `
+    <div class="cml-media-row">
+      ${row.items.map((layout) => MediaTile({
+        item: layout.item,
+        layout,
+        selected: state.selectedIds.has(layout.item.id),
+        isCover: coverItemId && layout.item.id === coverItemId
+      })).join('')}
+    </div>
+  `).join('');
+}
 
+export function MediaGrid({ rows, state, coverItemId = '', topSpacerHeight = 0, bottomSpacerHeight = 0 }) {
   return `
     <div class="cml-media-grid">
-      ${rows.map((row) => `
-        <div class="cml-media-row">
-          ${row.items.map((layout) => MediaTile({
-            item: layout.item,
-            layout,
-            selected: state.selectedIds.has(layout.item.id),
-            isCover: coverItemId && layout.item.id === coverItemId
-          })).join('')}
-        </div>
-      `).join('')}
+      ${topSpacerHeight > 0 ? `<div class="cml-media-grid__spacer" style="height:${Math.max(0, Math.round(topSpacerHeight))}px" aria-hidden="true"></div>` : ''}
+      ${renderMediaRows(rows, state, coverItemId)}
+      ${bottomSpacerHeight > 0 ? `<div class="cml-media-grid__spacer" style="height:${Math.max(0, Math.round(bottomSpacerHeight))}px" aria-hidden="true"></div>` : ''}
     </div>
   `;
 }
@@ -475,7 +477,13 @@ export function MediaTimelineSection({ section, state, layoutWidth, coverItemId 
           ${section.metaLine ? `<span class="cml-timeline-section__meta">${escapeHtml(section.metaLine)}</span>` : ''}
         </div>
       </header>
-      ${MediaGrid({ items: section.items, state, layoutWidth, coverItemId })}
+      ${MediaGrid({
+        rows: section.visibleRows || section.rows || [],
+        state,
+        coverItemId,
+        topSpacerHeight: section.topSpacerHeight,
+        bottomSpacerHeight: section.bottomSpacerHeight
+      })}
     </section>
   `;
 }
@@ -858,10 +866,8 @@ function BinTimelineSection({ section, binSelectedIds, layoutWidth }) {
         </div>
       </header>
       <div class="cml-bin-grid">
-        ${buildJustifiedRows(section.items, {
-          containerWidth: layoutWidth,
-          denseGrid: false
-        }).map((row) => `
+        ${section.topSpacerHeight > 0 ? `<div class="cml-media-grid__spacer" style="height:${Math.max(0, Math.round(section.topSpacerHeight))}px" aria-hidden="true"></div>` : ''}
+        ${(section.visibleRows || section.rows || []).map((row) => `
           <div class="cml-media-row">
             ${row.items.map((layout) => BinMediaTile({
               item: layout.item,
@@ -870,6 +876,7 @@ function BinTimelineSection({ section, binSelectedIds, layoutWidth }) {
             })).join('')}
           </div>
         `).join('')}
+        ${section.bottomSpacerHeight > 0 ? `<div class="cml-media-grid__spacer" style="height:${Math.max(0, Math.round(section.bottomSpacerHeight))}px" aria-hidden="true"></div>` : ''}
       </div>
     </section>
   `;
