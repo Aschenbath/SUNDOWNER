@@ -205,7 +205,7 @@ export function Sidebar({ navigationModel, state, storageSummary, searchQuery = 
         ${icon('search', 'cml-sidebar__search-icon')}
         <input type="search" class="cml-sidebar__search-input" placeholder="Search your photos" value="${searchValue}" />
       </label>
-      <nav class="cml-sidebar__nav" aria-label="Primary navigation">
+      <div class="cml-sidebar__nav" role="navigation" aria-label="Primary navigation">
         ${navigationModel.primary.map((label) => {
           const key = label.toLowerCase();
           const active = state.primaryFilter === label ? 'is-active' : '';
@@ -213,11 +213,11 @@ export function Sidebar({ navigationModel, state, storageSummary, searchQuery = 
           return `
             <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}">
               ${icon(iconName)}
-              <span>${escapeHtml(label)}</span>
+              <span class="cml-sidebar__nav-label">${escapeHtml(label)}</span>
             </button>
           `;
         }).join('')}
-      </nav>
+      </div>
       ${navigationModel.secondary.length ? `
         <div class="cml-sidebar__section-label">collection</div>
         <div class="cml-sidebar__subnav">
@@ -227,7 +227,7 @@ export function Sidebar({ navigationModel, state, storageSummary, searchQuery = 
               <button type="button" class="cml-sidebar__subnav-item ${active}" data-secondary="${escapeHtml(label)}">
                 <span class="cml-sidebar__subnav-arrow">&#9656;</span>
                 ${icon(secondaryIconMap[label])}
-                <span>${escapeHtml(label)}</span>
+                <span class="cml-sidebar__subnav-label">${escapeHtml(label)}</span>
               </button>
             `;
           }).join('')}

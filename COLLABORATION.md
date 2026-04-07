@@ -15,6 +15,8 @@
 | 2026-04-07 10:09 | Login URL credential leak hardening | Hardened the media-library login overlay so credentials no longer fall back to a native GET submit: the form now falls back to `POST`, the sign-in button no longer uses `type="submit"`, and the delegated login submit handler now intercepts in capture phase while the button click path also prevents default submission. |
 
 | 2026-04-07 11:25 | Claude Code | Security audit found 4 open issues: SSRF in /api/fetchRes, authCode URL/Referer auth leakage, reversible admin_auth cookie credentials, per-file persisted backend secrets in metadata. | No code changes yet; findings only. |
+| 2026-04-07 ~16:00 | Claude Code (Opus) | Google Photos dark mode UI rewrite: sidebar 200px with text logo + search inside sidebar, photo grid gap 2px + border-radius 0, topbar minimal right-aligned, timeline labels YYYY-MM-DD (only Today/Yesterday as relative), JS layout gap synced to 2px. **Unresolved bug:** sidebar nav buttons (Photos/Collections/Bin) visually shorter than subnav buttons (Videos/Favourites) — tried width:100%, align-self:stretch, align-items:stretch on all ancestors, none worked. Root cause unknown, needs browser DevTools computed-style inspection to find what's constraining button width. |
+| 2026-04-07 13:50 | Claude Code | Fixed sidebar nav width mismatch by replacing primary/secondary nav wrappers with a single-column grid layout, forcing nav buttons to full sidebar width at 36px height, and normalizing label cells so primary and secondary actions stretch identically. Also bumped `media-library.css` cache bust to `v=13`. |
 
 ## Current Phase Direction
 

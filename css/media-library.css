@@ -135,9 +135,12 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-sidebar__nav,
 #codex-media-library-root .cml-sidebar__subnav {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
+  width: 100%;
+  min-width: 0;
+  justify-items: stretch;
 }
 
 #codex-media-library-root .cml-sidebar__nav-item,
@@ -155,13 +158,19 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-sidebar__nav-item,
 #codex-media-library-root .cml-sidebar__subnav-item {
-  display: flex;
+  display: grid;
   align-items: center;
+  justify-items: start;
   align-self: stretch;
-  gap: 14px;
   height: 36px;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  inline-size: 100% !important;
+  min-inline-size: 100% !important;
   padding: 0 16px;
-  border-radius: 24px;
+  margin: 0;
+  border-radius: 18px;
   background: transparent;
   color: #e8eaed;
   font-size: 14px;
@@ -170,18 +179,37 @@ body.codex-media-library-active #app {
   transition: background-color 160ms ease, color 160ms ease;
 }
 
+#codex-media-library-root .cml-sidebar__nav-item {
+  grid-template-columns: 20px minmax(0, 1fr);
+  column-gap: 14px;
+}
+
+#codex-media-library-root .cml-sidebar__subnav-item {
+  grid-template-columns: 10px 20px minmax(0, 1fr);
+  column-gap: 12px;
+}
+
 #codex-media-library-root .cml-sidebar__nav-item .cml-icon,
 #codex-media-library-root .cml-sidebar__subnav-item .cml-icon {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
+  justify-self: center;
 }
 
 #codex-media-library-root .cml-sidebar__subnav-arrow {
   font-size: 9px;
   color: #9aa0a6;
-  margin-right: -8px;
   flex-shrink: 0;
+  justify-self: center;
+}
+
+#codex-media-library-root .cml-sidebar__nav-label,
+#codex-media-library-root .cml-sidebar__subnav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #codex-media-library-root .cml-sidebar__nav-item:hover,
@@ -1971,4 +1999,3 @@ body.codex-media-library-active #app {
   background: rgba(255,255,255,0.07);
   color: #e8eaed;
 }
-
