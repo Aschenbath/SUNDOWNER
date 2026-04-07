@@ -181,6 +181,7 @@ const state = {
   confirmDialogSelectionCount: 0,
   confirmDialogBusy: false,
   previewId: null,
+  previewTransitionRect: null,
   loadedCount: 24,
   activeYear: null,
   activeSectionAnchor: '',
@@ -431,8 +432,149 @@ function setupImageLoadAnimations() {
   });
 }
 
+function snapshotRect(element) {
+  if (!(element instanceof Element)) {
+    return null;
+  }
+  const rect = element.getBoundingClientRect();
+  if (!rect.width || !rect.height) {
+    return null;
+  }
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height
+  };
+}
+
+function animatePreviewOpenFromTile() {
+  if (!refs.root || !state.previewTransitionRect || previewTransitionInFlight) {
+    state.previewTransitionRect = null;
+    return;
+  }
+  const stage = refs.root.querySelector('.cml-preview__stage');
+  const backdrop = refs.root.querySelector('.cml-preview__backdrop');
+  if (!(stage instanceof HTMLElement) || typeof stage.animate !== 'function') {
+    state.previewTransitionRect = null;
+    return;
+  }
+
+  const fromRect = state.previewTransitionRect;
+  const toRect = stage.getBoundingClientRect();
+  if (!toRect.width || !toRect.height) {
+    state.previewTransitionRect = null;
+    return;
+  }
+
+  previewTransitionInFlight = true;
+  const deltaX = fromRect.left - toRect.left;
+  const deltaY = fromRect.top - toRect.top;
+  const scaleX = fromRect.width / toRect.width;
+  const scaleY = fromRect.height / toRect.height;
+
+  backdrop?.animate?.(
+    [{ opacity: 0 }, { opacity: 1 }],
+    { duration: 220, easing: 'ease-out', fill: 'both' }
+  );
+  const animation = stage.animate(
+    [
+      {
+        transformOrigin: 'top left',
+        transform: `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`,
+        borderRadius: '8px',
+        opacity: 0.84
+      },
+      {
+        transformOrigin: 'top left',
+        transform: 'translate(0px, 0px) scale(1, 1)',
+        borderRadius: '20px',
+        opacity: 1
+      }
+    ],
+    {
+      duration: 260,
+      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      fill: 'both'
+    }
+  );
+
+  animation.finished
+    .catch(() => {})
+    .finally(() => {
+      previewTransitionInFlight = false;
+      state.previewTransitionRect = null;
+    });
+}
+
+function animatePreviewCloseToTile(onComplete) {
+  if (previewTransitionInFlight) {
+    return;
+  }
+  if (!refs.root) {
+    onComplete();
+    return;
+  }
+  const stage = refs.root.querySelector('.cml-preview__stage');
+  const backdrop = refs.root.querySelector('.cml-preview__backdrop');
+  const sourceTile = state.previewId
+    ? refs.root.querySelector(`.cml-media-tile[data-tile-id="${state.previewId}"]`)
+    : null;
+  if (!(stage instanceof HTMLElement) || !(sourceTile instanceof HTMLElement) || typeof stage.animate !== 'function') {
+    onComplete();
+    return;
+  }
+
+  const fromRect = stage.getBoundingClientRect();
+  const toRect = sourceTile.getBoundingClientRect();
+  if (!fromRect.width || !fromRect.height || !toRect.width || !toRect.height) {
+    onComplete();
+    return;
+  }
+
+  previewTransitionInFlight = true;
+  const deltaX = toRect.left - fromRect.left;
+  const deltaY = toRect.top - fromRect.top;
+  const scaleX = toRect.width / fromRect.width;
+  const scaleY = toRect.height / fromRect.height;
+
+  backdrop?.animate?.(
+    [{ opacity: 1 }, { opacity: 0 }],
+    { duration: 180, easing: 'ease-in', fill: 'both' }
+  );
+  const animation = stage.animate(
+    [
+      {
+        transformOrigin: 'top left',
+        transform: 'translate(0px, 0px) scale(1, 1)',
+        borderRadius: '20px',
+        opacity: 1
+      },
+      {
+        transformOrigin: 'top left',
+        transform: `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`,
+        borderRadius: '8px',
+        opacity: 0.84
+      }
+    ],
+    {
+      duration: 220,
+      easing: 'cubic-bezier(0.4, 0, 1, 1)',
+      fill: 'both'
+    }
+  );
+
+  animation.finished
+    .catch(() => {})
+    .finally(() => {
+      previewTransitionInFlight = false;
+      onComplete();
+    });
+}
+
 let yearScrollerDragActive = false;
 let scrubberHideTimeoutId = 0;
+let previewTransitionInFlight = false;
 
 function clearScrubberHideTimeout() {
   if (scrubberHideTimeoutId) {
@@ -1565,6 +1707,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     thumbnailUrl: domMatch?.thumbnailUrl || sourceUrl,
     posterUrl,
     type,
+    mimeType,
     width,
     height,
     takenAt: dateParts.takenAt,
@@ -3129,21 +3272,30 @@ function syncMount() {
 }
 
 function openPreview(itemId) {
+  const sourceTile = itemId
+    ? refs.root?.querySelector(`.cml-media-tile[data-tile-id="${itemId}"]`)
+    : null;
   state.previewId = itemId;
+  state.previewTransitionRect = snapshotRect(sourceTile);
+  state.infoOpen = window.innerWidth > 1120;
   touchZoom.currentScale = 1;
   touchZoom.tx = 0;
   touchZoom.ty = 0;
   touchZoom.lastTap = 0;
   render();
+  window.requestAnimationFrame(() => animatePreviewOpenFromTile());
 }
 
 function closePreview() {
-  state.previewId = null;
-  state.infoOpen = false;
-  touchZoom.currentScale = 1;
-  touchZoom.tx = 0;
-  touchZoom.ty = 0;
-  render();
+  animatePreviewCloseToTile(() => {
+    state.previewId = null;
+    state.previewTransitionRect = null;
+    state.infoOpen = false;
+    touchZoom.currentScale = 1;
+    touchZoom.tx = 0;
+    touchZoom.ty = 0;
+    render();
+  });
 }
 
 function movePreview(direction) {

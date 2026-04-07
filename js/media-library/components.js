@@ -109,6 +109,24 @@ function formatTakenAt(item) {
   return `${item.monthLabel} ${item.day}, ${item.year} ${hh}:${mm}`;
 }
 
+function formatPreviewTypeLabel(item) {
+  if (!item) {
+    return 'Photo';
+  }
+  const mimeType = String(item.mimeType || '');
+  return item.type === 'video'
+    ? `Video${mimeType ? ` · ${mimeType}` : ''}`
+    : `Photo${mimeType ? ` · ${mimeType}` : ''}`;
+}
+
+function formatPreviewSize(sizeMb) {
+  const numeric = Math.max(0, Number(sizeMb) || 0);
+  if (!numeric) {
+    return '';
+  }
+  return formatStorageAmountFromMb(numeric);
+}
+
 function clampAspectRatio(value) {
   return Math.max(0.58, Math.min(2.4, value || 1));
 }
@@ -551,9 +569,23 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
   if (!item) {
     return '';
   }
-  const detailLine = item.tags && item.tags.length
-    ? item.tags.join(' / ')
-    : (item.displayTakenAt || item.timelineLabel || 'No additional details');
+  const detailLine = [
+    item.location,
+    item.album,
+    formatPreviewSize(item.sizeMb)
+  ].filter(Boolean).join(' · ') || (item.displayTakenAt || item.timelineLabel || 'No additional details');
+  const technicalRows = [
+    item.width && item.height ? { label: 'Dimensions', value: `${item.width} × ${item.height}` } : null,
+    item.sizeMb ? { label: 'File size', value: formatPreviewSize(item.sizeMb) } : null,
+    item.sourceId ? { label: 'Library path', value: item.sourceId } : null,
+    { label: 'Type', value: formatPreviewTypeLabel(item) }
+  ].filter(Boolean);
+  const overviewRows = [
+    item.displayTakenAt ? { label: 'Captured', value: item.displayTakenAt } : null,
+    item.location ? { label: 'Location', value: item.location } : null,
+    item.album ? { label: 'Album', value: item.album } : null,
+    item.collectionAlbum && item.collectionAlbum !== item.album ? { label: 'Collection', value: item.collectionAlbum } : null
+  ].filter(Boolean);
 
   const infoPanel = `
     <aside class="cml-preview__info ${infoOpen ? 'is-open' : ''}" aria-label="Photo details">
@@ -561,42 +593,45 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
         <div class="cml-preview__info-thumb">
           <img src="${escapeHtml(item.thumbnailUrl || item.sourceUrl)}" alt="" loading="lazy" />
         </div>
-        <dl class="cml-preview__info-meta">
-          ${item.label ? `
-            <dt class="cml-preview__info-label">File</dt>
-            <dd class="cml-preview__info-value cml-preview__info-value--filename" title="${escapeHtml(item.label)}">${escapeHtml(item.label)}</dd>
-          ` : ''}
-          ${item.displayTakenAt ? `
-            <dt class="cml-preview__info-label">Date</dt>
-            <dd class="cml-preview__info-value">${escapeHtml(item.displayTakenAt)}</dd>
-          ` : ''}
-          ${item.location ? `
-            <dt class="cml-preview__info-label">Location</dt>
-            <dd class="cml-preview__info-value">${escapeHtml(item.location)}</dd>
-          ` : ''}
-          ${item.width && item.height ? `
-            <dt class="cml-preview__info-label">Dimensions</dt>
-            <dd class="cml-preview__info-value">${item.width} × ${item.height}</dd>
-          ` : ''}
-          <dt class="cml-preview__info-label">Type</dt>
-          <dd class="cml-preview__info-value">${item.type === 'video' ? 'Video' : 'Photo'}</dd>
-          ${item.album ? `
-            <dt class="cml-preview__info-label">Album</dt>
-            <dd class="cml-preview__info-value">${escapeHtml(item.album)}</dd>
-          ` : ''}
-          ${item.personLabels && item.personLabels.length ? `
-            <dt class="cml-preview__info-label">People</dt>
-            <dd class="cml-preview__info-value">${escapeHtml(item.personLabels.join(', '))}</dd>
-          ` : ''}
-          ${item.tags && item.tags.length ? `
-            <dt class="cml-preview__info-label">Tags</dt>
-            <dd class="cml-preview__info-value">
-              <span class="cml-preview__info-tags">
-                ${item.tags.map((tag) => `<span class="cml-preview__info-tag">${escapeHtml(tag)}</span>`).join('')}
-              </span>
-            </dd>
-          ` : ''}
-        </dl>
+        <section class="cml-preview__info-section cml-preview__info-section--hero">
+          <p class="cml-preview__info-kicker">${escapeHtml(item.album || 'Library item')}</p>
+          <h4 class="cml-preview__info-title" title="${escapeHtml(item.label || '')}">${escapeHtml(item.label || 'Untitled item')}</h4>
+          <p class="cml-preview__info-copy">${escapeHtml(detailLine)}</p>
+        </section>
+        ${overviewRows.length ? `
+          <section class="cml-preview__info-section">
+            <h5 class="cml-preview__info-heading">Overview</h5>
+            <dl class="cml-preview__info-meta">
+              ${overviewRows.map((row) => `
+                <dt class="cml-preview__info-label">${escapeHtml(row.label)}</dt>
+                <dd class="cml-preview__info-value">${escapeHtml(row.value)}</dd>
+              `).join('')}
+            </dl>
+          </section>
+        ` : ''}
+        <section class="cml-preview__info-section">
+          <h5 class="cml-preview__info-heading">Technical</h5>
+          <dl class="cml-preview__info-meta">
+            ${technicalRows.map((row) => `
+              <dt class="cml-preview__info-label">${escapeHtml(row.label)}</dt>
+              <dd class="cml-preview__info-value ${row.label === 'Library path' ? 'cml-preview__info-value--filename' : ''}" title="${escapeHtml(row.value)}">${escapeHtml(row.value)}</dd>
+            `).join('')}
+          </dl>
+        </section>
+        ${item.personLabels && item.personLabels.length ? `
+          <section class="cml-preview__info-section">
+            <h5 class="cml-preview__info-heading">People</h5>
+            <p class="cml-preview__info-plain">${escapeHtml(item.personLabels.join(', '))}</p>
+          </section>
+        ` : ''}
+        ${item.tags && item.tags.length ? `
+          <section class="cml-preview__info-section">
+            <h5 class="cml-preview__info-heading">Tags</h5>
+            <div class="cml-preview__info-tags">
+              ${item.tags.map((tag) => `<span class="cml-preview__info-tag">${escapeHtml(tag)}</span>`).join('')}
+            </div>
+          </section>
+        ` : ''}
       </div>
     </aside>
   `;
@@ -606,14 +641,15 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
       <div class="cml-preview__backdrop" data-action="close-preview"></div>
       <div class="cml-preview__panel">
         <header class="cml-preview__header">
-          <div>
+          <div class="cml-preview__header-copy">
             <p class="cml-preview__eyebrow">${escapeHtml(item.album || 'Library item')}</p>
             <h3 class="cml-preview__title">${escapeHtml(formatTakenAt(item))}</h3>
+            <p class="cml-preview__subtitle">${escapeHtml(item.location || formatPreviewTypeLabel(item))}</p>
           </div>
           <div class="cml-preview__header-actions">
             <button type="button" class="cml-preview__chip ${selected ? 'is-selected' : ''}" data-action="toggle-select" data-id="${escapeHtml(item.id)}">${selected ? 'Selected' : 'Select'}</button>
             <button type="button" class="cml-preview__chip ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}">Favourite</button>
-            <button type="button" class="cml-preview__chip ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="Photo details">${icon('info')}</button>
+            <button type="button" class="cml-preview__chip ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="Photo details">${icon('info')}<span>${infoOpen ? 'Hide details' : 'Show details'}</span></button>
             <button type="button" class="cml-preview__close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
           </div>
         </header>
@@ -632,7 +668,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
         </div>
         <footer class="cml-preview__footer">
           <span>${currentIndex + 1} / ${totalCount}</span>
-          <span>${escapeHtml(item.personLabels.join(', ') || item.label || 'No people labels')}</span>
+          <span>${escapeHtml(item.label || 'Library item')}</span>
         </footer>
         ${infoPanel}
       </div>
