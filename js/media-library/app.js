@@ -2449,7 +2449,7 @@ function mount() {
         e.preventDefault();
         void submitLogin();
       }
-    });
+    }, true);
     document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('resize', handleWindowResize);
     mounted = true;
@@ -2764,6 +2764,10 @@ function handleClick(event) {
   }
 
   if (actionTarget instanceof HTMLElement) {
+    if (actionTarget.dataset.action === 'submit-login') {
+      event.preventDefault();
+    }
+
     if (actionTarget.dataset.primary) {
       state.primaryFilter = actionTarget.dataset.primary;
       state.secondaryFilter = '';
