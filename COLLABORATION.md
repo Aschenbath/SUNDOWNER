@@ -2,6 +2,7 @@
 
 | Time (Asia/Shanghai) | Task | Notes |
 | --- | --- | --- |
+| 2026-04-07 19:20 | Claude Code | Continued the timeline pass instead of starting search: Bin now reuses the same date-sectioned justified timeline structure as Photos, the year scrubber appears for Bin as well, scrubber dragging now has a floating active-year badge, sticky date headers were strengthened with clearer blur/separation, and active-year sync now updates the scrubber DOM directly instead of forcing full-page rerenders. Also bumped `media-library.css` cache bust to `v=19`. |
 | 2026-04-07 19:03 | Claude Code | Landed the first security-hardening pass: `/api/fetchRes` is now disabled by default unless an explicit host allowlist is configured and rejects local/private targets, user `authCode` no longer falls back to URL/Referer, `admin_auth` switched from reversible credentials to a signed expiring session token, and file metadata writes/responses now strip provider secrets (`TG/Discord/S3/HF`) while file-read/delete paths resolve current channel credentials from config with legacy-metadata fallback. |
 | 2026-04-07 17:05 | Claude Code | Removed the remaining rounded-corner regression from the main photo tiles by forcing the last-applied media-tile/image/video/placeholder radius to `0`, and aligned the controllable UI fonts back to `Times New Roman` across the overlay shell plus the `#app` override layer. Also bumped `ui-overrides.css` to `v=5` and `media-library.css` to `v=18` for cache busting. |
 | 2026-04-07 16:40 | Claude Code | Fixed the sidebar blue-state regression root cause: state mapping was already correct, but the dark-rail active/hover colors were too weak to read as selected. Strengthened selector specificity on the overlay sidebar, changed current-page pills to solid Google-like blue, aligned hover/focus/storage states to the same language, and bumped `media-library.css` cache bust to `v=17`. |
@@ -45,7 +46,7 @@
 - Priority 1: keep media-library work scoped to one component or interaction at a time rather than large all-page rewrites.
 - Priority 2: improve the timeline experience first: sticky date headers with blur backdrop, refined year scroller, and cleaner visual density.
 - Priority 3: improve preview experience next: shared-element open/close animation, stronger fullscreen behavior, and richer detail display.
-- Priority 4: improve search and browsing filters with practical metadata-driven capabilities before attempting ambitious AI-like search.
+- Priority 4: postpone richer search for now; resume it only after timeline and preview feel stable enough, because the current blocker is interaction quality rather than missing query syntax.
 - Priority 5: treat selection, details, and interaction quality as first-class work, not cosmetic follow-up.
 
 ### UI Direction

@@ -182,6 +182,7 @@ const state = {
   previewId: null,
   loadedCount: 24,
   activeYear: null,
+  isYearScrubbing: false,
   focusedTileId: null,
   mediaItems: [],
   liveMediaSignature: '',
@@ -428,6 +429,18 @@ function setupImageLoadAnimations() {
 
 let yearScrollerDragActive = false;
 
+function setYearScrubberEngaged(isEngaged) {
+  state.isYearScrubbing = Boolean(isEngaged);
+  if (!refs.root) {
+    return;
+  }
+  const scroller = refs.root.querySelector('.cml-scrubber');
+  if (!scroller) {
+    return;
+  }
+  scroller.classList.toggle('is-scrubbing', state.isYearScrubbing);
+}
+
 function setupYearScrollerDrag() {
   if (!refs.root) {
     return;
@@ -442,6 +455,7 @@ function setupYearScrollerDrag() {
       return;
     }
     yearScrollerDragActive = true;
+    setYearScrubberEngaged(true);
     scroller.setPointerCapture(e.pointerId);
     scroller.style.cursor = 'grabbing';
     hitYearButton(scroller, e.clientY);
@@ -459,12 +473,22 @@ function setupYearScrollerDrag() {
       return;
     }
     yearScrollerDragActive = false;
+    setYearScrubberEngaged(false);
     scroller.style.cursor = '';
-    render();
   };
 
   scroller.addEventListener('pointerup', endDrag);
   scroller.addEventListener('pointercancel', endDrag);
+  scroller.addEventListener('pointerleave', () => {
+    if (!yearScrollerDragActive) {
+      setYearScrubberEngaged(false);
+    }
+  });
+  scroller.addEventListener('pointerenter', () => {
+    if (!yearScrollerDragActive && state.activeYear) {
+      setYearScrubberEngaged(true);
+    }
+  });
 }
 
 function hitYearButton(scroller, clientY) {
@@ -480,9 +504,7 @@ function hitYearButton(scroller, clientY) {
   if (hit && hit.dataset.year !== state.activeYear) {
     state.activeYear = hit.dataset.year;
     scrollToYear(hit.dataset.year);
-    ticks.forEach(tick => {
-      tick.classList.toggle('is-active', tick.dataset.year === state.activeYear);
-    });
+    updateScrubberThumb();
   }
 }
 
@@ -1626,6 +1648,9 @@ function buildBinItem(record) {
   }
   const type = mimeType.startsWith('video/') ? 'video' : 'photo';
   const fileName = normalizeText(metadata.FileName || extractFileNameFromPath(fileId) || 'Deleted item');
+  const deletedAt = Number(record.deletedAt) || Date.now();
+  const deletedDate = new Date(deletedAt);
+  const deletedYear = deletedDate.getFullYear();
   return {
     id: fileId,
     label: fileName,
@@ -1637,7 +1662,10 @@ function buildBinItem(record) {
     height: toPositiveNumber(metadata.Height, type === 'video' ? 720 : 900),
     sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
     daysLeft: Math.max(0, Number(record.daysLeft) || 0),
-    deletedAt: Number(record.deletedAt) || 0,
+    deletedAt,
+    takenAt: deletedDate.toISOString(),
+    year: String(deletedYear),
+    timelineLabel: createTimelineLabel(deletedDate),
     isDocumentLike: DOCUMENT_HINT_PATTERN.test(`${fileId} ${fileName}`)
   };
 }
@@ -1655,7 +1683,10 @@ async function fetchBinItems() {
     }
     const payload = await response.json().catch(() => ({}));
     const records = safeArray(payload?.files);
-    state.binItems = records.map(buildBinItem).filter(Boolean);
+    state.binItems = records
+      .map(buildBinItem)
+      .filter(Boolean)
+      .sort((left, right) => right.deletedAt - left.deletedAt);
   } catch (error) {
     console.error('[media-library] fetchBinItems failed', error);
     state.binItems = [];
@@ -2504,20 +2535,41 @@ function summarizeLocations(items) {
   return `${ordered[0][0]} & ${ordered.length - 1} more`;
 }
 
-function buildSections(items) {
+function summarizeBinSection(items) {
+  if (!items.length) {
+    return '';
+  }
+  const sortedDays = items
+    .map((item) => Number(item.daysLeft) || 0)
+    .sort((left, right) => left - right);
+  const minDays = sortedDays[0];
+  const maxDays = sortedDays[sortedDays.length - 1];
+  if (minDays === maxDays) {
+    return `${minDays} day${minDays === 1 ? '' : 's'} left before permanent deletion`;
+  }
+  return `${minDays}-${maxDays} days left before permanent deletion`;
+}
+
+function buildSections(items, {
+  anchorPrefix = 'timeline',
+  getLabel = (item) => item.timelineLabel || createTimelineLabel(item.takenAt),
+  getYear = (item) => item.year,
+  getMetaLine = summarizeLocations
+} = {}) {
   const renderedItems = items.slice(0, state.loadedCount);
   const groups = [];
   renderedItems.forEach((item) => {
-    const label = item.timelineLabel || createTimelineLabel(item.takenAt);
-    const key = `${item.year}-${label}`;
+    const label = getLabel(item);
+    const year = String(getYear(item) || '');
+    const key = `${year}-${label}`;
     const existing = groups[groups.length - 1];
 
     if (!existing || existing.key !== key) {
       groups.push({
         key,
         label,
-        year: item.year,
-        anchorId: `timeline-${item.year}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        year,
+        anchorId: `${anchorPrefix}-${year}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
         items: [item]
       });
     } else {
@@ -2527,7 +2579,7 @@ function buildSections(items) {
 
   return groups.map((group) => ({
     ...group,
-    metaLine: summarizeLocations(group.items)
+    metaLine: getMetaLine(group.items)
   }));
 }
 
@@ -2618,9 +2670,21 @@ function getViewModel() {
   const collectionCards = allCollections.slice(0, state.loadedCount);
   const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName;
   const isAlbumPickerMode = Boolean(albumSelectionTarget);
-  const sections = isCollectionRoot ? [] : buildSections(filteredItems);
-  const years = isCollectionRoot ? [] : [...new Set(filteredItems.map((item) => item.year))];
-  const previewItems = filteredItems;
+  const timelineItems = state.primaryFilter === 'Bin'
+    ? state.binItems
+    : filteredItems;
+  const sections = isCollectionRoot
+    ? []
+    : buildSections(timelineItems, state.primaryFilter === 'Bin'
+      ? {
+          anchorPrefix: 'bin',
+          getLabel: (item) => item.timelineLabel || createTimelineLabel(item.deletedAt || item.takenAt),
+          getYear: (item) => item.year || new Date(item.deletedAt || item.takenAt).getFullYear(),
+          getMetaLine: summarizeBinSection
+        }
+      : undefined);
+  const years = isCollectionRoot ? [] : [...new Set(timelineItems.map((item) => String(item.year)))];
+  const previewItems = state.primaryFilter === 'Bin' ? [] : filteredItems;
   const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
   const previewItem = previewIndex >= 0 ? previewItems[previewIndex] : null;
   const canSetAlbumCover = Boolean(
@@ -2715,6 +2779,7 @@ function render() {
               ${state.primaryFilter === 'Bin'
                 ? BinGrid({
                   items: viewModel.binItems,
+                  sections: viewModel.sections,
                   binSelectedIds: viewModel.binSelectedIds,
                   isBinLoading: viewModel.isBinLoading,
                   layoutWidth: state.layoutWidth
@@ -2752,7 +2817,7 @@ function render() {
                     }))}`}
             </div>
           </main>
-          ${state.primaryFilter !== 'Bin' ? YearScroller({ years: viewModel.years, activeYear: state.activeYear }) : ''}
+          ${!viewModel.isCollectionRoot ? YearScroller({ years: viewModel.years, activeYear: state.activeYear }) : ''}
         </div>
       </div>
       ${PreviewModal({
@@ -2790,6 +2855,8 @@ function render() {
   }
 
   syncLayoutWidth();
+  updateActiveYear();
+  updateScrubberThumb();
   setupPreviewTouchHandlers();
   setupYearScrollerDrag();
   setupImageLoadAnimations();
@@ -3025,7 +3092,7 @@ function scrollToYear(year) {
   }
   const section = refs.sectionAnchors.find((item) => item.getAttribute('data-year') === String(year));
   if (section) {
-    refs.scrollRegion.scrollTo({ top: section.offsetTop - 12, behavior: 'smooth' });
+    refs.scrollRegion.scrollTo({ top: Math.max(0, section.offsetTop - 56), behavior: 'smooth' });
   }
 }
 
@@ -3042,11 +3109,14 @@ function updateActiveYear() {
   });
   if (active && active !== state.activeYear) {
     state.activeYear = active;
-    render();
+    updateScrubberThumb();
   }
 }
 
 function getScrollableResultCount() {
+  if (state.primaryFilter === 'Bin') {
+    return state.binItems.length;
+  }
   if (state.primaryFilter === 'Collections' && !getActiveAlbumName()) {
     return buildCollectionSummaries(getAllItems()).length;
   }
@@ -3080,8 +3150,10 @@ function updateScrubberThumb() {
   if (!refs.root || !refs.scrollRegion) {
     return;
   }
+  const scroller = refs.root.querySelector('.cml-scrubber');
   const thumb = refs.root.querySelector('.cml-scrubber__thumb');
-  if (!thumb) {
+  const badge = refs.root.querySelector('.cml-scrubber__badge');
+  if (!scroller || !thumb) {
     return;
   }
   const { scrollTop, scrollHeight, clientHeight } = refs.scrollRegion;
@@ -3096,6 +3168,12 @@ function updateScrubberThumb() {
       tick.classList.toggle('is-active', tick.dataset.year === String(state.activeYear));
     });
   }
+  if (badge) {
+    badge.textContent = String(state.activeYear || '');
+    badge.style.top = `${pct.toFixed(1)}%`;
+  }
+  scroller.classList.toggle('has-active-year', Boolean(state.activeYear));
+  scroller.classList.toggle('is-scrubbing', state.isYearScrubbing);
 }
 
 function handleAction(actionTarget) {
@@ -3326,7 +3404,7 @@ function handleClick(event) {
     if (actionTarget.dataset.year) {
       state.activeYear = actionTarget.dataset.year;
       scrollToYear(actionTarget.dataset.year);
-      render();
+      updateScrubberThumb();
       return;
     }
 

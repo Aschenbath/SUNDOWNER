@@ -502,6 +502,7 @@ export function YearScroller({ years, activeYear }) {
   return `
     <aside class="cml-scrubber" aria-label="Timeline navigation">
       <div class="cml-scrubber__track">
+        <div class="cml-scrubber__badge" aria-hidden="true">${escapeHtml(activeYear || years[0])}</div>
         ${years.map((year, i) => {
           const pct = years.length > 1 ? (i / (years.length - 1)) * 100 : 0;
           const isActive = String(activeYear) === String(year);
@@ -756,7 +757,35 @@ function BinMediaTile({ item, selected, layout }) {
   `;
 }
 
-export function BinGrid({ items, binSelectedIds, isBinLoading, layoutWidth }) {
+function BinTimelineSection({ section, binSelectedIds, layoutWidth }) {
+  return `
+    <section class="cml-timeline-section cml-timeline-section--bin" id="${escapeHtml(section.anchorId)}" data-year="${escapeHtml(section.year)}">
+      <header class="cml-timeline-section__header cml-timeline-section__header--bin">
+        <div class="cml-timeline-section__heading">
+          <h2 class="cml-timeline-section__title">${escapeHtml(section.label)}</h2>
+          ${section.metaLine ? `<span class="cml-timeline-section__meta">${escapeHtml(section.metaLine)}</span>` : ''}
+        </div>
+        <span class="cml-timeline-section__count">${section.items.length} item${section.items.length === 1 ? '' : 's'}</span>
+      </header>
+      <div class="cml-bin-grid">
+        ${buildJustifiedRows(section.items, {
+          containerWidth: layoutWidth,
+          denseGrid: false
+        }).map((row) => `
+          <div class="cml-media-row">
+            ${row.items.map((layout) => BinMediaTile({
+              item: layout.item,
+              selected: binSelectedIds.has(layout.item.id),
+              layout
+            })).join('')}
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutWidth }) {
   const selectedCount = binSelectedIds.size;
   const hasItems = items.length > 0;
 
@@ -784,19 +813,12 @@ export function BinGrid({ items, binSelectedIds, isBinLoading, layoutWidth }) {
         </section>
       `
       : `
-        <div class="cml-bin-grid">
-          ${buildJustifiedRows(items, {
-            containerWidth: layoutWidth,
-            denseGrid: false
-          }).map((row) => `
-            <div class="cml-media-row">
-              ${row.items.map((layout) => BinMediaTile({
-                item: layout.item,
-                selected: binSelectedIds.has(layout.item.id),
-                layout
-              })).join('')}
-            </div>
-          `).join('')}
+        <div class="cml-bin-timeline">
+          ${sections.map((section) => BinTimelineSection({
+            section,
+            binSelectedIds,
+            layoutWidth
+          })).join('')}
         </div>
       `;
 
