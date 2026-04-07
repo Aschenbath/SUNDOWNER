@@ -18,7 +18,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root,
 #codex-media-library-root * {
   box-sizing: border-box;
-  font-family: 'Aptos', 'Segoe UI Variable', 'Segoe UI', sans-serif !important;
+  font-family: "Times New Roman", Times, serif !important;
 }
 
 #codex-media-library-root button,
@@ -2273,6 +2273,14 @@ body.codex-media-library-active #app {
   background: #1a73e8;
   color: #ffffff;
   opacity: 1;
+}
+
+#codex-media-library-root .cml-media-tile,
+#codex-media-library-root .cml-media-tile__image,
+#codex-media-library-root .cml-media-tile__scrim,
+#codex-media-library-root .cml-media-tile__video,
+#codex-media-library-root .cml-media-tile__placeholder {
+  border-radius: 0 !important;
 }
 
 /* ── Preview overlay entrance ──────────────────────────────────── */
