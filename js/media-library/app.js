@@ -2381,7 +2381,7 @@ function mount() {
     refs.root.addEventListener('input', handleInput);
     refs.root.addEventListener('focusin', handleFocusIn);
     refs.root.addEventListener('submit', (e) => {
-      if (e.target instanceof HTMLFormElement && e.target.dataset.action === 'submit-login') {
+      if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'login') {
         e.preventDefault();
         void submitLogin();
       }

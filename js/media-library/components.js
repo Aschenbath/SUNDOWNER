@@ -759,7 +759,7 @@ export function LoginOverlay({ error = '', isLoading = false } = {}) {
           <span class="cml-login__wordmark">SUNDOWNER</span>
         </div>
         <p class="cml-login__subtitle">Your private photo space</p>
-        <form class="cml-login__form" data-action="submit-login">
+        <form class="cml-login__form" data-form="login">
           <label class="cml-login__field">
             <span class="cml-login__label">Username</span>
             <input
