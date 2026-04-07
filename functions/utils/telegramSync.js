@@ -412,6 +412,9 @@ async function buildImportedMetadata(context, channel, message, source, mediaInf
         }
     }
 
+    if (media.width > 0) metadata.Width = media.width
+    if (media.height > 0) metadata.Height = media.height
+
     return { metadata, ext }
 }
 

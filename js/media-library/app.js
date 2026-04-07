@@ -32,6 +32,12 @@ const FAVORITES_STORAGE_KEY = 'codex-media-library-favorites';
 const ALBUMS_STORAGE_KEY = 'codex-media-library-albums';
 const ALBUM_ASSIGNMENTS_STORAGE_KEY = 'codex-media-library-album-assignments';
 const ALBUM_COVERS_STORAGE_KEY = 'codex-media-library-album-covers';
+const LEGACY_ALBUM_STORAGE_KEYS = [
+  FAVORITES_STORAGE_KEY,
+  ALBUMS_STORAGE_KEY,
+  ALBUM_ASSIGNMENTS_STORAGE_KEY,
+  ALBUM_COVERS_STORAGE_KEY
+];
 const API_PAGE_SIZE = 400;
 const API_MAX_ITEMS = 1600;
 const COLLECTION_PAGE_SIZE = 24;
@@ -118,19 +124,11 @@ function loadStringSet(key) {
   return new Set(Array.isArray(values) ? values.map(String) : []);
 }
 
-function saveStringSet(key, set) {
-  window.localStorage.setItem(key, JSON.stringify([...set]));
-}
-
 function loadStringArray(key) {
   const values = loadJson(key, []);
   return Array.isArray(values)
     ? values.map((value) => normalizeText(value)).filter(Boolean)
     : [];
-}
-
-function saveStringArray(key, values) {
-  window.localStorage.setItem(key, JSON.stringify(values));
 }
 
 function loadStringRecord(key) {
@@ -145,10 +143,6 @@ function loadStringRecord(key) {
   );
 }
 
-function saveStringRecord(key, value) {
-  window.localStorage.setItem(key, JSON.stringify(value));
-}
-
 function loadAlbumCoverRecord() {
   const value = loadJson(ALBUM_COVERS_STORAGE_KEY, {});
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -161,9 +155,22 @@ function loadAlbumCoverRecord() {
   );
 }
 
-function saveAlbumCoverRecord(value) {
-  window.localStorage.setItem(ALBUM_COVERS_STORAGE_KEY, JSON.stringify(value));
+function readLegacyAlbumState() {
+  return {
+    albumNames: loadStringArray(ALBUMS_STORAGE_KEY),
+    albumAssignments: loadStringRecord(ALBUM_ASSIGNMENTS_STORAGE_KEY),
+    albumCovers: loadAlbumCoverRecord(),
+    favorites: [...loadStringSet(FAVORITES_STORAGE_KEY)]
+  };
 }
+
+function clearLegacyAlbumState() {
+  LEGACY_ALBUM_STORAGE_KEYS.forEach((key) => {
+    window.localStorage.removeItem(key);
+  });
+}
+
+const legacyAlbumState = readLegacyAlbumState();
 
 const state = {
   primaryFilter: 'Photos',
@@ -172,10 +179,10 @@ const state = {
   albumSelectionTarget: '',
   searchQuery: '',
   selectedIds: new Set(),
-  favoriteIds: loadStringSet(FAVORITES_STORAGE_KEY),
-  albumNames: loadStringArray(ALBUMS_STORAGE_KEY),
-  albumAssignments: loadStringRecord(ALBUM_ASSIGNMENTS_STORAGE_KEY),
-  albumCovers: loadAlbumCoverRecord(),
+  favoriteIds: new Set(),
+  albumNames: [],
+  albumAssignments: {},
+  albumCovers: {},
   albumDialogOpen: false,
   albumDialogMode: 'create',
   albumDraftName: '',
@@ -231,8 +238,11 @@ const state = {
   adminCloudDraft: createEmptyAdminCloudDraft(),
   adminPageConfigSource: [],
   adminOthersConfigSource: null,
-  storagePanelOpen: false
+  storagePanelOpen: false,
+  dimensionCache: new Map()
 };
+
+let dimensionPatchTimer = 0;
 
 const refs = {
   root: null,
@@ -251,6 +261,8 @@ let liveSyncRaf = 0;
 let liveSyncPromise = null;
 let pendingSyncForceRender = false;
 let timelineRenderRaf = 0;
+let persistedAlbumStatePromise = null;
+let pendingPersistedAlbumSnapshot = null;
 
 const touchZoom = {
   active: false,
@@ -407,6 +419,36 @@ async function fetchAdminIdentity() {
   } catch { /* silent */ }
 }
 
+function captureDimension(img, tile) {
+  const id = tile?.dataset?.id;
+  if (!id) return;
+  const nw = img.naturalWidth;
+  const nh = img.naturalHeight;
+  if (!nw || !nh) return;
+  const item = state.mediaItems.find((m) => m.id === id);
+  if (!item) return;
+  const storedAspect = item.width / item.height;
+  const naturalAspect = nw / nh;
+  if (Math.abs(storedAspect - naturalAspect) < 0.1) return;
+  state.dimensionCache.set(id, { width: nw, height: nh });
+  clearTimeout(dimensionPatchTimer);
+  dimensionPatchTimer = window.setTimeout(applyDimensionPatch, 1200);
+}
+
+function applyDimensionPatch() {
+  if (state.dimensionCache.size === 0) return;
+  let changed = false;
+  state.dimensionCache.forEach(({ width, height }, id) => {
+    const idx = state.mediaItems.findIndex((m) => m.id === id);
+    if (idx !== -1) {
+      state.mediaItems[idx] = { ...state.mediaItems[idx], width, height };
+      changed = true;
+    }
+  });
+  state.dimensionCache.clear();
+  if (changed) render();
+}
+
 function setupImageLoadAnimations() {
   if (!refs.root) {
     return;
@@ -420,9 +462,13 @@ function setupImageLoadAnimations() {
       // Skip fade-in for already-cached images (avoids flash on every render)
       img.style.transition = 'none';
       tile.classList.add('is-img-loaded');
+      captureDimension(img, tile);
       return;
     }
-    img.addEventListener('load', () => tile.classList.add('is-img-loaded'), { once: true });
+    img.addEventListener('load', () => {
+      tile.classList.add('is-img-loaded');
+      captureDimension(img, tile);
+    }, { once: true });
     img.addEventListener('error', () => tile.classList.add('is-img-loaded'), { once: true });
   });
 
@@ -1047,15 +1093,15 @@ function getAvailableAlbumNames() {
 }
 
 function persistAlbumNames() {
-  saveStringArray(ALBUMS_STORAGE_KEY, state.albumNames);
+  queuePersistedAlbumState();
 }
 
 function persistAlbumAssignments() {
-  saveStringRecord(ALBUM_ASSIGNMENTS_STORAGE_KEY, state.albumAssignments);
+  queuePersistedAlbumState();
 }
 
 function persistAlbumCovers() {
-  saveAlbumCoverRecord(state.albumCovers);
+  queuePersistedAlbumState();
 }
 
 function ensureAlbumName(value) {
@@ -2143,7 +2189,127 @@ function resetLoadedCount() {
 }
 
 function persistFavorites() {
-  saveStringSet(FAVORITES_STORAGE_KEY, state.favoriteIds);
+  queuePersistedAlbumState();
+}
+
+function hasPersistedAlbumData(snapshot) {
+  return Boolean(
+    safeArray(snapshot?.albumNames).length
+    || Object.keys(snapshot?.albumAssignments || {}).length
+    || Object.keys(snapshot?.albumCovers || {}).length
+    || safeArray(snapshot?.favorites).length
+  );
+}
+
+function applyPersistedAlbumState(payload) {
+  const albumNames = loadStringArrayFromApi(payload?.albumNames);
+  const albumAssignments = loadStringRecordFromApi(payload?.albumAssignments);
+  const albumCovers = loadAlbumCoverRecordFromApi(payload?.albumCovers);
+  const favorites = loadFavoriteSetFromApi(payload?.favorites);
+
+  state.albumNames = albumNames;
+  state.albumAssignments = albumAssignments;
+  state.albumCovers = albumCovers;
+  state.favoriteIds = favorites;
+}
+
+function loadStringArrayFromApi(values) {
+  return Array.isArray(values)
+    ? values.map((value) => normalizeText(value)).filter(Boolean)
+    : [];
+}
+
+function loadStringRecordFromApi(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([entryKey, entryValue]) => [normalizeText(entryKey), normalizeText(entryValue)])
+      .filter(([entryKey, entryValue]) => entryKey && entryValue)
+  );
+}
+
+function loadAlbumCoverRecordFromApi(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([albumName, itemKey]) => [normalizeAlbumKey(albumName), normalizeText(itemKey)])
+      .filter(([albumName, itemKey]) => albumName && itemKey)
+  );
+}
+
+function loadFavoriteSetFromApi(values) {
+  return new Set(Array.isArray(values) ? values.map((value) => normalizeText(value)).filter(Boolean) : []);
+}
+
+function snapshotPersistedAlbumState() {
+  return {
+    albumNames: [...state.albumNames],
+    albumAssignments: { ...state.albumAssignments },
+    albumCovers: { ...state.albumCovers },
+    favorites: [...state.favoriteIds]
+  };
+}
+
+async function flushPersistedAlbumState() {
+  while (pendingPersistedAlbumSnapshot) {
+    const nextSnapshot = pendingPersistedAlbumSnapshot;
+    pendingPersistedAlbumSnapshot = null;
+    try {
+      const payload = await postJson('/api/manage/albums', { state: nextSnapshot });
+      if (!pendingPersistedAlbumSnapshot) {
+        applyPersistedAlbumState(payload);
+        clearLegacyAlbumState();
+      }
+    } catch (error) {
+      console.error('[media-library] failed to persist album state', error);
+      showToast(error.message || 'Failed to save album changes');
+    }
+  }
+}
+
+function queuePersistedAlbumState() {
+  pendingPersistedAlbumSnapshot = snapshotPersistedAlbumState();
+  if (persistedAlbumStatePromise) {
+    return persistedAlbumStatePromise;
+  }
+
+  persistedAlbumStatePromise = flushPersistedAlbumState()
+    .finally(() => {
+      persistedAlbumStatePromise = null;
+      if (pendingPersistedAlbumSnapshot) {
+        queuePersistedAlbumState();
+      }
+    });
+
+  return persistedAlbumStatePromise;
+}
+
+async function loadPersistedAlbumState({ forceRender = false } = {}) {
+  try {
+    let payload = await fetchJson('/api/manage/albums');
+    if (!hasPersistedAlbumData(payload) && hasPersistedAlbumData(legacyAlbumState)) {
+      payload = await postJson('/api/manage/albums', { migrate: legacyAlbumState });
+      clearLegacyAlbumState();
+    }
+    applyPersistedAlbumState(payload);
+    const canValidateAlbumCovers = state.mediaItems.length > 0 || !state.isLibraryLoading;
+    if (canValidateAlbumCovers && syncAlbumCovers()) {
+      queuePersistedAlbumState();
+    }
+  } catch (error) {
+    console.error('[media-library] failed to load album state', error);
+    if (hasPersistedAlbumData(legacyAlbumState)) {
+      applyPersistedAlbumState(legacyAlbumState);
+    }
+  } finally {
+    if (forceRender && refs.root) {
+      render();
+    }
+  }
 }
 
 function focusAlbumInput() {
@@ -3369,6 +3535,7 @@ function mount() {
   ensureRoot();
   document.body.classList.add('codex-media-library-active');
   state.liveSyncAttempts = 0;
+  void loadPersistedAlbumState({ forceRender: true });
   syncLiveMedia({ forceRender: true });
   void syncStorageSummary({ forceRender: true });
   if (!state.adminUsername) {
