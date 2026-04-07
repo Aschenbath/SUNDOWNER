@@ -443,7 +443,7 @@ function shouldMount(pathname = window.location.pathname, search = window.locati
   if (pathname.startsWith('/login') || pathname.startsWith('/browse')) {
     return false;
   }
-  return pathname === '/' || pathname.startsWith('/dashboard');
+  return pathname === '/';
 }
 
 function ensureRoot() {
