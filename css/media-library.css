@@ -676,10 +676,11 @@ body.codex-media-library-active #app {
   position: relative;
   flex: 0 0 auto;
   overflow: hidden;
-  border-radius: 26px;
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+  background: #1a1d24;
   cursor: zoom-in;
+  transition: transform 180ms ease;
+  will-change: transform;
 }
 
 #codex-media-library-root .cml-media-tile.is-selected {
@@ -692,8 +693,13 @@ body.codex-media-library-active #app {
   height: 100%;
   display: block;
   object-fit: cover;
-  background: rgba(255, 255, 255, 0.03);
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+#codex-media-library-root .cml-media-tile.is-img-loaded .cml-media-tile__image {
+  opacity: 1;
 }
 
 #codex-media-library-root .cml-media-tile__scrim {
@@ -1657,4 +1663,83 @@ body.codex-media-library-active #app {
     padding: 32px 24px 28px;
     border-radius: 16px;
   }
+}
+
+/* ── Tile shimmer skeleton ─────────────────────────────────────── */
+
+@keyframes cml-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+#codex-media-library-root .cml-media-tile:not(.is-img-loaded) {
+  background: linear-gradient(
+    90deg,
+    #1a1d24 25%,
+    #242830 50%,
+    #1a1d24 75%
+  );
+  background-size: 200% 100%;
+  animation: cml-shimmer 1.6s ease-in-out infinite;
+}
+
+/* ── Tile hover lift ───────────────────────────────────────────── */
+
+#codex-media-library-root .cml-media-tile:hover {
+  transform: scale(1.015);
+  z-index: 1;
+}
+
+#codex-media-library-root .cml-media-tile.is-selected {
+  outline: 2.5px solid rgba(194, 178, 128, 0.95);
+  outline-offset: -2px;
+}
+
+/* ── Select button polish ──────────────────────────────────────── */
+
+#codex-media-library-root .cml-media-tile__select {
+  transition: opacity 140ms ease, transform 140ms ease, background 140ms ease;
+}
+
+#codex-media-library-root .cml-media-tile:hover .cml-media-tile__select,
+#codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__select {
+  transform: translateY(0) scale(1);
+}
+
+#codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__select {
+  background: #c2b280;
+  color: #0f1115;
+  opacity: 1;
+}
+
+/* ── Preview overlay entrance ──────────────────────────────────── */
+
+#codex-media-library-root .cml-preview {
+  animation: cml-preview-in 200ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes cml-preview-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Timeline section spacing ──────────────────────────────────── */
+
+#codex-media-library-root .cml-timeline-section__title {
+  font-size: 18px;
+  font-weight: 500;
+  color: #d1d8e4;
+  letter-spacing: -0.01em;
+}
+
+#codex-media-library-root .cml-timeline-section {
+  gap: 8px;
+}
+
+#codex-media-library-root .cml-media-grid {
+  gap: 4px;
+}
+
+#codex-media-library-root .cml-media-row {
+  gap: 4px;
 }

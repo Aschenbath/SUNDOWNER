@@ -316,6 +316,24 @@ function setupPreviewTouchHandlers() {
   }, { passive: true });
 }
 
+function setupImageLoadAnimations() {
+  if (!refs.root) {
+    return;
+  }
+  refs.root.querySelectorAll('.cml-media-tile__image').forEach((img) => {
+    const tile = img.closest('.cml-media-tile');
+    if (!tile) {
+      return;
+    }
+    if (img.complete && img.naturalWidth > 0) {
+      tile.classList.add('is-img-loaded');
+      return;
+    }
+    img.addEventListener('load', () => tile.classList.add('is-img-loaded'), { once: true });
+    img.addEventListener('error', () => tile.classList.add('is-img-loaded'), { once: true });
+  });
+}
+
 let yearScrollerDragActive = false;
 
 function setupYearScrollerDrag() {
@@ -2241,6 +2259,7 @@ function render() {
   syncLayoutWidth();
   setupPreviewTouchHandlers();
   setupYearScrollerDrag();
+  setupImageLoadAnimations();
 }
 
 async function performSyncLiveMedia({ forceRender = false } = {}) {
