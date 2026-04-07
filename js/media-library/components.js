@@ -243,6 +243,10 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
       ` : ''}
       <div class="cml-sidebar__footer">
         ${StorageCard(storageSummary)}
+        <button type="button" class="cml-sidebar__logout-btn" data-action="logout" title="Sign out">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="m16 17 5-5-5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Sign out
+        </button>
       </div>
     </aside>
   `;
@@ -728,6 +732,70 @@ export function BinGrid({ items, binSelectedIds, isBinLoading }) {
         <div class="cml-bin-view__actions">${headerActions}</div>
       </header>
       ${gridContent}
+    </div>
+  `;
+}
+
+export function LoginOverlay({ error = '', isLoading = false } = {}) {
+  const logoSvg = `<svg class="cml-login__logo" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+    <circle cx="20" cy="20" r="18" stroke="#c2b280" stroke-width="1.6"/>
+    <path d="M10 26 Q20 10 30 26" stroke="#c2b280" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <circle cx="20" cy="20" r="3.5" fill="#c2b280"/>
+  </svg>`;
+
+  const errorHtml = error
+    ? `<p class="cml-login__error" role="alert">${escapeHtml(error)}</p>`
+    : '';
+
+  const btnLabel = isLoading
+    ? `<span class="cml-login__spinner"></span> Signing in…`
+    : 'Sign in';
+
+  return `
+    <div class="cml-login-overlay" role="main" aria-label="Sign in">
+      <div class="cml-login-card">
+        <div class="cml-login__brand">
+          ${logoSvg}
+          <span class="cml-login__wordmark">SUNDOWNER</span>
+        </div>
+        <p class="cml-login__subtitle">Your private photo space</p>
+        <form class="cml-login__form" data-action="submit-login">
+          <label class="cml-login__field">
+            <span class="cml-login__label">Username</span>
+            <input
+              class="cml-login__input"
+              type="text"
+              name="username"
+              autocomplete="username"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              placeholder="admin"
+              data-login="username"
+              ${isLoading ? 'disabled' : ''}
+            />
+          </label>
+          <label class="cml-login__field">
+            <span class="cml-login__label">Password</span>
+            <input
+              class="cml-login__input"
+              type="password"
+              name="password"
+              autocomplete="current-password"
+              placeholder="••••••••"
+              data-login="password"
+              ${isLoading ? 'disabled' : ''}
+            />
+          </label>
+          ${errorHtml}
+          <button
+            class="cml-login__btn${isLoading ? ' is-loading' : ''}"
+            type="submit"
+            data-action="submit-login"
+            ${isLoading ? 'disabled' : ''}
+          >${btnLabel}</button>
+        </form>
+      </div>
     </div>
   `;
 }

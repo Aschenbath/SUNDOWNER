@@ -6,6 +6,7 @@ import {
   CollectionSummary,
   ConfirmDialog,
   EmptyState,
+  LoginOverlay,
   MediaTimelineSection,
   PreviewModal,
   SearchSummary,
@@ -161,7 +162,12 @@ const state = {
   toastType: 'error',
   toastTimeoutId: 0,
   infoOpen: false,
-  lastSelectedId: null
+  lastSelectedId: null,
+  needsLogin: false,
+  loginError: '',
+  loginUsername: '',
+  loginPassword: '',
+  isLoggingIn: false
 };
 
 const refs = {
@@ -926,17 +932,76 @@ function extractConfiguredQuotaGb(uploadConfig) {
     }, 0);
 }
 
-async function fetchJson(url) {
+async function apiFetch(url, options = {}) {
   const response = await fetch(url, {
     credentials: 'same-origin',
+    ...options,
     headers: {
-      Accept: 'application/json'
+      Accept: 'application/json',
+      ...(options.headers || {})
     }
   });
+  if (response.status === 401) {
+    state.needsLogin = true;
+    render();
+    throw new Error('Unauthorized');
+  }
+  return response;
+}
+
+async function fetchJson(url) {
+  const response = await apiFetch(url);
   if (!response.ok) {
     throw new Error(`${url} returned ${response.status}`);
   }
   return response.json();
+}
+
+async function submitLogin() {
+  if (state.isLoggingIn) {
+    return;
+  }
+  state.isLoggingIn = true;
+  state.loginError = '';
+  render();
+
+  try {
+    const res = await fetch('/api/manage/auth-session', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: state.loginUsername, password: state.loginPassword })
+    });
+
+    if (res.status === 401) {
+      state.loginError = 'Invalid username or password';
+    } else if (res.ok) {
+      state.needsLogin = false;
+      state.loginError = '';
+      state.loginUsername = '';
+      state.loginPassword = '';
+      void syncStorageSummary({ forceRender: true });
+      void syncLiveMedia({ forceRender: true });
+    } else {
+      state.loginError = 'Login failed, please try again';
+    }
+  } catch {
+    state.loginError = 'Network error, please try again';
+  }
+
+  state.isLoggingIn = false;
+  render();
+}
+
+async function performLogout() {
+  try {
+    await fetch('/api/manage/logout', { method: 'GET', credentials: 'same-origin' });
+  } catch { /* ignore */ }
+  state.needsLogin = true;
+  state.loginUsername = '';
+  state.loginPassword = '';
+  state.loginError = '';
+  render();
 }
 
 async function performStorageSummarySync({ forceRender = false } = {}) {
@@ -1084,12 +1149,7 @@ async function fetchListPage(start) {
     recursive: 'true',
     fileType: 'image,video'
   });
-  const response = await fetch(`/api/manage/list?${params.toString()}`, {
-    credentials: 'same-origin',
-    headers: {
-      Accept: 'application/json'
-    }
-  });
+  const response = await apiFetch(`/api/manage/list?${params.toString()}`);
 
   if (!response.ok) {
     throw new Error(`List API returned ${response.status}`);
@@ -1217,10 +1277,7 @@ async function fetchBinItems() {
   state.isBinLoading = true;
   render();
   try {
-    const response = await fetch('/api/manage/bin/list?limit=200', {
-      credentials: 'same-origin',
-      headers: { Accept: 'application/json' }
-    });
+    const response = await apiFetch('/api/manage/bin/list?limit=200');
     if (!response.ok) {
       throw new Error(`Bin list failed with ${response.status}`);
     }
@@ -1245,10 +1302,9 @@ async function restoreBinSelection() {
   state.confirmDialogBusy = true;
   render();
   try {
-    const response = await fetch('/api/manage/bin/batch', {
+    const response = await apiFetch('/api/manage/bin/batch', {
       method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'restore', fileIds })
     });
     const payload = await response.json().catch(() => ({}));
@@ -1284,10 +1340,9 @@ async function deleteBinSelectionPermanently() {
   state.confirmDialogBusy = true;
   render();
   try {
-    const response = await fetch('/api/manage/bin/batch', {
+    const response = await apiFetch('/api/manage/bin/batch', {
       method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete', fileIds })
     });
     const payload = await response.json().catch(() => ({}));
@@ -1322,11 +1377,7 @@ async function emptyBin() {
   state.confirmDialogBusy = true;
   render();
   try {
-    const response = await fetch('/api/manage/bin/empty', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { Accept: 'application/json' }
-    });
+    const response = await apiFetch('/api/manage/bin/empty', { method: 'POST' });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.success === false) {
       throw new Error(payload?.error || `Empty bin failed with ${response.status}`);
@@ -2089,6 +2140,17 @@ function render() {
     return;
   }
 
+  if (state.needsLogin) {
+    refs.root.innerHTML = LoginOverlay({ error: state.loginError, isLoading: state.isLoggingIn });
+    requestAnimationFrame(() => {
+      const firstInput = refs.root ? refs.root.querySelector('.cml-login__input') : null;
+      if (firstInput) {
+        firstInput.focus();
+      }
+    });
+    return;
+  }
+
   const previousScrollTop = refs.scrollRegion ? refs.scrollRegion.scrollTop : 0;
   const searchWasFocused = document.activeElement instanceof HTMLInputElement
     && document.activeElement.classList.contains('cml-topbar__search-input');
@@ -2318,6 +2380,12 @@ function mount() {
     refs.root.addEventListener('click', handleClick);
     refs.root.addEventListener('input', handleInput);
     refs.root.addEventListener('focusin', handleFocusIn);
+    refs.root.addEventListener('submit', (e) => {
+      if (e.target instanceof HTMLFormElement && e.target.dataset.action === 'submit-login') {
+        e.preventDefault();
+        void submitLogin();
+      }
+    });
     document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('resize', handleWindowResize);
     mounted = true;
@@ -2568,6 +2636,12 @@ function handleAction(actionTarget) {
       state.infoOpen = !state.infoOpen;
       render();
       return true;
+    case 'submit-login':
+      void submitLogin();
+      return true;
+    case 'logout':
+      void performLogout();
+      return true;
     case 'close-preview':
       closePreview();
       return true;
@@ -2654,6 +2728,14 @@ function handleClick(event) {
 function handleInput(event) {
   const input = event.target;
   if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (input.dataset.login === 'username') {
+    state.loginUsername = input.value;
+    return;
+  }
+  if (input.dataset.login === 'password') {
+    state.loginPassword = input.value;
     return;
   }
   if (input.classList.contains('cml-topbar__search-input')) {

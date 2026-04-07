@@ -7,6 +7,35 @@ let securityConfig = {}
 let basicUser = ''
 let basicPass = ''
 
+function getAdminAuthFromCookie(request) {
+  const cookies = request.headers.get('Cookie') || '';
+  const match = cookies.match(/(?:^|;\s*)admin_auth=([^;]+)/);
+  if (!match) return null;
+  try {
+    const decoded = atob(decodeURIComponent(match[1]));
+    const idx = decoded.indexOf(':');
+    if (idx === -1) return null;
+    return { user: decoded.substring(0, idx), pass: decoded.substring(idx + 1) };
+  } catch {
+    return null;
+  }
+}
+
+function buildLoginRedirect(request) {
+  const url = new URL(request.url);
+  const accept = request.headers.get('Accept') || '';
+  if (accept.includes('text/html')) {
+    return Response.redirect(`${url.origin}/login?next=${encodeURIComponent(url.pathname)}`, 302);
+  }
+  return new Response(JSON.stringify({ error: 'Unauthorized', code: 'LOGIN_REQUIRED' }), {
+    status: 401,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
 async function errorHandling(context) {
   try {
     return await context.next()
@@ -107,6 +136,7 @@ async function authentication(context) {
     return context.next()
   }
 
+  // 1. API token (Bearer / custom header)
   if (context.request.headers.has('Authorization')) {
     const requiredPermission = extractRequiredPermission(pathname)
     const db = getDatabase(context.env)
@@ -122,12 +152,14 @@ async function authentication(context) {
     return context.next()
   }
 
-  return new Response('You need to login.', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': 'Basic realm="my scope", charset="UTF-8"',
-    },
-  })
+  // 2. Session cookie set by the custom login page
+  const cookieAuth = getAdminAuthFromCookie(context.request)
+  if (cookieAuth && basicUser === cookieAuth.user && basicPass === cookieAuth.pass) {
+    return context.next()
+  }
+
+  // Not authenticated — no WWW-Authenticate header so browser won't show native popup
+  return buildLoginRedirect(context.request)
 }
 
 export const onRequest = [checkDatabaseConfig, errorHandling, authentication]
