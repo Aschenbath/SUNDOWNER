@@ -958,6 +958,17 @@ body.codex-media-library-active #app {
   justify-content: center;
   padding: 28px 0 20px;
   width: 40px;
+  opacity: 0;
+  transform: translateX(8px);
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+#codex-media-library-root .cml-scrubber.is-visible,
+#codex-media-library-root .cml-scrubber.is-scrubbing {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 #codex-media-library-root .cml-scrubber__track {
@@ -967,6 +978,12 @@ body.codex-media-library-active #app {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 999px;
   flex-shrink: 0;
+  transition: background 180ms ease;
+}
+
+#codex-media-library-root .cml-scrubber.is-visible .cml-scrubber__track,
+#codex-media-library-root .cml-scrubber.is-scrubbing .cml-scrubber__track {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 #codex-media-library-root .cml-scrubber__badge {

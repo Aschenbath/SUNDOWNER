@@ -185,6 +185,7 @@ const state = {
   activeYear: null,
   activeScrubberLabel: '',
   isYearScrubbing: false,
+  scrubberVisible: false,
   focusedTileId: null,
   mediaItems: [],
   liveMediaSignature: '',
@@ -430,9 +431,47 @@ function setupImageLoadAnimations() {
 }
 
 let yearScrollerDragActive = false;
+let scrubberHideTimeoutId = 0;
+
+function clearScrubberHideTimeout() {
+  if (scrubberHideTimeoutId) {
+    window.clearTimeout(scrubberHideTimeoutId);
+    scrubberHideTimeoutId = 0;
+  }
+}
+
+function setScrubberVisible(isVisible) {
+  state.scrubberVisible = Boolean(isVisible);
+  if (!refs.root) {
+    return;
+  }
+  const scroller = refs.root.querySelector('.cml-scrubber');
+  if (scroller) {
+    scroller.classList.toggle('is-visible', state.scrubberVisible);
+  }
+}
+
+function revealScrubber({ keepAlive = false } = {}) {
+  clearScrubberHideTimeout();
+  setScrubberVisible(true);
+  if (keepAlive || state.isYearScrubbing) {
+    return;
+  }
+  scrubberHideTimeoutId = window.setTimeout(() => {
+    if (state.isYearScrubbing) {
+      return;
+    }
+    setScrubberVisible(false);
+  }, 900);
+}
 
 function setYearScrubberEngaged(isEngaged) {
   state.isYearScrubbing = Boolean(isEngaged);
+  if (state.isYearScrubbing) {
+    revealScrubber({ keepAlive: true });
+  } else {
+    revealScrubber();
+  }
   if (!refs.root) {
     return;
   }
@@ -451,6 +490,7 @@ function setupYearScrollerDrag() {
   if (!scroller) {
     return;
   }
+  revealScrubber();
 
   scroller.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) {
@@ -487,8 +527,8 @@ function setupYearScrollerDrag() {
     }
   });
   scroller.addEventListener('pointerenter', () => {
-    if (!yearScrollerDragActive && state.activeYear) {
-      setYearScrubberEngaged(true);
+    if (!yearScrollerDragActive) {
+      revealScrubber();
     }
   });
 }
@@ -508,6 +548,7 @@ function hitYearButton(scroller, clientY) {
     scrollToYear(hit.dataset.year);
     updateScrubberThumb();
   }
+  revealScrubber({ keepAlive: yearScrollerDragActive });
 }
 
 let storageSyncPromise = null;
@@ -2715,7 +2756,10 @@ function getViewModel() {
           getScrubberLabel: (item) => formatScrubberLabel(item.deletedAt || item.takenAt)
         }
       : undefined);
-  const years = isCollectionRoot ? [] : [...new Set(timelineItems.map((item) => String(item.year)))];
+  const years = isCollectionRoot
+    ? []
+    : [...new Set(timelineItems.map((item) => String(item.year)))]
+      .sort((left, right) => Number(right) - Number(left));
   const previewItems = state.primaryFilter === 'Bin' ? [] : filteredItems;
   const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
   const previewItem = previewIndex >= 0 ? previewItems[previewIndex] : null;
@@ -3172,6 +3216,7 @@ function handleScroll() {
   if (!refs.scrollRegion) {
     return;
   }
+  revealScrubber();
   const resultCount = getScrollableResultCount();
   const nearBottom = refs.scrollRegion.scrollTop + refs.scrollRegion.clientHeight >= refs.scrollRegion.scrollHeight - 720;
   if (nearBottom && state.loadedCount < resultCount) {
@@ -3204,6 +3249,7 @@ function updateScrubberThumb() {
   }
   badge.textContent = state.activeScrubberLabel || String(state.activeYear || '');
   badge.style.top = `${pct.toFixed(1)}%`;
+  scroller.classList.toggle('is-visible', state.scrubberVisible);
   scroller.classList.toggle('is-scrubbing', state.isYearScrubbing);
 }
 
