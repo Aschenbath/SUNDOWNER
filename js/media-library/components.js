@@ -252,6 +252,39 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
   `;
 }
 
+function AvatarButton({ adminUsername = '', avatarMenuOpen = false }) {
+  const initial = adminUsername ? adminUsername.charAt(0).toUpperCase() : '?';
+  const menuHtml = avatarMenuOpen ? `
+    <div class="cml-avatar-menu" role="menu">
+      <div class="cml-avatar-menu__header">
+        <div class="cml-avatar-menu__avatar-lg">${escapeHtml(initial)}</div>
+        <div>
+          <p class="cml-avatar-menu__name">${escapeHtml(adminUsername || 'Admin')}</p>
+          <p class="cml-avatar-menu__role">Administrator</p>
+        </div>
+      </div>
+      <div class="cml-avatar-menu__divider"></div>
+      <a class="cml-avatar-menu__item" href="/dashboard" data-action="close-avatar-menu" role="menuitem">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="9 22 9 12 15 12 15 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Admin dashboard
+      </a>
+      <div class="cml-avatar-menu__divider"></div>
+      <button type="button" class="cml-avatar-menu__item cml-avatar-menu__item--danger" data-action="logout" role="menuitem">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="m16 17 5-5-5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        Sign out
+      </button>
+    </div>
+  ` : '';
+  return `
+    <div class="cml-avatar-wrap">
+      <button type="button" class="cml-avatar-btn ${avatarMenuOpen ? 'is-open' : ''}" data-action="toggle-avatar" aria-label="Account menu" aria-expanded="${avatarMenuOpen}">
+        ${escapeHtml(initial)}
+      </button>
+      ${menuHtml}
+    </div>
+  `;
+}
+
 export function TopSearchBar({ state, canDeleteSelection = false, canSetAlbumCover = false }) {
   const selectedCount = state.selectedIds.size;
   const searchValue = escapeHtml(state.searchQuery);
@@ -324,6 +357,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canSetAlbumCov
           <span>Upload</span>
         </button>
       </div>
+      ${AvatarButton({ adminUsername: state.adminUsername, avatarMenuOpen: state.avatarMenuOpen })}
     </header>
   `;
 }
@@ -443,10 +477,20 @@ export function YearScroller({ years, activeYear }) {
     return '';
   }
   return `
-    <aside class="cml-year-scroller" aria-label="Jump by year">
-      ${years.map((year) => `
-        <button type="button" class="cml-year-scroller__item ${String(activeYear) === String(year) ? 'is-active' : ''}" data-year="${escapeHtml(year)}">${escapeHtml(year)}</button>
-      `).join('')}
+    <aside class="cml-scrubber" aria-label="Timeline navigation">
+      <div class="cml-scrubber__track">
+        ${years.map((year, i) => {
+          const pct = years.length > 1 ? (i / (years.length - 1)) * 100 : 0;
+          const isActive = String(activeYear) === String(year);
+          return `
+            <div class="cml-scrubber__tick ${isActive ? 'is-active' : ''}" style="top:${pct.toFixed(1)}%" data-year="${escapeHtml(year)}">
+              <span class="cml-scrubber__label">${escapeHtml(year)}</span>
+              <button type="button" class="cml-scrubber__dot" data-year="${escapeHtml(year)}" aria-label="Jump to ${escapeHtml(year)}"></button>
+            </div>
+          `;
+        }).join('')}
+        <div class="cml-scrubber__thumb" style="top:0%"></div>
+      </div>
     </aside>
   `;
 }
@@ -738,8 +782,8 @@ export function BinGrid({ items, binSelectedIds, isBinLoading }) {
 
 export function LoginOverlay({ error = '', isLoading = false } = {}) {
   const logoSvg = `<svg class="cml-login__logo" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-    <circle cx="20" cy="20" r="18" stroke="#c2b280" stroke-width="1.6"/>
-    <path d="M10 26 Q20 10 30 26" stroke="#c2b280" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <circle cx="20" cy="20" r="18" stroke="#8ab4f8" stroke-width="1.6"/>
+    <path d="M10 26 Q20 10 30 26" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" fill="none"/>
     <circle cx="20" cy="20" r="3.5" fill="#c2b280"/>
   </svg>`;
 

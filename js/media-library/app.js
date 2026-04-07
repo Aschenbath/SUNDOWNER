@@ -167,7 +167,9 @@ const state = {
   loginError: '',
   loginUsername: '',
   loginPassword: '',
-  isLoggingIn: false
+  isLoggingIn: false,
+  adminUsername: '',
+  avatarMenuOpen: false
 };
 
 const refs = {
@@ -316,6 +318,19 @@ function setupPreviewTouchHandlers() {
   }, { passive: true });
 }
 
+async function fetchAdminUser() {
+  try {
+    const res = await fetch('/api/manage/me', { credentials: 'same-origin' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.username) {
+        state.adminUsername = data.username;
+        render();
+      }
+    }
+  } catch { /* silent */ }
+}
+
 function setupImageLoadAnimations() {
   if (!refs.root) {
     return;
@@ -332,6 +347,24 @@ function setupImageLoadAnimations() {
     img.addEventListener('load', () => tile.classList.add('is-img-loaded'), { once: true });
     img.addEventListener('error', () => tile.classList.add('is-img-loaded'), { once: true });
   });
+
+  // Videos: seek to first frame to get a thumbnail
+  refs.root.querySelectorAll('.cml-media-tile video').forEach((video) => {
+    const tile = video.closest('.cml-media-tile');
+    if (!tile) {
+      return;
+    }
+    const markLoaded = () => tile.classList.add('is-img-loaded');
+    if (video.readyState >= 2) {
+      markLoaded();
+      return;
+    }
+    video.addEventListener('loadedmetadata', () => {
+      video.currentTime = 0.001;
+    }, { once: true });
+    video.addEventListener('seeked', markLoaded, { once: true });
+    window.setTimeout(markLoaded, 3000); // fallback
+  });
 }
 
 let yearScrollerDragActive = false;
@@ -340,7 +373,7 @@ function setupYearScrollerDrag() {
   if (!refs.root) {
     return;
   }
-  const scroller = refs.root.querySelector('.cml-year-scroller');
+  const scroller = refs.root.querySelector('.cml-scrubber');
   if (!scroller) {
     return;
   }
@@ -376,20 +409,20 @@ function setupYearScrollerDrag() {
 }
 
 function hitYearButton(scroller, clientY) {
-  const buttons = scroller.querySelectorAll('[data-year]');
+  const ticks = scroller.querySelectorAll('.cml-scrubber__tick[data-year]');
   let hit = null;
-  for (const btn of buttons) {
-    const rect = btn.getBoundingClientRect();
-    if (clientY >= rect.top && clientY <= rect.bottom) {
-      hit = btn;
+  for (const tick of ticks) {
+    const rect = tick.getBoundingClientRect();
+    if (clientY >= rect.top - 12 && clientY <= rect.bottom + 12) {
+      hit = tick;
       break;
     }
   }
   if (hit && hit.dataset.year !== state.activeYear) {
     state.activeYear = hit.dataset.year;
     scrollToYear(hit.dataset.year);
-    scroller.querySelectorAll('[data-year]').forEach(btn => {
-      btn.classList.toggle('is-active', btn.dataset.year === state.activeYear);
+    ticks.forEach(tick => {
+      tick.classList.toggle('is-active', tick.dataset.year === state.activeYear);
     });
   }
 }
@@ -996,6 +1029,7 @@ async function submitLogin() {
     } else if (res.ok) {
       state.needsLogin = false;
       state.loginError = '';
+      state.adminUsername = state.loginUsername;
       state.loginUsername = '';
       state.loginPassword = '';
       void syncStorageSummary({ forceRender: true });
@@ -1016,6 +1050,8 @@ async function performLogout() {
     await fetch('/api/manage/logout', { method: 'GET', credentials: 'same-origin' });
   } catch { /* ignore */ }
   state.needsLogin = true;
+  state.adminUsername = '';
+  state.avatarMenuOpen = false;
   state.loginUsername = '';
   state.loginPassword = '';
   state.loginError = '';
@@ -2391,6 +2427,9 @@ function mount() {
   state.liveSyncAttempts = 0;
   syncLiveMedia({ forceRender: true });
   void syncStorageSummary({ forceRender: true });
+  if (!state.adminUsername) {
+    void fetchAdminUser();
+  }
   render();
   startLiveObserver();
   consumePendingUploadRequest();
@@ -2536,6 +2575,29 @@ function handleScroll() {
     return;
   }
   updateActiveYear();
+  updateScrubberThumb();
+}
+
+function updateScrubberThumb() {
+  if (!refs.root || !refs.scrollRegion) {
+    return;
+  }
+  const thumb = refs.root.querySelector('.cml-scrubber__thumb');
+  if (!thumb) {
+    return;
+  }
+  const { scrollTop, scrollHeight, clientHeight } = refs.scrollRegion;
+  const pct = scrollHeight > clientHeight
+    ? Math.min(100, (scrollTop / (scrollHeight - clientHeight)) * 100)
+    : 0;
+  thumb.style.top = `${pct.toFixed(1)}%`;
+
+  // Also update active tick highlight without full render
+  if (refs.root) {
+    refs.root.querySelectorAll('.cml-scrubber__tick').forEach((tick) => {
+      tick.classList.toggle('is-active', tick.dataset.year === String(state.activeYear));
+    });
+  }
 }
 
 function handleAction(actionTarget) {
@@ -2655,6 +2717,14 @@ function handleAction(actionTarget) {
       state.infoOpen = !state.infoOpen;
       render();
       return true;
+    case 'toggle-avatar':
+      state.avatarMenuOpen = !state.avatarMenuOpen;
+      render();
+      return true;
+    case 'close-avatar-menu':
+      state.avatarMenuOpen = false;
+      render();
+      return true;
     case 'submit-login':
       void submitLogin();
       return true;
@@ -2678,6 +2748,13 @@ function handleAction(actionTarget) {
 function handleClick(event) {
   const actionTarget = event.target instanceof Element ? event.target.closest('[data-action], [data-primary], [data-secondary], [data-year]') : null;
   const tileTarget = event.target instanceof Element ? event.target.closest('.cml-media-tile') : null;
+
+  // Close avatar menu when clicking outside it
+  if (state.avatarMenuOpen && event.target instanceof Element && !event.target.closest('.cml-avatar-wrap')) {
+    state.avatarMenuOpen = false;
+    render();
+    return;
+  }
 
   if (actionTarget instanceof HTMLElement) {
     if (actionTarget.dataset.primary) {
