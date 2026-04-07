@@ -22,6 +22,12 @@
   --ui-shell-radius: 28px;
 }
 
+body,
+body #app,
+body #app *:not(svg):not(path):not(circle):not(rect):not(polygon):not(polyline):not(line) {
+  font-family: "Times New Roman", Times, serif !important;
+}
+
 html.dark {
   --ui-page-base-rgb: 138, 180, 248;
   --ui-page-text: #e8eaed;
