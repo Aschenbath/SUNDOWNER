@@ -18,6 +18,11 @@ body.codex-media-library-active #app {
 #codex-media-library-root,
 #codex-media-library-root * {
   box-sizing: border-box;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif !important;
+}
+
+#codex-media-library-root .cml-sidebar__brand-name,
+#codex-media-library-root .cml-login__wordmark {
   font-family: "Times New Roman", Times, serif !important;
 }
 
@@ -88,7 +93,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-sidebar__brand-name {
   display: block;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 400;
   letter-spacing: 0;
   color: #e8eaed;
@@ -116,7 +121,8 @@ body.codex-media-library-active #app {
   border: 0;
   background: transparent;
   color: #e8eaed;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 400;
   outline: none;
 }
 
@@ -127,7 +133,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar__section-label {
   padding: 16px 16px 4px;
   color: #9aa0a6;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.02em;
   text-transform: none;
@@ -173,8 +179,8 @@ body.codex-media-library-active #app {
   border-radius: 18px;
   background: transparent;
   color: #e8eaed;
-  font-size: 14px;
-  font-weight: 400;
+  font-size: 16px;
+  font-weight: 500;
   text-align: left;
   transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
@@ -269,7 +275,7 @@ body.codex-media-library-active #app {
   background: transparent;
   text-decoration: none;
   color: #9aa0a6;
-  font-size: 14px;
+  font-size: 15px;
   text-align: left;
   cursor: pointer;
   transition: background-color 160ms ease;
@@ -282,7 +288,8 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar__legal {
   padding: 8px 16px 0;
   color: #5f6368;
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 #codex-media-library-root .cml-storage-strip {
@@ -316,7 +323,7 @@ body.codex-media-library-active #app {
   align-items: center;
   gap: 12px;
   color: #e8eaed;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -338,14 +345,14 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-storage-strip__text {
   margin: 0;
   color: #9aa0a6;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
 }
 
 #codex-media-library-root .cml-storage-strip__meta {
   margin: 0;
   color: #7f8796;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
 }
 
@@ -434,7 +441,7 @@ body.codex-media-library-active #app {
   gap: 14px;
   min-height: 46px;
   color: #8ab4f8;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
 }
 
@@ -463,7 +470,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-topbar__secondary-button {
   background: rgba(255, 255, 255, 0.06);
   color: #edf2f7;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -475,7 +482,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-topbar__upload-button {
   background: rgba(138, 180, 248, 0.18);
   color: #8ab4f8;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -807,7 +814,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-timeline-section__title {
   margin: 0;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 700;
   color: #f1f3f4;
 }
@@ -815,8 +822,9 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-timeline-section__meta {
   margin: 0;
   color: #bdc1c6;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
+  line-height: 1.35;
 }
 
 #codex-media-library-root .cml-media-grid {
