@@ -432,6 +432,10 @@ function hitYearButton(scroller, clientY) {
 let storageSyncPromise = null;
 
 function shouldMount(pathname = window.location.pathname, search = window.location.search) {
+  if (window.sessionStorage.getItem('cmlSkipMount') === '1') {
+    window.sessionStorage.removeItem('cmlSkipMount');
+    return false;
+  }
   const params = new URLSearchParams(search);
   if (params.get('cmlNative') === '1') {
     return false;
@@ -2725,7 +2729,8 @@ function handleAction(actionTarget) {
       return true;
     case 'open-admin-dashboard':
       state.avatarMenuOpen = false;
-      window.location.assign('/dashboard?cmlNative=1');
+      window.sessionStorage.setItem('cmlSkipMount', '1');
+      window.location.assign('/dashboard');
       return true;
     case 'submit-login':
       void submitLogin();
