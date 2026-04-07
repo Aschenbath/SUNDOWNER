@@ -38,7 +38,7 @@ export async function onRequestPost(context) {
     });
   }
 
-  const token = createAdminSessionToken(username, password);
+  const token = await createAdminSessionToken(username, password, ADMIN_SESSION_MAX_AGE);
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: {

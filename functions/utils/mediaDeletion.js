@@ -3,6 +3,7 @@ import { purgeCFCache, purgeRandomFileListCache, purgePublicFileListCache } from
 import { DiscordAPI } from "./discordAPI.js";
 import { HuggingFaceAPI } from "./huggingfaceAPI.js";
 import { getDatabase } from './databaseAdapter.js';
+import { resolveDiscordAccess, resolveHuggingFaceAccess, resolveS3Access } from './mediaSecurity.js';
 
 export async function permanentlyDeleteFileRecord(context, fileId, options = {}) {
     const { env } = context;
@@ -22,15 +23,15 @@ export async function permanentlyDeleteFileRecord(context, fileId, options = {})
         }
 
         if (img.metadata?.Channel === 'S3') {
-            await deleteS3File(img);
+            await deleteS3File(env, img);
         }
 
         if (img.metadata?.Channel === 'Discord') {
-            await deleteDiscordFile(img);
+            await deleteDiscordFile(env, img);
         }
 
         if (img.metadata?.Channel === 'HuggingFace') {
-            await deleteHuggingFaceFile(img);
+            await deleteHuggingFaceFile(env, img);
         }
 
         await db.delete(fileId);
@@ -47,13 +48,18 @@ export async function permanentlyDeleteFileRecord(context, fileId, options = {})
     }
 }
 
-async function deleteS3File(img) {
+async function deleteS3File(env, img) {
+    const s3Access = await resolveS3Access(env, img.metadata || {});
+    if (!s3Access?.accessKeyId || !s3Access?.secretAccessKey) {
+        throw new Error('S3 channel credentials not available for deletion');
+    }
+
     const s3Client = new S3Client({
         region: img.metadata?.S3Region || "auto",
         endpoint: img.metadata?.S3Endpoint,
         credentials: {
-            accessKeyId: img.metadata?.S3AccessKeyId,
-            secretAccessKey: img.metadata?.S3SecretAccessKey
+            accessKeyId: s3Access.accessKeyId,
+            secretAccessKey: s3Access.secretAccessKey
         },
         forcePathStyle: img.metadata?.S3PathStyle || false
     });
@@ -64,9 +70,10 @@ async function deleteS3File(img) {
     }));
 }
 
-async function deleteDiscordFile(img) {
-    const botToken = img.metadata?.DiscordBotToken;
-    const channelId = img.metadata?.DiscordChannelId;
+async function deleteDiscordFile(env, img) {
+    const discordAccess = await resolveDiscordAccess(env, img.metadata || {});
+    const botToken = discordAccess?.botToken;
+    const channelId = img.metadata?.DiscordChannelId || discordAccess?.channelId;
     const messageId = img.metadata?.DiscordMessageId;
 
     if (!botToken || !channelId || !messageId) {
@@ -80,11 +87,12 @@ async function deleteDiscordFile(img) {
     }
 }
 
-async function deleteHuggingFaceFile(img) {
-    const token = img.metadata?.HfToken;
-    const repo = img.metadata?.HfRepo;
+async function deleteHuggingFaceFile(env, img) {
+    const hfAccess = await resolveHuggingFaceAccess(env, img.metadata || {});
+    const token = hfAccess?.token;
+    const repo = img.metadata?.HfRepo || hfAccess?.repo;
     const filePath = img.metadata?.HfFilePath;
-    const isPrivate = img.metadata?.HfIsPrivate || false;
+    const isPrivate = typeof img.metadata?.HfIsPrivate === 'boolean' ? img.metadata.HfIsPrivate : !!hfAccess?.isPrivate;
 
     if (!token || !repo || !filePath) {
         throw new Error('HuggingFace file missing required metadata for deletion');

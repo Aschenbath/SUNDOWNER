@@ -4,6 +4,7 @@
  */
 
 import { D1Database } from './d1Database.js';
+import { stripSensitiveMetadata } from './mediaSecurity.js';
 
 /**
  * 创建数据库适配器
@@ -36,6 +37,12 @@ class KVAdapter {
     // 直接代理到KV的方法
     async put(key, value, options) {
         options = options || {};
+        if (!String(key).startsWith('manage@') && options.metadata) {
+            options = {
+                ...options,
+                metadata: stripSensitiveMetadata(options.metadata),
+            };
+        }
         return await this.kv.put(key, value, options);
     }
 

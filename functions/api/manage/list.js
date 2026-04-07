@@ -4,6 +4,7 @@ import {
 } from '../../utils/indexManager.js';
 import { getDatabase } from '../../utils/databaseAdapter.js';
 import { cleanupExpiredRecycleBin, isRecycleBinMetadata } from '../../utils/recycleBin.js';
+import { sanitizeExposedMetadata } from '../../utils/mediaSecurity.js';
 
 // CORS 跨域响应头
 const corsHeaders = {
@@ -180,7 +181,7 @@ export async function onRequest(context) {
         // 转换文件格式
         const compatibleFiles = result.files.map(file => ({
             name: file.id,
-            metadata: file.metadata
+            metadata: sanitizeExposedMetadata(file.metadata)
         }));
 
         return new Response(JSON.stringify({
@@ -249,7 +250,10 @@ async function getAllFileRecords(env, dir, recycleBinMode = 'exclude') {
                     continue;
                 }
 
-                allRecords.push(item);
+                allRecords.push({
+                    ...item,
+                    metadata: sanitizeExposedMetadata(item.metadata || {})
+                });
             }
 
             if (!cursor) break;

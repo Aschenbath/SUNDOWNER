@@ -8,6 +8,8 @@ class D1Database {
     }
 }
 
+import { stripSensitiveMetadata } from './mediaSecurity.js';
+
 // ==================== 文件操作 ====================
 
 /**
@@ -16,7 +18,7 @@ class D1Database {
 D1Database.prototype.putFile = function(fileId, value, options) {
     value = value || '';
     options = options || {};
-    var metadata = options.metadata || {};
+    var metadata = stripSensitiveMetadata(options.metadata || {});
     
     // 从metadata中提取字段用于索引
     var extractedFields = this.extractMetadataFields(metadata);
@@ -305,7 +307,7 @@ D1Database.prototype.extractMetadataFields = function(metadata) {
         channelName: metadata.ChannelName || null,
         tgFileId: metadata.TgFileId || null,
         tgChatId: metadata.TgChatId || null,
-        tgBotToken: metadata.TgBotToken || null,
+        tgBotToken: null,
         isChunked: metadata.IsChunked || false
     };
 };
@@ -317,6 +319,11 @@ D1Database.prototype.extractMetadataFields = function(metadata) {
  */
 D1Database.prototype.put = function(key, value, options) {
     options = options || {};
+    if (!key.startsWith('manage@') && options.metadata) {
+        options = Object.assign({}, options, {
+            metadata: stripSensitiveMetadata(options.metadata)
+        });
+    }
 
     if (key.startsWith('manage@sysConfig@')) {
         return this.putSetting(key, value);

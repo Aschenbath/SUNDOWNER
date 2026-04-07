@@ -383,8 +383,6 @@ async function mergeS3ChunksInfo(context, uploadId, completedChunks, metadata) {
         }
         metadata.S3Endpoint = endpoint;
         metadata.S3PathStyle = pathStyle;
-        metadata.S3AccessKeyId = accessKeyId;
-        metadata.S3SecretAccessKey = secretAccessKey;
         metadata.S3Region = region || "auto";
         metadata.S3BucketName = bucketName;
         metadata.S3FileKey = finalFileId;
@@ -461,8 +459,6 @@ async function mergeTelegramChunksInfo(context, uploadId, completedChunks, metad
         metadata.Channel = "TelegramNew";
         metadata.ChannelName = tgChannel.name;
         metadata.TgChatId = tgChatId;
-        metadata.TgBotToken = tgBotToken;
-        metadata.TgProxyUrl = tgChannel.proxyUrl || '';
         metadata.IsChunked = true;
         metadata.TotalChunks = completedChunks.length;
         metadata.FileSize = (totalSize / 1024 / 1024).toFixed(2);
@@ -541,8 +537,6 @@ async function mergeDiscordChunksInfo(context, uploadId, completedChunks, metada
         metadata.Channel = "Discord";
         metadata.ChannelName = discordChannel.name;
         metadata.DiscordChannelId = channelId;
-        metadata.DiscordBotToken = botToken;
-        metadata.DiscordProxyUrl = discordChannel.proxyUrl || '';
         metadata.IsChunked = true;
         metadata.TotalChunks = completedChunks.length;
         metadata.FileSize = (totalSize / 1024 / 1024).toFixed(2);

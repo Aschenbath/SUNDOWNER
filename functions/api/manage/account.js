@@ -135,10 +135,8 @@ export async function onRequest(context) {
       if (requestedUsername !== currentUsername || nextPassword !== currentPassword) {
         const updatedSettings = buildSecurityConfigPayload(securityConfig, requestedUsername, nextPassword);
         await db.put('manage@sysConfig@security', JSON.stringify(updatedSettings));
-        headers.set(
-          'Set-Cookie',
-          makeAdminSessionCookie(createAdminSessionToken(requestedUsername, nextPassword), ADMIN_SESSION_MAX_AGE),
-        );
+        const sessionToken = await createAdminSessionToken(requestedUsername, nextPassword, ADMIN_SESSION_MAX_AGE);
+        headers.set('Set-Cookie', makeAdminSessionCookie(sessionToken, ADMIN_SESSION_MAX_AGE));
       }
 
       return jsonResponse(nextProfile, { headers });

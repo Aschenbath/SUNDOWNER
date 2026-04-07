@@ -2,6 +2,7 @@ import { purgeCFCache } from "../../../utils/purgeCache.js";
 import { addFileToIndex } from "../../../utils/indexManager.js";
 import { getDatabase } from "../../../utils/databaseAdapter.js";
 import { mergeTags, normalizeTags, validateTag } from "../../../utils/tagHelpers.js";
+import { sanitizeExposedMetadata } from "../../../utils/mediaSecurity.js";
 
 /**
  * Tag Management API for Single Files
@@ -186,7 +187,7 @@ async function handleUpdateTags(context, db, fileId, hostname) {
             fileId: fileId,
             action: action,
             tags: updatedTags,
-            metadata: fileData.metadata
+            metadata: sanitizeExposedMetadata(fileData.metadata)
         }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }

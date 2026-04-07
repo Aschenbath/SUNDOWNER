@@ -8,6 +8,12 @@ import {
     returnWithCheck, return404, returnBlockImg, isDomainAllowed
 } from './fileTools';
 import { getDatabase } from '../utils/databaseAdapter.js';
+import {
+    resolveDiscordAccess,
+    resolveHuggingFaceAccess,
+    resolveS3Access,
+    resolveTelegramAccess,
+} from '../utils/mediaSecurity.js';
 
 
 export async function onRequest(context) {  // Contents of context object
@@ -120,8 +126,12 @@ export async function onRequest(context) {  // Contents of context object
         }
 
         // 获取TG图片真实地址（支持代理域名）
-        const TgBotToken = imgRecord.metadata?.TgBotToken || env.TG_BOT_TOKEN;
-        const TgProxyUrl = imgRecord.metadata?.TgProxyUrl || '';
+        const telegramAccess = await resolveTelegramAccess(env, imgRecord.metadata || {});
+        if (!telegramAccess?.botToken) {
+            return new Response('Error: Telegram channel credentials not available', { status: 500 });
+        }
+        const TgBotToken = telegramAccess.botToken;
+        const TgProxyUrl = telegramAccess.proxyUrl || '';
         const tgApi = new TelegramAPI(TgBotToken, TgProxyUrl);
         const filePath = await tgApi.getFilePath(TgFileID);
         if (filePath === null) {
@@ -164,8 +174,12 @@ async function handleTelegramChunkedFile(context, imgRecord, encodedFileName, fi
     const { env, request, url, Referer } = context;
 
     const metadata = imgRecord.metadata;
-    const TgBotToken = metadata.TgBotToken || env.TG_BOT_TOKEN;
-    const TgProxyUrl = metadata.TgProxyUrl || '';
+    const telegramAccess = await resolveTelegramAccess(env, metadata || {});
+    if (!telegramAccess?.botToken) {
+        return new Response('Error: Telegram channel credentials not available', { status: 500 });
+    }
+    const TgBotToken = telegramAccess.botToken;
+    const TgProxyUrl = telegramAccess.proxyUrl || '';
 
     // 从KV的value中读取分片信息
     let chunks = [];
@@ -355,8 +369,12 @@ async function handleDiscordChunkedFile(context, imgRecord, encodedFileName, fil
     const { request, url, Referer } = context;
 
     const metadata = imgRecord.metadata;
-    const botToken = metadata.DiscordBotToken;
-    const proxyUrl = metadata.DiscordProxyUrl;
+    const discordAccess = await resolveDiscordAccess(env, metadata || {});
+    if (!discordAccess?.botToken) {
+        return new Response('Error: Discord channel credentials not available', { status: 500 });
+    }
+    const botToken = discordAccess.botToken;
+    const proxyUrl = discordAccess.proxyUrl;
 
     // 从KV的value中读取分片信息
     let chunks = [];
@@ -696,12 +714,17 @@ async function handleS3File(context, metadata, encodedFileName, fileType) {
 async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType) {
     const { Referer, url, request } = context;
 
+    const s3Access = await resolveS3Access(context.env, metadata || {});
+    if (!s3Access?.accessKeyId || !s3Access?.secretAccessKey) {
+        return new Response('Error: S3 channel credentials not available', { status: 500 });
+    }
+
     const s3Client = new S3Client({
         region: metadata?.S3Region || "auto",
         endpoint: metadata?.S3Endpoint,
         credentials: {
-            accessKeyId: metadata?.S3AccessKeyId,
-            secretAccessKey: metadata?.S3SecretAccessKey
+            accessKeyId: s3Access.accessKeyId,
+            secretAccessKey: s3Access.secretAccessKey
         },
         forcePathStyle: metadata?.S3PathStyle || false
     });
@@ -763,8 +786,9 @@ async function handleDiscordFile(context, metadata, encodedFileName, fileType) {
     try {
         // 每次读取都通过 API 获取新的附件 URL（因为 Discord 附件 URL 会在约24小时后过期）
         let fileUrl = null;
-        if (metadata.DiscordMessageId && metadata.DiscordChannelId && metadata.DiscordBotToken) {
-            const discordAPI = new DiscordAPI(metadata.DiscordBotToken);
+        const discordAccess = await resolveDiscordAccess(env, metadata || {});
+        if (metadata.DiscordMessageId && metadata.DiscordChannelId && discordAccess?.botToken) {
+            const discordAPI = new DiscordAPI(discordAccess.botToken);
             fileUrl = await discordAPI.getFileURL(metadata.DiscordChannelId, metadata.DiscordMessageId);
         }
 
@@ -773,8 +797,8 @@ async function handleDiscordFile(context, metadata, encodedFileName, fileType) {
         }
 
         // 如果配置了代理 URL，替换 Discord CDN 域名
-        if (metadata.DiscordProxyUrl) {
-            fileUrl = fileUrl.replace('https://cdn.discordapp.com', `https://${metadata.DiscordProxyUrl}`);
+        if (discordAccess?.proxyUrl) {
+            fileUrl = fileUrl.replace('https://cdn.discordapp.com', `https://${discordAccess.proxyUrl}`);
         }
 
         // 处理 HEAD 请求
@@ -828,10 +852,11 @@ async function handleHuggingFaceFile(context, metadata, encodedFileName, fileTyp
     const { request, url, Referer } = context;
 
     try {
-        const hfRepo = metadata.HfRepo;
+        const hfAccess = await resolveHuggingFaceAccess(context.env, metadata || {});
+        const hfRepo = metadata.HfRepo || hfAccess?.repo;
         const hfFilePath = metadata.HfFilePath;
-        const hfToken = metadata.HfToken;
-        const hfIsPrivate = metadata.HfIsPrivate || false;
+        const hfToken = hfAccess?.token;
+        const hfIsPrivate = typeof metadata.HfIsPrivate === 'boolean' ? metadata.HfIsPrivate : !!hfAccess?.isPrivate;
 
         if (!hfRepo || !hfFilePath) {
             return new Response('Error: HuggingFace file info not found', { status: 500 });

@@ -389,8 +389,6 @@ async function uploadFileToS3(context, fullId, metadata, returnLink) {
         }
         metadata.S3Endpoint = endpoint;
         metadata.S3PathStyle = pathStyle;
-        metadata.S3AccessKeyId = accessKeyId;
-        metadata.S3SecretAccessKey = secretAccessKey;
         metadata.S3Region = region || "auto";
         metadata.S3BucketName = bucketName;
         metadata.S3FileKey = s3FileName;
@@ -544,11 +542,7 @@ async function uploadFileToTelegram(context, fullId, metadata, fileExt, fileName
 
             metadata.TgFileId = id;
             metadata.TgChatId = tgChatId;
-            metadata.TgBotToken = tgBotToken;
             // 保存代理域名配置
-            if (tgProxyUrl) {
-                metadata.TgProxyUrl = tgProxyUrl;
-            }
             await db.put(fullId, "", {
                 metadata: metadata,
             });
@@ -663,14 +657,10 @@ async function uploadFileToDiscord(context, fullId, metadata, returnLink) {
         metadata.FileSize = (fileInfo.file_size / 1024 / 1024).toFixed(2);
         metadata.DiscordMessageId = fileInfo.message_id;
         metadata.DiscordChannelId = discordChannel.channelId;
-        metadata.DiscordBotToken = discordChannel.botToken;
         // 注意：不存储 DiscordAttachmentUrl，因为 Discord 附件 URL 会在约24小时后过期
         // 读取时会通过 API 获取新的 URL
 
         // 如果配置了代理 URL，保存代理信息
-        if (discordChannel.proxyUrl) {
-            metadata.DiscordProxyUrl = discordChannel.proxyUrl;
-        }
 
         // 图像审查（使用 Discord CDN URL 或代理 URL）
         let moderateUrl = fileInfo.url;
@@ -777,7 +767,6 @@ async function uploadFileToHuggingFace(context, fullId, metadata, returnLink) {
         metadata.ChannelName = hfChannel.name || "HuggingFace_env";
         metadata.HfRepo = hfChannel.repo;
         metadata.HfFilePath = hfFilePath;
-        metadata.HfToken = hfChannel.token;
         metadata.HfIsPrivate = hfChannel.isPrivate || false;
         metadata.HfFileUrl = result.fileUrl;
 

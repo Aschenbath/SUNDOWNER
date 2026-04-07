@@ -4,6 +4,7 @@ import {
     getDeletedAt,
     RECYCLE_BIN_RETENTION_DAYS
 } from '../../../utils/recycleBin.js';
+import { sanitizeExposedMetadata } from '../../../utils/mediaSecurity.js';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -35,7 +36,7 @@ export async function onRequest(context) {
 
             return {
                 id: record.name,
-                metadata: record.metadata,
+                metadata: sanitizeExposedMetadata(record.metadata),
                 deletedAt,
                 expiresAt,
                 daysLeft

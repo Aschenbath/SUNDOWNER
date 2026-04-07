@@ -392,7 +392,6 @@ async function buildImportedMetadata(context, channel, message, source, mediaInf
         ChannelName: channel.name,
         TgFileId: media.file_id,
         TgChatId: channel.chatId,
-        TgBotToken: channel.botToken,
         TgFileUniqueId: media.file_unique_id,
         TgMessageId: message.message_id,
         TgUpdateSource: source,
@@ -401,10 +400,6 @@ async function buildImportedMetadata(context, channel, message, source, mediaInf
     if (importContext.albumPath) {
         metadata.Album = importContext.albumPath
         metadata.TgAlbumPath = importContext.albumPath
-    }
-
-    if (channel.proxyUrl) {
-        metadata.TgProxyUrl = channel.proxyUrl
     }
 
     if (filePath) {

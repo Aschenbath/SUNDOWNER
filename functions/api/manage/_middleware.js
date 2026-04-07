@@ -2,7 +2,7 @@ import { fetchSecurityConfig } from '../../utils/sysConfig';
 import { checkDatabaseConfig } from '../../utils/middleware';
 import { validateApiToken } from '../../utils/tokenValidator';
 import { getDatabase } from '../../utils/databaseAdapter.js';
-import { getAdminSessionFromRequest } from '../../utils/adminSession.js';
+import { getAdminSessionTokenFromRequest, verifyAdminSessionToken } from '../../utils/adminSession.js';
 
 let securityConfig = {}
 let basicUser = ''
@@ -145,8 +145,8 @@ async function authentication(context) {
   }
 
   // 2. Session cookie set by the custom login page
-  const cookieAuth = getAdminSessionFromRequest(context.request)
-  if (cookieAuth && basicUser === cookieAuth.username && basicPass === cookieAuth.password) {
+  const sessionToken = getAdminSessionTokenFromRequest(context.request)
+  if (sessionToken && await verifyAdminSessionToken(sessionToken, basicUser, basicPass)) {
     return context.next()
   }
 
