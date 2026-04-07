@@ -80,8 +80,8 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-sidebar__brand-icon .cml-icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   color: #8ab4f8;
 }
 
@@ -136,7 +136,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar__subnav {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
 }
 
 #codex-media-library-root .cml-sidebar__nav-item,
@@ -156,12 +156,14 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar__subnav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 32px;
+  gap: 14px;
+  height: 36px;
   padding: 0 16px;
   border-radius: 999px;
+  background: transparent;
   color: #e8eaed;
   font-size: 14px;
+  font-weight: 400;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
@@ -171,29 +173,28 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-sidebar__nav-item .cml-icon,
 #codex-media-library-root .cml-sidebar__subnav-item .cml-icon {
-  width: 24px;
-  height: 24px;
-}
-
-#codex-media-library-root .cml-sidebar__subnav-item {
-  font-size: 14px;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 #codex-media-library-root .cml-sidebar__subnav-arrow {
-  font-size: 10px;
+  font-size: 9px;
   color: #9aa0a6;
-  margin-right: -6px;
+  margin-right: -8px;
+  flex-shrink: 0;
 }
 
 #codex-media-library-root .cml-sidebar__nav-item:hover,
 #codex-media-library-root .cml-sidebar__subnav-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 #codex-media-library-root .cml-sidebar__nav-item.is-active,
 #codex-media-library-root .cml-sidebar__subnav-item.is-active {
-  background: rgba(138, 180, 248, 0.16);
+  background: rgba(138, 180, 248, 0.18);
   color: #8ab4f8;
+  font-weight: 500;
 }
 
 #codex-media-library-root .cml-sidebar__footer {
@@ -207,8 +208,8 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar__admin-link {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 32px;
+  gap: 14px;
+  height: 36px;
   padding: 0 16px;
   border-radius: 999px;
   text-decoration: none;
