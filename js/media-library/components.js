@@ -234,7 +234,7 @@ export function Sidebar({ navigationModel, state, storageSummary, searchQuery = 
           const active = state.primaryFilter === label ? 'is-active' : '';
           const iconName = key === 'photos' ? 'photos' : key === 'bin' ? 'trash' : 'collections';
           return `
-            <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}">
+            <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}" aria-current="${state.primaryFilter === label ? 'page' : 'false'}">
               ${icon(iconName)}
               <span class="cml-sidebar__nav-label">${escapeHtml(label)}</span>
             </button>
@@ -247,7 +247,7 @@ export function Sidebar({ navigationModel, state, storageSummary, searchQuery = 
           ${navigationModel.secondary.map((label) => {
             const active = state.secondaryFilter === label ? 'is-active' : '';
             return `
-              <button type="button" class="cml-sidebar__subnav-item ${active}" data-secondary="${escapeHtml(label)}">
+              <button type="button" class="cml-sidebar__subnav-item ${active}" data-secondary="${escapeHtml(label)}" aria-current="${state.secondaryFilter === label ? 'page' : 'false'}">
                 <span class="cml-sidebar__subnav-arrow">&#9656;</span>
                 ${icon(secondaryIconMap[label])}
                 <span class="cml-sidebar__subnav-label">${escapeHtml(label)}</span>
