@@ -21,6 +21,7 @@ const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
+const MONTH_SHORT_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_INDEX = Object.fromEntries(MONTH_NAMES.map((month, index) => [month.toLowerCase(), index]));
@@ -182,6 +183,7 @@ const state = {
   previewId: null,
   loadedCount: 24,
   activeYear: null,
+  activeScrubberLabel: '',
   isYearScrubbing: false,
   focusedTileId: null,
   mediaItems: [],
@@ -538,6 +540,14 @@ function ensureRoot() {
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function formatScrubberLabel(dateLike) {
+  const date = new Date(dateLike);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return `${MONTH_SHORT_NAMES[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 function toBoolean(value) {
@@ -2550,11 +2560,31 @@ function summarizeBinSection(items) {
   return `${minDays}-${maxDays} days left before permanent deletion`;
 }
 
+function toggleSectionSelection(sectionId, {
+  selectionSet,
+  itemIds
+}) {
+  const ids = itemIds.filter(Boolean);
+  if (!ids.length) {
+    return false;
+  }
+  const shouldSelectAll = ids.some((id) => !selectionSet.has(id));
+  ids.forEach((id) => {
+    if (shouldSelectAll) {
+      selectionSet.add(id);
+    } else {
+      selectionSet.delete(id);
+    }
+  });
+  return true;
+}
+
 function buildSections(items, {
   anchorPrefix = 'timeline',
   getLabel = (item) => item.timelineLabel || createTimelineLabel(item.takenAt),
   getYear = (item) => item.year,
-  getMetaLine = summarizeLocations
+  getMetaLine = summarizeLocations,
+  getScrubberLabel = (item) => formatScrubberLabel(item.takenAt)
 } = {}) {
   const renderedItems = items.slice(0, state.loadedCount);
   const groups = [];
@@ -2570,6 +2600,7 @@ function buildSections(items, {
         label,
         year,
         anchorId: `${anchorPrefix}-${year}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        scrubberLabel: getScrubberLabel(item) || year,
         items: [item]
       });
     } else {
@@ -2680,7 +2711,8 @@ function getViewModel() {
           anchorPrefix: 'bin',
           getLabel: (item) => item.timelineLabel || createTimelineLabel(item.deletedAt || item.takenAt),
           getYear: (item) => item.year || new Date(item.deletedAt || item.takenAt).getFullYear(),
-          getMetaLine: summarizeBinSection
+          getMetaLine: summarizeBinSection,
+          getScrubberLabel: (item) => formatScrubberLabel(item.deletedAt || item.takenAt)
         }
       : undefined);
   const years = isCollectionRoot ? [] : [...new Set(timelineItems.map((item) => String(item.year)))];
@@ -3101,12 +3133,17 @@ function updateActiveYear() {
     return;
   }
   const scrollTop = refs.scrollRegion.scrollTop;
-  let active = refs.sectionAnchors[0].getAttribute('data-year');
+  let activeSection = refs.sectionAnchors[0];
   refs.sectionAnchors.forEach((section) => {
     if (section.offsetTop - 40 <= scrollTop) {
-      active = section.getAttribute('data-year');
+      activeSection = section;
     }
   });
+  const active = activeSection ? activeSection.getAttribute('data-year') : '';
+  const nextScrubberLabel = activeSection ? normalizeText(activeSection.getAttribute('data-scrubber-label')) : '';
+  if (nextScrubberLabel) {
+    state.activeScrubberLabel = nextScrubberLabel;
+  }
   if (active && active !== state.activeYear) {
     state.activeYear = active;
     updateScrubberThumb();
@@ -3151,28 +3188,22 @@ function updateScrubberThumb() {
     return;
   }
   const scroller = refs.root.querySelector('.cml-scrubber');
-  const thumb = refs.root.querySelector('.cml-scrubber__thumb');
   const badge = refs.root.querySelector('.cml-scrubber__badge');
-  if (!scroller || !thumb) {
+  if (!scroller || !badge) {
     return;
   }
   const { scrollTop, scrollHeight, clientHeight } = refs.scrollRegion;
   const pct = scrollHeight > clientHeight
     ? Math.min(100, (scrollTop / (scrollHeight - clientHeight)) * 100)
     : 0;
-  thumb.style.top = `${pct.toFixed(1)}%`;
 
-  // Also update active tick highlight without full render
   if (refs.root) {
     refs.root.querySelectorAll('.cml-scrubber__tick').forEach((tick) => {
       tick.classList.toggle('is-active', tick.dataset.year === String(state.activeYear));
     });
   }
-  if (badge) {
-    badge.textContent = String(state.activeYear || '');
-    badge.style.top = `${pct.toFixed(1)}%`;
-  }
-  scroller.classList.toggle('has-active-year', Boolean(state.activeYear));
+  badge.textContent = state.activeScrubberLabel || String(state.activeYear || '');
+  badge.style.top = `${pct.toFixed(1)}%`;
   scroller.classList.toggle('is-scrubbing', state.isYearScrubbing);
 }
 
@@ -3236,6 +3267,28 @@ function handleAction(actionTarget) {
     case 'set-album-cover':
       setSelectedItemAsAlbumCover();
       return true;
+    case 'select-section': {
+      const sectionId = normalizeText(actionTarget.dataset.section);
+      const section = sectionId ? document.getElementById(sectionId) : null;
+      const itemIds = section
+        ? [...section.querySelectorAll('.cml-media-tile[data-tile-id]')].map((tile) => normalizeText(tile.getAttribute('data-tile-id')))
+        : [];
+      if (toggleSectionSelection(sectionId, { selectionSet: state.selectedIds, itemIds })) {
+        render();
+      }
+      return true;
+    }
+    case 'select-bin-section': {
+      const sectionId = normalizeText(actionTarget.dataset.section);
+      const section = sectionId ? document.getElementById(sectionId) : null;
+      const itemIds = section
+        ? [...section.querySelectorAll('.cml-media-tile[data-tile-id]')].map((tile) => normalizeText(tile.getAttribute('data-tile-id')))
+        : [];
+      if (toggleSectionSelection(sectionId, { selectionSet: state.binSelectedIds, itemIds })) {
+        render();
+      }
+      return true;
+    }
     case 'toggle-bin-select': {
       const binId = normalizeText(actionTarget.dataset.binId);
       if (binId) {

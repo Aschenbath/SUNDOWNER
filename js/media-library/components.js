@@ -428,12 +428,27 @@ export function MediaGrid({ items, state, layoutWidth, coverItemId = '' }) {
 }
 
 export function MediaTimelineSection({ section, state, layoutWidth, coverItemId = '' }) {
+  const isSectionSelected = section.items.length > 0 && section.items.every((item) => state.selectedIds.has(item.id));
   return `
-    <section class="cml-timeline-section" id="${escapeHtml(section.anchorId)}" data-year="${escapeHtml(section.year)}">
+    <section
+      class="cml-timeline-section"
+      id="${escapeHtml(section.anchorId)}"
+      data-year="${escapeHtml(section.year)}"
+      data-scrubber-label="${escapeHtml(section.scrubberLabel || section.year)}"
+    >
       <header class="cml-timeline-section__header">
-        <button type="button" class="cml-timeline-section__select" data-action="select-section" data-section="${escapeHtml(section.anchorId)}" aria-label="Select all in section">${icon('check')}</button>
-        <h2 class="cml-timeline-section__title">${escapeHtml(section.label)}</h2>
-        ${section.metaLine ? `<span class="cml-timeline-section__meta">${escapeHtml(section.metaLine)}</span>` : ''}
+        <button
+          type="button"
+          class="cml-timeline-section__select ${isSectionSelected ? 'is-active' : ''}"
+          data-action="select-section"
+          data-section="${escapeHtml(section.anchorId)}"
+          aria-label="Select all in section"
+          aria-pressed="${isSectionSelected ? 'true' : 'false'}"
+        >${icon('check')}</button>
+        <div class="cml-timeline-section__heading">
+          <h2 class="cml-timeline-section__title">${escapeHtml(section.label)}</h2>
+          ${section.metaLine ? `<span class="cml-timeline-section__meta">${escapeHtml(section.metaLine)}</span>` : ''}
+        </div>
       </header>
       ${MediaGrid({ items: section.items, state, layoutWidth, coverItemId })}
     </section>
@@ -508,12 +523,10 @@ export function YearScroller({ years, activeYear }) {
           const isActive = String(activeYear) === String(year);
           return `
             <div class="cml-scrubber__tick ${isActive ? 'is-active' : ''}" style="top:${pct.toFixed(1)}%" data-year="${escapeHtml(year)}">
-              <span class="cml-scrubber__label">${escapeHtml(year)}</span>
               <button type="button" class="cml-scrubber__dot" data-year="${escapeHtml(year)}" aria-label="Jump to ${escapeHtml(year)}"></button>
             </div>
           `;
         }).join('')}
-        <div class="cml-scrubber__thumb" style="top:0%"></div>
       </div>
     </aside>
   `;
@@ -742,7 +755,7 @@ function BinMediaTile({ item, selected, layout }) {
   const daysLabel = item.daysLeft === 1 ? '1 day left' : `${item.daysLeft} days left`;
   const style = `width:${layout.width}px;height:${layout.height}px;`;
   return `
-    <article class="cml-media-tile cml-bin-media-tile ${selected ? 'is-selected' : ''}" style="${style}" aria-label="${escapeHtml(item.label)}">
+    <article class="cml-media-tile cml-bin-media-tile ${selected ? 'is-selected' : ''}" data-tile-id="${escapeHtml(item.id)}" style="${style}" aria-label="${escapeHtml(item.label)}">
       <button type="button" class="cml-media-tile__select" data-action="toggle-bin-select" data-bin-id="${escapeHtml(item.id)}" aria-label="Select ${escapeHtml(item.label)}">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
@@ -758,14 +771,27 @@ function BinMediaTile({ item, selected, layout }) {
 }
 
 function BinTimelineSection({ section, binSelectedIds, layoutWidth }) {
+  const isSectionSelected = section.items.length > 0 && section.items.every((item) => binSelectedIds.has(item.id));
   return `
-    <section class="cml-timeline-section cml-timeline-section--bin" id="${escapeHtml(section.anchorId)}" data-year="${escapeHtml(section.year)}">
+    <section
+      class="cml-timeline-section cml-timeline-section--bin"
+      id="${escapeHtml(section.anchorId)}"
+      data-year="${escapeHtml(section.year)}"
+      data-scrubber-label="${escapeHtml(section.scrubberLabel || section.year)}"
+    >
       <header class="cml-timeline-section__header cml-timeline-section__header--bin">
+        <button
+          type="button"
+          class="cml-timeline-section__select ${isSectionSelected ? 'is-active' : ''}"
+          data-action="select-bin-section"
+          data-section="${escapeHtml(section.anchorId)}"
+          aria-label="Select all in section"
+          aria-pressed="${isSectionSelected ? 'true' : 'false'}"
+        >${icon('check')}</button>
         <div class="cml-timeline-section__heading">
           <h2 class="cml-timeline-section__title">${escapeHtml(section.label)}</h2>
           ${section.metaLine ? `<span class="cml-timeline-section__meta">${escapeHtml(section.metaLine)}</span>` : ''}
         </div>
-        <span class="cml-timeline-section__count">${section.items.length} item${section.items.length === 1 ? '' : 's'}</span>
       </header>
       <div class="cml-bin-grid">
         ${buildJustifiedRows(section.items, {
