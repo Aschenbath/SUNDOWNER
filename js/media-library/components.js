@@ -239,8 +239,7 @@ export function Sidebar({ navigationModel, state, storageSummary, searchQuery = 
   return `
     <aside class="cml-sidebar">
       <div class="cml-sidebar__brand">
-        <span class="cml-sidebar__brand-icon">${icon('photos')}</span>
-        <strong class="cml-sidebar__brand-name">SUNDOWNER</strong>
+        <img class="cml-sidebar__brand-logo" src="/logo-sundowner.svg?v=2" alt="SUNDOWNER" />
       </div>
       <label class="cml-sidebar__search" aria-label="Search">
         ${icon('search', 'cml-sidebar__search-icon')}
@@ -924,12 +923,6 @@ export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutW
 }
 
 export function LoginOverlay({ error = '', isLoading = false } = {}) {
-  const logoSvg = `<svg class="cml-login__logo" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-    <circle cx="20" cy="20" r="18" stroke="#8ab4f8" stroke-width="1.6"/>
-    <path d="M10 26 Q20 10 30 26" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" fill="none"/>
-    <circle cx="20" cy="20" r="3.5" fill="#8ab4f8"/>
-  </svg>`;
-
   const errorHtml = error
     ? `<p class="cml-login__error" role="alert">${escapeHtml(error)}</p>`
     : '';
@@ -942,8 +935,7 @@ export function LoginOverlay({ error = '', isLoading = false } = {}) {
     <div class="cml-login-overlay" role="main" aria-label="Sign in">
       <div class="cml-login-card">
         <div class="cml-login__brand">
-          ${logoSvg}
-          <span class="cml-login__wordmark">SUNDOWNER</span>
+          <img class="cml-login__logo" src="/logo-sundowner.svg?v=2" alt="SUNDOWNER" />
         </div>
         <p class="cml-login__subtitle">Your private photo space</p>
         <form class="cml-login__form" data-form="login" method="post" action="">

@@ -81,22 +81,13 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 16px 10px;
+  padding: 10px 16px 14px;
 }
 
-#codex-media-library-root .cml-sidebar__brand-icon .cml-icon {
-  width: 22px;
-  height: 22px;
-  color: #8ab4f8;
-}
-
-#codex-media-library-root .cml-sidebar__brand-name {
+#codex-media-library-root .cml-sidebar__brand-logo {
   display: block;
-  font-size: 20px;
-  font-weight: 400;
-  letter-spacing: 0;
-  color: #e8eaed;
+  width: min(196px, 100%);
+  height: auto;
 }
 
 #codex-media-library-root .cml-sidebar__search {
@@ -2148,22 +2139,14 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-login__brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
   margin-bottom: 6px;
 }
 
 #codex-media-library-root .cml-login__logo {
-  width: 38px;
-  height: 38px;
-  flex-shrink: 0;
-}
-
-#codex-media-library-root .cml-login__wordmark {
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  color: #e8eaed;
-  text-transform: uppercase;
+  display: block;
+  width: min(220px, 100%);
+  height: auto;
 }
 
 #codex-media-library-root .cml-login__subtitle {
