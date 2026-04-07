@@ -115,6 +115,11 @@ function isTelegramWebhookPath(pathname) {
   return pathname.startsWith('/api/manage/telegram-sync/webhook/')
 }
 
+function isPublicPath(pathname) {
+  // auth-session must be reachable before login; it does its own credential check
+  return pathname === '/api/manage/auth-session' || isTelegramWebhookPath(pathname)
+}
+
 async function authentication(context) {
   if (context.request.method === 'OPTIONS') {
     return new Response(null, {
@@ -124,7 +129,7 @@ async function authentication(context) {
   }
 
   const pathname = new URL(context.request.url).pathname
-  if (isTelegramWebhookPath(pathname)) {
+  if (isPublicPath(pathname)) {
     return context.next()
   }
 
