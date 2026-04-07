@@ -138,7 +138,6 @@ body.codex-media-library-active #app {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 100%;
 }
 
 #codex-media-library-root .cml-sidebar__nav-item,
@@ -158,19 +157,16 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar__subnav-item {
   display: flex;
   align-items: center;
-  width: 100%;
+  align-self: stretch;
   gap: 14px;
   height: 36px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: 24px;
   background: transparent;
   color: #e8eaed;
   font-size: 14px;
   font-weight: 400;
   text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   transition: background-color 160ms ease, color 160ms ease;
 }
 
