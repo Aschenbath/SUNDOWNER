@@ -128,7 +128,7 @@ function formatPreviewSize(sizeMb) {
 }
 
 function clampAspectRatio(value) {
-  return Math.max(0.58, Math.min(2.4, value || 1));
+  return Math.max(0.4, Math.min(2.4, value || 1));
 }
 
 function getLayoutConfig(containerWidth, denseGrid) {
@@ -144,7 +144,7 @@ function getLayoutConfig(containerWidth, denseGrid) {
     gap,
     targetRowHeight: rowHeightBase,
     minRowHeight: denseGrid ? (isMobile ? 98 : 134) : (isMobile ? 110 : 148),
-    maxRowHeight: denseGrid ? (isMobile ? 148 : 206) : (isMobile ? 168 : 248),
+    maxRowHeight: denseGrid ? (isMobile ? 240 : isTablet ? 300 : 380) : (isMobile ? 240 : isTablet ? 300 : 380),
     maxItemsPerRow: isMobile ? 3 : denseGrid ? 6 : 5
   };
 }
@@ -160,9 +160,17 @@ function buildJustifiedRows(items, options = {}) {
     currentRow.push({ item, aspectRatio });
     aspectSum += aspectRatio;
 
+    const avgAspect = aspectSum / currentRow.length;
+    const portraitHeavyRow = avgAspect < 0.72;
+    const effectiveMaxItems = portraitHeavyRow
+      ? Math.min(maxItemsPerRow, 3)
+      : maxItemsPerRow;
+    const effectiveMaxHeight = portraitHeavyRow
+      ? Math.min(530, maxRowHeight * 1.4)
+      : maxRowHeight;
     const projectedWidth = aspectSum * targetRowHeight + gap * (currentRow.length - 1);
     const isLastItem = index === items.length - 1;
-    const shouldFlush = projectedWidth >= availableWidth || currentRow.length >= maxItemsPerRow || isLastItem;
+    const shouldFlush = projectedWidth >= availableWidth || currentRow.length >= effectiveMaxItems || isLastItem;
 
     if (!shouldFlush) {
       return;
@@ -172,7 +180,7 @@ function buildJustifiedRows(items, options = {}) {
     const fittedHeight = shouldFillWidth
       ? (availableWidth - gap * (currentRow.length - 1)) / aspectSum
       : Math.min(targetRowHeight, (availableWidth - gap * (currentRow.length - 1)) / aspectSum);
-    const rowHeight = Math.max(minRowHeight, Math.min(maxRowHeight, fittedHeight));
+    const rowHeight = Math.max(minRowHeight, Math.min(effectiveMaxHeight, fittedHeight));
 
     rows.push({
       items: currentRow.map(({ item: rowItem, aspectRatio: rowAspectRatio }) => ({
