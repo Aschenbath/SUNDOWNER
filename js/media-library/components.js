@@ -184,37 +184,27 @@ export function StorageCard(storage) {
     : Math.max(16, Math.min(52, totalCount ? 22 + totalCount : (isLoading ? 24 : 18)));
   const usageLine = hasQuota
     ? `${formatStorageAmountFromMb(usedMb)} of ${formatStorageAmountFromGb(totalQuotaGb)} used`
-    : (isLoading ? 'Reading live library usage' : `${formatStorageAmountFromMb(usedMb)} indexed`);
-  const detailLine = totalCount
-    ? `${totalCount} live file${totalCount === 1 ? '' : 's'} in the indexed library`
-    : (isLoading ? 'Refreshing from the live media index.' : 'No indexed media found yet.');
+    : (isLoading ? 'Calculating...' : `${formatStorageAmountFromMb(usedMb)} indexed`);
   return `
-    <section class="cml-storage-card" aria-label="Storage usage">
-      <div class="cml-storage-card__header">
-        <div class="cml-storage-card__icon">${icon('cloud')}</div>
-        <div>
-          <p class="cml-storage-card__eyebrow">Private archive</p>
-          <strong>${usageLine}</strong>
-          <p class="cml-storage-card__copy">${detailLine}</p>
-        </div>
-      </div>
-      <div class="cml-storage-card__meter ${hasQuota ? '' : 'is-open-ended'}" aria-hidden="true">
-        <span style="width:${usedRatio}%"></span>
-      </div>
-    </section>
+    <div class="cml-storage-strip" aria-label="Storage usage">
+      <div class="cml-storage-strip__meter" aria-hidden="true"><span style="width:${usedRatio}%"></span></div>
+      <p class="cml-storage-strip__text">${usageLine}</p>
+    </div>
   `;
 }
 
-export function Sidebar({ navigationModel, state, storageSummary }) {
+export function Sidebar({ navigationModel, state, storageSummary, searchQuery = '' }) {
+  const searchValue = escapeHtml(searchQuery || state.searchQuery || '');
   return `
     <aside class="cml-sidebar">
       <div class="cml-sidebar__brand">
-        <img class="cml-sidebar__brand-logo" src="/logo-sundowner.svg" alt="SUNDOWNER" />
-        <div>
-          <strong class="cml-sidebar__brand-name">SUNDOWNER</strong>
-          <p class="cml-sidebar__brand-copy">Media library</p>
-        </div>
+        <span class="cml-sidebar__brand-icon">${icon('photos')}</span>
+        <strong class="cml-sidebar__brand-name">SUNDOWNER</strong>
       </div>
+      <label class="cml-sidebar__search" aria-label="Search">
+        ${icon('search', 'cml-sidebar__search-icon')}
+        <input type="search" class="cml-sidebar__search-input" placeholder="Search your photos" value="${searchValue}" />
+      </label>
       <nav class="cml-sidebar__nav" aria-label="Primary navigation">
         ${navigationModel.primary.map((label) => {
           const key = label.toLowerCase();
@@ -229,12 +219,13 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
         }).join('')}
       </nav>
       ${navigationModel.secondary.length ? `
-        <div class="cml-sidebar__section-label">Browse</div>
+        <div class="cml-sidebar__section-label">collection</div>
         <div class="cml-sidebar__subnav">
           ${navigationModel.secondary.map((label) => {
             const active = state.secondaryFilter === label ? 'is-active' : '';
             return `
               <button type="button" class="cml-sidebar__subnav-item ${active}" data-secondary="${escapeHtml(label)}">
+                <span class="cml-sidebar__subnav-arrow">&#9656;</span>
                 ${icon(secondaryIconMap[label])}
                 <span>${escapeHtml(label)}</span>
               </button>
@@ -243,11 +234,12 @@ export function Sidebar({ navigationModel, state, storageSummary }) {
         </div>
       ` : ''}
       <div class="cml-sidebar__footer">
-        <a href="/dashboard" class="cml-sidebar__nav-item cml-sidebar__admin-link">
+        ${StorageCard(storageSummary)}
+        <a href="/dashboard" class="cml-sidebar__admin-link">
           ${icon('settings')}
           <span>Admin</span>
         </a>
-        ${StorageCard(storageSummary)}
+        <div class="cml-sidebar__legal">privacy · terms of service</div>
       </div>
     </aside>
   `;
@@ -330,12 +322,6 @@ export function TopSearchBar({ state, canDeleteSelection = false, canSetAlbumCov
   }
   return `
     <header class="cml-topbar">
-      <div class="cml-topbar__search-shell">
-        <label class="cml-topbar__search" aria-label="Search memories">
-          ${icon('search', 'cml-topbar__search-icon')}
-          <input type="search" class="cml-topbar__search-input" placeholder="Search memories, places, albums and people" value="${searchValue}" />
-        </label>
-      </div>
       <div class="cml-topbar__actions">
         ${isAlbumPickerMode ? `
           <button type="button" class="cml-topbar__secondary-button" data-action="cancel-add-to-current-album">
@@ -357,6 +343,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canSetAlbumCov
           ${icon('plus')}
           <span>Upload</span>
         </button>
+        <a href="/dashboard" class="cml-topbar__icon-button" aria-label="Settings">${icon('settings')}</a>
       </div>
       ${AvatarButton({ adminUsername: state.adminUsername, avatarMenuOpen: state.avatarMenuOpen })}
     </header>
@@ -405,13 +392,9 @@ export function MediaTimelineSection({ section, state, layoutWidth, coverItemId 
   return `
     <section class="cml-timeline-section" id="${escapeHtml(section.anchorId)}" data-year="${escapeHtml(section.year)}">
       <header class="cml-timeline-section__header">
-        <div class="cml-timeline-section__heading">
-          <div class="cml-timeline-section__heading-line">
-            <h2 class="cml-timeline-section__title">${escapeHtml(section.label)}</h2>
-            ${section.metaLine ? `<p class="cml-timeline-section__summary">${escapeHtml(section.metaLine)}</p>` : ''}
-          </div>
-          <p class="cml-timeline-section__count">${section.items.length} memories</p>
-        </div>
+        <button type="button" class="cml-timeline-section__select" data-action="select-section" data-section="${escapeHtml(section.anchorId)}" aria-label="Select all in section">${icon('check')}</button>
+        <h2 class="cml-timeline-section__title">${escapeHtml(section.label)}</h2>
+        ${section.metaLine ? `<span class="cml-timeline-section__meta">${escapeHtml(section.metaLine)}</span>` : ''}
       </header>
       ${MediaGrid({ items: section.items, state, layoutWidth, coverItemId })}
     </section>
