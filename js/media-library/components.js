@@ -104,7 +104,7 @@ function getLayoutConfig(containerWidth, denseGrid) {
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
   const isMobile = viewportWidth <= 640;
   const isTablet = viewportWidth <= 960;
-  const gap = isMobile ? 6 : 8;
+  const gap = 2;
   const fallbackWidth = Math.max(280, viewportWidth - (isTablet ? 36 : 410));
   const availableWidth = Math.max(280, Math.floor(containerWidth || fallbackWidth));
   const rowHeightBase = denseGrid ? (isMobile ? 118 : viewportWidth <= 1180 ? 160 : 188) : (isMobile ? 132 : viewportWidth <= 1180 ? 180 : 212);

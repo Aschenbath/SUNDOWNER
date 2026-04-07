@@ -713,20 +713,14 @@ function parseDateMetadata(candidates, domIndex) {
       const month = MONTH_INDEX[monthYearMatch[1].toLowerCase()];
       const year = Number(monthYearMatch[2]);
       const date = new Date(year, month, 1, 12, 0, 0, 0);
-      const parts = createDatePartsFromDate(date, now);
-      parts.timelineLabel = `${MONTH_NAMES[month]} ${year}`;
-      parts.displayTakenAt = `${MONTH_NAMES[month]} ${year}`;
-      return parts;
+      return createDatePartsFromDate(date, now);
     }
 
     const weekdayLabel = WEEKDAY_NAMES.find((weekday) => new RegExp(`\\b${weekday}\\b`, 'i').test(candidate));
     if (weekdayLabel) {
       const date = resolveRelativeWeekday(weekdayLabel, now);
       if (date) {
-        const parts = createDatePartsFromDate(date, now);
-        parts.timelineLabel = weekdayLabel;
-        parts.displayTakenAt = weekdayLabel;
-        return parts;
+        return createDatePartsFromDate(date, now);
       }
     }
 
@@ -734,10 +728,7 @@ function parseDateMetadata(candidates, domIndex) {
     if (yearMatch) {
       const year = Number(yearMatch[1]);
       const date = new Date(year, 0, 1, 12, 0, 0, 0);
-      const parts = createDatePartsFromDate(date, now);
-      parts.timelineLabel = String(year);
-      parts.displayTakenAt = String(year);
-      return parts;
+      return createDatePartsFromDate(date, now);
     }
   }
 

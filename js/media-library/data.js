@@ -341,11 +341,8 @@ export function createTimelineLabel(dateLike, now = new Date()) {
   if (diffDays === 1) {
     return 'Yesterday';
   }
-  if (diffDays > 1 && diffDays < 7 && date.getFullYear() === now.getFullYear()) {
-    return weekdayNames[date.getDay()];
-  }
-  if (date.getFullYear() === now.getFullYear()) {
-    return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-  }
-  return `${date.getFullYear()}`;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
