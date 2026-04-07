@@ -51,15 +51,10 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-app-shell {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 256px minmax(0, 1fr);
   min-height: 100vh;
   background: #1f1f1f;
   color: #edf2f7;
-  transition: grid-template-columns 200ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-#codex-media-library-root .cml-app-shell:has(.cml-sidebar:hover) {
-  grid-template-columns: 256px minmax(0, 1fr);
 }
 
 #codex-media-library-root .cml-sidebar {
@@ -69,16 +64,12 @@ body.codex-media-library-active #app {
   flex-direction: column;
   gap: 18px;
   height: 100vh;
-  padding: 16px 10px 22px;
-  overflow: hidden;
+  padding: 16px 18px 22px;
+  overflow-y: auto;
+  overflow-x: hidden;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(31, 31, 31, 0.95);
   backdrop-filter: blur(20px);
-  transition: padding 200ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-#codex-media-library-root .cml-sidebar:hover {
-  padding: 16px 18px 22px;
 }
 
 #codex-media-library-root .cml-sidebar__brand {
@@ -86,8 +77,6 @@ body.codex-media-library-active #app {
   align-items: center;
   gap: 14px;
   padding: 8px 8px 12px;
-  overflow: hidden;
-  white-space: nowrap;
 }
 
 #codex-media-library-root .cml-sidebar__brand-logo {
@@ -102,24 +91,12 @@ body.codex-media-library-active #app {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  opacity: 0;
-  transition: opacity 150ms ease;
-}
-
-#codex-media-library-root .cml-sidebar:hover .cml-sidebar__brand-name {
-  opacity: 1;
 }
 
 #codex-media-library-root .cml-sidebar__brand-copy {
   margin: 4px 0 0;
   color: #8f98a8;
   font-size: 12px;
-  opacity: 0;
-  transition: opacity 150ms ease;
-}
-
-#codex-media-library-root .cml-sidebar:hover .cml-sidebar__brand-copy {
-  opacity: 1;
 }
 
 #codex-media-library-root .cml-sidebar__section-label {
@@ -129,14 +106,6 @@ body.codex-media-library-active #app {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  opacity: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: opacity 150ms ease;
-}
-
-#codex-media-library-root .cml-sidebar:hover .cml-sidebar__section-label {
-  opacity: 1;
 }
 
 #codex-media-library-root .cml-sidebar__nav,
@@ -163,35 +132,14 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar__subnav-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0;
+  gap: 12px;
   min-height: 48px;
   padding: 0 14px;
   border-radius: 8px;
   color: #d8deea;
   text-align: left;
-  overflow: hidden;
   white-space: nowrap;
-  transition: background-color 160ms ease, color 160ms ease, gap 200ms ease, justify-content 200ms ease;
-}
-
-#codex-media-library-root .cml-sidebar:hover .cml-sidebar__nav-item,
-#codex-media-library-root .cml-sidebar:hover .cml-sidebar__subnav-item {
-  justify-content: flex-start;
-  gap: 12px;
-}
-
-#codex-media-library-root .cml-sidebar__nav-item > span,
-#codex-media-library-root .cml-sidebar__subnav-item > span {
-  opacity: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: opacity 150ms ease;
-}
-
-#codex-media-library-root .cml-sidebar:hover .cml-sidebar__nav-item > span,
-#codex-media-library-root .cml-sidebar:hover .cml-sidebar__subnav-item > span {
-  opacity: 1;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
 #codex-media-library-root .cml-sidebar__nav-item:hover,
@@ -207,13 +155,17 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-sidebar__footer {
   margin-top: auto;
-  opacity: 0;
-  overflow: hidden;
-  transition: opacity 200ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-#codex-media-library-root .cml-sidebar:hover .cml-sidebar__footer {
-  opacity: 1;
+#codex-media-library-root .cml-sidebar__admin-link {
+  text-decoration: none;
+  color: #9aa0a6;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 8px;
+  margin-bottom: 4px;
 }
 
 #codex-media-library-root .cml-storage-card {
@@ -1186,11 +1138,7 @@ body.codex-media-library-active #app {
 
 @media (max-width: 1180px) {
   #codex-media-library-root .cml-app-shell {
-    grid-template-columns: 72px minmax(0, 1fr);
-  }
-
-  #codex-media-library-root .cml-app-shell:has(.cml-sidebar:hover) {
-    grid-template-columns: 256px minmax(0, 1fr);
+    grid-template-columns: 220px minmax(0, 1fr);
   }
 }
 
