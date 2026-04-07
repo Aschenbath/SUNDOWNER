@@ -176,9 +176,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-sidebar__subnav-item {
-  padding-left: 16px;
-  font-size: 13px;
-  min-height: 32px;
+  font-size: 14px;
 }
 
 #codex-media-library-root .cml-sidebar__subnav-arrow {
@@ -215,7 +213,7 @@ body.codex-media-library-active #app {
   border-radius: 999px;
   text-decoration: none;
   color: #9aa0a6;
-  font-size: 13px;
+  font-size: 14px;
   transition: background-color 160ms ease;
 }
 
