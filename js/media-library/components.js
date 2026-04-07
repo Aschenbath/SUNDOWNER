@@ -510,20 +510,35 @@ export function CollectionGrid({ collections }) {
   `;
 }
 
-export function YearScroller({ years, activeYear }) {
-  if (years.length < 2) {
+export function YearScroller({ scrubberSections, activeSectionAnchor, activeScrubberLabel }) {
+  if (scrubberSections.length < 2) {
     return '';
   }
   return `
     <aside class="cml-scrubber" aria-label="Timeline navigation">
       <div class="cml-scrubber__track">
-        <div class="cml-scrubber__badge" aria-hidden="true">${escapeHtml(activeYear || years[0])}</div>
-        ${years.map((year, i) => {
-          const pct = years.length > 1 ? (i / (years.length - 1)) * 100 : 0;
-          const isActive = String(activeYear) === String(year);
+        <div class="cml-scrubber__badge" aria-hidden="true">${escapeHtml(activeScrubberLabel || scrubberSections[0].scrubberLabel || scrubberSections[0].year)}</div>
+        ${scrubberSections.map((section, i) => {
+          const pct = scrubberSections.length > 1 ? (i / (scrubberSections.length - 1)) * 100 : 0;
+          const isActive = String(activeSectionAnchor) === String(section.anchorId);
           return `
-            <div class="cml-scrubber__tick ${isActive ? 'is-active' : ''}" style="top:${pct.toFixed(1)}%" data-year="${escapeHtml(year)}">
-              <button type="button" class="cml-scrubber__dot" data-year="${escapeHtml(year)}" aria-label="Jump to ${escapeHtml(year)}"></button>
+            <div
+              class="cml-scrubber__tick ${section.isYearBoundary ? 'has-year-label' : ''} ${isActive ? 'is-active' : ''}"
+              style="top:${pct.toFixed(1)}%"
+              data-anchor="${escapeHtml(section.anchorId)}"
+              data-year="${escapeHtml(section.year)}"
+              data-pct="${pct.toFixed(1)}"
+              data-label="${escapeHtml(section.scrubberLabel || section.year)}"
+            >
+              ${section.isYearBoundary ? `<span class="cml-scrubber__year-label">${escapeHtml(section.year)}</span>` : ''}
+              <button
+                type="button"
+                class="cml-scrubber__dot"
+                data-anchor="${escapeHtml(section.anchorId)}"
+                data-year="${escapeHtml(section.year)}"
+                data-label="${escapeHtml(section.scrubberLabel || section.year)}"
+                aria-label="Jump to ${escapeHtml(section.scrubberLabel || section.year)}"
+              ></button>
             </div>
           `;
         }).join('')}

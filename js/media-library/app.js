@@ -183,6 +183,7 @@ const state = {
   previewId: null,
   loadedCount: 24,
   activeYear: null,
+  activeSectionAnchor: '',
   activeScrubberLabel: '',
   isYearScrubbing: false,
   scrubberVisible: false,
@@ -534,7 +535,7 @@ function setupYearScrollerDrag() {
 }
 
 function hitYearButton(scroller, clientY) {
-  const ticks = scroller.querySelectorAll('.cml-scrubber__tick[data-year]');
+  const ticks = scroller.querySelectorAll('.cml-scrubber__tick[data-anchor]');
   let hit = null;
   for (const tick of ticks) {
     const rect = tick.getBoundingClientRect();
@@ -543,9 +544,11 @@ function hitYearButton(scroller, clientY) {
       break;
     }
   }
-  if (hit && hit.dataset.year !== state.activeYear) {
-    state.activeYear = hit.dataset.year;
-    scrollToYear(hit.dataset.year);
+  if (hit && hit.dataset.anchor && hit.dataset.anchor !== state.activeSectionAnchor) {
+    state.activeSectionAnchor = hit.dataset.anchor;
+    state.activeYear = hit.dataset.year || state.activeYear;
+    state.activeScrubberLabel = normalizeText(hit.dataset.label || hit.dataset.year || state.activeScrubberLabel);
+    scrollToYear(hit.dataset.anchor);
     updateScrubberThumb();
   }
   revealScrubber({ keepAlive: yearScrollerDragActive });
@@ -2760,6 +2763,12 @@ function getViewModel() {
     ? []
     : [...new Set(timelineItems.map((item) => String(item.year)))]
       .sort((left, right) => Number(right) - Number(left));
+  const scrubberSections = sections.map((section, index) => ({
+    anchorId: section.anchorId,
+    year: section.year,
+    scrubberLabel: section.scrubberLabel || section.year,
+    isYearBoundary: index === 0 || sections[index - 1].year !== section.year
+  }));
   const previewItems = state.primaryFilter === 'Bin' ? [] : filteredItems;
   const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
   const previewItem = previewIndex >= 0 ? previewItems[previewIndex] : null;
@@ -2771,6 +2780,9 @@ function getViewModel() {
 
   if (years.length && !years.some((year) => String(year) === String(state.activeYear))) {
     state.activeYear = years[0];
+  }
+  if (scrubberSections.length && !scrubberSections.some((section) => section.anchorId === state.activeSectionAnchor)) {
+    state.activeSectionAnchor = scrubberSections[0].anchorId;
   }
 
   return {
@@ -2790,6 +2802,7 @@ function getViewModel() {
     filteredItems,
     sections,
     years,
+    scrubberSections,
     previewItems,
     previewIndex,
     previewItem,
@@ -2893,7 +2906,11 @@ function render() {
                     }))}`}
             </div>
           </main>
-          ${!viewModel.isCollectionRoot ? YearScroller({ years: viewModel.years, activeYear: state.activeYear }) : ''}
+          ${!viewModel.isCollectionRoot ? YearScroller({
+            scrubberSections: viewModel.scrubberSections,
+            activeSectionAnchor: state.activeSectionAnchor,
+            activeScrubberLabel: state.activeScrubberLabel
+          }) : ''}
         </div>
       </div>
       ${PreviewModal({
@@ -3166,7 +3183,9 @@ function scrollToYear(year) {
   if (!refs.scrollRegion) {
     return;
   }
-  const section = refs.sectionAnchors.find((item) => item.getAttribute('data-year') === String(year));
+  const section = refs.sectionAnchors.find((item) =>
+    item.id === String(year) || item.getAttribute('data-year') === String(year)
+  );
   if (section) {
     refs.scrollRegion.scrollTo({ top: Math.max(0, section.offsetTop - 56), behavior: 'smooth' });
   }
@@ -3184,9 +3203,13 @@ function updateActiveYear() {
     }
   });
   const active = activeSection ? activeSection.getAttribute('data-year') : '';
+  const nextActiveAnchor = activeSection ? activeSection.id : '';
   const nextScrubberLabel = activeSection ? normalizeText(activeSection.getAttribute('data-scrubber-label')) : '';
   if (nextScrubberLabel) {
     state.activeScrubberLabel = nextScrubberLabel;
+  }
+  if (nextActiveAnchor) {
+    state.activeSectionAnchor = nextActiveAnchor;
   }
   if (active && active !== state.activeYear) {
     state.activeYear = active;
@@ -3237,18 +3260,18 @@ function updateScrubberThumb() {
   if (!scroller || !badge) {
     return;
   }
-  const { scrollTop, scrollHeight, clientHeight } = refs.scrollRegion;
-  const pct = scrollHeight > clientHeight
-    ? Math.min(100, (scrollTop / (scrollHeight - clientHeight)) * 100)
-    : 0;
-
   if (refs.root) {
     refs.root.querySelectorAll('.cml-scrubber__tick').forEach((tick) => {
-      tick.classList.toggle('is-active', tick.dataset.year === String(state.activeYear));
+      tick.classList.toggle('is-active', tick.dataset.anchor === String(state.activeSectionAnchor));
     });
   }
   badge.textContent = state.activeScrubberLabel || String(state.activeYear || '');
-  badge.style.top = `${pct.toFixed(1)}%`;
+  const activeTick = [...refs.root.querySelectorAll('.cml-scrubber__tick')]
+    .find((tick) => tick.dataset.anchor === String(state.activeSectionAnchor || ''));
+  const topPct = activeTick instanceof HTMLElement
+    ? Number(activeTick.dataset.pct || '0')
+    : 0;
+  badge.style.top = `${topPct.toFixed(1)}%`;
   scroller.classList.toggle('is-visible', state.scrubberVisible);
   scroller.classList.toggle('is-scrubbing', state.isYearScrubbing);
 }
@@ -3455,7 +3478,7 @@ function handleAction(actionTarget) {
 }
 
 function handleClick(event) {
-  const actionTarget = event.target instanceof Element ? event.target.closest('[data-action], [data-primary], [data-secondary], [data-year]') : null;
+  const actionTarget = event.target instanceof Element ? event.target.closest('[data-action], [data-primary], [data-secondary], [data-year], [data-anchor]') : null;
   const tileTarget = event.target instanceof Element ? event.target.closest('.cml-media-tile') : null;
 
   // Close avatar menu when clicking outside it
@@ -3497,6 +3520,15 @@ function handleClick(event) {
       state.selectedIds.clear();
       resetLoadedCount();
       render();
+      return;
+    }
+
+    if (actionTarget.dataset.anchor) {
+      state.activeSectionAnchor = actionTarget.dataset.anchor;
+      state.activeYear = actionTarget.dataset.year || state.activeYear;
+      state.activeScrubberLabel = normalizeText(actionTarget.dataset.label || state.activeScrubberLabel);
+      scrollToYear(actionTarget.dataset.anchor);
+      updateScrubberThumb();
       return;
     }
 

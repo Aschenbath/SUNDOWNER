@@ -814,15 +814,16 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-timeline-section__title {
   margin: 0;
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 700;
   color: #f1f3f4;
+  letter-spacing: -0.01em;
 }
 
 #codex-media-library-root .cml-timeline-section__meta {
   margin: 0;
   color: #bdc1c6;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   line-height: 1.35;
 }
@@ -964,8 +965,8 @@ body.codex-media-library-active #app {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 28px 0 20px;
-  width: 40px;
+  padding: 24px 0 20px;
+  width: 56px;
   opacity: 0;
   transform: translateX(8px);
   pointer-events: none;
@@ -983,7 +984,7 @@ body.codex-media-library-active #app {
   position: relative;
   width: 2px;
   height: 100%;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   flex-shrink: 0;
   transition: background 180ms ease;
@@ -996,15 +997,15 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-scrubber__badge {
   position: absolute;
-  right: calc(100% + 8px);
+  right: calc(100% + 12px);
   top: 0;
-  min-width: 62px;
-  padding: 7px 12px;
+  min-width: 88px;
+  padding: 8px 14px;
   border-radius: 14px;
   background: rgba(47, 48, 52, 0.96);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
   color: #f1f3f4;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1;
   text-align: center;
@@ -1021,14 +1022,16 @@ body.codex-media-library-active #app {
   transform: translateX(-50%);
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  width: 56px;
   cursor: pointer;
 }
 
 #codex-media-library-root .cml-scrubber__dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.18);
   border: none;
   padding: 0;
   cursor: pointer;
@@ -1041,9 +1044,25 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-scrubber__tick.is-active .cml-scrubber__dot,
 #codex-media-library-root .cml-scrubber__tick:hover .cml-scrubber__dot {
   background: #8ab4f8;
-  transform: scale(1.2);
+  transform: scale(1.28);
   opacity: 1;
   box-shadow: 0 0 0 4px rgba(138, 180, 248, 0.14);
+}
+
+#codex-media-library-root .cml-scrubber__year-label {
+  position: absolute;
+  right: 18px;
+  color: rgba(232, 234, 237, 0.78);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+#codex-media-library-root .cml-scrubber__tick.has-year-label .cml-scrubber__dot {
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.28);
 }
 
 #codex-media-library-root .cml-scrubber:hover .cml-scrubber__badge,
