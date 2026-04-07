@@ -1,5 +1,6 @@
 import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js';
 import {
+  AdminPanel,
   AlbumDialog,
   BinGrid,
   CollectionGrid,
@@ -30,6 +31,38 @@ const ALBUM_ASSIGNMENTS_STORAGE_KEY = 'codex-media-library-album-assignments';
 const ALBUM_COVERS_STORAGE_KEY = 'codex-media-library-album-covers';
 const API_PAGE_SIZE = 400;
 const API_MAX_ITEMS = 1600;
+
+function createEmptyAdminProfileDraft() {
+  return {
+    username: '',
+    displayName: '',
+    avatarData: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+}
+
+function createEmptyAdminPageDraft() {
+  return {
+    siteTitle: '',
+    ownerName: '',
+    logoUrl: '',
+    announcement: '',
+    adminBkImg: '',
+    adminLoginBkImg: ''
+  };
+}
+
+function createEmptyAdminCloudDraft() {
+  return {
+    publicBrowseEnabled: false,
+    publicBrowseAllowedDir: '',
+    randomImageEnabled: false,
+    randomImageAllowedDir: '',
+    telemetryEnabled: false
+  };
+}
 
 const LIVE_MEDIA_QUERY = [
   '#app .list-view img[src]',
@@ -169,7 +202,19 @@ const state = {
   loginPassword: '',
   isLoggingIn: false,
   adminUsername: '',
-  avatarMenuOpen: false
+  adminDisplayName: '',
+  adminAvatarData: '',
+  avatarMenuOpen: false,
+  adminPanelOpen: false,
+  adminPanelTab: 'account',
+  adminPanelLoading: false,
+  adminPanelBusy: false,
+  adminPanelError: '',
+  adminProfileDraft: createEmptyAdminProfileDraft(),
+  adminPageDraft: createEmptyAdminPageDraft(),
+  adminCloudDraft: createEmptyAdminCloudDraft(),
+  adminPageConfigSource: [],
+  adminOthersConfigSource: null
 };
 
 const refs = {
@@ -318,14 +363,24 @@ function setupPreviewTouchHandlers() {
   }, { passive: true });
 }
 
-async function fetchAdminUser() {
+async function fetchAdminIdentity() {
+  try {
+    const res = await fetch('/api/manage/account', { credentials: 'same-origin' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.username) {
+        applyAdminIdentity(data, { shouldRender: true });
+        return;
+      }
+    }
+  } catch { /* silent */ }
+
   try {
     const res = await fetch('/api/manage/me', { credentials: 'same-origin' });
     if (res.ok) {
       const data = await res.json();
       if (data.username) {
-        state.adminUsername = data.username;
-        render();
+        applyAdminIdentity({ username: data.username, displayName: data.username, avatarData: '' }, { shouldRender: true });
       }
     }
   } catch { /* silent */ }
@@ -459,6 +514,114 @@ function ensureRoot() {
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function toBoolean(value) {
+  return value === true || value === 'true' || value === 1;
+}
+
+function getPageConfigValue(config, id) {
+  const record = safeArray(config).find((item) => item && item.id === id);
+  const value = record && Object.prototype.hasOwnProperty.call(record, 'value') ? record.value : '';
+  return value == null ? '' : String(value);
+}
+
+function createAdminPageDraft(config) {
+  return {
+    siteTitle: getPageConfigValue(config, 'siteTitle'),
+    ownerName: getPageConfigValue(config, 'ownerName'),
+    logoUrl: getPageConfigValue(config, 'logoUrl'),
+    announcement: getPageConfigValue(config, 'announcement'),
+    adminBkImg: getPageConfigValue(config, 'adminBkImg'),
+    adminLoginBkImg: getPageConfigValue(config, 'adminLoginBkImg')
+  };
+}
+
+function applyAdminPageDraftToConfig(config, draft) {
+  const valueMap = {
+    siteTitle: draft.siteTitle,
+    ownerName: draft.ownerName,
+    logoUrl: draft.logoUrl,
+    announcement: draft.announcement,
+    adminBkImg: draft.adminBkImg,
+    adminLoginBkImg: draft.adminLoginBkImg
+  };
+  return {
+    config: safeArray(config).map((item) => (
+      item && Object.prototype.hasOwnProperty.call(valueMap, item.id)
+        ? { ...item, value: valueMap[item.id] }
+        : item
+    ))
+  };
+}
+
+function createAdminCloudDraft(settings) {
+  return {
+    publicBrowseEnabled: Boolean(settings?.publicBrowse?.enabled),
+    publicBrowseAllowedDir: normalizeText(settings?.publicBrowse?.allowedDir),
+    randomImageEnabled: Boolean(settings?.randomImageAPI?.enabled),
+    randomImageAllowedDir: normalizeText(settings?.randomImageAPI?.allowedDir),
+    telemetryEnabled: Boolean(settings?.telemetry?.enabled)
+  };
+}
+
+function applyAdminCloudDraftToSettings(settings, draft) {
+  return {
+    ...(settings || {}),
+    telemetry: {
+      ...(settings?.telemetry || {}),
+      enabled: Boolean(draft.telemetryEnabled),
+      fixed: false
+    },
+    randomImageAPI: {
+      ...(settings?.randomImageAPI || {}),
+      enabled: Boolean(draft.randomImageEnabled),
+      allowedDir: normalizeText(draft.randomImageAllowedDir),
+      fixed: false
+    },
+    publicBrowse: {
+      ...(settings?.publicBrowse || {}),
+      enabled: Boolean(draft.publicBrowseEnabled),
+      allowedDir: normalizeText(draft.publicBrowseAllowedDir),
+      fixed: false
+    }
+  };
+}
+
+function resetAdminPasswordDraft() {
+  state.adminProfileDraft.currentPassword = '';
+  state.adminProfileDraft.newPassword = '';
+  state.adminProfileDraft.confirmPassword = '';
+}
+
+function applyAdminIdentity(profile, { shouldRender = false } = {}) {
+  const username = normalizeText(profile?.username);
+  const displayName = normalizeText(profile?.displayName) || username;
+  const avatarData = normalizeText(profile?.avatarData);
+  state.adminUsername = username;
+  state.adminDisplayName = displayName;
+  state.adminAvatarData = avatarData;
+  if (shouldRender && refs.root) {
+    render();
+  }
+}
+
+function hydrateAdminProfileDraft(profile) {
+  state.adminProfileDraft = {
+    ...createEmptyAdminProfileDraft(),
+    username: normalizeText(profile?.username),
+    displayName: normalizeText(profile?.displayName) || normalizeText(profile?.username),
+    avatarData: normalizeText(profile?.avatarData)
+  };
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.readAsDataURL(file);
+  });
 }
 
 function normalizeAlbumKey(value) {
@@ -1005,6 +1168,54 @@ async function fetchJson(url) {
   return response.json();
 }
 
+async function postJson(url, payload) {
+  const response = await apiFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  if (!response.ok) {
+    throw new Error(data?.error || `${url} returned ${response.status}`);
+  }
+  return data;
+}
+
+async function loadAdminPanelData() {
+  if (state.adminPanelLoading) {
+    return;
+  }
+
+  state.adminPanelLoading = true;
+  state.adminPanelError = '';
+  render();
+
+  try {
+    const [account, pageConfig, otherSettings] = await Promise.all([
+      fetchJson('/api/manage/account'),
+      fetchJson('/api/manage/sysConfig/page'),
+      fetchJson('/api/manage/sysConfig/others')
+    ]);
+
+    applyAdminIdentity(account);
+    hydrateAdminProfileDraft(account);
+    state.adminPageConfigSource = safeArray(pageConfig?.config);
+    state.adminPageDraft = createAdminPageDraft(state.adminPageConfigSource);
+    state.adminOthersConfigSource = otherSettings || {};
+    state.adminCloudDraft = createAdminCloudDraft(otherSettings || {});
+  } catch (error) {
+    state.adminPanelError = error.message || 'Failed to load admin settings';
+  } finally {
+    state.adminPanelLoading = false;
+    render();
+  }
+}
+
 async function submitLogin() {
   if (state.isLoggingIn) {
     return;
@@ -1026,9 +1237,14 @@ async function submitLogin() {
     } else if (res.ok) {
       state.needsLogin = false;
       state.loginError = '';
-      state.adminUsername = state.loginUsername;
+      applyAdminIdentity({
+        username: state.loginUsername,
+        displayName: state.loginUsername,
+        avatarData: ''
+      });
       state.loginUsername = '';
       state.loginPassword = '';
+      void fetchAdminIdentity();
       void syncStorageSummary({ forceRender: true });
       void syncLiveMedia({ forceRender: true });
     } else {
@@ -1048,7 +1264,13 @@ async function performLogout() {
   } catch { /* ignore */ }
   state.needsLogin = true;
   state.adminUsername = '';
+  state.adminDisplayName = '';
+  state.adminAvatarData = '';
   state.avatarMenuOpen = false;
+  state.adminPanelOpen = false;
+  state.adminPanelError = '';
+  state.adminPanelBusy = false;
+  state.adminProfileDraft = createEmptyAdminProfileDraft();
   state.loginUsername = '';
   state.loginPassword = '';
   state.loginError = '';
@@ -1675,6 +1897,166 @@ function dismissToast() {
   render();
 }
 
+function openAdminPanel(tab = 'account') {
+  state.avatarMenuOpen = false;
+  state.adminPanelOpen = true;
+  state.adminPanelTab = normalizeText(tab) || 'account';
+  state.adminPanelError = '';
+  render();
+  void loadAdminPanelData();
+}
+
+function closeAdminPanel() {
+  if (!state.adminPanelOpen || state.adminPanelBusy) {
+    return;
+  }
+  state.adminPanelOpen = false;
+  state.adminPanelError = '';
+  resetAdminPasswordDraft();
+  render();
+}
+
+async function triggerAdminAvatarUpload() {
+  const input = refs.root ? refs.root.querySelector('[data-admin-avatar-input]') : null;
+  if (input instanceof HTMLInputElement) {
+    input.click();
+  }
+}
+
+async function handleAdminAvatarSelection(file) {
+  if (!file) {
+    return;
+  }
+  if (!file.type.startsWith('image/')) {
+    state.adminPanelError = 'Please choose an image file';
+    render();
+    return;
+  }
+  if (file.size > 512 * 1024) {
+    state.adminPanelError = 'Avatar image must be 512 KB or smaller';
+    render();
+    return;
+  }
+
+  try {
+    state.adminProfileDraft.avatarData = await readFileAsDataUrl(file);
+    state.adminPanelError = '';
+  } catch (error) {
+    state.adminPanelError = error.message || 'Failed to read avatar image';
+  }
+  render();
+}
+
+function updateAdminDraftField(section, field, rawValue) {
+  if (!section || !field) {
+    return;
+  }
+  if (state.adminPanelError) {
+    state.adminPanelError = '';
+  }
+  if (section === 'account') {
+    state.adminProfileDraft[field] = rawValue;
+    return;
+  }
+  if (section === 'site') {
+    state.adminPageDraft[field] = rawValue;
+    return;
+  }
+  if (section === 'cloud') {
+    state.adminCloudDraft[field] = rawValue;
+  }
+}
+
+async function saveAdminAccount() {
+  if (state.adminPanelBusy) {
+    return;
+  }
+
+  const username = normalizeText(state.adminProfileDraft.username);
+  const displayName = normalizeText(state.adminProfileDraft.displayName);
+  if (!username) {
+    state.adminPanelError = 'Username is required';
+    render();
+    return;
+  }
+  if (!displayName) {
+    state.adminPanelError = 'Display name is required';
+    render();
+    return;
+  }
+  if (state.adminProfileDraft.newPassword && state.adminProfileDraft.newPassword !== state.adminProfileDraft.confirmPassword) {
+    state.adminPanelError = 'New password and confirmation do not match';
+    render();
+    return;
+  }
+
+  state.adminPanelBusy = true;
+  state.adminPanelError = '';
+  render();
+
+  try {
+    const profile = await postJson('/api/manage/account', {
+      username,
+      displayName,
+      avatarData: state.adminProfileDraft.avatarData,
+      currentPassword: state.adminProfileDraft.currentPassword,
+      newPassword: state.adminProfileDraft.newPassword
+    });
+    applyAdminIdentity(profile);
+    hydrateAdminProfileDraft(profile);
+    showToast('Admin account updated', 'success');
+  } catch (error) {
+    state.adminPanelError = error.message || 'Failed to update account';
+  } finally {
+    state.adminPanelBusy = false;
+    render();
+  }
+}
+
+async function saveAdminSiteSettings() {
+  if (state.adminPanelBusy) {
+    return;
+  }
+  state.adminPanelBusy = true;
+  state.adminPanelError = '';
+  render();
+
+  try {
+    const payload = applyAdminPageDraftToConfig(state.adminPageConfigSource, state.adminPageDraft);
+    const response = await postJson('/api/manage/sysConfig/page', payload);
+    state.adminPageConfigSource = safeArray(response?.config);
+    state.adminPageDraft = createAdminPageDraft(state.adminPageConfigSource);
+    showToast('Site settings updated', 'success');
+  } catch (error) {
+    state.adminPanelError = error.message || 'Failed to update site settings';
+  } finally {
+    state.adminPanelBusy = false;
+    render();
+  }
+}
+
+async function saveAdminCloudSettings() {
+  if (state.adminPanelBusy) {
+    return;
+  }
+  state.adminPanelBusy = true;
+  state.adminPanelError = '';
+  render();
+
+  try {
+    const payload = applyAdminCloudDraftToSettings(state.adminOthersConfigSource, state.adminCloudDraft);
+    const response = await postJson('/api/manage/sysConfig/others', payload);
+    state.adminOthersConfigSource = response || {};
+    state.adminCloudDraft = createAdminCloudDraft(state.adminOthersConfigSource);
+    showToast('Cloud settings updated', 'success');
+  } catch (error) {
+    state.adminPanelError = error.message || 'Failed to update cloud settings';
+  } finally {
+    state.adminPanelBusy = false;
+    render();
+  }
+}
+
 function openCollection(albumName) {
   const normalizedName = normalizeText(albumName);
   if (!normalizedName) {
@@ -2265,6 +2647,7 @@ function render() {
         totalCount: viewModel.previewItems.length,
         infoOpen: state.infoOpen
       })}
+      ${AdminPanel({ state, storageSummary: state.storageSummary })}
       ${AlbumDialog({ state, albums: viewModel.availableAlbums })}
       ${ConfirmDialog({ state })}
       ${state.toastMessage ? `
@@ -2425,7 +2808,7 @@ function mount() {
   syncLiveMedia({ forceRender: true });
   void syncStorageSummary({ forceRender: true });
   if (!state.adminUsername) {
-    void fetchAdminUser();
+    void fetchAdminIdentity();
   }
   render();
   startLiveObserver();
@@ -2434,6 +2817,7 @@ function mount() {
   if (!mounted && refs.root) {
     refs.root.addEventListener('click', handleClick);
     refs.root.addEventListener('input', handleInput);
+    refs.root.addEventListener('change', handleChange);
     refs.root.addEventListener('focusin', handleFocusIn);
     refs.root.addEventListener('submit', (e) => {
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'login') {
@@ -2719,7 +3103,34 @@ function handleAction(actionTarget) {
       render();
       return true;
     case 'open-admin-dashboard':
-      state.avatarMenuOpen = false;
+      openAdminPanel('account');
+      return true;
+    case 'close-admin-panel':
+      closeAdminPanel();
+      return true;
+    case 'switch-admin-tab':
+      state.adminPanelTab = normalizeText(actionTarget.dataset.tab) || 'account';
+      state.adminPanelError = '';
+      render();
+      return true;
+    case 'trigger-admin-avatar-upload':
+      void triggerAdminAvatarUpload();
+      return true;
+    case 'remove-admin-avatar':
+      state.adminProfileDraft.avatarData = '';
+      state.adminPanelError = '';
+      render();
+      return true;
+    case 'save-admin-account':
+      void saveAdminAccount();
+      return true;
+    case 'save-admin-site':
+      void saveAdminSiteSettings();
+      return true;
+    case 'save-admin-cloud':
+      void saveAdminCloudSettings();
+      return true;
+    case 'open-native-dashboard':
       window.sessionStorage.setItem('cmlSkipMount', '1');
       window.location.assign('/dashboard');
       return true;
@@ -2825,7 +3236,7 @@ function handleClick(event) {
 
 function handleInput(event) {
   const input = event.target;
-  if (!(input instanceof HTMLInputElement)) {
+  if (!(input instanceof HTMLInputElement) && !(input instanceof HTMLTextAreaElement)) {
     return;
   }
   if (input.dataset.login === 'username') {
@@ -2848,6 +3259,24 @@ function handleInput(event) {
     if (state.albumDialogError) {
       state.albumDialogError = '';
     }
+    return;
+  }
+  if (input.dataset.adminField && input.dataset.adminSection) {
+    const value = input instanceof HTMLInputElement && input.type === 'checkbox'
+      ? input.checked
+      : input.value;
+    updateAdminDraftField(input.dataset.adminSection, input.dataset.adminField, value);
+  }
+}
+
+function handleChange(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) {
+    return;
+  }
+  if (target.hasAttribute('data-admin-avatar-input')) {
+    void handleAdminAvatarSelection(target.files && target.files[0] ? target.files[0] : null);
+    target.value = '';
   }
 }
 
@@ -2880,6 +3309,13 @@ function handleKeyDown(event) {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault();
     focusSearchInput();
+    return;
+  }
+
+  if (state.adminPanelOpen) {
+    if (event.key === 'Escape') {
+      closeAdminPanel();
+    }
     return;
   }
 

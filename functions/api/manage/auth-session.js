@@ -1,12 +1,9 @@
 import { fetchSecurityConfig } from '../../utils/sysConfig';
-
-const COOKIE_NAME = 'admin_auth';
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
-
-function makeCookie(value, maxAge) {
-  const base = `${COOKIE_NAME}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
-  return base;
-}
+import {
+  ADMIN_SESSION_MAX_AGE,
+  createAdminSessionToken,
+  makeAdminSessionCookie,
+} from '../../utils/adminSession.js';
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -41,12 +38,12 @@ export async function onRequestPost(context) {
     });
   }
 
-  const token = encodeURIComponent(btoa(`${username}:${password}`));
+  const token = createAdminSessionToken(username, password);
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Set-Cookie': makeCookie(token, COOKIE_MAX_AGE),
+      'Set-Cookie': makeAdminSessionCookie(token, ADMIN_SESSION_MAX_AGE),
     },
   });
 }
@@ -56,7 +53,7 @@ export async function onRequestDelete(context) {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Set-Cookie': makeCookie('', 0),
+      'Set-Cookie': makeAdminSessionCookie('', 0),
     },
   });
 }

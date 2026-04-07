@@ -18,7 +18,10 @@ const icons = {
   trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.8 7.2h12.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.4 4.8h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.2 7.2v10.2a1.8 1.8 0 0 0 1.8 1.8h4a1.8 1.8 0 0 0 1.8-1.8V7.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   restore: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 1.8-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 6.2V12H10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="8" r="0.9" fill="currentColor"/></svg>',
-  settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v2.5M12 19.5V22M22 12h-2.5M4.5 12H2M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8M19.1 19.1l-1.8-1.8M6.7 6.7 4.9 4.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+  settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v2.5M12 19.5V22M22 12h-2.5M4.5 12H2M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8M19.1 19.1l-1.8-1.8M6.7 6.7 4.9 4.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  user: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.6" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.4 19.2a6.6 6.6 0 0 1 13.2 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  image: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m7.5 15.5 3-3 2.2 2.2 3.8-4.2L19 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8.8" cy="9" r="1.2" fill="currentColor"/></svg>',
+  save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.8h11l3 3v11.4A1.8 1.8 0 0 1 17.2 21H6.8A1.8 1.8 0 0 1 5 19.2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 4.8v5.2h8V6.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.5 16h7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
 };
 
 const secondaryIconMap = {
@@ -39,6 +42,16 @@ function escapeHtml(value) {
 
 function icon(name, extraClass = '') {
   return `<span class="cml-icon ${extraClass}">${icons[name] || ''}</span>`;
+}
+
+function renderAvatarVisual({ displayName = '', username = '', avatarData = '', large = false } = {}) {
+  const initialSource = displayName || username || '?';
+  const initial = escapeHtml(initialSource.charAt(0).toUpperCase() || '?');
+  const className = large ? 'cml-avatar-visual cml-avatar-visual--large' : 'cml-avatar-visual';
+  if (avatarData) {
+    return `<span class="${className}"><img src="${escapeHtml(avatarData)}" alt="${escapeHtml(displayName || username || 'Admin')}" class="cml-avatar-visual__image"></span>`;
+  }
+  return `<span class="${className} cml-avatar-visual--fallback">${initial}</span>`;
 }
 
 function formatCompactNumber(value) {
@@ -235,24 +248,35 @@ export function Sidebar({ navigationModel, state, storageSummary, searchQuery = 
       ` : ''}
       <div class="cml-sidebar__footer">
         ${StorageCard(storageSummary)}
-        <a href="/dashboard" class="cml-sidebar__admin-link">
+        <button type="button" class="cml-sidebar__admin-link" data-action="open-admin-dashboard">
           ${icon('settings')}
           <span>Admin</span>
-        </a>
+        </button>
         <div class="cml-sidebar__legal">privacy · terms of service</div>
       </div>
     </aside>
   `;
 }
 
-function AvatarButton({ adminUsername = '', avatarMenuOpen = false }) {
-  const initial = adminUsername ? adminUsername.charAt(0).toUpperCase() : '?';
+function AvatarButton({
+  adminUsername = '',
+  adminDisplayName = '',
+  adminAvatarData = '',
+  avatarMenuOpen = false
+}) {
+  const nameLabel = adminDisplayName || adminUsername || 'Admin';
   const menuHtml = avatarMenuOpen ? `
     <div class="cml-avatar-menu" role="menu">
       <div class="cml-avatar-menu__header">
-        <div class="cml-avatar-menu__avatar-lg">${escapeHtml(initial)}</div>
+        ${renderAvatarVisual({
+          displayName: adminDisplayName,
+          username: adminUsername,
+          avatarData: adminAvatarData,
+          large: true
+        })}
         <div>
-          <p class="cml-avatar-menu__name">${escapeHtml(adminUsername || 'Admin')}</p>
+          <p class="cml-avatar-menu__name">${escapeHtml(nameLabel)}</p>
+          <p class="cml-avatar-menu__meta">@${escapeHtml(adminUsername || 'admin')}</p>
           <p class="cml-avatar-menu__role">Administrator</p>
         </div>
       </div>
@@ -271,7 +295,11 @@ function AvatarButton({ adminUsername = '', avatarMenuOpen = false }) {
   return `
     <div class="cml-avatar-wrap">
       <button type="button" class="cml-avatar-btn ${avatarMenuOpen ? 'is-open' : ''}" data-action="toggle-avatar" aria-label="Account menu" aria-expanded="${avatarMenuOpen}">
-        ${escapeHtml(initial)}
+        ${renderAvatarVisual({
+          displayName: adminDisplayName,
+          username: adminUsername,
+          avatarData: adminAvatarData
+        })}
       </button>
       ${menuHtml}
     </div>
@@ -343,9 +371,14 @@ export function TopSearchBar({ state, canDeleteSelection = false, canSetAlbumCov
           ${icon('plus')}
           <span>Upload</span>
         </button>
-        <a href="/dashboard" class="cml-topbar__icon-button" aria-label="Settings">${icon('settings')}</a>
+        <button type="button" class="cml-topbar__icon-button" data-action="open-admin-dashboard" aria-label="Settings">${icon('settings')}</button>
       </div>
-      ${AvatarButton({ adminUsername: state.adminUsername, avatarMenuOpen: state.avatarMenuOpen })}
+      ${AvatarButton({
+        adminUsername: state.adminUsername,
+        adminDisplayName: state.adminDisplayName,
+        adminAvatarData: state.adminAvatarData,
+        avatarMenuOpen: state.avatarMenuOpen
+      })}
     </header>
   `;
 }
@@ -823,6 +856,201 @@ export function LoginOverlay({ error = '', isLoading = false } = {}) {
               ${isLoading ? 'disabled' : ''}
             >${btnLabel}</button>
         </form>
+      </div>
+    </div>
+  `;
+}
+
+export function AdminPanel({ state, storageSummary }) {
+  if (!state.adminPanelOpen) {
+    return '';
+  }
+
+  const activeTab = state.adminPanelTab || 'account';
+  const tabs = [
+    { id: 'account', label: 'Account', iconName: 'user' },
+    { id: 'site', label: 'Site', iconName: 'settings' },
+    { id: 'cloud', label: 'Cloud', iconName: 'cloud' }
+  ];
+  const usedMb = Math.max(0, Number(storageSummary?.usedMb) || 0);
+  const totalCount = Math.max(0, Number(storageSummary?.totalCount) || 0);
+  const quotaLabel = storageSummary?.totalQuotaGb ? formatStorageAmountFromGb(storageSummary.totalQuotaGb) : 'Unmetered';
+  const statusHtml = state.adminPanelError
+    ? `<p class="cml-admin-panel__status is-error">${escapeHtml(state.adminPanelError)}</p>`
+    : '';
+
+  const accountBody = `
+    <section class="cml-admin-panel__section">
+      <div class="cml-admin-panel__hero">
+        <div class="cml-admin-panel__avatar-stage">
+          ${renderAvatarVisual({
+            displayName: state.adminProfileDraft.displayName,
+            username: state.adminProfileDraft.username,
+            avatarData: state.adminProfileDraft.avatarData,
+            large: true
+          })}
+          <div class="cml-admin-panel__avatar-actions">
+            <button type="button" class="cml-admin-panel__secondary" data-action="trigger-admin-avatar-upload">${icon('image')}<span>Upload avatar</span></button>
+            <button type="button" class="cml-admin-panel__ghost" data-action="remove-admin-avatar" ${state.adminProfileDraft.avatarData ? '' : 'disabled'}>Remove</button>
+          </div>
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="cml-admin-panel__avatar-input" data-admin-avatar-input hidden>
+        </div>
+        <div class="cml-admin-panel__hero-copy">
+          <p class="cml-admin-panel__eyebrow">Profile</p>
+          <h3 class="cml-admin-panel__section-title">${escapeHtml(state.adminDisplayName || state.adminUsername || 'Administrator')}</h3>
+          <p class="cml-admin-panel__copy">Update the admin avatar, display name, sign-in username, and password from the media-library shell.</p>
+        </div>
+      </div>
+      <div class="cml-admin-panel__form-grid">
+        <label class="cml-admin-panel__field">
+          <span>Display name</span>
+          <input type="text" value="${escapeHtml(state.adminProfileDraft.displayName)}" data-admin-section="account" data-admin-field="displayName" class="cml-admin-panel__input" placeholder="SUNDOWNER Admin">
+        </label>
+        <label class="cml-admin-panel__field">
+          <span>Username</span>
+          <input type="text" value="${escapeHtml(state.adminProfileDraft.username)}" data-admin-section="account" data-admin-field="username" class="cml-admin-panel__input" placeholder="admin">
+        </label>
+        <label class="cml-admin-panel__field">
+          <span>Current password</span>
+          <input type="password" value="${escapeHtml(state.adminProfileDraft.currentPassword)}" data-admin-section="account" data-admin-field="currentPassword" class="cml-admin-panel__input" placeholder="Required for username or password changes">
+        </label>
+        <label class="cml-admin-panel__field">
+          <span>New password</span>
+          <input type="password" value="${escapeHtml(state.adminProfileDraft.newPassword)}" data-admin-section="account" data-admin-field="newPassword" class="cml-admin-panel__input" placeholder="Leave blank to keep current password">
+        </label>
+        <label class="cml-admin-panel__field cml-admin-panel__field--wide">
+          <span>Confirm new password</span>
+          <input type="password" value="${escapeHtml(state.adminProfileDraft.confirmPassword)}" data-admin-section="account" data-admin-field="confirmPassword" class="cml-admin-panel__input" placeholder="Repeat the new password">
+        </label>
+      </div>
+      ${statusHtml}
+      <div class="cml-admin-panel__footer-actions">
+        <button type="button" class="cml-admin-panel__primary" data-action="save-admin-account" ${state.adminPanelBusy ? 'disabled' : ''}>${icon('save')}<span>${state.adminPanelBusy ? 'Saving...' : 'Save account'}</span></button>
+      </div>
+    </section>
+  `;
+
+  const siteBody = `
+    <section class="cml-admin-panel__section">
+      <div class="cml-admin-panel__hero-copy cml-admin-panel__hero-copy--compact">
+        <p class="cml-admin-panel__eyebrow">Site</p>
+        <h3 class="cml-admin-panel__section-title">Brand and entry surfaces</h3>
+        <p class="cml-admin-panel__copy">These fields map to the existing page config and control the public identity of this cloud space.</p>
+      </div>
+      <div class="cml-admin-panel__form-grid">
+        <label class="cml-admin-panel__field">
+          <span>Site title</span>
+          <input type="text" value="${escapeHtml(state.adminPageDraft.siteTitle)}" data-admin-section="site" data-admin-field="siteTitle" class="cml-admin-panel__input" placeholder="SUNDOWNER">
+        </label>
+        <label class="cml-admin-panel__field">
+          <span>Owner name</span>
+          <input type="text" value="${escapeHtml(state.adminPageDraft.ownerName)}" data-admin-section="site" data-admin-field="ownerName" class="cml-admin-panel__input" placeholder="SUNDOWNER">
+        </label>
+        <label class="cml-admin-panel__field cml-admin-panel__field--wide">
+          <span>Logo URL</span>
+          <input type="url" value="${escapeHtml(state.adminPageDraft.logoUrl)}" data-admin-section="site" data-admin-field="logoUrl" class="cml-admin-panel__input" placeholder="https://example.com/logo.svg">
+        </label>
+        <label class="cml-admin-panel__field cml-admin-panel__field--wide">
+          <span>Announcement</span>
+          <textarea data-admin-section="site" data-admin-field="announcement" class="cml-admin-panel__textarea" placeholder="Short notice shown on the entry surface">${escapeHtml(state.adminPageDraft.announcement)}</textarea>
+        </label>
+        <label class="cml-admin-panel__field">
+          <span>Admin background</span>
+          <input type="text" value="${escapeHtml(state.adminPageDraft.adminBkImg)}" data-admin-section="site" data-admin-field="adminBkImg" class="cml-admin-panel__input" placeholder='["https://..."] or bing'>
+        </label>
+        <label class="cml-admin-panel__field">
+          <span>Admin login background</span>
+          <input type="text" value="${escapeHtml(state.adminPageDraft.adminLoginBkImg)}" data-admin-section="site" data-admin-field="adminLoginBkImg" class="cml-admin-panel__input" placeholder='["https://..."] or bing'>
+        </label>
+      </div>
+      ${statusHtml}
+      <div class="cml-admin-panel__footer-actions">
+        <button type="button" class="cml-admin-panel__primary" data-action="save-admin-site" ${state.adminPanelBusy ? 'disabled' : ''}>${icon('save')}<span>${state.adminPanelBusy ? 'Saving...' : 'Save site settings'}</span></button>
+      </div>
+    </section>
+  `;
+
+  const cloudBody = `
+    <section class="cml-admin-panel__section">
+      <div class="cml-admin-panel__hero-copy cml-admin-panel__hero-copy--compact">
+        <p class="cml-admin-panel__eyebrow">Cloud operations</p>
+        <h3 class="cml-admin-panel__section-title">Service controls</h3>
+        <p class="cml-admin-panel__copy">Review current usage and tune the public access surfaces exposed by this cloud disk.</p>
+      </div>
+      <div class="cml-admin-panel__stats">
+        <article class="cml-admin-panel__stat-card">
+          <span class="cml-admin-panel__stat-label">Stored media</span>
+          <strong class="cml-admin-panel__stat-value">${escapeHtml(formatStorageAmountFromMb(usedMb))}</strong>
+          <span class="cml-admin-panel__stat-meta">Quota ${escapeHtml(quotaLabel)}</span>
+        </article>
+        <article class="cml-admin-panel__stat-card">
+          <span class="cml-admin-panel__stat-label">Indexed files</span>
+          <strong class="cml-admin-panel__stat-value">${escapeHtml(String(totalCount))}</strong>
+          <span class="cml-admin-panel__stat-meta">Live media-library count</span>
+        </article>
+      </div>
+      <div class="cml-admin-panel__form-grid">
+        <label class="cml-admin-panel__toggle">
+          <input type="checkbox" ${state.adminCloudDraft.publicBrowseEnabled ? 'checked' : ''} data-admin-section="cloud" data-admin-field="publicBrowseEnabled">
+          <span>Enable public browse</span>
+        </label>
+        <label class="cml-admin-panel__field">
+          <span>Public browse directory</span>
+          <input type="text" value="${escapeHtml(state.adminCloudDraft.publicBrowseAllowedDir)}" data-admin-section="cloud" data-admin-field="publicBrowseAllowedDir" class="cml-admin-panel__input" placeholder="/albums/public">
+        </label>
+        <label class="cml-admin-panel__toggle">
+          <input type="checkbox" ${state.adminCloudDraft.randomImageEnabled ? 'checked' : ''} data-admin-section="cloud" data-admin-field="randomImageEnabled">
+          <span>Enable random image API</span>
+        </label>
+        <label class="cml-admin-panel__field">
+          <span>Random image directory</span>
+          <input type="text" value="${escapeHtml(state.adminCloudDraft.randomImageAllowedDir)}" data-admin-section="cloud" data-admin-field="randomImageAllowedDir" class="cml-admin-panel__input" placeholder="/wallpaper">
+        </label>
+        <label class="cml-admin-panel__toggle cml-admin-panel__toggle--wide">
+          <input type="checkbox" ${state.adminCloudDraft.telemetryEnabled ? 'checked' : ''} data-admin-section="cloud" data-admin-field="telemetryEnabled">
+          <span>Enable telemetry</span>
+        </label>
+      </div>
+      ${statusHtml}
+      <div class="cml-admin-panel__footer-actions">
+        <button type="button" class="cml-admin-panel__primary" data-action="save-admin-cloud" ${state.adminPanelBusy ? 'disabled' : ''}>${icon('save')}<span>${state.adminPanelBusy ? 'Saving...' : 'Save cloud settings'}</span></button>
+        <button type="button" class="cml-admin-panel__ghost" data-action="open-native-dashboard">Open original dashboard</button>
+      </div>
+    </section>
+  `;
+
+  const panelBody = state.adminPanelLoading
+    ? `<div class="cml-admin-panel__loading">Loading admin settings...</div>`
+    : activeTab === 'site'
+      ? siteBody
+      : activeTab === 'cloud'
+        ? cloudBody
+        : accountBody;
+
+  return `
+    <div class="cml-dialog cml-admin-panel" role="dialog" aria-modal="true" aria-labelledby="cml-admin-panel-title">
+      <div class="cml-dialog__backdrop" data-action="close-admin-panel"></div>
+      <div class="cml-dialog__panel cml-admin-panel__panel">
+        <div class="cml-dialog__header cml-admin-panel__header">
+          <div>
+            <h2 class="cml-dialog__title" id="cml-admin-panel-title">Admin dashboard</h2>
+            <p class="cml-dialog__copy">Manage the account, site identity, and cloud-disk switches without leaving the media-library shell.</p>
+          </div>
+          <button type="button" class="cml-dialog__close" data-action="close-admin-panel" aria-label="Close">${icon('close')}</button>
+        </div>
+        <div class="cml-admin-panel__layout">
+          <nav class="cml-admin-panel__tabs" aria-label="Admin sections">
+            ${tabs.map((tab) => `
+              <button type="button" class="cml-admin-panel__tab ${activeTab === tab.id ? 'is-active' : ''}" data-action="switch-admin-tab" data-tab="${tab.id}">
+                ${icon(tab.iconName)}
+                <span>${escapeHtml(tab.label)}</span>
+              </button>
+            `).join('')}
+          </nav>
+          <div class="cml-admin-panel__content">
+            ${panelBody}
+          </div>
+        </div>
       </div>
     </div>
   `;

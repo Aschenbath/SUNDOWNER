@@ -2,24 +2,11 @@ import { fetchSecurityConfig } from '../../utils/sysConfig';
 import { checkDatabaseConfig } from '../../utils/middleware';
 import { validateApiToken } from '../../utils/tokenValidator';
 import { getDatabase } from '../../utils/databaseAdapter.js';
+import { getAdminSessionFromRequest } from '../../utils/adminSession.js';
 
 let securityConfig = {}
 let basicUser = ''
 let basicPass = ''
-
-function getAdminAuthFromCookie(request) {
-  const cookies = request.headers.get('Cookie') || '';
-  const match = cookies.match(/(?:^|;\s*)admin_auth=([^;]+)/);
-  if (!match) return null;
-  try {
-    const decoded = atob(decodeURIComponent(match[1]));
-    const idx = decoded.indexOf(':');
-    if (idx === -1) return null;
-    return { user: decoded.substring(0, idx), pass: decoded.substring(idx + 1) };
-  } catch {
-    return null;
-  }
-}
 
 function buildLoginRedirect(request) {
   const url = new URL(request.url);
@@ -158,8 +145,8 @@ async function authentication(context) {
   }
 
   // 2. Session cookie set by the custom login page
-  const cookieAuth = getAdminAuthFromCookie(context.request)
-  if (cookieAuth && basicUser === cookieAuth.user && basicPass === cookieAuth.pass) {
+  const cookieAuth = getAdminSessionFromRequest(context.request)
+  if (cookieAuth && basicUser === cookieAuth.username && basicPass === cookieAuth.password) {
     return context.next()
   }
 
