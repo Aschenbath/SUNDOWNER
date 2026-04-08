@@ -56,7 +56,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-app-shell {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-columns: 250px minmax(0, 1fr);
   min-height: 100vh;
   background: #1f1f1f;
   color: #e8eaed;
@@ -108,17 +108,34 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-sidebar__search-input {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
   width: 100%;
   border: 0;
   background: transparent;
+  background-color: transparent !important;
+  box-shadow: none;
+  border-radius: 0;
   color: #e8eaed;
   font-size: 16px;
   font-weight: 400;
   outline: none;
+  -webkit-appearance: none;
 }
 
 #codex-media-library-root .cml-sidebar__search-input::placeholder {
   color: #9aa0a6;
+}
+
+#codex-media-library-root .cml-sidebar__search-input::-webkit-search-decoration,
+#codex-media-library-root .cml-sidebar__search-input::-webkit-search-cancel-button,
+#codex-media-library-root .cml-sidebar__search-input::-webkit-search-results-button,
+#codex-media-library-root .cml-sidebar__search-input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
 }
 
 #codex-media-library-root .cml-sidebar__section-label {
@@ -1714,7 +1731,7 @@ body.codex-media-library-active #app {
 
 @media (max-width: 1180px) {
   #codex-media-library-root .cml-app-shell {
-    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-columns: 250px minmax(0, 1fr);
   }
 }
 
