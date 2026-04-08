@@ -690,6 +690,24 @@ function renderPreviewInfoItem({ iconName, title, meta = '', titleClass = '' }) 
   `;
 }
 
+function formatAlbumItemCountLabel(count) {
+  const total = Math.max(0, Number(count) || 0);
+  if (!total) {
+    return 'No items';
+  }
+  return `${total} item${total === 1 ? '' : 's'}`;
+}
+
+function renderAlbumDrawerCover(entry, { create = false } = {}) {
+  if (create) {
+    return `<span class="cml-preview__album-entry-thumb cml-preview__album-entry-thumb--create" aria-hidden="true">${icon('plus')}</span>`;
+  }
+  if (entry?.coverUrl) {
+    return `<span class="cml-preview__album-entry-thumb"><img src="${escapeHtml(entry.coverUrl)}" alt="${escapeHtml(entry.name || 'Album')}" class="cml-preview__album-entry-image"></span>`;
+  }
+  return `<span class="cml-preview__album-entry-thumb cml-preview__album-entry-thumb--placeholder" aria-hidden="true"></span>`;
+}
+
 export function PreviewModal({
   item,
   selected,
@@ -699,9 +717,12 @@ export function PreviewModal({
   infoOpen = false,
   immersive = false,
   albumDrawerOpen = false,
-  availableAlbums = [],
+  albumEntries = [],
   albumDraftName = '',
-  albumDialogError = ''
+  albumDialogError = '',
+  albumDrawerSearch = '',
+  albumDrawerScope = 'all',
+  albumDrawerCreateMode = false
 }) {
   if (!item) {
     return '';
@@ -793,36 +814,109 @@ export function PreviewModal({
     </aside>
   `;
 
+  const normalizedAlbumSearch = String(albumDrawerSearch || '').trim().toLowerCase();
+  const scopeFilteredAlbumEntries = albumEntries.filter((entry) => {
+    const entryScope = String(entry?.scope || 'mine').toLowerCase();
+    if (albumDrawerScope === 'shared') {
+      return entryScope === 'shared';
+    }
+    if (albumDrawerScope === 'mine') {
+      return entryScope !== 'shared';
+    }
+    return true;
+  });
+  const visibleAlbumEntries = scopeFilteredAlbumEntries
+    .filter((entry) => !normalizedAlbumSearch || String(entry.name || '').toLowerCase().includes(normalizedAlbumSearch));
+
   const albumPanel = `
-    <aside class="cml-preview__album-panel ${albumDrawerOpen ? 'is-open' : ''}" aria-label="Add to album" aria-hidden="${albumDrawerOpen ? 'false' : 'true'}">
-      <div class="cml-preview__album-inner">
-        <div class="cml-preview__info-toolbar">
-          <button type="button" class="cml-preview__info-close" data-action="close-album-dialog" aria-label="Close album drawer">${icon('close')}</button>
-          <h4 class="cml-preview__info-toolbar-title">Add To Album</h4>
+    <div class="cml-preview__album-panel ${albumDrawerOpen ? 'is-open' : ''}" aria-label="Add to album" aria-hidden="${albumDrawerOpen ? 'false' : 'true'}">
+      <div class="cml-preview__album-backdrop" data-action="close-album-dialog"></div>
+      <section class="cml-preview__album-sheet">
+        <div class="cml-preview__album-toolbar">
+          <h4 class="cml-preview__album-title">Add to album</h4>
+          <button type="button" class="cml-preview__info-close" data-action="close-album-dialog" aria-label="Close album picker">${icon('close')}</button>
         </div>
-        ${availableAlbums.length ? `
-          <section class="cml-preview__info-section">
-            <h5 class="cml-preview__info-heading">Existing albums</h5>
-            <div class="cml-album-dialog__list">
-              ${availableAlbums.map((album) => `
-                <button type="button" class="cml-album-dialog__album-chip" data-action="assign-album" data-album-name="${escapeHtml(album)}">${escapeHtml(album)}</button>
-              `).join('')}
+        <div class="cml-preview__album-search">
+          <span class="cml-preview__album-search-icon" aria-hidden="true">${icon('search')}</span>
+          <input
+            type="text"
+            class="cml-preview__album-search-input"
+            data-focus-key="album-search"
+            value="${escapeHtml(albumDrawerSearch || '')}"
+            placeholder="Search albums"
+            autocomplete="off"
+          />
+        </div>
+        <div class="cml-preview__album-scopes" role="tablist" aria-label="Album scope">
+          ${[
+            ['all', 'All'],
+            ['mine', 'My albums'],
+            ['shared', 'Shared with me']
+          ].map(([scopeValue, label]) => `
+            <button
+              type="button"
+              class="cml-preview__album-scope ${albumDrawerScope === scopeValue ? 'is-active' : ''}"
+              data-action="set-album-drawer-scope"
+              data-scope="${scopeValue}"
+              role="tab"
+              aria-selected="${albumDrawerScope === scopeValue ? 'true' : 'false'}"
+            >
+              ${albumDrawerScope === scopeValue ? `<span class="cml-preview__album-scope-check" aria-hidden="true">${icon('check')}</span>` : ''}
+              <span>${label}</span>
+            </button>
+          `).join('')}
+        </div>
+        <div class="cml-preview__album-sort-row">
+          <span class="cml-preview__album-sort-icon" aria-hidden="true">${icon('updates')}</span>
+          <span>Last modified</span>
+        </div>
+        <div class="cml-preview__album-list">
+          ${albumDrawerCreateMode ? `
+            <section class="cml-preview__album-create-card">
+              <label class="cml-album-dialog__field">
+                <span class="cml-album-dialog__label">New album name</span>
+                <input
+                  type="text"
+                  class="cml-album-dialog__input cml-preview__album-create-input"
+                  data-focus-key="album-create"
+                  value="${escapeHtml(albumDraftName || '')}"
+                  placeholder="Weekend in Guangzhou"
+                  maxlength="64"
+                  autocomplete="off"
+                />
+              </label>
+              ${albumDialogError ? `<p class="cml-album-dialog__error">${escapeHtml(albumDialogError)}</p>` : ''}
+              <div class="cml-preview__album-create-actions">
+                <button type="button" class="cml-topbar__secondary-button" data-action="cancel-album-create">Cancel</button>
+                <button type="button" class="cml-topbar__upload-button" data-action="submit-album-dialog">Create and add</button>
+              </div>
+            </section>
+          ` : `
+            <button type="button" class="cml-preview__album-entry cml-preview__album-entry--create" data-action="toggle-album-create">
+              ${renderAlbumDrawerCover(null, { create: true })}
+              <span class="cml-preview__album-entry-copy">
+                <span class="cml-preview__album-entry-title">New album</span>
+              </span>
+            </button>
+          `}
+          ${visibleAlbumEntries.length ? visibleAlbumEntries.map((entry) => `
+            <button type="button" class="cml-preview__album-entry" data-action="assign-album" data-album-name="${escapeHtml(entry.name)}">
+              ${renderAlbumDrawerCover(entry)}
+              <span class="cml-preview__album-entry-copy">
+                <span class="cml-preview__album-entry-title">${escapeHtml(entry.name)}</span>
+                <span class="cml-preview__album-entry-meta">${escapeHtml(formatAlbumItemCountLabel(entry.itemCount))}</span>
+              </span>
+            </button>
+          `).join('') : `
+            <div class="cml-preview__album-empty">
+              ${albumDrawerScope === 'shared'
+                ? 'No shared albums are available yet.'
+                : (normalizedAlbumSearch ? 'No albums match this search.' : 'No albums are available yet.')}
             </div>
-          </section>
-        ` : ''}
-        <section class="cml-preview__info-section">
-          <label class="cml-album-dialog__field">
-            <span class="cml-album-dialog__label">New album name</span>
-            <input type="text" class="cml-album-dialog__input" value="${escapeHtml(albumDraftName || '')}" placeholder="Weekend in Guangzhou" maxlength="64" />
-          </label>
-          ${albumDialogError ? `<p class="cml-album-dialog__error">${escapeHtml(albumDialogError)}</p>` : ''}
-        </section>
-        <section class="cml-preview__info-section cml-preview__album-actions">
-          <button type="button" class="cml-topbar__secondary-button" data-action="close-album-dialog">Cancel</button>
-          <button type="button" class="cml-topbar__upload-button" data-action="submit-album-dialog">Create and add</button>
-        </section>
-      </div>
-    </aside>
+          `}
+        </div>
+      </section>
+    </div>
   `;
 
   return `

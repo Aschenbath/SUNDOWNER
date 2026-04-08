@@ -195,6 +195,9 @@ const state = {
   albumDialogOrigin: '',
   albumDraftName: '',
   albumDialogError: '',
+  albumDrawerSearch: '',
+  albumDrawerScope: 'all',
+  albumDrawerCreateMode: false,
   confirmDialogOpen: false,
   confirmDialogMode: '',
   confirmDialogOrigin: '',
@@ -1249,6 +1252,63 @@ function getAvailableAlbumNames() {
   state.mediaItems.forEach((item) => pushAlbum(resolveCollectionAlbum(item)));
   Object.values(state.albumAssignments).forEach(pushAlbum);
   return names;
+}
+
+function getAlbumSortTimestamp(item) {
+  const value = item?.takenAt || item?.createdAt || item?.updatedAt || '';
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function buildPreviewAlbumEntries(items = getAllItems()) {
+  const groups = new Map();
+  const ensureGroup = (value) => {
+    const albumName = normalizeText(value);
+    const lookupKey = albumName.toLowerCase();
+    if (!albumName) {
+      return null;
+    }
+    if (!groups.has(lookupKey)) {
+      groups.set(lookupKey, {
+        name: albumName,
+        items: [],
+        lastModifiedAt: 0,
+        scope: 'mine'
+      });
+    }
+    return groups.get(lookupKey);
+  };
+
+  state.albumNames.forEach((albumName) => {
+    ensureGroup(albumName);
+  });
+
+  safeArray(items).forEach((item) => {
+    const group = ensureGroup(resolveCollectionAlbum(item));
+    if (!group) {
+      return;
+    }
+    group.items.push(item);
+    group.lastModifiedAt = Math.max(group.lastModifiedAt, getAlbumSortTimestamp(item));
+  });
+
+  return [...groups.values()]
+    .map((group) => {
+      const { item: coverItem } = findAlbumCoverItem(group.name, group.items);
+      return {
+        name: group.name,
+        itemCount: group.items.length,
+        coverUrl: normalizeText(coverItem?.thumbnailUrl || coverItem?.posterUrl || coverItem?.sourceUrl || ''),
+        lastModifiedAt: group.lastModifiedAt,
+        scope: group.scope
+      };
+    })
+    .sort((left, right) => {
+      if (right.lastModifiedAt !== left.lastModifiedAt) {
+        return right.lastModifiedAt - left.lastModifiedAt;
+      }
+      return left.name.localeCompare(right.name);
+    });
 }
 
 function persistAlbumNames() {
@@ -2626,11 +2686,44 @@ async function loadPersistedAlbumState({ forceRender = false } = {}) {
   }
 }
 
-function focusAlbumInput() {
-  const input = refs.root ? refs.root.querySelector('.cml-album-dialog__input') : null;
+function focusAlbumInput({ focusKey = '', selectionStart = null, selectionEnd = null, select = false } = {}) {
+  if (!refs.root) {
+    return;
+  }
+  const selectors = [];
+  const normalizedFocusKey = normalizeText(focusKey);
+  if (normalizedFocusKey === 'search') {
+    selectors.push('[data-focus-key="album-search"]');
+  } else if (normalizedFocusKey === 'create') {
+    selectors.push('[data-focus-key="album-create"]');
+  } else if (state.albumDialogOrigin === 'preview') {
+    selectors.push(state.albumDrawerCreateMode ? '[data-focus-key="album-create"]' : '[data-focus-key="album-search"]');
+  }
+  selectors.push('.cml-album-dialog__input');
+  const input = selectors
+    .map((selector) => refs.root.querySelector(selector))
+    .find((node) => node instanceof HTMLInputElement);
   if (input instanceof HTMLInputElement) {
     input.focus();
-    input.select();
+    if (Number.isInteger(selectionStart) && Number.isInteger(selectionEnd)) {
+      const start = Math.max(0, Math.min(input.value.length, Number(selectionStart)));
+      const end = Math.max(start, Math.min(input.value.length, Number(selectionEnd)));
+      input.setSelectionRange(start, end);
+    } else if (select) {
+      input.select();
+    }
+  }
+}
+
+function renderAlbumDialogState({ preferPreviewRender = false, focusKey = '', selectionStart = null, selectionEnd = null, select = false } = {}) {
+  const renderedPreview = preferPreviewRender && renderPreviewTransientLayers();
+  if (!renderedPreview) {
+    render();
+  }
+  if (focusKey) {
+    window.setTimeout(() => {
+      focusAlbumInput({ focusKey, selectionStart, selectionEnd, select });
+    }, 30);
   }
 }
 
@@ -2651,10 +2744,16 @@ function openAlbumDialog(mode = 'create', { origin = '', preferTransientRender =
   state.albumDialogOrigin = normalizeText(origin || '');
   state.albumDraftName = '';
   state.albumDialogError = '';
-  if (!(preferTransientRender && renderPreviewTransientLayers())) {
-    render();
-    window.setTimeout(focusAlbumInput, 30);
-  }
+  state.albumDrawerSearch = '';
+  state.albumDrawerScope = 'all';
+  state.albumDrawerCreateMode = state.albumDialogOrigin === 'preview' && mode === 'create';
+  renderAlbumDialogState({
+    preferPreviewRender,
+    focusKey: state.albumDialogOrigin === 'preview'
+      ? (state.albumDrawerCreateMode ? 'create' : 'search')
+      : 'create',
+    select: state.albumDialogOrigin !== 'preview'
+  });
 }
 
 function closeAlbumDialog() {
@@ -2666,12 +2765,46 @@ function closeAlbumDialog() {
   state.albumDialogOrigin = '';
   state.albumDialogError = '';
   state.albumDraftName = '';
+  state.albumDrawerSearch = '';
+  state.albumDrawerScope = 'all';
+  state.albumDrawerCreateMode = false;
   if (previewAlbumFlow) {
     clearSelection({ shouldRender: false });
   }
-  if (!renderPreviewTransientLayers()) {
-    render();
+  renderAlbumDialogState({ preferPreviewRender: previewAlbumFlow });
+}
+
+function setAlbumDrawerScope(scope) {
+  if (!state.albumDialogOpen || state.albumDialogOrigin !== 'preview') {
+    return;
   }
+  const normalizedScope = normalizeText(scope || 'all').toLowerCase();
+  const nextScope = ['all', 'mine', 'shared'].includes(normalizedScope) ? normalizedScope : 'all';
+  if (state.albumDrawerScope === nextScope) {
+    return;
+  }
+  state.albumDrawerScope = nextScope;
+  renderAlbumDialogState({ preferPreviewRender: true, focusKey: 'search' });
+}
+
+function setPreviewAlbumCreateMode(forceOpen) {
+  if (!state.albumDialogOpen || state.albumDialogOrigin !== 'preview') {
+    return;
+  }
+  const nextValue = typeof forceOpen === 'boolean' ? forceOpen : !state.albumDrawerCreateMode;
+  if (state.albumDrawerCreateMode === nextValue) {
+    return;
+  }
+  state.albumDrawerCreateMode = nextValue;
+  state.albumDialogError = '';
+  if (!nextValue) {
+    state.albumDraftName = '';
+  }
+  renderAlbumDialogState({
+    preferPreviewRender: true,
+    focusKey: nextValue ? 'create' : 'search',
+    select: nextValue
+  });
 }
 
 function openConfirmDialog(options = {}) {
@@ -2997,10 +3130,11 @@ function commitSelectionToAlbum(albumName) {
   const canonicalAlbumName = ensureAlbumName(albumName);
   if (!canonicalAlbumName) {
     state.albumDialogError = 'Album name is required.';
-    if (!(previewAlbumFlow && renderPreviewTransientLayers())) {
-      render();
-      window.setTimeout(focusAlbumInput, 30);
-    }
+    renderAlbumDialogState({
+      preferPreviewRender: previewAlbumFlow,
+      focusKey: 'create',
+      select: true
+    });
     return false;
   }
   const nextAssignments = { ...state.albumAssignments };
@@ -3017,11 +3151,12 @@ function commitSelectionToAlbum(albumName) {
   state.albumDialogError = '';
   state.albumDraftName = '';
   state.albumSelectionTarget = '';
+  state.albumDrawerSearch = '';
+  state.albumDrawerScope = 'all';
+  state.albumDrawerCreateMode = false;
   clearSelection({ shouldRender: false });
   if (previewAlbumFlow) {
-    if (!renderPreviewTransientLayers()) {
-      render();
-    }
+    renderAlbumDialogState({ preferPreviewRender: true });
     return true;
   }
   state.primaryFilter = 'Collections';
@@ -3040,14 +3175,20 @@ function submitAlbumDialog() {
   const canonicalAlbumName = ensureAlbumName(draftName);
   if (!canonicalAlbumName) {
     state.albumDialogError = 'Album name is required.';
-    render();
-    window.setTimeout(focusAlbumInput, 30);
+    renderAlbumDialogState({
+      preferPreviewRender: state.albumDialogOrigin === 'preview',
+      focusKey: 'create',
+      select: true
+    });
     return false;
   }
   state.albumDialogOpen = false;
   state.albumDialogError = '';
   state.albumDraftName = '';
   state.albumSelectionTarget = '';
+  state.albumDrawerSearch = '';
+  state.albumDrawerScope = 'all';
+  state.albumDrawerCreateMode = false;
   state.primaryFilter = 'Collections';
   state.activeAlbumName = canonicalAlbumName;
   state.secondaryFilter = '';
@@ -3666,6 +3807,7 @@ function getViewModel() {
     previewIndex,
     previewItem,
     availableAlbums: getAvailableAlbumNames(),
+    previewAlbumEntries: buildPreviewAlbumEntries(getAllItems()),
     canSetAlbumCover,
     canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
     canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item)),
@@ -3842,9 +3984,12 @@ function getPreviewOverlayModel() {
     infoOpen: state.infoOpen,
     immersive: state.previewImmersive,
     albumDrawerOpen: state.albumDialogOpen && state.albumDialogOrigin === 'preview',
-    availableAlbums: viewModel.availableAlbums,
+    albumEntries: viewModel.previewAlbumEntries,
     albumDraftName: state.albumDraftName,
-    albumDialogError: state.albumDialogError
+    albumDialogError: state.albumDialogError,
+    albumDrawerSearch: state.albumDrawerSearch,
+    albumDrawerScope: state.albumDrawerScope,
+    albumDrawerCreateMode: state.albumDrawerCreateMode
   };
 }
 
@@ -3859,7 +4004,7 @@ function animatePreviewSwap(direction = 0) {
     refs.root.querySelector('.cml-preview__footer-meta'),
     refs.root.querySelector('.cml-preview__footer-actions'),
     refs.root.querySelector('.cml-preview__info.is-open .cml-preview__info-inner'),
-    refs.root.querySelector('.cml-preview__album-panel.is-open .cml-preview__album-inner')
+    refs.root.querySelector('.cml-preview__album-panel.is-open .cml-preview__album-sheet')
   ].filter((node) => node instanceof HTMLElement);
 
   targets.forEach((node) => {
@@ -4242,6 +4387,9 @@ function closePreview() {
       state.albumDialogOrigin = '';
       state.albumDialogError = '';
       state.albumDraftName = '';
+      state.albumDrawerSearch = '';
+      state.albumDrawerScope = 'all';
+      state.albumDrawerCreateMode = false;
     }
     state.previewImmersive = false;
     touchZoom.currentScale = 1;
@@ -4495,6 +4643,15 @@ function handleAction(actionTarget) {
     case 'close-album-dialog':
       closeAlbumDialog();
       return true;
+    case 'set-album-drawer-scope':
+      setAlbumDrawerScope(actionTarget.dataset.scope);
+      return true;
+    case 'toggle-album-create':
+      setPreviewAlbumCreateMode(true);
+      return true;
+    case 'cancel-album-create':
+      setPreviewAlbumCreateMode(false);
+      return true;
     case 'submit-album-dialog':
       submitAlbumDialog();
       return true;
@@ -4594,6 +4751,9 @@ function handleAction(actionTarget) {
         state.albumDialogOrigin = '';
         state.albumDialogError = '';
         state.albumDraftName = '';
+        state.albumDrawerSearch = '';
+        state.albumDrawerScope = 'all';
+        state.albumDrawerCreateMode = false;
         clearSelection({ shouldRender: false });
         state.infoOpen = !state.infoOpen;
         if (!renderPreviewTransientLayers()) {
@@ -4779,10 +4939,30 @@ function handleInput(event) {
     state.searchDraft = input.value;
     return;
   }
+  if (input.dataset.focusKey === 'album-search') {
+    const selectionStart = input.selectionStart;
+    const selectionEnd = input.selectionEnd;
+    state.albumDrawerSearch = input.value;
+    renderAlbumDialogState({
+      preferPreviewRender: state.albumDialogOrigin === 'preview',
+      focusKey: 'search',
+      selectionStart,
+      selectionEnd
+    });
+    return;
+  }
   if (input.classList.contains('cml-album-dialog__input')) {
+    const selectionStart = input.selectionStart;
+    const selectionEnd = input.selectionEnd;
     state.albumDraftName = input.value;
     if (state.albumDialogError) {
       state.albumDialogError = '';
+      renderAlbumDialogState({
+        preferPreviewRender: state.albumDialogOrigin === 'preview',
+        focusKey: 'create',
+        selectionStart,
+        selectionEnd
+      });
     }
     return;
   }

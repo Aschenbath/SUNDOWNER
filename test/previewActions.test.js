@@ -125,7 +125,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /Library path/);
   });
 
-  it('renders add-to-album as a preview side drawer instead of a modal', () => {
+  it('renders add-to-album as a preview side drawer with search, tabs, and album summaries', () => {
     const html = PreviewModal({
       item: {
         id: 'managed-4',
@@ -148,14 +148,64 @@ describe('media library download actions', () => {
       infoOpen: false,
       immersive: false,
       albumDrawerOpen: true,
-      availableAlbums: ['scenery', 'travel'],
+      albumEntries: [
+        { name: 'scenery', itemCount: 12, coverUrl: '/file/scenery.jpg', scope: 'mine' },
+        { name: 'travel', itemCount: 4, coverUrl: '/file/travel.jpg', scope: 'mine' }
+      ],
       albumDraftName: '',
       albumDialogError: '',
+      albumDrawerSearch: '',
+      albumDrawerScope: 'all',
+      albumDrawerCreateMode: false
     });
 
     assert.match(html, /cml-preview__album-panel is-open/);
+    assert.match(html, /Search albums/);
+    assert.match(html, /My albums/);
+    assert.match(html, /Shared with me/);
+    assert.match(html, /Last modified/);
+    assert.match(html, /New album/);
+    assert.match(html, /12 items/);
     assert.match(html, /data-action="assign-album"/);
-    assert.match(html, /Create and add/);
     assert.doesNotMatch(html, /class="cml-dialog__panel cml-album-dialog"/);
+  });
+
+  it('shows preview drawer create mode and shared empty state', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'managed-5',
+        type: 'photo',
+        label: 'photo_28.jpg',
+        sourceId: 'photos/2026/photo_28.jpg',
+        sourceUrl: '/file/photos/2026/photo_28.jpg',
+        thumbnailUrl: '/file/photos/2026/photo_28.jpg',
+        width: 1080,
+        height: 1440,
+        displayTakenAt: 'April 5, 2026 08:26',
+        mimeType: 'image/jpeg',
+        sizeMb: 0.22,
+        exif: null,
+      },
+      selected: true,
+      favorited: false,
+      currentIndex: 1,
+      totalCount: 5,
+      infoOpen: false,
+      immersive: false,
+      albumDrawerOpen: true,
+      albumEntries: [
+        { name: 'travel', itemCount: 3, coverUrl: '/file/travel.jpg', scope: 'mine' }
+      ],
+      albumDraftName: 'Weekend in Guangzhou',
+      albumDialogError: 'Album name is required.',
+      albumDrawerSearch: '',
+      albumDrawerScope: 'shared',
+      albumDrawerCreateMode: true
+    });
+
+    assert.match(html, /New album name/);
+    assert.match(html, /Create and add/);
+    assert.match(html, /Album name is required\./);
+    assert.match(html, /No shared albums are available yet\./);
   });
 });

@@ -2899,10 +2899,18 @@ body.codex-media-library-active #app {
   will-change: transform, opacity;
 }
 
+#codex-media-library-root .cml-preview__info {
+  --cml-preview-drawer-width: var(--cml-preview-info-width);
+}
+
+#codex-media-library-root .cml-preview__album-panel {
+  --cml-preview-drawer-width: min(480px, 42vw);
+}
+
 #codex-media-library-root .cml-preview__info.is-open,
 #codex-media-library-root .cml-preview__album-panel.is-open {
-  flex-basis: var(--cml-preview-info-width);
-  width: var(--cml-preview-info-width);
+  flex-basis: var(--cml-preview-drawer-width);
+  width: var(--cml-preview-drawer-width);
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -2913,20 +2921,234 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-preview__info-inner,
-#codex-media-library-root .cml-preview__album-inner {
+#codex-media-library-root .cml-preview__album-sheet {
   height: 100%;
+}
+
+#codex-media-library-root .cml-preview__info-inner {
   overflow-y: auto;
   padding: 0 0 24px;
 }
 
-#codex-media-library-root .cml-preview__album-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
+#codex-media-library-root .cml-preview__album-backdrop {
+  display: none;
 }
 
-#codex-media-library-root .cml-preview__album-actions .cml-topbar__secondary-button,
-#codex-media-library-root .cml-preview__album-actions .cml-topbar__upload-button {
+#codex-media-library-root .cml-preview__album-sheet {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#codex-media-library-root .cml-preview__album-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 28px 28px 18px;
+}
+
+#codex-media-library-root .cml-preview__album-title {
+  margin: 0;
+  color: #f1f3f4;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+#codex-media-library-root .cml-preview__album-search,
+#codex-media-library-root .cml-preview__album-sort-row,
+#codex-media-library-root .cml-preview__album-scopes {
+  margin: 0 28px;
+}
+
+#codex-media-library-root .cml-preview__album-search {
+  position: relative;
+}
+
+#codex-media-library-root .cml-preview__album-search-icon {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.78);
+  pointer-events: none;
+}
+
+#codex-media-library-root .cml-preview__album-search-icon .cml-icon {
+  width: 24px;
+  height: 24px;
+}
+
+#codex-media-library-root .cml-preview__album-search-input {
+  width: 100%;
+  min-height: 58px;
+  padding: 0 18px 0 62px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  background: rgba(255, 255, 255, 0.02);
+  color: #f1f3f4;
+  font-size: 16px;
+}
+
+#codex-media-library-root .cml-preview__album-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+#codex-media-library-root .cml-preview__album-search-input:focus {
+  outline: none;
+  border-color: rgba(138, 180, 248, 0.82);
+  box-shadow: 0 0 0 3px rgba(138, 180, 248, 0.15);
+}
+
+#codex-media-library-root .cml-preview__album-scopes {
+  display: flex;
+  gap: 14px;
+  margin-top: 18px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+#codex-media-library-root .cml-preview__album-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 0 20px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 16px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+#codex-media-library-root .cml-preview__album-scope.is-active {
+  border-color: rgba(17, 110, 183, 0.98);
+  background: #005b96;
+  color: #f4f8ff;
+}
+
+#codex-media-library-root .cml-preview__album-scope-check .cml-icon {
+  width: 18px;
+  height: 18px;
+}
+
+#codex-media-library-root .cml-preview__album-sort-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 26px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+#codex-media-library-root .cml-preview__album-sort-icon .cml-icon {
+  width: 22px;
+  height: 22px;
+}
+
+#codex-media-library-root .cml-preview__album-list {
+  flex: 1 1 auto;
+  margin-top: 26px;
+  overflow-y: auto;
+  padding: 0 0 24px;
+}
+
+#codex-media-library-root .cml-preview__album-entry,
+#codex-media-library-root .cml-preview__album-create-card {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#codex-media-library-root .cml-preview__album-entry {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 28px;
+  text-align: left;
+  transition: background 140ms ease;
+}
+
+#codex-media-library-root .cml-preview__album-entry:hover,
+#codex-media-library-root .cml-preview__album-entry:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+#codex-media-library-root .cml-preview__album-entry--create {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+#codex-media-library-root .cml-preview__album-entry-thumb {
+  flex: 0 0 92px;
+  width: 92px;
+  height: 92px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#codex-media-library-root .cml-preview__album-entry-thumb--create,
+#codex-media-library-root .cml-preview__album-entry-thumb--placeholder {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+#codex-media-library-root .cml-preview__album-entry-thumb--create .cml-icon {
+  width: 34px;
+  height: 34px;
+}
+
+#codex-media-library-root .cml-preview__album-entry-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#codex-media-library-root .cml-preview__album-entry-copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+#codex-media-library-root .cml-preview__album-entry-title {
+  color: #f1f3f4;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+#codex-media-library-root .cml-preview__album-entry-meta,
+#codex-media-library-root .cml-preview__album-empty {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+#codex-media-library-root .cml-preview__album-empty {
+  padding: 22px 28px 0;
+}
+
+#codex-media-library-root .cml-preview__album-create-card {
+  padding: 20px 28px 8px;
+}
+
+#codex-media-library-root .cml-preview__album-create-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+#codex-media-library-root .cml-preview__album-create-actions .cml-topbar__secondary-button,
+#codex-media-library-root .cml-preview__album-create-actions .cml-topbar__upload-button {
   flex: 1 1 0;
 }
 
@@ -3152,6 +3374,10 @@ body.codex-media-library-active #app {
     --cml-preview-info-width: min(340px, 38vw);
   }
 
+  #codex-media-library-root .cml-preview__album-panel {
+    --cml-preview-drawer-width: min(420px, 44vw);
+  }
+
   #codex-media-library-root .cml-preview.is-immersive .cml-preview__stage {
     min-height: calc(100vh - 220px);
   }
@@ -3191,6 +3417,50 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-preview__album-panel.is-open {
     width: 100%;
     flex-basis: auto;
+  }
+
+  #codex-media-library-root .cml-preview__album-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 7, 10, 0.4);
+  }
+
+  #codex-media-library-root .cml-preview__album-sheet {
+    position: relative;
+    margin-left: auto;
+    width: min(100%, 460px);
+    background: rgba(32, 33, 36, 0.985);
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  #codex-media-library-root .cml-preview__album-toolbar,
+  #codex-media-library-root .cml-preview__album-search,
+  #codex-media-library-root .cml-preview__album-sort-row,
+  #codex-media-library-root .cml-preview__album-scopes {
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+
+  #codex-media-library-root .cml-preview__album-toolbar {
+    padding: 22px 20px 16px;
+  }
+
+  #codex-media-library-root .cml-preview__album-entry,
+  #codex-media-library-root .cml-preview__album-create-card,
+  #codex-media-library-root .cml-preview__album-empty {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  #codex-media-library-root .cml-preview__album-entry-thumb {
+    flex-basis: 76px;
+    width: 76px;
+    height: 76px;
+  }
+
+  #codex-media-library-root .cml-preview__album-entry-title {
+    font-size: 17px;
   }
 
   #codex-media-library-root .cml-preview.is-immersive .cml-preview__panel {
