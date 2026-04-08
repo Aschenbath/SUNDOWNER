@@ -1235,7 +1235,7 @@ function applyAlbumOverride(item) {
   return item;
 }
 
-function getAvailableAlbumNames() {
+function getAvailableAlbumNames(items = state.mediaItems) {
   const names = [];
   const seen = new Set();
   const pushAlbum = (value) => {
@@ -1249,7 +1249,7 @@ function getAvailableAlbumNames() {
   };
 
   state.albumNames.forEach(pushAlbum);
-  state.mediaItems.forEach((item) => pushAlbum(resolveCollectionAlbum(item)));
+  safeArray(items).forEach((item) => pushAlbum(resolveCollectionAlbum(item)));
   Object.values(state.albumAssignments).forEach(pushAlbum);
   return names;
 }
@@ -3396,8 +3396,7 @@ function getVisibleSecondaryFilters(items) {
   return filters;
 }
 
-function getFilteredItems() {
-  const items = getAllItems();
+function getFilteredItems(items = getAllItems()) {
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const query = parsedSearch.textQuery.toLowerCase();
   const activeAlbumName = getActiveAlbumName();
@@ -3973,22 +3972,30 @@ function render() {
   setupImageLoadAnimations();
 }
 
-function getPreviewOverlayModel() {
-  const viewModel = getViewModel();
+function getPreviewOverlayModel({
+  previewItems = null,
+  previewItem = null,
+  previewIndex = -1,
+  albumEntries = null
+} = {}) {
+  const resolvedPreviewItems = Array.isArray(previewItems) ? previewItems : getPreviewItems();
+  const resolvedPreviewIndex = Number.isInteger(previewIndex)
+    ? previewIndex
+    : resolvedPreviewItems.findIndex((item) => item.id === state.previewId);
+  const resolvedPreviewItem = previewItem || (resolvedPreviewIndex >= 0 ? resolvedPreviewItems[resolvedPreviewIndex] : null);
   return {
-    item: viewModel.previewItem,
-    selected: viewModel.previewItem ? state.selectedIds.has(viewModel.previewItem.id) : false,
-    favorited: viewModel.previewItem ? state.favoriteIds.has(viewModel.previewItem.id) : false,
-    currentIndex: Math.max(viewModel.previewIndex, 0),
-    totalCount: viewModel.previewItems.length,
+    item: resolvedPreviewItem,
+    selected: resolvedPreviewItem ? state.selectedIds.has(resolvedPreviewItem.id) : false,
+    favorited: resolvedPreviewItem ? state.favoriteIds.has(resolvedPreviewItem.id) : false,
+    currentIndex: Math.max(resolvedPreviewIndex, 0),
+    totalCount: resolvedPreviewItems.length,
     infoOpen: state.infoOpen,
     immersive: state.previewImmersive,
     albumDrawerOpen: state.albumDialogOpen && state.albumDialogOrigin === 'preview',
-    albumEntries: viewModel.previewAlbumEntries,
+    albumEntries: Array.isArray(albumEntries) ? albumEntries : buildPreviewAlbumEntries(),
     albumDraftName: state.albumDraftName,
     albumDialogError: state.albumDialogError,
     albumDrawerSearch: state.albumDrawerSearch,
-    albumDrawerScope: state.albumDrawerScope,
     albumDrawerCreateMode: state.albumDrawerCreateMode
   };
 }
@@ -4020,6 +4027,10 @@ function animatePreviewSwap(direction = 0) {
       }
     );
   });
+}
+
+function getPreviewItems(items = getAllItems()) {
+  return state.primaryFilter === 'Bin' ? [] : getFilteredItems(items);
 }
 
 function syncPreviewSection(currentParent, nextParent, selector) {
@@ -4129,11 +4140,21 @@ function renderPreviewTransientLayers({ animateDirection = 0 } = {}) {
   if (!refs.root) {
     return false;
   }
-  const viewModel = getViewModel();
+  const allItems = getAllItems();
+  const previewItems = getPreviewItems(allItems);
+  const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
+  const previewItem = previewIndex >= 0 ? previewItems[previewIndex] : null;
+  const albumEntries = buildPreviewAlbumEntries(allItems);
+  const previewModel = getPreviewOverlayModel({
+    previewItems,
+    previewItem,
+    previewIndex,
+    albumEntries
+  });
   const template = document.createElement('template');
   template.innerHTML = `
-    ${PreviewModal(getPreviewOverlayModel())}
-    ${AlbumDialog({ state, albums: viewModel.availableAlbums })}
+    ${PreviewModal(previewModel)}
+    ${AlbumDialog({ state, albums: getAvailableAlbumNames(allItems) })}
     ${ConfirmDialog({ state })}
     ${getToastMarkup()}
   `.trim();
@@ -4162,7 +4183,9 @@ function renderPreviewTransientLayers({ animateDirection = 0 } = {}) {
   replaceFloatingLayer(currentToast, nextToast);
 
   if (state.albumDialogOpen) {
-    window.setTimeout(focusAlbumInput, 30);
+    window.setTimeout(() => {
+      focusAlbumInput({ focusKey: state.albumDrawerCreateMode ? 'create' : 'search' });
+    }, 30);
   }
   return true;
 }

@@ -721,7 +721,6 @@ export function PreviewModal({
   albumDraftName = '',
   albumDialogError = '',
   albumDrawerSearch = '',
-  albumDrawerScope = 'all',
   albumDrawerCreateMode = false
 }) {
   if (!item) {
@@ -815,17 +814,7 @@ export function PreviewModal({
   `;
 
   const normalizedAlbumSearch = String(albumDrawerSearch || '').trim().toLowerCase();
-  const scopeFilteredAlbumEntries = albumEntries.filter((entry) => {
-    const entryScope = String(entry?.scope || 'mine').toLowerCase();
-    if (albumDrawerScope === 'shared') {
-      return entryScope === 'shared';
-    }
-    if (albumDrawerScope === 'mine') {
-      return entryScope !== 'shared';
-    }
-    return true;
-  });
-  const visibleAlbumEntries = scopeFilteredAlbumEntries
+  const visibleAlbumEntries = albumEntries
     .filter((entry) => !normalizedAlbumSearch || String(entry.name || '').toLowerCase().includes(normalizedAlbumSearch));
 
   const albumPanel = `
@@ -846,25 +835,6 @@ export function PreviewModal({
             placeholder="Search albums"
             autocomplete="off"
           />
-        </div>
-        <div class="cml-preview__album-scopes" role="tablist" aria-label="Album scope">
-          ${[
-            ['all', 'All'],
-            ['mine', 'My albums'],
-            ['shared', 'Shared with me']
-          ].map(([scopeValue, label]) => `
-            <button
-              type="button"
-              class="cml-preview__album-scope ${albumDrawerScope === scopeValue ? 'is-active' : ''}"
-              data-action="set-album-drawer-scope"
-              data-scope="${scopeValue}"
-              role="tab"
-              aria-selected="${albumDrawerScope === scopeValue ? 'true' : 'false'}"
-            >
-              ${albumDrawerScope === scopeValue ? `<span class="cml-preview__album-scope-check" aria-hidden="true">${icon('check')}</span>` : ''}
-              <span>${label}</span>
-            </button>
-          `).join('')}
         </div>
         <div class="cml-preview__album-sort-row">
           <span class="cml-preview__album-sort-icon" aria-hidden="true">${icon('updates')}</span>
@@ -909,9 +879,7 @@ export function PreviewModal({
             </button>
           `).join('') : `
             <div class="cml-preview__album-empty">
-              ${albumDrawerScope === 'shared'
-                ? 'No shared albums are available yet.'
-                : (normalizedAlbumSearch ? 'No albums match this search.' : 'No albums are available yet.')}
+              ${normalizedAlbumSearch ? 'No albums match this search.' : 'No albums are available yet.'}
             </div>
           `}
         </div>

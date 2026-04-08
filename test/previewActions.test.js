@@ -125,7 +125,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /Library path/);
   });
 
-  it('renders add-to-album as a preview side drawer with search, tabs, and album summaries', () => {
+  it('renders add-to-album as a preview side drawer with search and album summaries', () => {
     const html = PreviewModal({
       item: {
         id: 'managed-4',
@@ -155,14 +155,11 @@ describe('media library download actions', () => {
       albumDraftName: '',
       albumDialogError: '',
       albumDrawerSearch: '',
-      albumDrawerScope: 'all',
       albumDrawerCreateMode: false
     });
 
     assert.match(html, /cml-preview__album-panel is-open/);
     assert.match(html, /Search albums/);
-    assert.match(html, /My albums/);
-    assert.match(html, /Shared with me/);
     assert.match(html, /Last modified/);
     assert.match(html, /New album/);
     assert.match(html, /12 items/);
@@ -170,7 +167,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /class="cml-dialog__panel cml-album-dialog"/);
   });
 
-  it('shows preview drawer create mode and shared empty state', () => {
+  it('shows preview drawer create mode and validation state', () => {
     const html = PreviewModal({
       item: {
         id: 'managed-5',
@@ -193,19 +190,16 @@ describe('media library download actions', () => {
       infoOpen: false,
       immersive: false,
       albumDrawerOpen: true,
-      albumEntries: [
-        { name: 'travel', itemCount: 3, coverUrl: '/file/travel.jpg', scope: 'mine' }
-      ],
+      albumEntries: [],
       albumDraftName: 'Weekend in Guangzhou',
       albumDialogError: 'Album name is required.',
       albumDrawerSearch: '',
-      albumDrawerScope: 'shared',
       albumDrawerCreateMode: true
     });
 
     assert.match(html, /New album name/);
     assert.match(html, /Create and add/);
     assert.match(html, /Album name is required\./);
-    assert.match(html, /No shared albums are available yet\./);
+    assert.match(html, /No albums are available yet\./);
   });
 });
