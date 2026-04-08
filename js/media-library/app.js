@@ -4429,6 +4429,25 @@ function openPreview(itemId) {
   window.requestAnimationFrame(() => animatePreviewOpenFromTile());
 }
 
+function openPreviewFromEvent(event, itemId) {
+  const normalizedId = normalizeText(itemId);
+  if (!normalizedId) {
+    return false;
+  }
+  if (event && typeof event.preventDefault === 'function') {
+    event.preventDefault();
+  }
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  if (event && typeof event.stopImmediatePropagation === 'function') {
+    event.stopImmediatePropagation();
+  }
+  state.avatarMenuOpen = false;
+  openPreview(normalizedId);
+  return false;
+}
+
 function closePreview() {
   animatePreviewCloseToTile(() => {
     state.previewId = null;
@@ -5196,6 +5215,7 @@ function patchHistory() {
 }
 
 function boot() {
+  window.__cmlOpenPreview = openPreviewFromEvent;
   patchHistory();
   syncMount();
 }

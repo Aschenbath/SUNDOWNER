@@ -211,9 +211,10 @@ function renderMediaAsset(item, className, withControls = false) {
   const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
   const mediaUrl = escapeHtml(item.type === 'video' ? sourceUrl : imageUrl);
   const alt = escapeHtml(item.label || item.album || 'Library item');
+  const previewInlineHandler = ' onclick="window.__cmlOpenPreview && window.__cmlOpenPreview(event, this.dataset.id)"';
   const previewActionAttr = withControls
     ? ''
-    : ` data-action="open-preview" data-id="${escapeHtml(item.id)}"`;
+    : ` data-action="open-preview" data-id="${escapeHtml(item.id)}"${previewInlineHandler}`;
   if (item.type === 'photo' && item.browserPreviewSupported === false) {
     const mimeLabel = escapeHtml(String(item.mimeType || 'image/original').replace(/^image\//i, '').toUpperCase());
     const previewHint = withControls
@@ -447,7 +448,7 @@ export function MediaTile({ item, selected, layout, isCover = false }) {
   const previewLabel = `${item.label || item.album} - ${formatTakenAt(item)}`;
   const style = `width:${layout.width}px;height:${layout.height}px;`;
   return `
-    <article class="cml-media-tile ${selected ? 'is-selected' : ''}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}">
+    <article class="cml-media-tile ${selected ? 'is-selected' : ''}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}" onclick="window.__cmlOpenPreview && window.__cmlOpenPreview(event, this.dataset.id)">
       <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { PreviewModal, TopSearchBar } from '../js/media-library/components.js';
+import { MediaTile, PreviewModal, TopSearchBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('renders a selection download action without replacing delete/add-to-album controls', () => {
@@ -239,5 +239,26 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /<img class="cml-preview__media"/);
     assert.match(html, /23\.1291°N, 113\.2644°E/);
     assert.match(html, /Download original/);
+  });
+
+  it('renders media tiles with a direct preview opener on the tile element', () => {
+    const html = MediaTile({
+      item: {
+        id: 'managed-7',
+        type: 'photo',
+        label: 'pond.jpg',
+        album: 'scenery',
+        sourceUrl: '/file/scenery/pond.jpg',
+        thumbnailUrl: '/file/scenery/pond.jpg',
+        width: 1200,
+        height: 900,
+        displayTakenAt: 'April 8, 2026 21:42',
+      },
+      selected: false,
+      layout: { width: 240, height: 180 }
+    });
+
+    assert.match(html, /data-action="open-preview"/);
+    assert.match(html, /window\.__cmlOpenPreview && window\.__cmlOpenPreview\(event, this\.dataset\.id\)/);
   });
 });
