@@ -429,12 +429,12 @@ async function fetchAdminIdentity() {
 }
 
 function captureDimension(img, tile) {
-  const id = tile?.dataset?.id;
+  const id = tile?.dataset?.tileId || tile?.dataset?.id;
   if (!id) return;
   const nw = img.naturalWidth;
   const nh = img.naturalHeight;
   if (!nw || !nh) return;
-  const item = state.mediaItems.find((m) => m.id === id);
+  const item = state.mediaItems.find((m) => m.id === id) || state.binItems.find((m) => m.id === id);
   if (!item) return;
   const storedAspect = item.width / item.height;
   const naturalAspect = nw / nh;
@@ -448,9 +448,14 @@ function applyDimensionPatch() {
   if (state.dimensionCache.size === 0) return;
   let changed = false;
   state.dimensionCache.forEach(({ width, height }, id) => {
-    const idx = state.mediaItems.findIndex((m) => m.id === id);
-    if (idx !== -1) {
-      state.mediaItems[idx] = { ...state.mediaItems[idx], width, height };
+    const mediaIdx = state.mediaItems.findIndex((m) => m.id === id);
+    if (mediaIdx !== -1) {
+      state.mediaItems[mediaIdx] = { ...state.mediaItems[mediaIdx], width, height };
+      changed = true;
+    }
+    const binIdx = state.binItems.findIndex((m) => m.id === id);
+    if (binIdx !== -1) {
+      state.binItems[binIdx] = { ...state.binItems[binIdx], width, height };
       changed = true;
     }
   });
@@ -474,11 +479,11 @@ function setupImageLoadAnimations() {
       // Skip fade-in for already-cached images (avoids flash on every render)
       img.style.transition = 'none';
       tile.classList.add('is-img-loaded');
-      const id = tile.dataset?.id;
+      const id = tile.dataset?.tileId || tile.dataset?.id;
       if (id) {
         const nw = img.naturalWidth;
         const nh = img.naturalHeight;
-        const item = state.mediaItems.find((m) => m.id === id);
+        const item = state.mediaItems.find((m) => m.id === id) || state.binItems.find((m) => m.id === id);
         if (item && nw && nh && Math.abs(item.width / item.height - nw / nh) >= 0.05) {
           state.dimensionCache.set(id, { width: nw, height: nh });
           hasCachedMismatch = true;
