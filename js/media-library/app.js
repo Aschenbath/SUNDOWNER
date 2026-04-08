@@ -23,6 +23,7 @@ import {
   parseMediaSearchQuery,
   summarizeMediaSearch,
 } from './search-filters.js';
+import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
 import { findPreviewMatch } from './preview-resolution.js';
 
 const MONTH_NAMES = [
@@ -4134,8 +4135,9 @@ function renderPreviewOverlay({ animateDirection = 0, nextPreviewElement = null 
 
   if (currentPanel instanceof HTMLElement && nextPanel instanceof HTMLElement) {
     currentPanel.className = nextPanel.className;
-    syncPreviewSection(currentPanel, nextPanel, '.cml-preview__main');
-    syncPreviewSection(currentPanel, nextPanel, '.cml-preview__info');
+    PREVIEW_PANEL_SECTION_SELECTORS.forEach((selector) => {
+      syncPreviewSection(currentPanel, nextPanel, selector);
+    });
   } else {
     currentPreview.replaceWith(nextPreview);
   }

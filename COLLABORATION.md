@@ -151,3 +151,7 @@ EXIF 提取已完成并合入 main。以下是 Codex 可能需要配合的事项
 ### 2026-04-08 22:23 Asia/Shanghai
 
 - Fixed the still-broken photo-preview open path by resolving preview targets through a new `js/media-library/preview-resolution.js` helper. Preview open/sync now remaps stale tile ids to the current managed item via image/file URL hints instead of dropping the preview when live DOM ids and indexed ids diverge. Reverified with `node --check js/media-library/app.js`, `node --check js/media-library/preview-resolution.js`, targeted Mocha (`test/previewActions.test.js`, `test/previewResolution.test.js`), and full direct Mocha (32 passing).
+
+### 2026-04-08 22:36 Asia/Shanghai
+
+- Fixed the preview `Add to album` `+` button so it behaves like the `Info` side drawer again. The root cause was preview transient rerender logic only syncing `.cml-preview__main` and `.cml-preview__info`, so the existing preview never received the `.cml-preview__album-panel` subtree when the button toggled. The sync selectors now include the album panel through `js/media-library/preview-overlay.js`, and the media-library module cache bust advanced to `app.js?v=53`. Reverified with `node --check js/media-library/app.js`, `node --check js/media-library/preview-overlay.js`, targeted Mocha (`test/previewActions.test.js`, `test/previewOverlay.test.js`, `test/previewResolution.test.js`), and full direct Mocha (33 passing).
