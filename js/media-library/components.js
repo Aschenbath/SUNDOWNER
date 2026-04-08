@@ -168,6 +168,11 @@ export function buildJustifiedRows(items, options = {}) {
     const effectiveMaxHeight = portraitHeavyRow
       ? Math.min(530, maxRowHeight * 1.4)
       : maxRowHeight;
+    const sparseRowHeightCap = currentRow.length <= 1
+      ? Math.min(effectiveMaxHeight, Math.round(Math.max(minRowHeight, targetRowHeight * 1.22)))
+      : currentRow.length === 2
+        ? Math.min(effectiveMaxHeight, Math.round(Math.max(minRowHeight + 18, targetRowHeight * 1.34)))
+        : effectiveMaxHeight;
     const projectedWidth = aspectSum * targetRowHeight + gap * (currentRow.length - 1);
     const isLastItem = index === items.length - 1;
     const shouldFlush = projectedWidth >= availableWidth || currentRow.length >= effectiveMaxItems || isLastItem;
@@ -179,8 +184,8 @@ export function buildJustifiedRows(items, options = {}) {
     const shouldFillWidth = projectedWidth >= availableWidth && currentRow.length > 1;
     const fittedHeight = shouldFillWidth
       ? (availableWidth - gap * (currentRow.length - 1)) / aspectSum
-      : Math.min(effectiveMaxHeight, (availableWidth - gap * (currentRow.length - 1)) / aspectSum);
-    const rowHeight = Math.max(minRowHeight, Math.min(effectiveMaxHeight, fittedHeight));
+      : Math.min(sparseRowHeightCap, (availableWidth - gap * (currentRow.length - 1)) / aspectSum);
+    const rowHeight = Math.max(minRowHeight, Math.min(sparseRowHeightCap, fittedHeight));
 
     rows.push({
       height: Math.round(rowHeight),
