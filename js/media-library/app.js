@@ -16,7 +16,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=2';
+} from './components.js?v=3';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -2809,6 +2809,9 @@ function closeAlbumDialog() {
   state.albumDrawerCreateMode = false;
   if (previewAlbumFlow) {
     clearSelection({ shouldRender: false });
+    if (syncPreviewAlbumDrawer(false)) {
+      return;
+    }
   }
   renderAlbumDialogState({ preferPreviewRender: previewAlbumFlow });
 }
@@ -3370,6 +3373,42 @@ function requestDeleteSelection(permanent = false, { origin = '' } = {}) {
   });
 }
 
+function syncPreviewAlbumDrawer(isOpen) {
+  if (!refs.root) {
+    return false;
+  }
+  const preview = refs.root.querySelector('.cml-preview');
+  const albumPanel = refs.root.querySelector('.cml-preview__album-panel');
+  const plusButton = refs.root.querySelector('.cml-preview__icon-action[data-action="open-preview-add-to-album"]');
+  const infoPanel = refs.root.querySelector('.cml-preview__info');
+  const infoButton = refs.root.querySelector('.cml-preview__icon-action[data-action="toggle-info"]');
+
+  if (!(preview instanceof HTMLElement) || !(albumPanel instanceof HTMLElement)) {
+    return false;
+  }
+
+  preview.classList.toggle('has-album', isOpen);
+  albumPanel.classList.toggle('is-open', isOpen);
+  albumPanel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+
+  if (plusButton instanceof HTMLElement) {
+    plusButton.classList.toggle('is-selected', isOpen);
+    plusButton.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
+  }
+
+  if (isOpen && infoPanel instanceof HTMLElement) {
+    preview.classList.remove('has-info');
+    infoPanel.classList.remove('is-open');
+    infoPanel.setAttribute('aria-hidden', 'true');
+    if (infoButton instanceof HTMLElement) {
+      infoButton.classList.remove('is-selected');
+      infoButton.setAttribute('aria-pressed', 'false');
+    }
+  }
+
+  return true;
+}
+
 function openPreviewAddToAlbum(itemId) {
   if (!itemId) {
     return;
@@ -3381,7 +3420,18 @@ function openPreviewAddToAlbum(itemId) {
   state.selectedIds.clear();
   state.selectedIds.add(itemId);
   state.infoOpen = false;
-  openAlbumDialog('assign', { origin: 'preview', preferTransientRender: true });
+  state.albumDialogOpen = true;
+  state.albumDialogMode = 'assign';
+  state.albumDialogOrigin = 'preview';
+  state.albumDraftName = '';
+  state.albumDialogError = '';
+  state.albumDrawerSearch = '';
+  state.albumDrawerScope = 'all';
+  state.albumDrawerCreateMode = false;
+
+  if (!syncPreviewAlbumDrawer(true)) {
+    renderPreviewTransientLayers();
+  }
 }
 
 function downloadSelectedItems() {
@@ -4860,10 +4910,8 @@ function handleAction(actionTarget) {
         state.albumDrawerScope = 'all';
         state.albumDrawerCreateMode = false;
         clearSelection({ shouldRender: false });
-        state.infoOpen = !state.infoOpen;
-        if (!renderPreviewTransientLayers()) {
-          render();
-        }
+        syncPreviewAlbumDrawer(false);
+        setPreviewInfoOpen(!state.infoOpen);
       } else {
         setPreviewInfoOpen(!state.infoOpen);
       }
