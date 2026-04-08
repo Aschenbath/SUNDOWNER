@@ -215,7 +215,9 @@ function renderMediaAsset(item, className, withControls = false) {
     const poster = item.posterUrl ? ` poster="${escapeHtml(item.posterUrl)}"` : '';
     return `<video class="${className}" src="${mediaUrl}"${poster} controls playsinline preload="metadata"></video>`;
   }
-  return `<img class="${className}" src="${mediaUrl}" alt="${alt}" loading="lazy" decoding="async" />`;
+  const w = item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
+  const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
+  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h} loading="lazy" decoding="async" />`;
 }
 
 function formatItemCount(count) {

@@ -438,10 +438,10 @@ function captureDimension(img, tile) {
   if (!item) return;
   const storedAspect = item.width / item.height;
   const naturalAspect = nw / nh;
-  if (Math.abs(storedAspect - naturalAspect) < 0.1) return;
+  if (Math.abs(storedAspect - naturalAspect) < 0.05) return;
   state.dimensionCache.set(id, { width: nw, height: nh });
   clearTimeout(dimensionPatchTimer);
-  dimensionPatchTimer = window.setTimeout(applyDimensionPatch, 1200);
+  dimensionPatchTimer = window.setTimeout(applyDimensionPatch, 150);
 }
 
 function applyDimensionPatch() {
@@ -462,6 +462,9 @@ function setupImageLoadAnimations() {
   if (!refs.root) {
     return;
   }
+  // Collect cached-image dimension mismatches synchronously so we can patch
+  // before the browser paints — portrait photos then never appear as squares.
+  let hasCachedMismatch = false;
   refs.root.querySelectorAll('.cml-media-tile__image').forEach((img) => {
     const tile = img.closest('.cml-media-tile');
     if (!tile) {
@@ -471,7 +474,16 @@ function setupImageLoadAnimations() {
       // Skip fade-in for already-cached images (avoids flash on every render)
       img.style.transition = 'none';
       tile.classList.add('is-img-loaded');
-      captureDimension(img, tile);
+      const id = tile.dataset?.id;
+      if (id) {
+        const nw = img.naturalWidth;
+        const nh = img.naturalHeight;
+        const item = state.mediaItems.find((m) => m.id === id);
+        if (item && nw && nh && Math.abs(item.width / item.height - nw / nh) >= 0.05) {
+          state.dimensionCache.set(id, { width: nw, height: nh });
+          hasCachedMismatch = true;
+        }
+      }
       return;
     }
     img.addEventListener('load', () => {
@@ -480,6 +492,12 @@ function setupImageLoadAnimations() {
     }, { once: true });
     img.addEventListener('error', () => tile.classList.add('is-img-loaded'), { once: true });
   });
+  // Apply cached mismatches synchronously — render() runs before the browser
+  // gets a chance to paint, so the user never sees the wrong aspect ratio.
+  if (hasCachedMismatch) {
+    clearTimeout(dimensionPatchTimer);
+    applyDimensionPatch();
+  }
 
   // Videos: seek to first frame to get a thumbnail
   refs.root.querySelectorAll('.cml-media-tile video').forEach((video) => {
