@@ -54,4 +54,70 @@ describe('media library download actions', () => {
     assert.match(html, /class="cml-preview__main"/);
     assert.match(html, /class="cml-preview__info /);
   });
+
+  it('hides default source albums and library path from preview details', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'managed-2',
+        type: 'photo',
+        label: 'photo_21.jpg',
+        sourceId: 'tg_Telegram_env_21_AQAD5AxrG5dFgVZ8.jpg',
+        sourceUrl: '/file/tg_Telegram_env_21_AQAD5AxrG5dFgVZ8.jpg',
+        thumbnailUrl: '/file/tg_Telegram_env_21_AQAD5AxrG5dFgVZ8.jpg',
+        width: 1920,
+        height: 2560,
+        displayTakenAt: 'April 4, 2026 19:35',
+        mimeType: 'image/jpeg',
+        album: 'Telegram_env',
+        collectionAlbum: 'Telegram_env',
+        sizeMb: 0.79,
+        exif: null,
+        tags: ['photo'],
+      },
+      selected: false,
+      favorited: false,
+      currentIndex: 11,
+      totalCount: 19,
+      infoOpen: true,
+      immersive: false,
+    });
+
+    assert.doesNotMatch(html, /<dt class="cml-preview__info-label">Album<\/dt>/);
+    assert.doesNotMatch(html, /Library path/);
+    assert.doesNotMatch(html, />Telegram_env</);
+    assert.doesNotMatch(html, /Telegram_env · 0\.79 MB/);
+    assert.match(html, /0\.79 MB/);
+  });
+
+  it('keeps explicit collection albums visible in preview details', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'managed-3',
+        type: 'photo',
+        label: 'pond.jpg',
+        sourceId: 'Telegram_env/scenery/pond.jpg',
+        sourceUrl: '/file/Telegram_env/scenery/pond.jpg',
+        thumbnailUrl: '/file/Telegram_env/scenery/pond.jpg',
+        width: 1920,
+        height: 2560,
+        displayTakenAt: 'April 4, 2026 19:35',
+        mimeType: 'image/jpeg',
+        album: 'Telegram_env',
+        collectionAlbum: 'scenery',
+        sizeMb: 0.79,
+        exif: null,
+        tags: ['photo'],
+      },
+      selected: false,
+      favorited: false,
+      currentIndex: 0,
+      totalCount: 1,
+      infoOpen: true,
+      immersive: false,
+    });
+
+    assert.match(html, /<dt class="cml-preview__info-label">Album<\/dt>/);
+    assert.match(html, /scenery/);
+    assert.doesNotMatch(html, /Library path/);
+  });
 });

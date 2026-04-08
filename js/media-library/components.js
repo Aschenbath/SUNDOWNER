@@ -611,21 +611,47 @@ function buildCameraRows(exif) {
   return rows;
 }
 
+function normalizePreviewMetaText(value) {
+  return String(value || '').trim();
+}
+
+function isDefaultPreviewAlbum(value) {
+  const album = normalizePreviewMetaText(value).toLowerCase();
+  if (!album) {
+    return true;
+  }
+  return album === 'library'
+    || album === 'telegram'
+    || album.startsWith('telegram_')
+    || album.startsWith('telegram-')
+    || album === 'tg'
+    || album.startsWith('tg_')
+    || album.startsWith('tg-');
+}
+
+function getPreviewAlbumLabel(item) {
+  const candidates = [
+    normalizePreviewMetaText(item?.collectionAlbum),
+    normalizePreviewMetaText(item?.album),
+  ].filter(Boolean);
+  return candidates.find((album) => !isDefaultPreviewAlbum(album)) || '';
+}
+
 export function PreviewModal({ item, selected, favorited, currentIndex, totalCount, infoOpen = false, immersive = false }) {
   if (!item) {
     return '';
   }
   const canGoPrevious = currentIndex > 0;
   const canGoNext = currentIndex < Math.max(0, totalCount - 1);
+  const albumLabel = getPreviewAlbumLabel(item);
   const detailLine = [
     item.location,
-    item.album,
+    albumLabel,
     formatPreviewSize(item.sizeMb)
   ].filter(Boolean).join(' · ') || (item.displayTakenAt || item.timelineLabel || 'No additional details');
   const technicalRows = [
     item.width && item.height ? { label: 'Dimensions', value: `${item.width} × ${item.height}` } : null,
     item.sizeMb ? { label: 'File size', value: formatPreviewSize(item.sizeMb) } : null,
-    item.sourceId ? { label: 'Library path', value: item.sourceId } : null,
     { label: 'Type', value: formatPreviewTypeLabel(item) }
   ].filter(Boolean);
   const cameraRows = buildCameraRows(item.exif);
@@ -633,8 +659,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
   const overviewRows = [
     item.displayTakenAt ? { label: 'Captured', value: item.displayTakenAt } : null,
     item.location ? { label: 'Location', value: item.location } : null,
-    item.album ? { label: 'Album', value: item.album } : null,
-    item.collectionAlbum && item.collectionAlbum !== item.album ? { label: 'Collection', value: item.collectionAlbum } : null
+    albumLabel ? { label: 'Album', value: albumLabel } : null
   ].filter(Boolean);
 
   const infoPanel = `
