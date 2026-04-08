@@ -17,6 +17,14 @@ import {
   YearScroller,
   buildJustifiedRows
 } from './components.js';
+import {
+  collectLocationSuggestions,
+  countActiveMediaSearchFilters,
+  createEmptyMediaSearchFilters,
+  matchesMediaSearchFilters,
+  normalizeMediaSearchFilters,
+  summarizeMediaSearch,
+} from './search-filters.js';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -178,6 +186,7 @@ const state = {
   activeAlbumName: '',
   albumSelectionTarget: '',
   searchQuery: '',
+  searchFilters: createEmptyMediaSearchFilters(),
   selectedIds: new Set(),
   favoriteIds: new Set(),
   albumNames: [],
@@ -218,6 +227,7 @@ const state = {
   toastType: 'error',
   toastTimeoutId: 0,
   infoOpen: false,
+  previewImmersive: false,
   lastSelectedId: null,
   needsLogin: false,
   loginError: '',
@@ -1461,6 +1471,10 @@ function getActiveAlbumName() {
   return state.primaryFilter === 'Collections' ? normalizeText(state.activeAlbumName) : '';
 }
 
+function resetSearchFilters() {
+  state.searchFilters = createEmptyMediaSearchFilters();
+}
+
 function getAlbumSelectionTarget() {
   return normalizeText(state.albumSelectionTarget);
 }
@@ -1713,11 +1727,23 @@ function inferAlbumFromFileId(fileId, metadata) {
   return channelName || 'Library';
 }
 
+function formatGPSCoords(lat, lng) {
+  const latDir = lat >= 0 ? 'N' : 'S';
+  const lngDir = lng >= 0 ? 'E' : 'W';
+  return `${Math.abs(lat).toFixed(4)}\u00b0${latDir}, ${Math.abs(lng).toFixed(4)}\u00b0${lngDir}`;
+}
+
 function inferLocationFromMetadata(metadata, domMatch) {
   const direct = [metadata.Location, metadata.Place, metadata.City, metadata.Country]
     .map((value) => normalizeText(value))
     .find(Boolean);
-  return direct || domMatch?.location || '';
+  if (direct) return direct;
+  if (domMatch?.location) return domMatch.location;
+  const gps = metadata.Exif?.gps;
+  if (gps?.latitude != null && gps?.longitude != null) {
+    return formatGPSCoords(gps.latitude, gps.longitude);
+  }
+  return '';
 }
 
 function inferTagsFromMetadata(metadata, fileLabel, type) {
@@ -1750,7 +1776,8 @@ function buildIndexedMediaItem(record, domLookup, index) {
   const type = mimeType.startsWith('video/') ? 'video' : 'photo';
   const width = toPositiveNumber(metadata.Width, toPositiveNumber(domMatch?.width, type === 'video' ? 1280 : 1200));
   const height = toPositiveNumber(metadata.Height, toPositiveNumber(domMatch?.height, type === 'video' ? 720 : 900));
-  const timestamp = parseTimestamp(metadata.TimeStamp, index);
+  const exifTime = metadata.Exif?.dateTime ? new Date(metadata.Exif.dateTime).getTime() : NaN;
+  const timestamp = Number.isFinite(exifTime) ? exifTime : parseTimestamp(metadata.TimeStamp, index);
   const date = new Date(timestamp);
   const dateParts = createDatePartsFromDate(date);
   const sourceUrl = buildFileRoute(fileId);
@@ -1783,6 +1810,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     personLabels: safeArray(metadata.PersonLabels).map(normalizeText).filter(Boolean),
     label,
     sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
+    exif: metadata.Exif || null,
     isDocumentLike: isDocumentLikeSource(fileId, fileName, tags),
     sortOrder: timestamp,
     domIndex: index
@@ -2091,7 +2119,9 @@ function requestDeleteBinSelectionPermanently() {
 }
 
 function focusSearchInput() {
-  const searchInput = refs.root ? refs.root.querySelector('.cml-topbar__search-input') : null;
+  const searchInput = refs.root
+    ? refs.root.querySelector('.cml-sidebar__search-input, .cml-topbar__search-input')
+    : null;
   if (searchInput instanceof HTMLInputElement) {
     searchInput.focus();
     searchInput.select();
@@ -2186,6 +2216,16 @@ function requestNativeUpload() {
 
 function resetLoadedCount() {
   state.loadedCount = COLLECTION_PAGE_SIZE;
+}
+
+function updateSearchFilterField(field, value) {
+  if (!field) {
+    return;
+  }
+  state.searchFilters = normalizeMediaSearchFilters({
+    ...state.searchFilters,
+    [field]: value
+  });
 }
 
 function persistFavorites() {
@@ -2846,10 +2886,10 @@ function getVisibleSecondaryFilters(items) {
 
 function getFilteredItems() {
   const items = getAllItems();
-  const now = new Date();
   const query = state.searchQuery.trim().toLowerCase();
   const activeAlbumName = getActiveAlbumName();
   const albumSelectionTarget = getAlbumSelectionTarget();
+  const searchFilters = normalizeMediaSearchFilters(state.searchFilters);
 
   return items.filter((item) => {
     const albumName = resolveCollectionAlbum(item);
@@ -2886,7 +2926,7 @@ function getFilteredItems() {
         break;
     }
 
-    return matchesSearchQuery(item, query);
+    return matchesSearchQuery(item, query) && matchesMediaSearchFilters(item, searchFilters);
   });
 }
 
@@ -3294,13 +3334,25 @@ function render() {
 
   const previousScrollTop = refs.scrollRegion ? refs.scrollRegion.scrollTop : state.virtualScrollTop;
   const searchWasFocused = document.activeElement instanceof HTMLInputElement
-    && document.activeElement.classList.contains('cml-topbar__search-input');
+    && (
+      document.activeElement.classList.contains('cml-topbar__search-input')
+      || document.activeElement.classList.contains('cml-sidebar__search-input')
+    );
   const viewModel = getViewModel();
   const storageInsights = buildStorageInsights();
+  const activeSearchFilterCount = countActiveMediaSearchFilters(state.searchFilters);
+  const activeSearchFilterParts = summarizeMediaSearch(state.searchFilters);
+  const locationSuggestions = collectLocationSuggestions(getAllItems());
 
   refs.root.innerHTML = `
     <div class="cml-app-shell">
-      ${Sidebar({ navigationModel: viewModel.navigationModel, state, storageSummary: state.storageSummary })}
+      ${Sidebar({
+        navigationModel: viewModel.navigationModel,
+        state,
+        storageSummary: state.storageSummary,
+        searchFilterCount: activeSearchFilterCount,
+        locationSuggestions
+      })}
       <div class="cml-main-shell">
         ${TopSearchBar({
           state,
@@ -3329,7 +3381,9 @@ function render() {
                   : ''}
                 ${SearchSummary({
                   query: state.searchQuery.trim(),
-                  resultCount: viewModel.isCollectionRoot ? viewModel.totalCollectionCount : viewModel.filteredItems.length
+                  resultCount: viewModel.isCollectionRoot ? viewModel.totalCollectionCount : viewModel.filteredItems.length,
+                  filterParts: activeSearchFilterParts,
+                  hasActiveFilters: activeSearchFilterCount > 0
                 })}
                 ${viewModel.isCollectionRoot
                   ? (viewModel.collectionCards.length
@@ -3364,7 +3418,8 @@ function render() {
         favorited: viewModel.previewItem ? state.favoriteIds.has(viewModel.previewItem.id) : false,
         currentIndex: Math.max(viewModel.previewIndex, 0),
         totalCount: viewModel.previewItems.length,
-        infoOpen: state.infoOpen
+        infoOpen: state.infoOpen,
+        immersive: state.previewImmersive
       })}
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
       ${StoragePanel({ state, insights: storageInsights })}
@@ -3596,6 +3651,7 @@ function openPreview(itemId) {
   state.previewId = itemId;
   state.previewTransitionRect = snapshotRect(sourceTile);
   state.infoOpen = false;
+  state.previewImmersive = false;
   touchZoom.currentScale = 1;
   touchZoom.tx = 0;
   touchZoom.ty = 0;
@@ -3609,6 +3665,7 @@ function closePreview() {
     state.previewId = null;
     state.previewTransitionRect = null;
     state.infoOpen = false;
+    state.previewImmersive = false;
     touchZoom.currentScale = 1;
     touchZoom.tx = 0;
     touchZoom.ty = 0;
@@ -3911,6 +3968,17 @@ function handleAction(actionTarget) {
     case 'toggle-info':
       setPreviewInfoOpen(!state.infoOpen);
       return true;
+    case 'toggle-preview-immersive':
+      state.previewImmersive = !state.previewImmersive;
+      render();
+      return true;
+    case 'clear-search-filters':
+      resetSearchFilters();
+      state.searchQuery = '';
+      clearSelection({ shouldRender: false });
+      resetLoadedCount();
+      render();
+      return true;
     case 'toggle-avatar':
       state.avatarMenuOpen = !state.avatarMenuOpen;
       render();
@@ -3996,6 +4064,7 @@ function handleClick(event) {
       state.activeAlbumName = '';
       state.albumSelectionTarget = '';
       state.searchQuery = '';
+      resetSearchFilters();
       state.previewId = null;
       state.selectedIds.clear();
       state.binSelectedIds.clear();
@@ -4014,6 +4083,14 @@ function handleClick(event) {
       state.albumSelectionTarget = '';
       state.previewId = null;
       state.selectedIds.clear();
+      resetLoadedCount();
+      render();
+      return;
+    }
+
+    if (actionTarget.dataset.searchType) {
+      updateSearchFilterField('type', actionTarget.dataset.searchType);
+      clearSelection({ shouldRender: false });
       resetLoadedCount();
       render();
       return;
@@ -4077,8 +4154,15 @@ function handleInput(event) {
     state.loginPassword = input.value;
     return;
   }
-  if (input.classList.contains('cml-topbar__search-input')) {
+  if (input.classList.contains('cml-topbar__search-input') || input.classList.contains('cml-sidebar__search-input')) {
     state.searchQuery = input.value;
+    clearSelection({ shouldRender: false });
+    resetLoadedCount();
+    render();
+    return;
+  }
+  if (input.dataset.searchFilter) {
+    updateSearchFilterField(input.dataset.searchFilter, input.value);
     clearSelection({ shouldRender: false });
     resetLoadedCount();
     render();
@@ -4183,6 +4267,9 @@ function handleKeyDown(event) {
       toggleFavorite(state.previewId);
     } else if (event.key === 'i' || event.key === 'I') {
       setPreviewInfoOpen(!state.infoOpen, { allowRenderFallback: false });
+    } else if (event.key === 'm' || event.key === 'M') {
+      state.previewImmersive = !state.previewImmersive;
+      render();
     }
     return;
   }

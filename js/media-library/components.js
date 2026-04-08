@@ -248,8 +248,20 @@ export function StorageCard(storage, isActive = false) {
   `;
 }
 
-export function Sidebar({ navigationModel, state, storageSummary, searchQuery = '' }) {
+export function Sidebar({
+  navigationModel,
+  state,
+  storageSummary,
+  searchQuery = '',
+  searchFilterCount = 0,
+  locationSuggestions = [],
+}) {
   const searchValue = escapeHtml(searchQuery || state.searchQuery || '');
+  const searchFilters = state.searchFilters || {};
+  const dateFrom = escapeHtml(searchFilters.dateFrom || '');
+  const dateTo = escapeHtml(searchFilters.dateTo || '');
+  const locationQuery = escapeHtml(searchFilters.locationQuery || '');
+  const activeType = String(searchFilters.type || 'all').toLowerCase();
   return `
     <aside class="cml-sidebar">
       <div class="cml-sidebar__brand">
@@ -259,6 +271,58 @@ export function Sidebar({ navigationModel, state, storageSummary, searchQuery = 
         ${icon('search', 'cml-sidebar__search-icon')}
         <input type="search" class="cml-sidebar__search-input" placeholder="Search your photos" value="${searchValue}" />
       </label>
+      <section class="cml-sidebar__filters" aria-label="Search filters">
+        <div class="cml-sidebar__filters-head">
+          <div>
+            <p class="cml-sidebar__filters-eyebrow">Refine</p>
+            <h3 class="cml-sidebar__filters-title">${searchFilterCount ? `${searchFilterCount} active filter${searchFilterCount === 1 ? '' : 's'}` : 'Narrow the library'}</h3>
+          </div>
+          ${(searchFilterCount || searchValue) ? `
+            <button type="button" class="cml-sidebar__filters-clear" data-action="clear-search-filters">Reset</button>
+          ` : ''}
+        </div>
+        <div class="cml-sidebar__filter-chips" role="group" aria-label="Type filter">
+          ${[
+            ['all', 'All'],
+            ['photo', 'Photos'],
+            ['video', 'Videos'],
+            ['document', 'Documents'],
+          ].map(([value, label]) => `
+            <button
+              type="button"
+              class="cml-sidebar__filter-chip ${activeType === value ? 'is-active' : ''}"
+              data-search-type="${escapeHtml(value)}"
+              aria-pressed="${activeType === value ? 'true' : 'false'}"
+            >${escapeHtml(label)}</button>
+          `).join('')}
+        </div>
+        <div class="cml-sidebar__filter-grid">
+          <label class="cml-sidebar__filter-field">
+            <span>From</span>
+            <input type="date" class="cml-sidebar__filter-input" data-search-filter="dateFrom" value="${dateFrom}" />
+          </label>
+          <label class="cml-sidebar__filter-field">
+            <span>To</span>
+            <input type="date" class="cml-sidebar__filter-input" data-search-filter="dateTo" value="${dateTo}" />
+          </label>
+          <label class="cml-sidebar__filter-field cml-sidebar__filter-field--wide">
+            <span>Location</span>
+            <input
+              type="search"
+              class="cml-sidebar__filter-input"
+              data-search-filter="locationQuery"
+              value="${locationQuery}"
+              placeholder="Guangzhou, riverside, park"
+              list="cml-location-suggestions"
+            />
+          </label>
+        </div>
+        ${locationSuggestions.length ? `
+          <datalist id="cml-location-suggestions">
+            ${locationSuggestions.map((location) => `<option value="${escapeHtml(location)}"></option>`).join('')}
+          </datalist>
+        ` : ''}
+      </section>
       <div class="cml-sidebar__nav" role="navigation" aria-label="Primary navigation">
         ${navigationModel.primary.map((label) => {
           const key = label.toLowerCase();
@@ -585,7 +649,28 @@ export function YearScroller({ scrubberSections, activeSectionAnchor, activeScru
   `;
 }
 
-export function PreviewModal({ item, selected, favorited, currentIndex, totalCount, infoOpen = false }) {
+function buildCameraRows(exif) {
+  if (!exif) return [];
+  const rows = [];
+  const cam = exif.camera;
+  if (cam) {
+    const model = [cam.make, cam.model].filter(Boolean).join(' ');
+    if (model) rows.push({ label: 'Camera', value: model });
+    if (cam.lens) rows.push({ label: 'Lens', value: cam.lens });
+  }
+  const s = exif.shooting;
+  if (s) {
+    const parts = [];
+    if (s.fNumber != null) parts.push(`\u0192/${s.fNumber}`);
+    if (s.exposureTime) parts.push(`${s.exposureTime}s`);
+    if (s.iso != null) parts.push(`ISO ${s.iso}`);
+    if (s.focalLength != null) parts.push(`${s.focalLength}mm`);
+    if (parts.length) rows.push({ label: 'Settings', value: parts.join('  ') });
+  }
+  return rows;
+}
+
+export function PreviewModal({ item, selected, favorited, currentIndex, totalCount, infoOpen = false, immersive = false }) {
   if (!item) {
     return '';
   }
@@ -600,6 +685,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
     item.sourceId ? { label: 'Library path', value: item.sourceId } : null,
     { label: 'Type', value: formatPreviewTypeLabel(item) }
   ].filter(Boolean);
+  const cameraRows = buildCameraRows(item.exif);
   const overviewRows = [
     item.displayTakenAt ? { label: 'Captured', value: item.displayTakenAt } : null,
     item.location ? { label: 'Location', value: item.location } : null,
@@ -644,6 +730,17 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
             `).join('')}
           </dl>
         </section>
+        ${cameraRows.length ? `
+          <section class="cml-preview__info-section">
+            <h5 class="cml-preview__info-heading">Camera</h5>
+            <dl class="cml-preview__info-meta">
+              ${cameraRows.map((row) => `
+                <dt class="cml-preview__info-label">${escapeHtml(row.label)}</dt>
+                <dd class="cml-preview__info-value">${escapeHtml(row.value)}</dd>
+              `).join('')}
+            </dl>
+          </section>
+        ` : ''}
         ${item.personLabels && item.personLabels.length ? `
           <section class="cml-preview__info-section">
             <h5 class="cml-preview__info-heading">People</h5>
@@ -663,7 +760,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
   `;
 
   return `
-    <div class="cml-preview ${infoOpen ? 'has-info' : ''}" role="dialog" aria-modal="true">
+    <div class="cml-preview ${infoOpen ? 'has-info' : ''} ${immersive ? 'is-immersive' : ''}" role="dialog" aria-modal="true">
       <div class="cml-preview__backdrop" data-action="close-preview"></div>
       <div class="cml-preview__panel">
         <header class="cml-preview__header">
@@ -675,6 +772,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
           <div class="cml-preview__header-actions">
             <button type="button" class="cml-preview__chip ${selected ? 'is-selected' : ''}" data-action="toggle-select" data-id="${escapeHtml(item.id)}">${selected ? 'Selected' : 'Select'}</button>
             <button type="button" class="cml-preview__chip ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}">Favourite</button>
+            <button type="button" class="cml-preview__chip ${immersive ? 'is-selected' : ''}" data-action="toggle-preview-immersive" aria-label="${immersive ? 'Exit immersive mode' : 'Enter immersive mode'}">${immersive ? 'Windowed' : 'Immersive'}</button>
             <button type="button" class="cml-preview__chip ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="${infoOpen ? 'Hide details' : 'Show details'}">${icon('info')}<span data-info-toggle-label>${infoOpen ? 'Hide details' : 'Show details'}</span></button>
             <button type="button" class="cml-preview__close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
           </div>
@@ -815,14 +913,22 @@ export function EmptyState({ query, isLoading = false, mode = 'media', actionLab
   `;
 }
 
-export function SearchSummary({ query, resultCount }) {
-  if (!query) {
+export function SearchSummary({ query, resultCount, filterParts = [], hasActiveFilters = false }) {
+  if (!query && !hasActiveFilters) {
     return '';
   }
   return `
     <section class="cml-search-summary">
       <p class="cml-search-summary__eyebrow">Search results</p>
-      <h2 class="cml-search-summary__title">${resultCount} matches for \"${escapeHtml(query)}\"</h2>
+      <div class="cml-search-summary__head">
+        <h2 class="cml-search-summary__title">${resultCount} match${resultCount === 1 ? '' : 'es'}${query ? ` for \"${escapeHtml(query)}\"` : ''}</h2>
+        <button type="button" class="cml-search-summary__clear" data-action="clear-search-filters">Reset</button>
+      </div>
+      ${filterParts.length ? `
+        <div class="cml-search-summary__tags">
+          ${filterParts.map((part) => `<span class="cml-search-summary__tag">${escapeHtml(part)}</span>`).join('')}
+        </div>
+      ` : ''}
     </section>
   `;
 }
