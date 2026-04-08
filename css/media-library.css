@@ -1077,6 +1077,8 @@ body.codex-media-library-active #app {
     radial-gradient(circle at top left, rgba(138, 180, 248, 0.18), transparent 40%),
     linear-gradient(180deg, rgba(32, 33, 36, 0.96), rgba(22, 23, 26, 0.98));
   color: #d6dbe3;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 #codex-media-library-root .cml-media-unsupported__badge {

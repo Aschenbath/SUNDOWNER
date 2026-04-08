@@ -211,13 +211,16 @@ function renderMediaAsset(item, className, withControls = false) {
   const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
   const mediaUrl = escapeHtml(item.type === 'video' ? sourceUrl : imageUrl);
   const alt = escapeHtml(item.label || item.album || 'Library item');
+  const previewActionAttr = withControls
+    ? ''
+    : ` data-action="open-preview" data-id="${escapeHtml(item.id)}"`;
   if (item.type === 'photo' && item.browserPreviewSupported === false) {
     const mimeLabel = escapeHtml(String(item.mimeType || 'image/original').replace(/^image\//i, '').toUpperCase());
     const previewHint = withControls
       ? 'This original photo format is preserved, but this browser cannot render it inline.'
       : 'Inline preview is unavailable in this browser.';
     return `
-      <div class="${className} cml-media-unsupported ${withControls ? 'cml-media-unsupported--preview' : ''}" role="img" aria-label="${alt}">
+      <div class="${className} cml-media-unsupported ${withControls ? 'cml-media-unsupported--preview' : ''}" role="img" aria-label="${alt}"${previewActionAttr}>
         <span class="cml-media-unsupported__badge">${mimeLabel}</span>
         ${icon('documents', 'cml-media-unsupported__icon')}
         <span class="cml-media-unsupported__title">${mimeLabel} original</span>
@@ -226,7 +229,7 @@ function renderMediaAsset(item, className, withControls = false) {
     `;
   }
   if (item.type === 'video' && item.thumbnailUrl === sourceUrl) {
-    return `<video class="${className}" src="${mediaUrl}" ${withControls ? 'controls' : ''} muted playsinline preload="metadata"></video>`;
+    return `<video class="${className}" src="${mediaUrl}"${previewActionAttr} ${withControls ? 'controls' : ''} muted playsinline preload="metadata"></video>`;
   }
   if (item.type === 'video' && withControls) {
     const poster = item.posterUrl ? ` poster="${escapeHtml(item.posterUrl)}"` : '';
@@ -234,7 +237,7 @@ function renderMediaAsset(item, className, withControls = false) {
   }
   const w = item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
   const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
-  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h} loading="lazy" decoding="async" />`;
+  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${previewActionAttr} loading="lazy" decoding="async" />`;
 }
 
 function formatItemCount(count) {

@@ -16,7 +16,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js';
+} from './components.js?v=2';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
