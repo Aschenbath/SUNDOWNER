@@ -1906,15 +1906,6 @@ body.codex-media-library-active #app {
   background: transparent;
 }
 
-#codex-media-library-root .cml-preview__caption {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  color: #98a4b7;
-  font-size: 14px;
-}
-
 #codex-media-library-root .cml-preview__footer {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   color: #93a1b5;
@@ -1996,7 +1987,6 @@ body.codex-media-library-active #app {
     gap: 2px;
   }
 
-  #codex-media-library-root .cml-preview__caption,
   #codex-media-library-root .cml-preview__header,
   #codex-media-library-root .cml-preview__footer {
     flex-direction: column;
@@ -2816,20 +2806,6 @@ body.codex-media-library-active #app {
   border-radius: 0;
 }
 
-#codex-media-library-root .cml-preview__caption {
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 4px;
-  color: #bdc1c6;
-  font-size: 14px;
-}
-
-#codex-media-library-root .cml-preview__caption strong {
-  color: #f1f3f4;
-  font-size: 16px;
-  font-weight: 600;
-}
-
 #codex-media-library-root .cml-preview__footer {
   position: absolute;
   left: 0;
@@ -2956,76 +2932,112 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-preview__info-toolbar-title {
   margin: 0;
   color: #f1f3f4;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+#codex-media-library-root .cml-preview__info-section {
+  padding: 22px 24px 0;
+}
+
+#codex-media-library-root .cml-preview__info-section + .cml-preview__info-section {
+  margin-top: 20px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#codex-media-library-root .cml-preview__info-section--description {
+  padding-top: 18px;
+}
+
+#codex-media-library-root .cml-preview__info-description {
+  margin: 0;
+  padding: 0 0 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  color: #9aa0a6;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+#codex-media-library-root .cml-preview__info-heading {
+  margin: 0 0 18px;
+  color: #e8eaed;
   font-size: 15px;
   font-weight: 500;
 }
 
-#codex-media-library-root .cml-preview__info-thumb {
-  aspect-ratio: 16 / 10;
-  margin-bottom: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+#codex-media-library-root .cml-preview__info-list {
+  display: grid;
+  gap: 22px;
 }
 
-#codex-media-library-root .cml-preview__info-section {
-  padding: 18px 20px 0;
+#codex-media-library-root .cml-preview__info-item,
+#codex-media-library-root .cml-preview__info-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
 }
 
-#codex-media-library-root .cml-preview__info-section + .cml-preview__info-section {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+#codex-media-library-root .cml-preview__info-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
-#codex-media-library-root .cml-preview__info-section--hero {
-  padding-top: 16px;
+#codex-media-library-root .cml-preview__info-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: #d5d9e1;
+}
+
+#codex-media-library-root .cml-preview__info-item-icon .cml-icon {
+  width: 24px;
+  height: 24px;
+}
+
+#codex-media-library-root .cml-preview__info-item-copy,
+#codex-media-library-root .cml-preview__info-row-copy {
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-preview__info-item-title,
+#codex-media-library-root .cml-preview__info-row-title {
+  margin: 0;
+  color: #f1f3f4;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+#codex-media-library-root .cml-preview__info-item-title.is-prominent {
+  font-size: 18px;
+}
+
+#codex-media-library-root .cml-preview__info-item-meta {
+  margin: 6px 0 0;
+  color: #bdc1c6;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 #codex-media-library-root .cml-preview__info-section--camera .cml-preview__info-value {
   overflow-wrap: anywhere;
 }
 
-#codex-media-library-root .cml-preview__info-kicker {
-  margin: 0 0 8px;
-  color: #aeb5bf;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-#codex-media-library-root .cml-preview__info-title {
-  margin: 0;
-  color: #f1f3f4;
-  font-size: 18px;
-  font-weight: 500;
-  line-height: 1.25;
-  word-break: break-word;
-}
-
-#codex-media-library-root .cml-preview__info-copy {
-  margin: 10px 0 0;
-  color: #bdc1c6;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-#codex-media-library-root .cml-preview__info-heading {
-  margin: 0 0 12px;
-  color: #e8eaed;
-  font-size: 13px;
-  font-weight: 600;
-}
-
 #codex-media-library-root .cml-preview__info-meta {
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
-  gap: 8px 12px;
+  grid-template-columns: 94px minmax(0, 1fr);
+  gap: 10px 14px;
   padding: 0;
 }
 
 #codex-media-library-root .cml-preview__info-label {
   color: #7f8796;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
@@ -3033,24 +3045,12 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-preview__info-value {
   color: #d6dbe3;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
 }
 
 #codex-media-library-root .cml-preview__info-value--settings {
   line-height: 1.7;
-}
-
-#codex-media-library-root .cml-preview__info-value--filename {
-  color: #eef2f7;
-  overflow-wrap: anywhere;
-}
-
-#codex-media-library-root .cml-preview__info-plain {
-  margin: 0;
-  color: #d6dbe3;
-  font-size: 13px;
-  line-height: 1.5;
 }
 
 #codex-media-library-root .cml-preview__info-tags {
@@ -3064,6 +3064,8 @@ body.codex-media-library-active #app {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
+  color: #d7e3f7;
+  background: rgba(138, 180, 248, 0.14);
 }
 
 #codex-media-library-root .cml-preview.is-immersive .cml-preview__panel {
@@ -3116,17 +3118,6 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-preview.is-immersive .cml-preview__media {
   border-radius: 22px;
-}
-
-#codex-media-library-root .cml-preview.is-immersive .cml-preview__caption {
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  bottom: 18px;
-  padding: 16px 18px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(14, 15, 17, 0.1), rgba(14, 15, 17, 0.82));
-  backdrop-filter: blur(14px);
 }
 
 @media (max-width: 1180px) {
@@ -3200,9 +3191,4 @@ body.codex-media-library-active #app {
     border-radius: 20px;
   }
 
-  #codex-media-library-root .cml-preview.is-immersive .cml-preview__caption {
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-  }
 }

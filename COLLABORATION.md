@@ -133,3 +133,7 @@ EXIF 提取已完成并合入 main。以下是 Codex 可能需要配合的事项
 - Prefer CSS-first refinement before adding new JS interaction layers.
 - Use explicit target values in prompts such as exact widths, radii, spacing, or sticky offsets.
 - When possible, provide Google Photos screenshots or a single visual reference target before asking for implementation.
+
+### 2026-04-08 18:59 Asia/Shanghai
+
+- Simplified preview metadata to match Google Photos more closely: the left-stage caption was removed, the right-side `Info` drawer now carries the primary detail stack, default import albums and raw library paths stay hidden, and preview regressions were rechecked with `node --check` plus direct/full Mocha runs (23 passing).

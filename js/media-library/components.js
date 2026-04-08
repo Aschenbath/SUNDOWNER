@@ -15,6 +15,8 @@ const icons = {
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"/></svg>',
   memory: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18a7.5 7.5 0 0 1 15 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="9.4" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   cloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.8 18.3a4.3 4.3 0 1 1 .8-8.5 5.2 5.2 0 0 1 10.1 1.4A3.6 3.6 0 0 1 18 18.3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8v2.4M17 4.8v2.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="4.8" y="6.8" width="14.4" height="12.4" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4.8 10.2h14.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.2s5-5.3 5-9a5 5 0 1 0-10 0c0 3.7 5 9 5 9Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="11.2" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.8 7.2h12.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.4 4.8h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.2 7.2v10.2a1.8 1.8 0 0 0 1.8 1.8h4a1.8 1.8 0 0 0 1.8-1.8V7.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   restore: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 1.8-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 6.2V12H10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   info: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="8" r="0.9" fill="currentColor"/></svg>',
@@ -116,8 +118,8 @@ function formatPreviewTypeLabel(item) {
   }
   const mimeType = String(item.mimeType || '');
   return item.type === 'video'
-    ? `Video${mimeType ? ` · ${mimeType}` : ''}`
-    : `Photo${mimeType ? ` · ${mimeType}` : ''}`;
+    ? `Video${mimeType ? ` - ${mimeType}` : ''}`
+    : `Photo${mimeType ? ` - ${mimeType}` : ''}`;
 }
 
 function formatPreviewSize(sizeMb) {
@@ -293,7 +295,7 @@ export function Sidebar({
       ` : ''}
       <div class="cml-sidebar__footer">
         ${StorageCard(storageSummary, Boolean(state.storagePanelOpen))}
-        <div class="cml-sidebar__legal">privacy · terms of service</div>
+        <div class="cml-sidebar__legal">privacy - terms of service</div>
       </div>
     </aside>
   `;
@@ -637,6 +639,57 @@ function getPreviewAlbumLabel(item) {
   return candidates.find((album) => !isDefaultPreviewAlbum(album)) || '';
 }
 
+function formatPreviewMegapixels(item) {
+  const width = Number(item?.width) || 0;
+  const height = Number(item?.height) || 0;
+  if (!width || !height) {
+    return '';
+  }
+  const mp = (width * height) / 1000000;
+  if (!Number.isFinite(mp) || mp <= 0) {
+    return '';
+  }
+  return `${mp >= 10 ? mp.toFixed(0) : mp.toFixed(1).replace(/\.0$/, '')} MP`;
+}
+
+function formatPreviewDateMeta(item) {
+  const date = new Date(item?.takenAt || '');
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()] || '';
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absMinutes = Math.abs(offsetMinutes);
+  const offsetHours = String(Math.floor(absMinutes / 60)).padStart(2, '0');
+  const offsetMins = String(absMinutes % 60).padStart(2, '0');
+  return [weekday, `${hh}:${mm}`, `GMT${sign}${offsetHours}:${offsetMins}`].filter(Boolean).join('  ');
+}
+
+function getMeaningfulPreviewTags(item) {
+  const genericTags = new Set(['photo', 'video', 'image', 'jpeg', 'jpg', 'png']);
+  return (item?.tags || [])
+    .map((tag) => normalizePreviewMetaText(tag))
+    .filter((tag) => tag && !genericTags.has(tag.toLowerCase()));
+}
+
+function renderPreviewInfoItem({ iconName, title, meta = '', titleClass = '' }) {
+  if (!title) {
+    return '';
+  }
+  return `
+    <div class="cml-preview__info-item">
+      <div class="cml-preview__info-item-icon" aria-hidden="true">${icon(iconName)}</div>
+      <div class="cml-preview__info-item-copy">
+        <p class="cml-preview__info-item-title ${titleClass}">${escapeHtml(title)}</p>
+        ${meta ? `<p class="cml-preview__info-item-meta">${escapeHtml(meta)}</p>` : ''}
+      </div>
+    </div>
+  `;
+}
+
 export function PreviewModal({ item, selected, favorited, currentIndex, totalCount, infoOpen = false, immersive = false }) {
   if (!item) {
     return '';
@@ -644,23 +697,40 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
   const canGoPrevious = currentIndex > 0;
   const canGoNext = currentIndex < Math.max(0, totalCount - 1);
   const albumLabel = getPreviewAlbumLabel(item);
-  const detailLine = [
-    item.location,
-    albumLabel,
-    formatPreviewSize(item.sizeMb)
-  ].filter(Boolean).join(' · ') || (item.displayTakenAt || item.timelineLabel || 'No additional details');
-  const technicalRows = [
-    item.width && item.height ? { label: 'Dimensions', value: `${item.width} × ${item.height}` } : null,
-    item.sizeMb ? { label: 'File size', value: formatPreviewSize(item.sizeMb) } : null,
-    { label: 'Type', value: formatPreviewTypeLabel(item) }
-  ].filter(Boolean);
+  const meaningfulTags = getMeaningfulPreviewTags(item);
   const cameraRows = buildCameraRows(item.exif);
   const canDownload = Boolean(item.sourceId);
-  const overviewRows = [
-    item.displayTakenAt ? { label: 'Captured', value: item.displayTakenAt } : null,
-    item.location ? { label: 'Location', value: item.location } : null,
-    albumLabel ? { label: 'Album', value: albumLabel } : null
-  ].filter(Boolean);
+  const fileMeta = [
+    formatPreviewMegapixels(item),
+    item.width && item.height ? `${item.width} x ${item.height}` : '',
+  ].filter(Boolean).join('  ');
+  const backupMeta = item.sizeMb ? `Original quality - ${formatPreviewSize(item.sizeMb)}` : 'Original quality';
+  const detailItems = [
+    renderPreviewInfoItem({
+      iconName: 'calendar',
+      title: item.displayTakenAt || formatTakenAt(item),
+      meta: formatPreviewDateMeta(item),
+      titleClass: 'is-prominent'
+    }),
+    renderPreviewInfoItem({
+      iconName: 'image',
+      title: item.label || 'Library item',
+      meta: fileMeta
+    }),
+    renderPreviewInfoItem({
+      iconName: 'cloud',
+      title: item.sizeMb ? `Backed up (${formatPreviewSize(item.sizeMb)})` : 'Backed up',
+      meta: backupMeta
+    }),
+    item.location ? renderPreviewInfoItem({
+      iconName: 'pin',
+      title: item.location
+    }) : '',
+    albumLabel ? renderPreviewInfoItem({
+      iconName: 'albums',
+      title: albumLabel
+    }) : '',
+  ].filter(Boolean).join('');
 
   const infoPanel = `
     <aside class="cml-preview__info ${infoOpen ? 'is-open' : ''}" aria-label="Photo details" aria-hidden="${infoOpen ? 'false' : 'true'}">
@@ -669,30 +739,24 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
           <button type="button" class="cml-preview__info-close" data-action="toggle-info" aria-label="Close details">${icon('close')}</button>
           <h4 class="cml-preview__info-toolbar-title">Info</h4>
         </div>
-        <section class="cml-preview__info-section cml-preview__info-section--hero">
-          <p class="cml-preview__info-kicker">${escapeHtml(formatPreviewTypeLabel(item))}</p>
-          <h4 class="cml-preview__info-title" title="${escapeHtml(item.displayTakenAt || formatTakenAt(item))}">${escapeHtml(item.displayTakenAt || formatTakenAt(item))}</h4>
-          <p class="cml-preview__info-copy">${escapeHtml(detailLine)}</p>
+        <section class="cml-preview__info-section cml-preview__info-section--description">
+          <p class="cml-preview__info-description">Add a description</p>
         </section>
-        ${overviewRows.length ? `
+        ${item.personLabels && item.personLabels.length ? `
           <section class="cml-preview__info-section">
-            <h5 class="cml-preview__info-heading">Overview</h5>
-            <dl class="cml-preview__info-meta">
-              ${overviewRows.map((row) => `
-                <dt class="cml-preview__info-label">${escapeHtml(row.label)}</dt>
-                <dd class="cml-preview__info-value">${escapeHtml(row.value)}</dd>
-              `).join('')}
-            </dl>
+            <h5 class="cml-preview__info-heading">People</h5>
+            <div class="cml-preview__info-row">
+              <div class="cml-preview__info-row-copy">
+                <p class="cml-preview__info-row-title">${escapeHtml(item.personLabels.join(', '))}</p>
+              </div>
+            </div>
           </section>
         ` : ''}
         <section class="cml-preview__info-section">
-          <h5 class="cml-preview__info-heading">Technical</h5>
-          <dl class="cml-preview__info-meta">
-            ${technicalRows.map((row) => `
-              <dt class="cml-preview__info-label">${escapeHtml(row.label)}</dt>
-              <dd class="cml-preview__info-value ${row.label === 'Library path' ? 'cml-preview__info-value--filename' : ''}" title="${escapeHtml(row.value)}">${escapeHtml(row.value)}</dd>
-            `).join('')}
-          </dl>
+          <h5 class="cml-preview__info-heading">Details</h5>
+          <div class="cml-preview__info-list">
+            ${detailItems}
+          </div>
         </section>
         ${cameraRows.length ? `
           <section class="cml-preview__info-section cml-preview__info-section--camera">
@@ -705,17 +769,11 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
             </dl>
           </section>
         ` : ''}
-        ${item.personLabels && item.personLabels.length ? `
-          <section class="cml-preview__info-section">
-            <h5 class="cml-preview__info-heading">People</h5>
-            <p class="cml-preview__info-plain">${escapeHtml(item.personLabels.join(', '))}</p>
-          </section>
-        ` : ''}
-        ${item.tags && item.tags.length ? `
+        ${meaningfulTags.length ? `
           <section class="cml-preview__info-section">
             <h5 class="cml-preview__info-heading">Tags</h5>
             <div class="cml-preview__info-tags">
-              ${item.tags.map((tag) => `<span class="cml-preview__info-tag">${escapeHtml(tag)}</span>`).join('')}
+              ${meaningfulTags.map((tag) => `<span class="cml-preview__info-tag">${escapeHtml(tag)}</span>`).join('')}
             </div>
           </section>
         ` : ''}
@@ -743,10 +801,6 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
               <div class="cml-preview__stage">
                 ${renderMediaAsset(item, 'cml-preview__media', true)}
               </div>
-              <figcaption class="cml-preview__caption">
-                <strong>${escapeHtml(item.displayTakenAt || formatTakenAt(item))}</strong>
-                <span>${escapeHtml(detailLine)}</span>
-              </figcaption>
             </figure>
             <button type="button" class="cml-preview__nav is-next" data-action="preview-next" aria-label="Next item" ${canGoNext ? '' : 'disabled aria-disabled="true"'}>${icon('next')}</button>
           </div>
@@ -839,7 +893,7 @@ export function ConfirmDialog({ state }) {
         <footer class="cml-dialog__footer">
           <button type="button" class="cml-topbar__secondary-button" data-action="close-confirm-dialog" ${state.confirmDialogBusy ? 'disabled' : ''}>Cancel</button>
           <button type="button" class="cml-topbar__secondary-button ${isDestructive ? 'is-destructive' : ''}" data-action="confirm-delete-selected" ${state.confirmDialogBusy ? 'disabled' : ''}>
-            ${state.confirmDialogBusy ? 'Working…' : escapeHtml(state.confirmDialogConfirmLabel || 'Confirm')}
+            ${state.confirmDialogBusy ? 'Working...' : escapeHtml(state.confirmDialogConfirmLabel || 'Confirm')}
           </button>
         </footer>
       </div>
@@ -978,7 +1032,7 @@ export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutW
       : '';
 
   const gridContent = isBinLoading
-    ? `<div class="cml-bin-loading"><span class="cml-bin-loading__text">Loading bin…</span></div>`
+    ? `<div class="cml-bin-loading"><span class="cml-bin-loading__text">Loading bin...</span></div>`
     : !hasItems
       ? `
         <section class="cml-empty-state">
@@ -1021,7 +1075,7 @@ export function LoginOverlay({ error = '', isLoading = false } = {}) {
     : '';
 
   const btnLabel = isLoading
-    ? `<span class="cml-login__spinner"></span> Signing in…`
+    ? '<span class="cml-login__spinner"></span> Signing in...'
     : 'Sign in';
 
   return `
@@ -1054,7 +1108,7 @@ export function LoginOverlay({ error = '', isLoading = false } = {}) {
               type="password"
               name="password"
               autocomplete="current-password"
-              placeholder="••••••••"
+              placeholder="********"
               data-login="password"
               ${isLoading ? 'disabled' : ''}
             />
@@ -1320,3 +1374,5 @@ export function StoragePanel({ state, insights }) {
     </div>
   `;
 }
+
+

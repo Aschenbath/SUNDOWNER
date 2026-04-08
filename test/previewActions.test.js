@@ -53,6 +53,9 @@ describe('media library download actions', () => {
     assert.match(html, /Download original/);
     assert.match(html, /class="cml-preview__main"/);
     assert.match(html, /class="cml-preview__info /);
+    assert.match(html, /Add a description/);
+    assert.match(html, /Details/);
+    assert.doesNotMatch(html, /cml-preview__caption/);
   });
 
   it('hides default source albums and library path from preview details', () => {
@@ -85,8 +88,9 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /<dt class="cml-preview__info-label">Album<\/dt>/);
     assert.doesNotMatch(html, /Library path/);
     assert.doesNotMatch(html, />Telegram_env</);
-    assert.doesNotMatch(html, /Telegram_env · 0\.79 MB/);
+    assert.doesNotMatch(html, /Overview/);
     assert.match(html, /0\.79 MB/);
+    assert.match(html, /Backed up \(0\.79 MB\)/);
   });
 
   it('keeps explicit collection albums visible in preview details', () => {
@@ -116,7 +120,7 @@ describe('media library download actions', () => {
       immersive: false,
     });
 
-    assert.match(html, /<dt class="cml-preview__info-label">Album<\/dt>/);
+    assert.match(html, /Details/);
     assert.match(html, /scenery/);
     assert.doesNotMatch(html, /Library path/);
   });
