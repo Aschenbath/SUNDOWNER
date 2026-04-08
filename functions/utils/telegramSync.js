@@ -3,6 +3,7 @@ import { TelegramAPI } from './telegramAPI.js'
 import { addFileToIndex, removeFileFromIndex } from './indexManager.js'
 import { getUploadConfig, normalizeUploadSettings } from '../api/manage/sysConfig/upload.js'
 import { sanitizeUploadFolder, sanitizeFileName, resolveFileExt, moderateContent } from '../upload/uploadTools.js'
+import { resolveTelegramDedupeDecision, saveTelegramDedupeRecord } from './telegramDedupe.js'
 
 const TELEGRAM_ALLOWED_UPDATES = ['channel_post', 'edited_channel_post']
 const TELEGRAM_ALBUM_COMMAND_PREFIX = 'telegram-sync@album-command@'
@@ -436,18 +437,37 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
         return { ignored: true, reason: 'no_supported_media' }
     }
 
+    const db = getDatabase(context.env)
+    const messageId = Number(message.message_id || 0)
+    const fileUniqueId = mediaInfo.media.file_unique_id || mediaInfo.media.file_id || ''
+    const dedupeDecision = await resolveTelegramDedupeDecision(db, channel.name, messageId, fileUniqueId)
+    if (dedupeDecision.shouldSkip) {
+        const touchedRecord = {
+            ...(dedupeDecision.record || {}),
+            lastTouchedAt: Date.now(),
+        }
+        await saveTelegramDedupeRecord(db, channel.name, messageId, touchedRecord)
+        return { ignored: true, reason: 'duplicate_message', duplicate: true, messageId }
+    }
+
     const telegramAPI = new TelegramAPI(channel.botToken, channel.proxyUrl || '')
     const filePath = await telegramAPI.getFilePath(mediaInfo.media.file_id)
     const importContext = await resolveAlbumPathForMessage(context, channel, update, message)
     const { metadata, ext } = await buildImportedMetadata(context, channel, message, source, mediaInfo, filePath, importContext)
     const directoryKey = sanitizeUploadFolder(importContext.importDirectory || '')
-    const fileId = buildImportedFileId(channel.name, directoryKey, message.message_id, mediaInfo.media.file_unique_id || mediaInfo.media.file_id, ext)
+    const fileId = buildImportedFileId(channel.name, directoryKey, message.message_id, fileUniqueId, ext)
     const prefix = buildMessagePrefix(channel.name, directoryKey, message.message_id)
 
-    const db = getDatabase(context.env)
     const staleFileIds = await cleanupStaleImportedFiles(context, prefix, fileId)
     await db.put(fileId, '', { metadata })
     await addFileToIndex(context, fileId, metadata)
+    await saveTelegramDedupeRecord(db, channel.name, messageId, {
+        fileId,
+        fileUniqueId,
+        messageId,
+        mediaGroupId: String(message.media_group_id || ''),
+        lastTouchedAt: Date.now(),
+    })
 
     return {
         imported: true,
