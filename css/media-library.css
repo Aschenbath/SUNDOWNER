@@ -2992,6 +2992,62 @@ body.codex-media-library-active #app {
   background: linear-gradient(0deg, rgba(8, 9, 11, 0.92), rgba(8, 9, 11, 0));
   color: #9aa0a6;
   font-size: 12px;
+  flex-wrap: wrap;
+  row-gap: 12px;
+}
+
+#codex-media-library-root .cml-preview__footer-meta {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#codex-media-library-root .cml-preview__footer-primary {
+  color: #f1f3f4;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#codex-media-library-root .cml-preview__footer-secondary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#codex-media-library-root .cml-preview__footer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+#codex-media-library-root .cml-preview__footer-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f3f4;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+#codex-media-library-root .cml-preview__footer-action:hover {
+  background: rgba(138, 180, 248, 0.18);
+  color: #d2e3fc;
+}
+
+#codex-media-library-root .cml-preview__footer-action .cml-icon {
+  width: 18px;
+  height: 18px;
 }
 
 #codex-media-library-root .cml-preview__info {

@@ -21,7 +21,8 @@ const icons = {
   settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v2.5M12 19.5V22M22 12h-2.5M4.5 12H2M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8M19.1 19.1l-1.8-1.8M6.7 6.7 4.9 4.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
   user: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.6" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.4 19.2a6.6 6.6 0 0 1 13.2 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
   image: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m7.5 15.5 3-3 2.2 2.2 3.8-4.2L19 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8.8" cy="9" r="1.2" fill="currentColor"/></svg>',
-  save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.8h11l3 3v11.4A1.8 1.8 0 0 1 17.2 21H6.8A1.8 1.8 0 0 1 5 19.2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 4.8v5.2h8V6.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.5 16h7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+  save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.8h11l3 3v11.4A1.8 1.8 0 0 1 17.2 21H6.8A1.8 1.8 0 0 1 5 19.2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 4.8v5.2h8V6.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.5 16h7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v9.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.2 10.9 3.8 3.8 3.8-3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 18.5h13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
 };
 
 const secondaryIconMap = {
@@ -346,7 +347,7 @@ function AvatarButton({
   `;
 }
 
-export function TopSearchBar({ state, canDeleteSelection = false, canSetAlbumCover = false }) {
+export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSelection = false, canSetAlbumCover = false }) {
   const selectedCount = state.selectedIds.size;
   const searchValue = escapeHtml(state.searchQuery);
   const activeAlbumName = String(state.activeAlbumName || '');
@@ -379,6 +380,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canSetAlbumCov
           </div>
           <div class="cml-topbar__selection-actions">
             <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-album">Add to album</button>
+            <button type="button" class="cml-topbar__secondary-button" data-action="download-selected" ${canDownloadSelection ? '' : 'disabled'}>${icon('download')}<span>Download</span></button>
             ${activeAlbumName && canSetAlbumCover ? `
               <button type="button" class="cml-topbar__secondary-button" data-action="set-album-cover">Set as cover</button>
             ` : ''}
@@ -627,6 +629,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
     { label: 'Type', value: formatPreviewTypeLabel(item) }
   ].filter(Boolean);
   const cameraRows = buildCameraRows(item.exif);
+  const canDownload = Boolean(item.sourceId);
   const overviewRows = [
     item.displayTakenAt ? { label: 'Captured', value: item.displayTakenAt } : null,
     item.location ? { label: 'Location', value: item.location } : null,
@@ -722,8 +725,13 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
           <button type="button" class="cml-preview__nav is-next" data-action="preview-next" aria-label="Next item" ${canGoNext ? '' : 'disabled aria-disabled="true"'}>${icon('next')}</button>
         </div>
         <footer class="cml-preview__footer">
-          <span>${currentIndex + 1} / ${totalCount}</span>
-          <span>${escapeHtml(item.label || item.location || 'Library item')}</span>
+          <div class="cml-preview__footer-meta">
+            <span class="cml-preview__footer-primary">${currentIndex + 1} / ${totalCount}</span>
+            <span class="cml-preview__footer-secondary">${escapeHtml(item.label || item.location || 'Library item')}</span>
+          </div>
+          <div class="cml-preview__footer-actions">
+            <button type="button" class="cml-preview__footer-action" data-action="download-preview" data-id="${escapeHtml(item.id)}" ${canDownload ? '' : 'disabled'}>${icon('download')}<span>Download original</span></button>
+          </div>
         </footer>
         ${infoPanel}
       </div>

@@ -1306,6 +1306,11 @@ function buildFileRoute(fileId) {
   return encodedPath ? `/file/${encodedPath}` : '/file/';
 }
 
+function buildDownloadRoute(fileId) {
+  const baseRoute = buildFileRoute(fileId);
+  return baseRoute === '/file/' ? baseRoute : `${baseRoute}?download=1`;
+}
+
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -1432,6 +1437,10 @@ function extractFileNameFromPath(pathLike) {
   const raw = String(pathLike || '').split('#')[0].split('?')[0];
   const parts = raw.split('/');
   return decodeValue(parts[parts.length - 1] || '');
+}
+
+function getDownloadFileName(item) {
+  return normalizeText(item?.label || extractFileNameFromPath(item?.sourceId) || 'library-item');
 }
 
 function collectMetadataCandidates(node) {
@@ -2119,6 +2128,63 @@ function syncAlbumCovers(items = getAllItems()) {
 function getSelectedItems() {
   const lookup = new Map(getAllItems().map((item) => [item.id, item]));
   return [...state.selectedIds].map((id) => lookup.get(id)).filter(Boolean);
+}
+
+function getDownloadableItems(items = []) {
+  const seenKeys = new Set();
+  return safeArray(items).filter((item) => {
+    const sourceId = normalizeText(item?.sourceId);
+    if (!sourceId) {
+      return false;
+    }
+    const lookupKey = sourceId.toLowerCase();
+    if (seenKeys.has(lookupKey)) {
+      return false;
+    }
+    seenKeys.add(lookupKey);
+    return true;
+  });
+}
+
+function triggerBrowserDownload(item) {
+  if (typeof document === 'undefined') {
+    return false;
+  }
+
+  const sourceId = normalizeText(item?.sourceId);
+  if (!sourceId) {
+    return false;
+  }
+
+  const anchor = document.createElement('a');
+  anchor.href = buildDownloadRoute(sourceId);
+  anchor.download = getDownloadFileName(item);
+  anchor.rel = 'noopener';
+  anchor.style.display = 'none';
+  document.body.append(anchor);
+  anchor.click();
+  window.setTimeout(() => anchor.remove(), 0);
+  return true;
+}
+
+function startDownloads(items, { source = 'selection' } = {}) {
+  const downloadables = getDownloadableItems(items);
+  if (!downloadables.length) {
+    showToast('No original files are available to download.');
+    return;
+  }
+
+  downloadables.forEach((item, index) => {
+    window.setTimeout(() => {
+      triggerBrowserDownload(item);
+    }, index * 180);
+  });
+
+  if (downloadables.length === 1) {
+    showToast(source === 'preview' ? 'Downloading original file.' : 'Downloading selected file.', 'success');
+  } else {
+    showToast(`Starting ${downloadables.length} downloads.`, 'success');
+  }
 }
 
 function canDeleteItem(item) {
@@ -3086,6 +3152,26 @@ function openPreviewAddToAlbum(itemId) {
   openAlbumDialog('assign');
 }
 
+function downloadSelectedItems() {
+  startDownloads(getSelectedItems(), { source: 'selection' });
+}
+
+function downloadPreviewItem(itemId) {
+  const targetId = normalizeText(itemId || state.previewId);
+  if (!targetId) {
+    showToast('No preview item is available to download.');
+    return;
+  }
+
+  const item = getAllItems().find((entry) => entry.id === targetId);
+  if (!item) {
+    showToast('The requested file is no longer available.');
+    return;
+  }
+
+  startDownloads([item], { source: 'preview' });
+}
+
 function requestDeletePreview(itemId) {
   if (!itemId) {
     return;
@@ -3529,6 +3615,7 @@ function getViewModel() {
     previewItem,
     availableAlbums: getAvailableAlbumNames(),
     canSetAlbumCover,
+    canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
     canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item)),
     binItems: state.binItems,
     isBinLoading: state.isBinLoading,
@@ -3592,6 +3679,7 @@ function render() {
         ${TopSearchBar({
           state,
           canDeleteSelection: viewModel.canDeleteSelection,
+          canDownloadSelection: viewModel.canDownloadSelection,
           canSetAlbumCover: viewModel.canSetAlbumCover
         })}
         <div class="cml-main-content-shell">
@@ -4121,8 +4209,14 @@ function handleAction(actionTarget) {
     case 'open-add-to-album':
       openAlbumDialog('assign');
       return true;
+    case 'download-selected':
+      downloadSelectedItems();
+      return true;
     case 'open-preview-add-to-album':
       openPreviewAddToAlbum(actionTarget.dataset.id || state.previewId);
+      return true;
+    case 'download-preview':
+      downloadPreviewItem(actionTarget.dataset.id || state.previewId);
       return true;
     case 'open-add-to-current-album':
       openAlbumSelection();
