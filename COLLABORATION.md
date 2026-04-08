@@ -147,3 +147,7 @@ EXIF 提取已完成并合入 main。以下是 Codex 可能需要配合的事项
 ### 2026-04-08 19:28 Asia/Shanghai
 
 - Reworked preview-side actions so they no longer depend on a full library rerender: `Favourite`, preview delete-confirm flow, and preview add-to-album now update through preview-local layers first; `Add to album` was also moved from the old centered modal into a right-side drawer parallel to `Info`. Reverified with `node --check` for `components.js` and `app.js`, `node .\node_modules\mocha\bin\mocha.js test\previewActions.test.js`, and full direct Mocha (24 passing).
+
+### 2026-04-08 22:23 Asia/Shanghai
+
+- Fixed the still-broken photo-preview open path by resolving preview targets through a new `js/media-library/preview-resolution.js` helper. Preview open/sync now remaps stale tile ids to the current managed item via image/file URL hints instead of dropping the preview when live DOM ids and indexed ids diverge. Reverified with `node --check js/media-library/app.js`, `node --check js/media-library/preview-resolution.js`, targeted Mocha (`test/previewActions.test.js`, `test/previewResolution.test.js`), and full direct Mocha (32 passing).

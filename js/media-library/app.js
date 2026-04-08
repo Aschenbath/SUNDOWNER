@@ -23,6 +23,7 @@ import {
   parseMediaSearchQuery,
   summarizeMediaSearch,
 } from './search-filters.js';
+import { findPreviewMatch } from './preview-resolution.js';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -557,6 +558,13 @@ function getMediaSourceFromTile(tile) {
     return video.poster || video.currentSrc || video.src || '';
   }
   return '';
+}
+
+function resolvePreviewItem(items = getAllItems(), {
+  id = state.previewId,
+  sourceHint = state.previewTransitionSrc
+} = {}) {
+  return findPreviewMatch(items, { id, sourceHint });
 }
 
 function getPreviewMediaElement() {
@@ -4012,12 +4020,21 @@ function getPreviewOverlayModel({
   const resolvedPreviewIndex = Number.isInteger(previewIndex)
     ? previewIndex
     : resolvedPreviewItems.findIndex((item) => item.id === state.previewId);
-  const resolvedPreviewItem = previewItem || (resolvedPreviewIndex >= 0 ? resolvedPreviewItems[resolvedPreviewIndex] : null);
+  const fallbackPreviewItem = resolvedPreviewIndex >= 0
+    ? resolvedPreviewItems[resolvedPreviewIndex]
+    : resolvePreviewItem(getAllItems(), {
+        id: state.previewId,
+        sourceHint: state.previewTransitionSrc
+      });
+  const resolvedPreviewItem = previewItem || fallbackPreviewItem;
+  const finalPreviewIndex = resolvedPreviewIndex >= 0 && resolvedPreviewItem
+    ? resolvedPreviewIndex
+    : resolvedPreviewItems.findIndex((item) => item.id === resolvedPreviewItem?.id);
   return {
     item: resolvedPreviewItem,
     selected: resolvedPreviewItem ? state.selectedIds.has(resolvedPreviewItem.id) : false,
     favorited: resolvedPreviewItem ? state.favoriteIds.has(resolvedPreviewItem.id) : false,
-    currentIndex: Math.max(resolvedPreviewIndex, 0),
+    currentIndex: Math.max(finalPreviewIndex, 0),
     totalCount: resolvedPreviewItems.length,
     infoOpen: state.infoOpen,
     immersive: state.previewImmersive,
@@ -4270,9 +4287,18 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
     changed = true;
   }
 
-  if (state.previewId && !validIds.has(state.previewId)) {
-    state.previewId = null;
-    changed = true;
+  if (state.previewId) {
+    const nextPreviewItem = resolvePreviewItem(items, {
+      id: state.previewId,
+      sourceHint: state.previewTransitionSrc
+    });
+    if (!nextPreviewItem) {
+      state.previewId = null;
+      changed = true;
+    } else if (nextPreviewItem.id !== state.previewId) {
+      state.previewId = nextPreviewItem.id;
+      changed = true;
+    }
   }
 
   const shouldKeepLoading = items.length === 0 && (!surfaceReady || state.liveSyncAttempts < 4);
@@ -4416,9 +4442,14 @@ function openPreview(itemId) {
   const sourceTile = itemId
     ? refs.root?.querySelector(`.cml-media-tile[data-tile-id="${itemId}"]`)
     : null;
-  state.previewId = itemId;
+  const sourceHint = getMediaSourceFromTile(sourceTile);
+  const resolvedPreviewItem = resolvePreviewItem(getAllItems(), {
+    id: itemId,
+    sourceHint
+  });
+  state.previewId = resolvedPreviewItem?.id || itemId;
   state.previewTransitionRect = snapshotRect(sourceTile);
-  state.previewTransitionSrc = getMediaSourceFromTile(sourceTile);
+  state.previewTransitionSrc = sourceHint || resolvedPreviewItem?.thumbnailUrl || resolvedPreviewItem?.sourceUrl || '';
   state.infoOpen = false;
   state.previewImmersive = false;
   touchZoom.currentScale = 1;
