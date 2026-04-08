@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import exifr from 'exifr';
 
 let inferTelegramFileType;
+let buildTelegramImportMetadataHints;
 let readTelegramImageMetadata;
 
 describe('telegramSync metadata helpers', () => {
   const originalParse = exifr.parse;
 
   before(async () => {
-    ({ inferTelegramFileType, readTelegramImageMetadata } = await import('../functions/utils/telegramImportedMedia.js'));
+    ({ inferTelegramFileType, buildTelegramImportMetadataHints, readTelegramImageMetadata } = await import('../functions/utils/telegramImportedMedia.js'));
   });
 
   afterEach(() => {
@@ -23,6 +24,32 @@ describe('telegramSync metadata helpers', () => {
     }, 'photos/file_18.heic');
 
     assert.equal(mimeType, 'image/heic');
+  });
+
+  it('marks Telegram photo imports as processed variants with weak EXIF retention', () => {
+    const hints = buildTelegramImportMetadataHints('photo', {
+      file_name: 'IMG_1001.JPG',
+      mime_type: '',
+    }, 'photos/file_18.jpg');
+
+    assert.deepEqual(hints, {
+      TgMediaKind: 'photo',
+      TgPreservationHint: 'telegram-photo-variant',
+      TgExifRetentionHint: 'unlikely-retained',
+    });
+  });
+
+  it('marks Telegram document image imports as likely original with likely EXIF retention', () => {
+    const hints = buildTelegramImportMetadataHints('document', {
+      file_name: 'IMG_2038.HEIC',
+      mime_type: '',
+    }, 'photos/file_18.heic');
+
+    assert.deepEqual(hints, {
+      TgMediaKind: 'document',
+      TgPreservationHint: 'original-likely',
+      TgExifRetentionHint: 'likely-retained',
+    });
   });
 
   it('extracts EXIF metadata from Telegram image headers when available', async () => {

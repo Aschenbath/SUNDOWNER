@@ -4,6 +4,10 @@ function normalizeExt(ext = '') {
     return String(ext || '').trim().toLowerCase().replace(/^\./, '')
 }
 
+function normalizeKind(kind = '') {
+    return String(kind || '').trim().toLowerCase()
+}
+
 function detectExt(reference = '') {
     const match = String(reference || '').trim().match(/\.([A-Za-z0-9]{2,8})(?:$|[?#])/)
     return normalizeExt(match?.[1] || '')
@@ -45,10 +49,10 @@ export function inferTelegramFileType(kind, media, filePath = '') {
     if (inferredType) {
         return inferredType
     }
-    if (kind === 'photo') {
+    if (normalizeKind(kind) === 'photo') {
         return 'image/jpeg'
     }
-    if (kind === 'animation') {
+    if (normalizeKind(kind) === 'animation') {
         return 'image/gif'
     }
     return 'application/octet-stream'
@@ -78,13 +82,37 @@ export function inferTelegramExtension(kind, media, filePath = '') {
     if (fallbackExtMap[inferredType]) {
         return fallbackExtMap[inferredType]
     }
-    if (kind === 'photo') {
+    if (normalizeKind(kind) === 'photo') {
         return 'jpg'
     }
-    if (kind === 'animation') {
+    if (normalizeKind(kind) === 'animation') {
         return 'gif'
     }
     return 'bin'
+}
+
+export function buildTelegramImportMetadataHints(kind, media, filePath = '') {
+    const normalizedKind = normalizeKind(kind) || 'unknown'
+    const fileType = inferTelegramFileType(normalizedKind, media, filePath)
+    const isImage = fileType.startsWith('image/')
+    const hints = {
+        TgMediaKind: normalizedKind,
+        TgPreservationHint: normalizedKind === 'document'
+            ? 'original-likely'
+            : normalizedKind === 'photo'
+                ? 'telegram-photo-variant'
+                : 'unknown',
+    }
+
+    if (isImage) {
+        hints.TgExifRetentionHint = normalizedKind === 'document'
+            ? 'likely-retained'
+            : normalizedKind === 'photo'
+                ? 'unlikely-retained'
+                : 'unknown'
+    }
+
+    return hints
 }
 
 export async function readTelegramImageMetadata(telegramAPI, filePath, fileType) {

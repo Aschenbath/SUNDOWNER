@@ -155,3 +155,7 @@ EXIF 提取已完成并合入 main。以下是 Codex 可能需要配合的事项
 ### 2026-04-08 22:36 Asia/Shanghai
 
 - Fixed the preview `Add to album` `+` button so it behaves like the `Info` side drawer again. The root cause was preview transient rerender logic only syncing `.cml-preview__main` and `.cml-preview__info`, so the existing preview never received the `.cml-preview__album-panel` subtree when the button toggled. The sync selectors now include the album panel through `js/media-library/preview-overlay.js`, and the media-library module cache bust advanced to `app.js?v=53`. Reverified with `node --check js/media-library/app.js`, `node --check js/media-library/preview-overlay.js`, targeted Mocha (`test/previewActions.test.js`, `test/previewOverlay.test.js`, `test/previewResolution.test.js`), and full direct Mocha (33 passing).
+
+### 2026-04-09 00:03 Asia/Shanghai
+
+- Strengthened the Telegram original-file metadata path without touching the active preview-front-end work: Telegram imports now stamp durable hints for downstream UI/filtering (`TgMediaKind`, `TgPreservationHint`, `TgExifRetentionHint`) so `photo` vs `document` imports can be distinguished later without re-inferring from raw Telegram payloads. The change lives in `functions/utils/telegramImportedMedia.js` and `functions/utils/telegramSync.js`, with expanded regression coverage in `test/telegramSyncMetadata.test.js`. Reverified with `node --check` on both utility files, targeted Telegram metadata Mocha (4 passing), and full direct Mocha (35 passing).

@@ -1,6 +1,6 @@
 import { getDatabase } from './databaseAdapter.js'
 import { TelegramAPI } from './telegramAPI.js'
-import { inferTelegramExtension, inferTelegramFileType, readTelegramImageMetadata } from './telegramImportedMedia.js'
+import { buildTelegramImportMetadataHints, inferTelegramExtension, inferTelegramFileType, readTelegramImageMetadata } from './telegramImportedMedia.js'
 import { addFileToIndex, removeFileFromIndex } from './indexManager.js'
 import { getUploadConfig, normalizeUploadSettings } from '../api/manage/sysConfig/upload.js'
 import { sanitizeUploadFolder, sanitizeFileName, moderateContent } from '../upload/uploadTools.js'
@@ -383,6 +383,7 @@ async function buildImportedMetadata(context, channel, message, source, mediaInf
         TgFileUniqueId: media.file_unique_id,
         TgMessageId: message.message_id,
         TgUpdateSource: source,
+        ...buildTelegramImportMetadataHints(kind, media, filePath),
     }
 
     if (importContext.albumPath) {
