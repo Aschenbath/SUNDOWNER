@@ -682,7 +682,7 @@
             <span class="codex-dashboard-googlebar__search-text">Search photos</span>
           </button>
           <div class="codex-dashboard-googlebar__actions">
-            <button type="button" class="codex-dashboard-googlebar__upload" data-href="/" aria-label="Upload" title="Upload">
+            <button type="button" class="codex-dashboard-googlebar__upload" data-href="/?cmlUpload=1" aria-label="Upload" title="Upload">
               <span class="codex-dashboard-googlebar__upload-plus">+</span>
               <span>Upload</span>
             </button>

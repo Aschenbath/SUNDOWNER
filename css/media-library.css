@@ -949,12 +949,10 @@ body.codex-media-library-active #app {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
-  padding: 12px 10px 10px;
-  margin: 0 -10px 2px;
-  border-radius: 18px;
-  border: 1px solid transparent;
-  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  gap: 14px;
+  padding: 10px 0 8px;
+  margin: 0 0 2px;
+  transition: background-color 140ms ease, opacity 140ms ease;
 }
 
 #codex-media-library-root .cml-timeline-section__heading {
@@ -1001,8 +999,8 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-timeline-section__title {
   margin: 0;
-  font-size: 21px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 600;
   color: #f1f3f4;
   letter-spacing: -0.01em;
 }
@@ -1010,7 +1008,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-timeline-section__meta {
   margin: 0;
   color: #bdc1c6;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 400;
   line-height: 1.35;
 }
@@ -2126,23 +2124,20 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-timeline-section__header {
   position: sticky;
-  top: 8px;
+  top: 0;
   z-index: 10;
-  background: linear-gradient(180deg, rgba(31, 31, 31, 0.86), rgba(31, 31, 31, 0.64));
-  box-shadow: 0 6px 18px rgba(15, 17, 21, 0.12);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: linear-gradient(180deg, rgba(30, 30, 30, 0.98) 0%, rgba(30, 30, 30, 0.94) 74%, rgba(30, 30, 30, 0) 100%);
+  box-shadow: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 #codex-media-library-root .cml-timeline-section__header.is-active {
-  border-color: rgba(138, 180, 248, 0.16);
-  background: linear-gradient(180deg, rgba(45, 52, 66, 0.96), rgba(37, 42, 52, 0.86));
-  box-shadow: 0 10px 24px rgba(15, 17, 21, 0.22);
-  transform: translateY(-1px);
+  background: linear-gradient(180deg, rgba(30, 30, 30, 0.98) 0%, rgba(30, 30, 30, 0.95) 76%, rgba(30, 30, 30, 0) 100%);
 }
 
 #codex-media-library-root .cml-timeline-section__header--bin {
-  padding-top: 14px;
+  padding-top: 10px;
 }
 
 /* ── In-app toast ─────────────────────────────────────────────── */

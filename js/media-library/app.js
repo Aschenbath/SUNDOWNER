@@ -776,7 +776,23 @@ function shouldMount(pathname = window.location.pathname, search = window.locati
   if (pathname.startsWith('/login') || pathname.startsWith('/browse')) {
     return false;
   }
-  return pathname === '/';
+  if (pathname === '/' && hasPendingUploadRequest()) {
+    return false;
+  }
+  return pathname === '/' || pathname.startsWith('/dashboard');
+}
+
+function normalizePreferredLibraryRoute() {
+  const pathname = window.location.pathname || '/';
+  if (pathname !== '/' || hasPendingUploadRequest()) {
+    return false;
+  }
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('cmlNative') === '1') {
+    return false;
+  }
+  window.history.replaceState({}, '', '/dashboard');
+  return true;
 }
 
 function ensureRoot() {
@@ -3637,6 +3653,10 @@ function unmount() {
 }
 
 function syncMount() {
+  if (normalizePreferredLibraryRoute()) {
+    queueMicrotask(syncMount);
+    return;
+  }
   if (shouldMount()) {
     mount();
   } else {
