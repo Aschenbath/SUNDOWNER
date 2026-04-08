@@ -756,9 +756,7 @@ function setPreviewInfoOpen(isOpen, { allowRenderFallback = true } = {}) {
   }
   const preview = refs.root.querySelector('.cml-preview');
   const infoPanel = refs.root.querySelector('.cml-preview__info');
-  const toggleButton = refs.root.querySelector('.cml-preview__chip[data-action="toggle-info"]');
-  const toggleLabels = refs.root.querySelectorAll('[data-info-toggle-label]');
-  const infoBackButton = refs.root.querySelector('.cml-preview__info-back');
+  const toggleButton = refs.root.querySelector('.cml-preview__icon-action[data-action="toggle-info"]');
 
   if (!(preview instanceof HTMLElement) || !(infoPanel instanceof HTMLElement) || !(toggleButton instanceof HTMLElement)) {
     if (allowRenderFallback) {
@@ -772,12 +770,7 @@ function setPreviewInfoOpen(isOpen, { allowRenderFallback = true } = {}) {
   infoPanel.setAttribute('aria-hidden', nextOpen ? 'false' : 'true');
   toggleButton.classList.toggle('is-selected', nextOpen);
   toggleButton.setAttribute('aria-label', nextOpen ? 'Hide details' : 'Show details');
-  if (infoBackButton instanceof HTMLElement) {
-    infoBackButton.setAttribute('aria-label', nextOpen ? 'Back to photo' : 'Open details');
-  }
-  toggleLabels.forEach((node) => {
-    node.textContent = nextOpen ? 'Hide details' : 'Show details';
-  });
+  toggleButton.setAttribute('aria-pressed', nextOpen ? 'true' : 'false');
 }
 
 let yearScrollerDragActive = false;

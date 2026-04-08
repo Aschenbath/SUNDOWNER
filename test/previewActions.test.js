@@ -51,5 +51,7 @@ describe('media library download actions', () => {
     assert.equal((html.match(/class="cml-preview__icon-action/g) || []).length, 4);
     assert.match(html, /data-action="download-preview"/);
     assert.match(html, /Download original/);
+    assert.match(html, /class="cml-preview__main"/);
+    assert.match(html, /class="cml-preview__info /);
   });
 });
