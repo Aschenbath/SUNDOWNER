@@ -3821,6 +3821,22 @@ function animatePreviewSwap(direction = 0) {
   });
 }
 
+function syncPreviewSection(currentParent, nextParent, selector) {
+  if (!(currentParent instanceof HTMLElement) || !(nextParent instanceof HTMLElement)) {
+    return;
+  }
+  const currentNode = currentParent.querySelector(selector);
+  const nextNode = nextParent.querySelector(selector);
+  if (currentNode instanceof HTMLElement && nextNode instanceof HTMLElement) {
+    currentNode.className = nextNode.className;
+    currentNode.innerHTML = nextNode.innerHTML;
+  } else if (currentNode instanceof HTMLElement && !nextNode) {
+    currentNode.remove();
+  } else if (!(currentNode instanceof HTMLElement) && nextNode instanceof HTMLElement) {
+    currentParent.appendChild(nextNode.cloneNode(true));
+  }
+}
+
 function renderPreviewOverlay({ animateDirection = 0 } = {}) {
   if (!refs.root) {
     return false;
@@ -3843,8 +3859,32 @@ function renderPreviewOverlay({ animateDirection = 0 } = {}) {
     return false;
   }
 
-  currentPreview.replaceWith(nextPreview);
+  const focusAction = currentPreview.contains(document.activeElement)
+    && document.activeElement instanceof HTMLElement
+    ? document.activeElement.getAttribute('data-action')
+    : '';
+  const currentPanel = currentPreview.querySelector('.cml-preview__panel');
+  const nextPanel = nextPreview.querySelector('.cml-preview__panel');
+
+  currentPreview.className = nextPreview.className;
+  currentPreview.setAttribute('role', nextPreview.getAttribute('role') || 'dialog');
+  currentPreview.setAttribute('aria-modal', nextPreview.getAttribute('aria-modal') || 'true');
+
+  if (currentPanel instanceof HTMLElement && nextPanel instanceof HTMLElement) {
+    currentPanel.className = nextPanel.className;
+    syncPreviewSection(currentPanel, nextPanel, '.cml-preview__main');
+    syncPreviewSection(currentPanel, nextPanel, '.cml-preview__info');
+  } else {
+    currentPreview.replaceWith(nextPreview);
+  }
+
   setupPreviewTouchHandlers();
+  if (focusAction) {
+    const nextFocusTarget = refs.root.querySelector(`.cml-preview [data-action="${focusAction}"]`);
+    if (nextFocusTarget instanceof HTMLElement) {
+      nextFocusTarget.focus({ preventScroll: true });
+    }
+  }
   if (animateDirection) {
     window.requestAnimationFrame(() => animatePreviewSwap(animateDirection));
   }
@@ -4092,6 +4132,10 @@ function movePreview(direction) {
   const sourceTile = refs.root?.querySelector(`.cml-media-tile[data-tile-id="${nextItem.id}"]`) || null;
   state.previewTransitionRect = snapshotRect(sourceTile);
   state.previewTransitionSrc = getMediaSourceFromTile(sourceTile);
+  touchZoom.currentScale = 1;
+  touchZoom.tx = 0;
+  touchZoom.ty = 0;
+  touchZoom.lastTap = 0;
   if (!renderPreviewOverlay({ animateDirection: direction })) {
     render();
   }
