@@ -124,4 +124,38 @@ describe('media library download actions', () => {
     assert.match(html, /scenery/);
     assert.doesNotMatch(html, /Library path/);
   });
+
+  it('renders add-to-album as a preview side drawer instead of a modal', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'managed-4',
+        type: 'photo',
+        label: 'photo_27.jpg',
+        sourceId: 'photos/2026/photo_27.jpg',
+        sourceUrl: '/file/photos/2026/photo_27.jpg',
+        thumbnailUrl: '/file/photos/2026/photo_27.jpg',
+        width: 1080,
+        height: 1440,
+        displayTakenAt: 'April 5, 2026 08:25',
+        mimeType: 'image/jpeg',
+        sizeMb: 0.21,
+        exif: null,
+      },
+      selected: true,
+      favorited: false,
+      currentIndex: 0,
+      totalCount: 5,
+      infoOpen: false,
+      immersive: false,
+      albumDrawerOpen: true,
+      availableAlbums: ['scenery', 'travel'],
+      albumDraftName: '',
+      albumDialogError: '',
+    });
+
+    assert.match(html, /cml-preview__album-panel is-open/);
+    assert.match(html, /data-action="assign-album"/);
+    assert.match(html, /Create and add/);
+    assert.doesNotMatch(html, /class="cml-dialog__panel cml-album-dialog"/);
+  });
 });

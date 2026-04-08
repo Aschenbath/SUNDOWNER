@@ -192,10 +192,12 @@ const state = {
   albumCovers: {},
   albumDialogOpen: false,
   albumDialogMode: 'create',
+  albumDialogOrigin: '',
   albumDraftName: '',
   albumDialogError: '',
   confirmDialogOpen: false,
   confirmDialogMode: '',
+  confirmDialogOrigin: '',
   confirmDialogTitle: '',
   confirmDialogCopy: '',
   confirmDialogConfirmLabel: '',
@@ -2643,39 +2645,53 @@ function clearSelection({ shouldRender = true } = {}) {
   }
 }
 
-function openAlbumDialog(mode = 'create') {
+function openAlbumDialog(mode = 'create', { origin = '', preferTransientRender = false } = {}) {
   state.albumDialogOpen = true;
   state.albumDialogMode = mode;
+  state.albumDialogOrigin = normalizeText(origin || '');
   state.albumDraftName = '';
   state.albumDialogError = '';
-  render();
-  window.setTimeout(focusAlbumInput, 30);
+  if (!(preferTransientRender && renderPreviewTransientLayers())) {
+    render();
+    window.setTimeout(focusAlbumInput, 30);
+  }
 }
 
 function closeAlbumDialog() {
   if (!state.albumDialogOpen) {
     return;
   }
+  const previewAlbumFlow = state.albumDialogOrigin === 'preview';
   state.albumDialogOpen = false;
+  state.albumDialogOrigin = '';
   state.albumDialogError = '';
   state.albumDraftName = '';
-  render();
+  if (previewAlbumFlow) {
+    clearSelection({ shouldRender: false });
+  }
+  if (!renderPreviewTransientLayers()) {
+    render();
+  }
 }
 
 function openConfirmDialog(options = {}) {
   state.confirmDialogOpen = true;
   state.confirmDialogMode = normalizeText(options.mode || '');
+  state.confirmDialogOrigin = normalizeText(options.origin || '');
   state.confirmDialogTitle = normalizeText(options.title || 'Confirm action');
   state.confirmDialogCopy = normalizeText(options.copy || '');
   state.confirmDialogConfirmLabel = normalizeText(options.confirmLabel || 'Confirm');
   state.confirmDialogSelectionCount = Number(options.selectionCount) || 0;
   state.confirmDialogBusy = false;
-  render();
+  if (!(state.confirmDialogOrigin === 'preview' && renderPreviewTransientLayers())) {
+    render();
+  }
 }
 
 function resetConfirmDialog() {
   state.confirmDialogOpen = false;
   state.confirmDialogMode = '';
+  state.confirmDialogOrigin = '';
   state.confirmDialogTitle = '';
   state.confirmDialogCopy = '';
   state.confirmDialogConfirmLabel = '';
@@ -2687,8 +2703,14 @@ function closeConfirmDialog() {
   if (!state.confirmDialogOpen || state.confirmDialogBusy) {
     return;
   }
+  const preferPreviewRender = state.confirmDialogOrigin === 'preview';
+  if (preferPreviewRender) {
+    clearSelection({ shouldRender: false });
+  }
   resetConfirmDialog();
-  render();
+  if (!(preferPreviewRender && renderPreviewTransientLayers())) {
+    render();
+  }
 }
 
 function showToast(message, type = 'error') {
@@ -2971,11 +2993,14 @@ function commitSelectionToAlbum(albumName) {
   if (!selectedItems.length) {
     return false;
   }
+  const previewAlbumFlow = state.albumDialogOrigin === 'preview' && Boolean(state.previewId);
   const canonicalAlbumName = ensureAlbumName(albumName);
   if (!canonicalAlbumName) {
     state.albumDialogError = 'Album name is required.';
-    render();
-    window.setTimeout(focusAlbumInput, 30);
+    if (!(previewAlbumFlow && renderPreviewTransientLayers())) {
+      render();
+      window.setTimeout(focusAlbumInput, 30);
+    }
     return false;
   }
   const nextAssignments = { ...state.albumAssignments };
@@ -2988,13 +3013,20 @@ function commitSelectionToAlbum(albumName) {
   state.albumAssignments = nextAssignments;
   persistAlbumAssignments();
   state.albumDialogOpen = false;
+  state.albumDialogOrigin = '';
   state.albumDialogError = '';
   state.albumDraftName = '';
   state.albumSelectionTarget = '';
+  clearSelection({ shouldRender: false });
+  if (previewAlbumFlow) {
+    if (!renderPreviewTransientLayers()) {
+      render();
+    }
+    return true;
+  }
   state.primaryFilter = 'Collections';
   state.activeAlbumName = canonicalAlbumName;
   state.secondaryFilter = '';
-  clearSelection({ shouldRender: false });
   resetLoadedCount();
   render();
   return true;
@@ -3062,6 +3094,11 @@ async function deleteSelectedItems(options = {}) {
     return;
   }
   const permanent = Boolean(options.permanent);
+  const previewDeleteFlow = state.confirmDialogOrigin === 'preview' && selectedItems.length === 1 && Boolean(state.previewId);
+  const previewItemsBeforeDelete = previewDeleteFlow ? getFilteredItems() : [];
+  const previewIndexBeforeDelete = previewDeleteFlow
+    ? previewItemsBeforeDelete.findIndex((item) => item.id === state.previewId)
+    : -1;
 
   const deletedIds = new Set();
   const deletedKeys = new Set();
@@ -3111,9 +3148,20 @@ async function deleteSelectedItems(options = {}) {
     const remainingItems = state.mediaItems.map((item) => applyAlbumOverride(item));
     syncAlbumAssignments(remainingItems);
     syncAlbumCovers(remainingItems);
-    render();
-    window.setTimeout(() => syncLiveMedia({ forceRender: true }), 600);
-    void syncStorageSummary({ forceRender: true });
+    if (previewDeleteFlow) {
+      const previewItemsAfterDelete = getFilteredItems();
+      const nextPreviewItem = previewIndexBeforeDelete >= 0
+        ? previewItemsAfterDelete[Math.min(previewIndexBeforeDelete, previewItemsAfterDelete.length - 1)] || null
+        : null;
+      state.previewId = nextPreviewItem?.id || null;
+      if (!renderPreviewTransientLayers({ animateDirection: 1 })) {
+        render();
+      }
+    } else {
+      render();
+    }
+    window.setTimeout(() => syncLiveMedia({ forceRender: !previewDeleteFlow }), 600);
+    void syncStorageSummary({ forceRender: !previewDeleteFlow });
   }
 
   if (failedItems.length) {
@@ -3121,7 +3169,7 @@ async function deleteSelectedItems(options = {}) {
   }
 }
 
-function requestDeleteSelection(permanent = false) {
+function requestDeleteSelection(permanent = false, { origin = '' } = {}) {
   const selectedItems = getSelectedItems().filter((item) => canDeleteItem(item));
   if (!selectedItems.length) {
     return;
@@ -3132,6 +3180,7 @@ function requestDeleteSelection(permanent = false) {
     : `${selectedItems.length} selected items`;
   openConfirmDialog({
     mode: permanent ? 'delete-permanently' : 'delete',
+    origin,
     title: permanent ? 'Delete forever?' : 'Move to bin?',
     copy: permanent
       ? `${itemLabel} will be removed permanently and cannot be restored.`
@@ -3145,9 +3194,14 @@ function openPreviewAddToAlbum(itemId) {
   if (!itemId) {
     return;
   }
+  if (state.albumDialogOpen && state.albumDialogOrigin === 'preview') {
+    closeAlbumDialog();
+    return;
+  }
   state.selectedIds.clear();
   state.selectedIds.add(itemId);
-  openAlbumDialog('assign');
+  state.infoOpen = false;
+  openAlbumDialog('assign', { origin: 'preview', preferTransientRender: true });
 }
 
 function downloadSelectedItems() {
@@ -3176,7 +3230,7 @@ function requestDeletePreview(itemId) {
   }
   state.selectedIds.clear();
   state.selectedIds.add(itemId);
-  requestDeleteSelection(false);
+  requestDeleteSelection(false, { origin: 'preview' });
 }
 
 function getVisibleSecondaryFilters(items) {
@@ -3734,15 +3788,7 @@ function render() {
           }) : ''}
         </div>
       </div>
-      ${PreviewModal({
-        item: viewModel.previewItem,
-        selected: viewModel.previewItem ? state.selectedIds.has(viewModel.previewItem.id) : false,
-        favorited: viewModel.previewItem ? state.favoriteIds.has(viewModel.previewItem.id) : false,
-        currentIndex: Math.max(viewModel.previewIndex, 0),
-        totalCount: viewModel.previewItems.length,
-        infoOpen: state.infoOpen,
-        immersive: state.previewImmersive
-      })}
+      ${PreviewModal(getPreviewOverlayModel())}
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
       ${StoragePanel({ state, insights: storageInsights })}
       ${AlbumDialog({ state, albums: viewModel.availableAlbums })}
@@ -3794,7 +3840,11 @@ function getPreviewOverlayModel() {
     currentIndex: Math.max(viewModel.previewIndex, 0),
     totalCount: viewModel.previewItems.length,
     infoOpen: state.infoOpen,
-    immersive: state.previewImmersive
+    immersive: state.previewImmersive,
+    albumDrawerOpen: state.albumDialogOpen && state.albumDialogOrigin === 'preview',
+    availableAlbums: viewModel.availableAlbums,
+    albumDraftName: state.albumDraftName,
+    albumDialogError: state.albumDialogError
   };
 }
 
@@ -3808,7 +3858,8 @@ function animatePreviewSwap(direction = 0) {
     refs.root.querySelector('.cml-preview__caption'),
     refs.root.querySelector('.cml-preview__footer-meta'),
     refs.root.querySelector('.cml-preview__footer-actions'),
-    refs.root.querySelector('.cml-preview__info.is-open .cml-preview__info-inner')
+    refs.root.querySelector('.cml-preview__info.is-open .cml-preview__info-inner'),
+    refs.root.querySelector('.cml-preview__album-panel.is-open .cml-preview__album-inner')
   ].filter((node) => node instanceof HTMLElement);
 
   targets.forEach((node) => {
@@ -3842,7 +3893,7 @@ function syncPreviewSection(currentParent, nextParent, selector) {
   }
 }
 
-function renderPreviewOverlay({ animateDirection = 0 } = {}) {
+function renderPreviewOverlay({ animateDirection = 0, nextPreviewElement = null } = {}) {
   if (!refs.root) {
     return false;
   }
@@ -3851,17 +3902,20 @@ function renderPreviewOverlay({ animateDirection = 0 } = {}) {
     return false;
   }
 
-  const previewModel = getPreviewOverlayModel();
-  if (!previewModel.item) {
+  const nextPreview = nextPreviewElement instanceof HTMLElement
+    ? nextPreviewElement
+    : (() => {
+        const previewModel = getPreviewOverlayModel();
+        if (!previewModel.item) {
+          return null;
+        }
+        const template = document.createElement('template');
+        template.innerHTML = PreviewModal(previewModel).trim();
+        return template.content.firstElementChild;
+      })();
+  if (!(nextPreview instanceof HTMLElement)) {
     currentPreview.remove();
     return true;
-  }
-
-  const template = document.createElement('template');
-  template.innerHTML = PreviewModal(previewModel).trim();
-  const nextPreview = template.content.firstElementChild;
-  if (!(nextPreview instanceof HTMLElement)) {
-    return false;
   }
 
   const focusAction = currentPreview.contains(document.activeElement)
@@ -3892,6 +3946,78 @@ function renderPreviewOverlay({ animateDirection = 0 } = {}) {
   }
   if (animateDirection) {
     window.requestAnimationFrame(() => animatePreviewSwap(animateDirection));
+  }
+  return true;
+}
+
+function getFloatingLayerContainer() {
+  return refs.root?.querySelector('.cml-app-shell') || refs.root;
+}
+
+function replaceFloatingLayer(currentNode, nextNode) {
+  const container = getFloatingLayerContainer();
+  if (!(container instanceof HTMLElement)) {
+    return;
+  }
+  if (currentNode instanceof HTMLElement && nextNode instanceof HTMLElement) {
+    currentNode.replaceWith(nextNode);
+  } else if (currentNode instanceof HTMLElement && !(nextNode instanceof HTMLElement)) {
+    currentNode.remove();
+  } else if (!(currentNode instanceof HTMLElement) && nextNode instanceof HTMLElement) {
+    container.appendChild(nextNode);
+  }
+}
+
+function getToastMarkup() {
+  if (!state.toastMessage) {
+    return '';
+  }
+  return `
+    <div class="cml-toast cml-toast--${state.toastType}" role="alert" aria-live="polite">
+      <span class="cml-toast__message">${state.toastMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+      <button type="button" class="cml-toast__dismiss" data-action="dismiss-toast" aria-label="Dismiss">鉁?/button>
+    </div>
+  `;
+}
+
+function renderPreviewTransientLayers({ animateDirection = 0 } = {}) {
+  if (!refs.root) {
+    return false;
+  }
+  const viewModel = getViewModel();
+  const template = document.createElement('template');
+  template.innerHTML = `
+    ${PreviewModal(getPreviewOverlayModel())}
+    ${AlbumDialog({ state, albums: viewModel.availableAlbums })}
+    ${ConfirmDialog({ state })}
+    ${getToastMarkup()}
+  `.trim();
+
+  const nextPreview = template.content.querySelector('.cml-preview');
+  const currentPreview = refs.root.querySelector('.cml-preview');
+  if (currentPreview instanceof HTMLElement && nextPreview instanceof HTMLElement) {
+    renderPreviewOverlay({ animateDirection, nextPreviewElement: nextPreview });
+  } else {
+    replaceFloatingLayer(currentPreview, nextPreview);
+    if (nextPreview instanceof HTMLElement) {
+      setupPreviewTouchHandlers();
+    }
+  }
+
+  const currentAlbumDialog = refs.root.querySelector('.cml-album-dialog')?.closest('.cml-dialog') || null;
+  const nextAlbumDialog = template.content.querySelector('.cml-album-dialog')?.closest('.cml-dialog') || null;
+  replaceFloatingLayer(currentAlbumDialog, nextAlbumDialog);
+
+  const currentConfirmDialog = refs.root.querySelector('.cml-confirm-dialog')?.closest('.cml-dialog') || null;
+  const nextConfirmDialog = template.content.querySelector('.cml-confirm-dialog')?.closest('.cml-dialog') || null;
+  replaceFloatingLayer(currentConfirmDialog, nextConfirmDialog);
+
+  const currentToast = refs.root.querySelector('.cml-toast');
+  const nextToast = template.content.querySelector('.cml-toast');
+  replaceFloatingLayer(currentToast, nextToast);
+
+  if (state.albumDialogOpen) {
+    window.setTimeout(focusAlbumInput, 30);
   }
   return true;
 }
@@ -4111,6 +4237,12 @@ function closePreview() {
     state.previewTransitionRect = null;
     state.previewTransitionSrc = '';
     state.infoOpen = false;
+    if (state.albumDialogOrigin === 'preview') {
+      state.albumDialogOpen = false;
+      state.albumDialogOrigin = '';
+      state.albumDialogError = '';
+      state.albumDraftName = '';
+    }
     state.previewImmersive = false;
     touchZoom.currentScale = 1;
     touchZoom.tx = 0;
@@ -4163,7 +4295,10 @@ function toggleFavorite(itemId) {
     state.favoriteIds.add(itemId);
   }
   persistFavorites();
-  render();
+  const preferPreviewRender = state.previewId && normalizeText(itemId) === normalizeText(state.previewId) && state.secondaryFilter !== 'Favourites';
+  if (!(preferPreviewRender && renderPreviewTransientLayers())) {
+    render();
+  }
 }
 
 function scrollToYear(year) {
@@ -4420,6 +4555,7 @@ function handleAction(actionTarget) {
       return true;
     case 'confirm-delete-selected':
       if (!state.confirmDialogBusy) {
+        const preferPreviewRender = state.confirmDialogOrigin === 'preview';
         if (state.confirmDialogMode === 'empty-bin') {
           void emptyBin();
         } else if (state.confirmDialogMode === 'delete-bin-permanently') {
@@ -4432,11 +4568,16 @@ function handleAction(actionTarget) {
             });
         } else {
           state.confirmDialogBusy = true;
-          render();
+          if (!(preferPreviewRender && renderPreviewTransientLayers())) {
+            render();
+          }
           void deleteSelectedItems({ permanent: state.confirmDialogMode === 'delete-permanently' })
             .finally(() => {
+              const stillPreferPreviewRender = state.confirmDialogOrigin === 'preview';
               resetConfirmDialog();
-              render();
+              if (!(stillPreferPreviewRender && renderPreviewTransientLayers())) {
+                render();
+              }
             });
         }
       }
@@ -4448,7 +4589,19 @@ function handleAction(actionTarget) {
       closeConfirmDialog();
       return true;
     case 'toggle-info':
-      setPreviewInfoOpen(!state.infoOpen);
+      if (state.albumDialogOpen && state.albumDialogOrigin === 'preview') {
+        state.albumDialogOpen = false;
+        state.albumDialogOrigin = '';
+        state.albumDialogError = '';
+        state.albumDraftName = '';
+        clearSelection({ shouldRender: false });
+        state.infoOpen = !state.infoOpen;
+        if (!renderPreviewTransientLayers()) {
+          render();
+        }
+      } else {
+        setPreviewInfoOpen(!state.infoOpen);
+      }
       return true;
     case 'clear-search-filters':
       resetSearchQuery();

@@ -2875,7 +2875,8 @@ body.codex-media-library-active #app {
   height: 18px;
 }
 
-#codex-media-library-root .cml-preview__info {
+#codex-media-library-root .cml-preview__info,
+#codex-media-library-root .cml-preview__album-panel {
   position: relative;
   flex: 0 0 0;
   width: 0;
@@ -2898,7 +2899,8 @@ body.codex-media-library-active #app {
   will-change: transform, opacity;
 }
 
-#codex-media-library-root .cml-preview__info.is-open {
+#codex-media-library-root .cml-preview__info.is-open,
+#codex-media-library-root .cml-preview__album-panel.is-open {
   flex-basis: var(--cml-preview-info-width);
   width: var(--cml-preview-info-width);
   opacity: 1;
@@ -2910,10 +2912,22 @@ body.codex-media-library-active #app {
     opacity 140ms ease;
 }
 
-#codex-media-library-root .cml-preview__info-inner {
+#codex-media-library-root .cml-preview__info-inner,
+#codex-media-library-root .cml-preview__album-inner {
   height: 100%;
   overflow-y: auto;
   padding: 0 0 24px;
+}
+
+#codex-media-library-root .cml-preview__album-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+#codex-media-library-root .cml-preview__album-actions .cml-topbar__secondary-button,
+#codex-media-library-root .cml-preview__album-actions .cml-topbar__upload-button {
+  flex: 1 1 0;
 }
 
 #codex-media-library-root .cml-preview__info-toolbar {
@@ -3133,7 +3147,8 @@ body.codex-media-library-active #app {
     justify-content: flex-start;
   }
 
-  #codex-media-library-root .cml-preview__info {
+  #codex-media-library-root .cml-preview__info,
+  #codex-media-library-root .cml-preview__album-panel {
     --cml-preview-info-width: min(340px, 38vw);
   }
 
@@ -3163,7 +3178,8 @@ body.codex-media-library-active #app {
     display: none;
   }
 
-  #codex-media-library-root .cml-preview__info {
+  #codex-media-library-root .cml-preview__info,
+  #codex-media-library-root .cml-preview__album-panel {
     position: absolute;
     inset: 0;
     width: 0;
@@ -3171,7 +3187,8 @@ body.codex-media-library-active #app {
     border-left: 0;
   }
 
-  #codex-media-library-root .cml-preview__info.is-open {
+  #codex-media-library-root .cml-preview__info.is-open,
+  #codex-media-library-root .cml-preview__album-panel.is-open {
     width: 100%;
     flex-basis: auto;
   }

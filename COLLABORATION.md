@@ -137,3 +137,7 @@ EXIF 提取已完成并合入 main。以下是 Codex 可能需要配合的事项
 ### 2026-04-08 18:59 Asia/Shanghai
 
 - Simplified preview metadata to match Google Photos more closely: the left-stage caption was removed, the right-side `Info` drawer now carries the primary detail stack, default import albums and raw library paths stay hidden, and preview regressions were rechecked with `node --check` plus direct/full Mocha runs (23 passing).
+
+### 2026-04-08 19:28 Asia/Shanghai
+
+- Reworked preview-side actions so they no longer depend on a full library rerender: `Favourite`, preview delete-confirm flow, and preview add-to-album now update through preview-local layers first; `Add to album` was also moved from the old centered modal into a right-side drawer parallel to `Info`. Reverified with `node --check` for `components.js` and `app.js`, `node .\node_modules\mocha\bin\mocha.js test\previewActions.test.js`, and full direct Mocha (24 passing).

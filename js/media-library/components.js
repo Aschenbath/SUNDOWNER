@@ -690,7 +690,19 @@ function renderPreviewInfoItem({ iconName, title, meta = '', titleClass = '' }) 
   `;
 }
 
-export function PreviewModal({ item, selected, favorited, currentIndex, totalCount, infoOpen = false, immersive = false }) {
+export function PreviewModal({
+  item,
+  selected,
+  favorited,
+  currentIndex,
+  totalCount,
+  infoOpen = false,
+  immersive = false,
+  albumDrawerOpen = false,
+  availableAlbums = [],
+  albumDraftName = '',
+  albumDialogError = ''
+}) {
   if (!item) {
     return '';
   }
@@ -781,15 +793,47 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
     </aside>
   `;
 
+  const albumPanel = `
+    <aside class="cml-preview__album-panel ${albumDrawerOpen ? 'is-open' : ''}" aria-label="Add to album" aria-hidden="${albumDrawerOpen ? 'false' : 'true'}">
+      <div class="cml-preview__album-inner">
+        <div class="cml-preview__info-toolbar">
+          <button type="button" class="cml-preview__info-close" data-action="close-album-dialog" aria-label="Close album drawer">${icon('close')}</button>
+          <h4 class="cml-preview__info-toolbar-title">Add To Album</h4>
+        </div>
+        ${availableAlbums.length ? `
+          <section class="cml-preview__info-section">
+            <h5 class="cml-preview__info-heading">Existing albums</h5>
+            <div class="cml-album-dialog__list">
+              ${availableAlbums.map((album) => `
+                <button type="button" class="cml-album-dialog__album-chip" data-action="assign-album" data-album-name="${escapeHtml(album)}">${escapeHtml(album)}</button>
+              `).join('')}
+            </div>
+          </section>
+        ` : ''}
+        <section class="cml-preview__info-section">
+          <label class="cml-album-dialog__field">
+            <span class="cml-album-dialog__label">New album name</span>
+            <input type="text" class="cml-album-dialog__input" value="${escapeHtml(albumDraftName || '')}" placeholder="Weekend in Guangzhou" maxlength="64" />
+          </label>
+          ${albumDialogError ? `<p class="cml-album-dialog__error">${escapeHtml(albumDialogError)}</p>` : ''}
+        </section>
+        <section class="cml-preview__info-section cml-preview__album-actions">
+          <button type="button" class="cml-topbar__secondary-button" data-action="close-album-dialog">Cancel</button>
+          <button type="button" class="cml-topbar__upload-button" data-action="submit-album-dialog">Create and add</button>
+        </section>
+      </div>
+    </aside>
+  `;
+
   return `
-    <div class="cml-preview ${infoOpen ? 'has-info' : ''} ${immersive ? 'is-immersive' : ''}" role="dialog" aria-modal="true">
+    <div class="cml-preview ${infoOpen ? 'has-info' : ''} ${albumDrawerOpen ? 'has-album' : ''} ${immersive ? 'is-immersive' : ''}" role="dialog" aria-modal="true">
       <div class="cml-preview__backdrop" data-action="close-preview"></div>
       <div class="cml-preview__panel">
         <div class="cml-preview__main">
           <header class="cml-preview__header">
             <button type="button" class="cml-preview__back" data-action="close-preview" aria-label="Back to library">${icon('previous')}</button>
             <div class="cml-preview__header-actions">
-              <button type="button" class="cml-preview__icon-action" data-action="open-preview-add-to-album" data-id="${escapeHtml(item.id)}" aria-label="Add to album">${icon('plus')}</button>
+              <button type="button" class="cml-preview__icon-action ${albumDrawerOpen ? 'is-selected' : ''}" data-action="open-preview-add-to-album" data-id="${escapeHtml(item.id)}" aria-label="Add to album" aria-pressed="${albumDrawerOpen ? 'true' : 'false'}">${icon('plus')}</button>
               <button type="button" class="cml-preview__icon-action ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="${favorited ? 'Remove from favourites' : 'Add to favourites'}">${icon('star')}</button>
               <button type="button" class="cml-preview__icon-action is-destructive" data-action="request-delete-preview" data-id="${escapeHtml(item.id)}" aria-label="Delete">${icon('trash')}</button>
               <button type="button" class="cml-preview__icon-action ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="${infoOpen ? 'Hide details' : 'Show details'}" aria-pressed="${infoOpen ? 'true' : 'false'}">${icon('info')}</button>
@@ -815,12 +859,13 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
           </footer>
         </div>
         ${infoPanel}
+        ${albumPanel}
       </div>
     </div>
   `;
 }
 export function AlbumDialog({ state, albums }) {
-  if (!state.albumDialogOpen) {
+  if (!state.albumDialogOpen || state.albumDialogOrigin === 'preview') {
     return '';
   }
   const selectedCount = state.selectedIds.size;
