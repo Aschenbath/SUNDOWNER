@@ -18,11 +18,9 @@ import {
   buildJustifiedRows
 } from './components.js';
 import {
-  collectLocationSuggestions,
   countActiveMediaSearchFilters,
-  createEmptyMediaSearchFilters,
   matchesMediaSearchFilters,
-  normalizeMediaSearchFilters,
+  parseMediaSearchQuery,
   summarizeMediaSearch,
 } from './search-filters.js';
 
@@ -186,7 +184,7 @@ const state = {
   activeAlbumName: '',
   albumSelectionTarget: '',
   searchQuery: '',
-  searchFilters: createEmptyMediaSearchFilters(),
+  searchDraft: '',
   selectedIds: new Set(),
   favoriteIds: new Set(),
   albumNames: [],
@@ -1471,12 +1469,21 @@ function getActiveAlbumName() {
   return state.primaryFilter === 'Collections' ? normalizeText(state.activeAlbumName) : '';
 }
 
-function resetSearchFilters() {
-  state.searchFilters = createEmptyMediaSearchFilters();
-}
-
 function getAlbumSelectionTarget() {
   return normalizeText(state.albumSelectionTarget);
+}
+
+function resetSearchQuery() {
+  state.searchQuery = '';
+  state.searchDraft = '';
+}
+
+function applySearchQuery(nextQuery) {
+  state.searchQuery = normalizeText(nextQuery);
+  state.searchDraft = nextQuery;
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  render();
 }
 
 function matchesSearchQuery(item, query) {
@@ -2218,16 +2225,6 @@ function resetLoadedCount() {
   state.loadedCount = COLLECTION_PAGE_SIZE;
 }
 
-function updateSearchFilterField(field, value) {
-  if (!field) {
-    return;
-  }
-  state.searchFilters = normalizeMediaSearchFilters({
-    ...state.searchFilters,
-    [field]: value
-  });
-}
-
 function persistFavorites() {
   queuePersistedAlbumState();
 }
@@ -2622,7 +2619,7 @@ function openCollection(albumName) {
   state.activeAlbumName = normalizedName;
   state.albumSelectionTarget = '';
   state.secondaryFilter = '';
-  state.searchQuery = '';
+  resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
   resetLoadedCount();
@@ -2638,7 +2635,7 @@ function closeCollection() {
   }
   state.activeAlbumName = '';
   state.albumSelectionTarget = '';
-  state.searchQuery = '';
+  resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
   resetLoadedCount();
@@ -2657,7 +2654,7 @@ function openAlbumSelection(albumName = getActiveAlbumName()) {
   state.primaryFilter = 'Photos';
   state.activeAlbumName = '';
   state.secondaryFilter = '';
-  state.searchQuery = '';
+  resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
   resetLoadedCount();
@@ -2676,7 +2673,7 @@ function closeAlbumSelection() {
   state.primaryFilter = 'Collections';
   state.activeAlbumName = targetAlbum;
   state.secondaryFilter = '';
-  state.searchQuery = '';
+  resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
   resetLoadedCount();
@@ -2886,10 +2883,11 @@ function getVisibleSecondaryFilters(items) {
 
 function getFilteredItems() {
   const items = getAllItems();
-  const query = state.searchQuery.trim().toLowerCase();
+  const parsedSearch = parseMediaSearchQuery(state.searchQuery);
+  const query = parsedSearch.textQuery.toLowerCase();
   const activeAlbumName = getActiveAlbumName();
   const albumSelectionTarget = getAlbumSelectionTarget();
-  const searchFilters = normalizeMediaSearchFilters(state.searchFilters);
+  const searchFilters = parsedSearch.filters;
 
   return items.filter((item) => {
     const albumName = resolveCollectionAlbum(item);
@@ -3131,7 +3129,9 @@ function applyTimelineVirtualWindow(sections, { scrollTop = 0, viewportHeight = 
 
 function buildCollectionSummaries(items) {
   const groups = new Map();
-  const query = state.searchQuery.trim().toLowerCase();
+  const parsedSearch = parseMediaSearchQuery(state.searchQuery);
+  const query = parsedSearch.textQuery.toLowerCase();
+  const searchFilters = parsedSearch.filters;
   const ensureGroup = (name) => {
     const normalizedName = normalizeText(name);
     if (!normalizedName) {
@@ -3164,7 +3164,7 @@ function buildCollectionSummaries(items) {
       if (group.name.toLowerCase().includes(query)) {
         return true;
       }
-      return group.items.some((item) => matchesSearchQuery(item, query));
+      return group.items.some((item) => matchesSearchQuery(item, query) && matchesMediaSearchFilters(item, searchFilters));
     })
     .map((group) => {
       const { item: coverItem, isCustom } = findAlbumCoverItem(group.name, group.items);
@@ -3340,9 +3340,9 @@ function render() {
     );
   const viewModel = getViewModel();
   const storageInsights = buildStorageInsights();
-  const activeSearchFilterCount = countActiveMediaSearchFilters(state.searchFilters);
-  const activeSearchFilterParts = summarizeMediaSearch(state.searchFilters);
-  const locationSuggestions = collectLocationSuggestions(getAllItems());
+  const parsedSearch = parseMediaSearchQuery(state.searchQuery);
+  const activeSearchFilterCount = countActiveMediaSearchFilters(parsedSearch.filters);
+  const activeSearchFilterParts = summarizeMediaSearch(parsedSearch.filters);
 
   refs.root.innerHTML = `
     <div class="cml-app-shell">
@@ -3350,8 +3350,7 @@ function render() {
         navigationModel: viewModel.navigationModel,
         state,
         storageSummary: state.storageSummary,
-        searchFilterCount: activeSearchFilterCount,
-        locationSuggestions
+        searchQuery: state.searchDraft
       })}
       <div class="cml-main-shell">
         ${TopSearchBar({
@@ -3380,24 +3379,24 @@ function render() {
                   })
                   : ''}
                 ${SearchSummary({
-                  query: state.searchQuery.trim(),
+                  query: parsedSearch.textQuery,
                   resultCount: viewModel.isCollectionRoot ? viewModel.totalCollectionCount : viewModel.filteredItems.length,
                   filterParts: activeSearchFilterParts,
                   hasActiveFilters: activeSearchFilterCount > 0
                 })}
                 ${viewModel.isCollectionRoot
                   ? (viewModel.collectionCards.length
-                    ? CollectionGrid({ collections: viewModel.collectionCards })
-                    : EmptyState({ query: state.searchQuery.trim(), isLoading: state.isLibraryLoading, mode: 'collections' }))
+                     ? CollectionGrid({ collections: viewModel.collectionCards })
+                     : EmptyState({ query: parsedSearch.textQuery, isLoading: state.isLibraryLoading, mode: 'collections' }))
                   : (viewModel.sections.length
-                    ? viewModel.sections.map((section) => MediaTimelineSection({
+                     ? viewModel.sections.map((section) => MediaTimelineSection({
                       section,
                       state,
                       layoutWidth: state.layoutWidth,
                       coverItemId: viewModel.activeAlbumCoverId
-                    })).join('')
-                    : EmptyState({
-                      query: state.searchQuery.trim(),
+                     })).join('')
+                     : EmptyState({
+                      query: parsedSearch.textQuery,
                       isLoading: state.isLibraryLoading,
                       mode: viewModel.activeAlbumName ? 'album-detail' : (viewModel.isAlbumPickerMode ? 'album-picker' : 'media'),
                       actionLabel: viewModel.activeAlbumName ? 'Add from library' : (viewModel.isAlbumPickerMode ? 'Back to album' : ''),
@@ -3973,8 +3972,7 @@ function handleAction(actionTarget) {
       render();
       return true;
     case 'clear-search-filters':
-      resetSearchFilters();
-      state.searchQuery = '';
+      resetSearchQuery();
       clearSelection({ shouldRender: false });
       resetLoadedCount();
       render();
@@ -4063,8 +4061,7 @@ function handleClick(event) {
       state.secondaryFilter = '';
       state.activeAlbumName = '';
       state.albumSelectionTarget = '';
-      state.searchQuery = '';
-      resetSearchFilters();
+      resetSearchQuery();
       state.previewId = null;
       state.selectedIds.clear();
       state.binSelectedIds.clear();
@@ -4083,14 +4080,6 @@ function handleClick(event) {
       state.albumSelectionTarget = '';
       state.previewId = null;
       state.selectedIds.clear();
-      resetLoadedCount();
-      render();
-      return;
-    }
-
-    if (actionTarget.dataset.searchType) {
-      updateSearchFilterField('type', actionTarget.dataset.searchType);
-      clearSelection({ shouldRender: false });
       resetLoadedCount();
       render();
       return;
@@ -4155,17 +4144,7 @@ function handleInput(event) {
     return;
   }
   if (input.classList.contains('cml-topbar__search-input') || input.classList.contains('cml-sidebar__search-input')) {
-    state.searchQuery = input.value;
-    clearSelection({ shouldRender: false });
-    resetLoadedCount();
-    render();
-    return;
-  }
-  if (input.dataset.searchFilter) {
-    updateSearchFilterField(input.dataset.searchFilter, input.value);
-    clearSelection({ shouldRender: false });
-    resetLoadedCount();
-    render();
+    state.searchDraft = input.value;
     return;
   }
   if (input.classList.contains('cml-album-dialog__input')) {
@@ -4248,6 +4227,20 @@ function handleKeyDown(event) {
     if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.classList.contains('cml-album-dialog__input')) {
       event.preventDefault();
       submitAlbumDialog();
+    }
+    return;
+  }
+
+  if (event.target instanceof HTMLInputElement && event.target.classList.contains('cml-sidebar__search-input')) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      applySearchQuery(event.target.value);
+      event.target.blur();
+    } else if (event.key === 'Escape' && event.target.value) {
+      event.preventDefault();
+      event.target.value = state.searchQuery;
+      state.searchDraft = state.searchQuery;
+      event.target.select();
     }
     return;
   }

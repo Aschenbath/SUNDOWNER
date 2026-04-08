@@ -253,15 +253,8 @@ export function Sidebar({
   state,
   storageSummary,
   searchQuery = '',
-  searchFilterCount = 0,
-  locationSuggestions = [],
 }) {
   const searchValue = escapeHtml(searchQuery || state.searchQuery || '');
-  const searchFilters = state.searchFilters || {};
-  const dateFrom = escapeHtml(searchFilters.dateFrom || '');
-  const dateTo = escapeHtml(searchFilters.dateTo || '');
-  const locationQuery = escapeHtml(searchFilters.locationQuery || '');
-  const activeType = String(searchFilters.type || 'all').toLowerCase();
   return `
     <aside class="cml-sidebar">
       <div class="cml-sidebar__brand">
@@ -269,60 +262,8 @@ export function Sidebar({
       </div>
       <label class="cml-sidebar__search" aria-label="Search">
         ${icon('search', 'cml-sidebar__search-icon')}
-        <input type="search" class="cml-sidebar__search-input" placeholder="Search your photos" value="${searchValue}" />
+        <input type="search" class="cml-sidebar__search-input" placeholder="Search photos, type:video, loc:guangzhou" value="${searchValue}" />
       </label>
-      <section class="cml-sidebar__filters" aria-label="Search filters">
-        <div class="cml-sidebar__filters-head">
-          <div>
-            <p class="cml-sidebar__filters-eyebrow">Refine</p>
-            <h3 class="cml-sidebar__filters-title">${searchFilterCount ? `${searchFilterCount} active filter${searchFilterCount === 1 ? '' : 's'}` : 'Narrow the library'}</h3>
-          </div>
-          ${(searchFilterCount || searchValue) ? `
-            <button type="button" class="cml-sidebar__filters-clear" data-action="clear-search-filters">Reset</button>
-          ` : ''}
-        </div>
-        <div class="cml-sidebar__filter-chips" role="group" aria-label="Type filter">
-          ${[
-            ['all', 'All'],
-            ['photo', 'Photos'],
-            ['video', 'Videos'],
-            ['document', 'Documents'],
-          ].map(([value, label]) => `
-            <button
-              type="button"
-              class="cml-sidebar__filter-chip ${activeType === value ? 'is-active' : ''}"
-              data-search-type="${escapeHtml(value)}"
-              aria-pressed="${activeType === value ? 'true' : 'false'}"
-            >${escapeHtml(label)}</button>
-          `).join('')}
-        </div>
-        <div class="cml-sidebar__filter-grid">
-          <label class="cml-sidebar__filter-field">
-            <span>From</span>
-            <input type="date" class="cml-sidebar__filter-input" data-search-filter="dateFrom" value="${dateFrom}" />
-          </label>
-          <label class="cml-sidebar__filter-field">
-            <span>To</span>
-            <input type="date" class="cml-sidebar__filter-input" data-search-filter="dateTo" value="${dateTo}" />
-          </label>
-          <label class="cml-sidebar__filter-field cml-sidebar__filter-field--wide">
-            <span>Location</span>
-            <input
-              type="search"
-              class="cml-sidebar__filter-input"
-              data-search-filter="locationQuery"
-              value="${locationQuery}"
-              placeholder="Guangzhou, riverside, park"
-              list="cml-location-suggestions"
-            />
-          </label>
-        </div>
-        ${locationSuggestions.length ? `
-          <datalist id="cml-location-suggestions">
-            ${locationSuggestions.map((location) => `<option value="${escapeHtml(location)}"></option>`).join('')}
-          </datalist>
-        ` : ''}
-      </section>
       <div class="cml-sidebar__nav" role="navigation" aria-label="Primary navigation">
         ${navigationModel.primary.map((label) => {
           const key = label.toLowerCase();
