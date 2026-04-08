@@ -2,6 +2,7 @@
 
 | Time (Asia/Shanghai) | Task | Notes |
 | --- | --- | --- |
+| 2026-04-08 09:21 | Codex | Finished the EXIF metadata handoff without disturbing the in-progress upload integration: added `test/exifExtractor.test.js` to cover parsed JPEG mapping, supported-image no-EXIF null returns, unsupported-format short-circuiting, and corrupt/empty-buffer safety; the direct Mocha suite now passes 15 tests. Also tightened preview-detail consistency around the new Camera section by giving stacked detail sections a clearer divider rhythm, allowing long camera/lens values to wrap cleanly, and bumping `media-library.css` cache bust to `v=29`. |
 | 2026-04-08 09:06 | Claude Code | Continued the paused roadmap with the first real search-upgrade pass plus a preview fullscreen pass: added sidebar search facets for media type (`All/Photos/Videos/Documents`), inclusive date range, and location query with suggestion datalist; extracted pure filter helpers into `js/media-library/search-filters.js`; updated result summaries to show active filter tags and a reset action; and added preview `Immersive` mode (toggle button + `M` hotkey) with a fuller fullscreen-style stage layout. Added `test/searchFilters.test.js`; `node .\node_modules\mocha\bin\mocha.js` now passes 11 tests, and `media-library.css` cache bust advanced to `v=28`. |
 | 2026-04-08 08:50 | Claude Code | Fixed the `Favourite` toast regression (`Album id is required`) without changing Telegram album semantics: the fallback Pages route `functions/api/manage/albums/[[path]].js` now accepts root-level `GET/POST` album-state requests when no `albumId` is present, so favorites and full state persistence keep working even if routing falls through that handler. Added `test/albumsRouteFallback.test.js`; `node .\node_modules\mocha\bin\mocha.js` now passes 7 tests. |
 | 2026-04-08 08:33 | Claude Code | Cleaned up the sidebar search field by removing the browser's default inner search-control styling so the input stays visually transparent inside the outer pill, widened the media-library sidebar baseline from `200px` to `250px` (including the `<=1180px` breakpoint), and bumped `media-library.css` cache bust to `v=27`. |
@@ -71,6 +72,39 @@
 - Sidebar width should be reduced toward a compact icon rail with optional expansion rather than a permanently wide column.
 - Card radii should be tightened; overly large radii make dense photo grids feel loose and unlike Google Photos.
 - When asking Claude Code for UI changes, prefer concrete CSS values and component-scoped requests instead of broad visual goals.
+
+### TODO: EXIF Metadata Integration Handoff (2026-04-08, Claude Opus)
+
+EXIF 提取已完成并合入 main。以下是 Codex 可能需要配合的事项：
+
+**已完成的改动：**
+- `functions/upload/exifExtractor.js` — 新模块，用 `exifr` 从图片 header 解析 EXIF
+- `functions/upload/index.js` — 上传时调用 extractExifData，存入 `metadata.Exif`
+- `js/media-library/app.js` — EXIF 拍摄时间优先于上传时间；GPS 坐标 fallback 到 Location
+- `js/media-library/components.js` — PreviewModal 新增 Camera section（Camera/Lens/Settings）
+
+**TODO (Codex):**
+
+1. **测试** — `exifExtractor.js` 需要单测：
+   - 带 EXIF 的 JPEG buffer → 验证返回 `{ dateTime, camera, gps, shooting }`
+   - 非 EXIF 格式（PNG/GIF）→ 返回 null
+   - 损坏/空 buffer → 不抛异常，返回 null
+   - 可在 `test/` 下放一张小的测试 JPEG 作 fixture
+
+2. **Preview UX 协调** — Camera section 用的是现有 `cml-preview__info-meta` 样式。
+   做 preview/detail UX 升级时注意这个新 section 的间距/排版一致性。
+
+3. **Search filter 扩展（可选）** — metadata 中现在有：
+   - `Exif.camera.make` / `Exif.camera.model` → 可加 camera 筛选
+   - `Exif.gps` 存在性 → 可加 "has location" filter
+   - `Exif.dateTime` → 已经被 `buildIndexedMediaItem` 用于时间排序
+
+4. **存量照片无 EXIF** — 当前改动只对新上传生效。
+   补录需要从 R2 拉文件头重新解析，建议作为独立 issue，不塞进当前迭代。
+
+5. **不需要动的地方：**
+   - DB schema — JSON blob 透明兼容，无需 migration
+   - `telegramSync.js` — Telegram API 不提供原始 EXIF，无需改动
 
 ### Claude Code Collaboration Rules For This Phase
 

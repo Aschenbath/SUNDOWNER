@@ -731,12 +731,12 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
           </dl>
         </section>
         ${cameraRows.length ? `
-          <section class="cml-preview__info-section">
+          <section class="cml-preview__info-section cml-preview__info-section--camera">
             <h5 class="cml-preview__info-heading">Camera</h5>
             <dl class="cml-preview__info-meta">
               ${cameraRows.map((row) => `
                 <dt class="cml-preview__info-label">${escapeHtml(row.label)}</dt>
-                <dd class="cml-preview__info-value">${escapeHtml(row.value)}</dd>
+                <dd class="cml-preview__info-value ${row.label === 'Settings' ? 'cml-preview__info-value--settings' : ''}">${escapeHtml(row.value)}</dd>
               `).join('')}
             </dl>
           </section>

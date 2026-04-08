@@ -3015,8 +3015,18 @@ body.codex-media-library-active #app {
   padding: 18px 20px 0;
 }
 
+#codex-media-library-root .cml-preview__info-section + .cml-preview__info-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 #codex-media-library-root .cml-preview__info-section--hero {
   padding-top: 20px;
+}
+
+#codex-media-library-root .cml-preview__info-section--camera .cml-preview__info-value {
+  overflow-wrap: anywhere;
 }
 
 #codex-media-library-root .cml-preview__info-kicker {
@@ -3070,6 +3080,10 @@ body.codex-media-library-active #app {
   color: #d6dbe3;
   font-size: 14px;
   line-height: 1.5;
+}
+
+#codex-media-library-root .cml-preview__info-value--settings {
+  line-height: 1.7;
 }
 
 #codex-media-library-root .cml-preview__info-value--filename {

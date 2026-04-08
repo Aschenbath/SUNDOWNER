@@ -12,6 +12,7 @@ import { DiscordAPI } from "../utils/discordAPI";
 import { HuggingFaceAPI } from "../utils/huggingfaceAPI";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getDatabase } from '../utils/databaseAdapter.js';
+import { extractExifData } from './exifExtractor.js';
 
 
 export async function onRequest(context) {  // Contents of context object
@@ -139,15 +140,17 @@ async function processFileUpload(context, formdata = null) {
         return createResponse('Error: fileType or fileName is wrong, check the integrity of this file!', { status: 400 });
     }
 
-    // 提取图片尺寸
+    // 提取图片尺寸和 EXIF 元数据
     let imageDimensions = null;
+    let exifData = null;
     if (fileType.startsWith('image/')) {
         try {
             // 统一读取 64KB，足以覆盖 JPEG 的 EXIF 数据和其他格式
             const headerBuffer = await file.slice(0, 65536).arrayBuffer();
             imageDimensions = getImageDimensions(headerBuffer, fileType);
+            exifData = await extractExifData(headerBuffer, fileType);
         } catch (error) {
-            console.error('Error reading image dimensions:', error);
+            console.error('Error reading image metadata:', error);
         }
     }
 
@@ -180,6 +183,11 @@ async function processFileUpload(context, formdata = null) {
     if (imageDimensions) {
         metadata.Width = imageDimensions.width;
         metadata.Height = imageDimensions.height;
+    }
+
+    // 添加 EXIF 元数据（拍摄时间、GPS、相机参数等）
+    if (exifData) {
+        metadata.Exif = exifData;
     }
 
     const fileExt = resolveFileExt(fileName, fileType);

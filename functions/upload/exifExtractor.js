@@ -1,0 +1,111 @@
+/**
+ * EXIF 元数据提取模块
+ * 从图片文件的 ArrayBuffer 中解析 EXIF 信息（拍摄时间、GPS、相机参数等）
+ * 使用 exifr 库，纯 JS 实现，兼容 Cloudflare Workers
+ */
+import exifr from 'exifr';
+
+const EXIF_OPTIONS = {
+    tiff: true,
+    exif: true,
+    gps: true,
+    ifd1: false,      // 跳过缩略图 IFD，节省解析时间
+    interop: false,
+    pick: [
+        'DateTimeOriginal', 'CreateDate',
+        'Make', 'Model', 'LensModel',
+        'FNumber', 'ExposureTime', 'ISO', 'FocalLength',
+        'GPSLatitude', 'GPSLongitude', 'GPSAltitude',
+        'Orientation'
+    ]
+};
+
+const EXIF_CAPABLE_TYPES = /^image\/(jpeg|tiff|heic|heif|png|webp|avif|dng)/;
+
+/**
+ * 从图片 buffer 中提取 EXIF 元数据
+ * @param {ArrayBuffer} buffer - 图片文件头部（至少 64KB）
+ * @param {string} fileType - MIME 类型
+ * @returns {Promise<Object|null>} 结构化 EXIF 对象，无数据时返回 null
+ */
+export async function extractExifData(buffer, fileType) {
+    if (!EXIF_CAPABLE_TYPES.test(fileType)) {
+        return null;
+    }
+    try {
+        const raw = await exifr.parse(buffer, EXIF_OPTIONS);
+        if (!raw) {
+            return null;
+        }
+        const result = {};
+        // 拍摄时间
+        const dt = raw.DateTimeOriginal || raw.CreateDate;
+        if (dt) {
+            result.dateTime = dt instanceof Date ? dt.toISOString() : String(dt);
+        }
+        // 相机信息
+        const camera = buildCamera(raw);
+        if (camera) {
+            result.camera = camera;
+        }
+        // GPS 坐标
+        const gps = buildGPS(raw);
+        if (gps) {
+            result.gps = gps;
+        }
+        // 拍摄参数
+        const shooting = buildShooting(raw);
+        if (shooting) {
+            result.shooting = shooting;
+        }
+        // 方向
+        if (raw.Orientation != null) {
+            result.orientation = raw.Orientation;
+        }
+        return Object.keys(result).length > 0 ? result : null;
+    } catch (error) {
+        console.error('EXIF extraction failed:', error.message || error);
+        return null;
+    }
+}
+
+function buildCamera(raw) {
+    const make = raw.Make?.trim();
+    const model = raw.Model?.trim();
+    const lens = raw.LensModel?.trim();
+    if (!make && !model && !lens) {
+        return null;
+    }
+    const cam = {};
+    if (make) cam.make = make;
+    if (model) cam.model = model;
+    if (lens) cam.lens = lens;
+    return cam;
+}
+
+function buildGPS(raw) {
+    const lat = raw.GPSLatitude;
+    const lng = raw.GPSLongitude;
+    if (lat == null || lng == null) {
+        return null;
+    }
+    const gps = { latitude: lat, longitude: lng };
+    if (raw.GPSAltitude != null) {
+        gps.altitude = Math.round(raw.GPSAltitude);
+    }
+    return gps;
+}
+
+function buildShooting(raw) {
+    const parts = {};
+    if (raw.FNumber != null) parts.fNumber = raw.FNumber;
+    if (raw.ExposureTime != null) {
+        // 格式化快门速度：0.008 → "1/125"
+        parts.exposureTime = raw.ExposureTime < 1
+            ? `1/${Math.round(1 / raw.ExposureTime)}`
+            : `${raw.ExposureTime}`;
+    }
+    if (raw.ISO != null) parts.iso = raw.ISO;
+    if (raw.FocalLength != null) parts.focalLength = raw.FocalLength;
+    return Object.keys(parts).length > 0 ? parts : null;
+}
