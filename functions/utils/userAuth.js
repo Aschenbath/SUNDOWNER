@@ -33,7 +33,7 @@ export function UnauthorizedResponse(reason) {
         headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'POST, GET',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization, authCode',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             "Content-Type": "text/plain;charset=UTF-8",
             "Cache-Control": "no-store",
             "Content-Length": reason.length,
