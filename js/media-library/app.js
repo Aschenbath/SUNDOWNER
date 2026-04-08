@@ -3780,6 +3780,77 @@ function render() {
   setupImageLoadAnimations();
 }
 
+function getPreviewOverlayModel() {
+  const viewModel = getViewModel();
+  return {
+    item: viewModel.previewItem,
+    selected: viewModel.previewItem ? state.selectedIds.has(viewModel.previewItem.id) : false,
+    favorited: viewModel.previewItem ? state.favoriteIds.has(viewModel.previewItem.id) : false,
+    currentIndex: Math.max(viewModel.previewIndex, 0),
+    totalCount: viewModel.previewItems.length,
+    infoOpen: state.infoOpen,
+    immersive: state.previewImmersive
+  };
+}
+
+function animatePreviewSwap(direction = 0) {
+  if (!refs.root) {
+    return;
+  }
+  const offset = direction > 0 ? 18 : -18;
+  const targets = [
+    refs.root.querySelector('.cml-preview__stage'),
+    refs.root.querySelector('.cml-preview__caption'),
+    refs.root.querySelector('.cml-preview__footer-meta'),
+    refs.root.querySelector('.cml-preview__footer-actions'),
+    refs.root.querySelector('.cml-preview__info.is-open .cml-preview__info-inner')
+  ].filter((node) => node instanceof HTMLElement);
+
+  targets.forEach((node) => {
+    node.animate(
+      [
+        { opacity: 0.72, transform: `translateX(${offset}px)` },
+        { opacity: 1, transform: 'translateX(0)' }
+      ],
+      {
+        duration: 170,
+        easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+        fill: 'both'
+      }
+    );
+  });
+}
+
+function renderPreviewOverlay({ animateDirection = 0 } = {}) {
+  if (!refs.root) {
+    return false;
+  }
+  const currentPreview = refs.root.querySelector('.cml-preview');
+  if (!(currentPreview instanceof HTMLElement)) {
+    return false;
+  }
+
+  const previewModel = getPreviewOverlayModel();
+  if (!previewModel.item) {
+    currentPreview.remove();
+    return true;
+  }
+
+  const template = document.createElement('template');
+  template.innerHTML = PreviewModal(previewModel).trim();
+  const nextPreview = template.content.firstElementChild;
+  if (!(nextPreview instanceof HTMLElement)) {
+    return false;
+  }
+
+  currentPreview.replaceWith(nextPreview);
+  setupPreviewTouchHandlers();
+  if (animateDirection) {
+    window.requestAnimationFrame(() => animatePreviewSwap(animateDirection));
+  }
+  return true;
+}
+
 async function performSyncLiveMedia({ forceRender = false } = {}) {
   state.liveSyncAttempts += 1;
 
@@ -4016,8 +4087,14 @@ function movePreview(direction) {
   if (nextIndex === currentIndex) {
     return false;
   }
-  state.previewId = items[nextIndex].id;
-  render();
+  const nextItem = items[nextIndex];
+  state.previewId = nextItem.id;
+  const sourceTile = refs.root?.querySelector(`.cml-media-tile[data-tile-id="${nextItem.id}"]`) || null;
+  state.previewTransitionRect = snapshotRect(sourceTile);
+  state.previewTransitionSrc = getMediaSourceFromTile(sourceTile);
+  if (!renderPreviewOverlay({ animateDirection: direction })) {
+    render();
+  }
   return true;
 }
 
