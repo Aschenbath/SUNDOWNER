@@ -203,6 +203,7 @@ const state = {
   confirmDialogBusy: false,
   previewId: null,
   previewTransitionRect: null,
+  previewTransitionSrc: '',
   loadedCount: COLLECTION_PAGE_SIZE,
   activeYear: null,
   activeSectionAnchor: '',
@@ -515,6 +516,73 @@ function snapshotRect(element) {
   };
 }
 
+function getMediaSourceFromTile(tile) {
+  if (!(tile instanceof Element)) {
+    return '';
+  }
+  const img = tile.querySelector('img');
+  if (img instanceof HTMLImageElement) {
+    return img.currentSrc || img.src || '';
+  }
+  const video = tile.querySelector('video');
+  if (video instanceof HTMLVideoElement) {
+    return video.poster || video.currentSrc || video.src || '';
+  }
+  return '';
+}
+
+function getPreviewMediaElement() {
+  if (!refs.root) {
+    return null;
+  }
+  const stage = refs.root.querySelector('.cml-preview__stage');
+  if (!stage) {
+    return null;
+  }
+  const mediaEl = stage.querySelector('.cml-preview__media');
+  return mediaEl instanceof HTMLElement ? mediaEl : null;
+}
+
+function runPreviewSharedElementTransition({ src, startRect, endRect, startRadius = 0, endRadius = 0 }) {
+  if (!src || !startRect || !endRect) {
+    return null;
+  }
+  const ghost = document.createElement('img');
+  ghost.src = src;
+  ghost.alt = '';
+  ghost.style.position = 'fixed';
+  ghost.style.left = `${startRect.left}px`;
+  ghost.style.top = `${startRect.top}px`;
+  ghost.style.width = `${startRect.width}px`;
+  ghost.style.height = `${startRect.height}px`;
+  ghost.style.objectFit = 'cover';
+  ghost.style.transformOrigin = 'top left';
+  ghost.style.zIndex = '999999';
+  ghost.style.pointerEvents = 'none';
+  ghost.style.borderRadius = `${startRadius}px`;
+  ghost.style.willChange = 'transform, border-radius, opacity';
+  document.body.appendChild(ghost);
+
+  const dx = endRect.left - startRect.left;
+  const dy = endRect.top - startRect.top;
+  const scaleX = endRect.width / startRect.width;
+  const scaleY = endRect.height / startRect.height;
+
+  const animation = ghost.animate(
+    [
+      { transform: 'translate(0px, 0px) scale(1)', borderRadius: `${startRadius}px`, opacity: 1 },
+      { transform: `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY})`, borderRadius: `${endRadius}px`, opacity: 1 }
+    ],
+    { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' }
+  );
+
+  const finalize = () => {
+    ghost.remove();
+  };
+  animation.finished.then(finalize).catch(finalize);
+  return animation;
+}
+
 function animatePreviewOpenFromTile() {
   if (!refs.root || previewTransitionInFlight) {
     return;
@@ -531,25 +599,55 @@ function animatePreviewOpenFromTile() {
     [{ opacity: 0 }, { opacity: 1 }],
     { duration: 150, easing: 'ease-out', fill: 'both' }
   );
-  const animation = panel.animate(
-    [
-      {
-        transform: 'translateY(16px) scale(0.985)',
-        opacity: 0
-      },
-      {
-        transform: 'translateY(0px) scale(1)',
-        opacity: 1
-      }
-    ],
-    {
-      duration: 180,
-      easing: 'cubic-bezier(0.2, 0.9, 0.2, 1)',
-      fill: 'both'
-    }
-  );
+  const mediaEl = getPreviewMediaElement();
+  const endRect = snapshotRect(mediaEl);
+  const startRect = state.previewTransitionRect;
+  const shouldSharedTransition = Boolean(startRect && endRect && state.previewTransitionSrc);
+  let animation = null;
 
-  animation.finished
+  if (shouldSharedTransition && mediaEl) {
+    const computed = window.getComputedStyle(mediaEl);
+    const endRadius = parseFloat(computed.borderRadius || '0') || 0;
+    mediaEl.style.opacity = '0';
+    animation = runPreviewSharedElementTransition({
+      src: state.previewTransitionSrc,
+      startRect,
+      endRect,
+      startRadius: 0,
+      endRadius,
+    });
+    panel.animate(
+      [{ opacity: 0 }, { opacity: 1 }],
+      { duration: 160, easing: 'ease-out', fill: 'both' }
+    );
+    animation?.finished
+      .catch(() => {})
+      .finally(() => {
+        if (mediaEl) {
+          mediaEl.style.opacity = '';
+        }
+      });
+  } else {
+    animation = panel.animate(
+      [
+        {
+          transform: 'translateY(16px) scale(0.985)',
+          opacity: 0
+        },
+        {
+          transform: 'translateY(0px) scale(1)',
+          opacity: 1
+        }
+      ],
+      {
+        duration: 180,
+        easing: 'cubic-bezier(0.2, 0.9, 0.2, 1)',
+        fill: 'both'
+      }
+    );
+  }
+
+  (animation?.finished || Promise.resolve())
     .catch(() => {})
     .finally(() => {
       previewTransitionInFlight = false;
@@ -573,31 +671,57 @@ function animatePreviewCloseToTile(onComplete) {
 
   previewTransitionInFlight = true;
 
+  const mediaEl = getPreviewMediaElement();
+  const startRect = snapshotRect(mediaEl);
+  const tile = state.previewId
+    ? refs.root.querySelector(`.cml-media-tile[data-tile-id="${state.previewId}"]`)
+    : null;
+  const endRect = snapshotRect(tile);
+  const shouldSharedTransition = Boolean(startRect && endRect && state.previewTransitionSrc);
+
   backdrop?.animate?.(
     [{ opacity: 1 }, { opacity: 0 }],
     { duration: 120, easing: 'ease-in', fill: 'both' }
   );
-  const animation = panel.animate(
-    [
-      {
-        transform: 'translateY(0px) scale(1)',
-        opacity: 1
-      },
-      {
-        transform: 'translateY(14px) scale(0.985)',
-        opacity: 0
-      }
-    ],
-    {
-      duration: 140,
-      easing: 'ease-in',
-      fill: 'both'
-    }
-  );
 
-  animation.finished
+  let animation = null;
+  if (shouldSharedTransition && mediaEl) {
+    const computed = window.getComputedStyle(mediaEl);
+    const startRadius = parseFloat(computed.borderRadius || '0') || 0;
+    mediaEl.style.opacity = '0';
+    animation = runPreviewSharedElementTransition({
+      src: state.previewTransitionSrc,
+      startRect,
+      endRect,
+      startRadius,
+      endRadius: 0,
+    });
+  } else {
+    animation = panel.animate(
+      [
+        {
+          transform: 'translateY(0px) scale(1)',
+          opacity: 1
+        },
+        {
+          transform: 'translateY(14px) scale(0.985)',
+          opacity: 0
+        }
+      ],
+      {
+        duration: 140,
+        easing: 'ease-in',
+        fill: 'both'
+      }
+    );
+  }
+
+  (animation?.finished || Promise.resolve())
     .catch(() => {})
     .finally(() => {
+      if (mediaEl) {
+        mediaEl.style.opacity = '';
+      }
       previewTransitionInFlight = false;
       onComplete();
     });
@@ -3670,6 +3794,7 @@ function openPreview(itemId) {
     : null;
   state.previewId = itemId;
   state.previewTransitionRect = snapshotRect(sourceTile);
+  state.previewTransitionSrc = getMediaSourceFromTile(sourceTile);
   state.infoOpen = false;
   state.previewImmersive = false;
   touchZoom.currentScale = 1;
@@ -3684,6 +3809,7 @@ function closePreview() {
   animatePreviewCloseToTile(() => {
     state.previewId = null;
     state.previewTransitionRect = null;
+    state.previewTransitionSrc = '';
     state.infoOpen = false;
     state.previewImmersive = false;
     touchZoom.currentScale = 1;
