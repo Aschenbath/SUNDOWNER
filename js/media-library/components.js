@@ -466,14 +466,15 @@ export function MediaGrid({ rows, state, coverItemId = '', topSpacerHeight = 0, 
 
 export function MediaTimelineSection({ section, state, layoutWidth, coverItemId = '' }) {
   const isSectionSelected = section.items.length > 0 && section.items.every((item) => state.selectedIds.has(item.id));
+  const isActiveSection = String(state.activeSectionAnchor || '') === String(section.anchorId || '');
   return `
     <section
-      class="cml-timeline-section"
+      class="cml-timeline-section ${isActiveSection ? 'is-active' : ''}"
       id="${escapeHtml(section.anchorId)}"
       data-year="${escapeHtml(section.year)}"
       data-scrubber-label="${escapeHtml(section.scrubberLabel || section.year)}"
     >
-      <header class="cml-timeline-section__header">
+      <header class="cml-timeline-section__header ${isActiveSection ? 'is-active' : ''}" aria-current="${isActiveSection ? 'true' : 'false'}">
         <button
           type="button"
           class="cml-timeline-section__select ${isSectionSelected ? 'is-active' : ''}"
@@ -896,14 +897,15 @@ function BinMediaTile({ item, selected, layout }) {
 
 function BinTimelineSection({ section, binSelectedIds, layoutWidth }) {
   const isSectionSelected = section.items.length > 0 && section.items.every((item) => binSelectedIds.has(item.id));
+  const isActiveSection = String(section.anchorId || '') === String(section.activeAnchorId || '');
   return `
     <section
-      class="cml-timeline-section cml-timeline-section--bin"
+      class="cml-timeline-section cml-timeline-section--bin ${isActiveSection ? 'is-active' : ''}"
       id="${escapeHtml(section.anchorId)}"
       data-year="${escapeHtml(section.year)}"
       data-scrubber-label="${escapeHtml(section.scrubberLabel || section.year)}"
     >
-      <header class="cml-timeline-section__header cml-timeline-section__header--bin">
+      <header class="cml-timeline-section__header cml-timeline-section__header--bin ${isActiveSection ? 'is-active' : ''}" aria-current="${isActiveSection ? 'true' : 'false'}">
         <button
           type="button"
           class="cml-timeline-section__select ${isSectionSelected ? 'is-active' : ''}"
@@ -934,7 +936,7 @@ function BinTimelineSection({ section, binSelectedIds, layoutWidth }) {
   `;
 }
 
-export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutWidth }) {
+export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutWidth, activeSectionAnchor = '' }) {
   const selectedCount = binSelectedIds.size;
   const hasItems = items.length > 0;
 
@@ -964,7 +966,7 @@ export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutW
       : `
         <div class="cml-bin-timeline">
           ${sections.map((section) => BinTimelineSection({
-            section,
+            section: { ...section, activeAnchorId: activeSectionAnchor },
             binSelectedIds,
             layoutWidth
           })).join('')}

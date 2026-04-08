@@ -3367,7 +3367,8 @@ function render() {
                   sections: viewModel.sections,
                   binSelectedIds: viewModel.binSelectedIds,
                   isBinLoading: viewModel.isBinLoading,
-                  layoutWidth: state.layoutWidth
+                  layoutWidth: state.layoutWidth,
+                  activeSectionAnchor: state.activeSectionAnchor
                 })
                 : `${state.primaryFilter === 'Collections'
                   ? CollectionSummary({
@@ -3818,6 +3819,15 @@ function updateScrubberThumb() {
   if (refs.root) {
     refs.root.querySelectorAll('.cml-scrubber__tick').forEach((tick) => {
       tick.classList.toggle('is-active', tick.dataset.anchor === String(state.activeSectionAnchor));
+    });
+    refs.root.querySelectorAll('.cml-timeline-section').forEach((section) => {
+      const isActive = section.id === String(state.activeSectionAnchor || '');
+      section.classList.toggle('is-active', isActive);
+      const header = section.querySelector('.cml-timeline-section__header');
+      if (header instanceof HTMLElement) {
+        header.classList.toggle('is-active', isActive);
+        header.setAttribute('aria-current', isActive ? 'true' : 'false');
+      }
     });
   }
   badge.textContent = state.activeScrubberLabel || String(state.activeYear || '');

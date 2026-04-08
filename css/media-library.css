@@ -950,8 +950,11 @@ body.codex-media-library-active #app {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  padding: 12px 6px 10px;
-  margin: 0 -6px 2px;
+  padding: 12px 10px 10px;
+  margin: 0 -10px 2px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 #codex-media-library-root .cml-timeline-section__heading {
@@ -1238,6 +1241,10 @@ body.codex-media-library-active #app {
   box-shadow: 0 0 0 4px rgba(138, 180, 248, 0.14);
 }
 
+#codex-media-library-root .cml-scrubber__tick.is-active .cml-scrubber__year-label {
+  color: #e8f0fe;
+}
+
 #codex-media-library-root .cml-scrubber__year-label {
   position: absolute;
   right: 18px;
@@ -1254,9 +1261,10 @@ body.codex-media-library-active #app {
   background: rgba(255, 255, 255, 0.28);
 }
 
+#codex-media-library-root .cml-scrubber.is-visible .cml-scrubber__badge,
 #codex-media-library-root .cml-scrubber:hover .cml-scrubber__badge,
 #codex-media-library-root .cml-scrubber.is-scrubbing .cml-scrubber__badge {
-  opacity: 1;
+  opacity: 0.92;
   transform: translateY(-50%) scale(1);
 }
 
@@ -2118,12 +2126,19 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-timeline-section__header {
   position: sticky;
-  top: 0;
+  top: 8px;
   z-index: 10;
-  background: linear-gradient(180deg, rgba(31, 31, 31, 0.96), rgba(31, 31, 31, 0.76));
-  box-shadow: 0 8px 20px rgba(15, 17, 21, 0.16);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: linear-gradient(180deg, rgba(31, 31, 31, 0.86), rgba(31, 31, 31, 0.64));
+  box-shadow: 0 6px 18px rgba(15, 17, 21, 0.12);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+#codex-media-library-root .cml-timeline-section__header.is-active {
+  border-color: rgba(138, 180, 248, 0.16);
+  background: linear-gradient(180deg, rgba(45, 52, 66, 0.96), rgba(37, 42, 52, 0.86));
+  box-shadow: 0 10px 24px rgba(15, 17, 21, 0.22);
+  transform: translateY(-1px);
 }
 
 #codex-media-library-root .cml-timeline-section__header--bin {
