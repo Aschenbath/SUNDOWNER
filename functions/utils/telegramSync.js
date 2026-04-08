@@ -485,8 +485,10 @@ function createSummary() {
         success: true,
         importedCount: 0,
         ignoredCount: 0,
+        failedCount: 0,
         importedFiles: [],
         ignoredReasons: [],
+        errors: [],
         maxUpdateId: 0,
     }
 }
@@ -504,13 +506,31 @@ async function processUpdatesForChannels(context, channels, updates, source) {
             continue
         }
 
-        const result = await importTelegramUpdate(context, matchedChannel, update, source)
-        if (result.imported) {
-            summary.importedCount += 1
-            summary.importedFiles.push(result)
-        } else {
-            summary.ignoredCount += 1
-            summary.ignoredReasons.push({ updateId: update.update_id, reason: result.reason || 'ignored' })
+        try {
+            const result = await importTelegramUpdate(context, matchedChannel, update, source)
+            if (result.imported) {
+                summary.importedCount += 1
+                summary.importedFiles.push(result)
+            } else {
+                summary.ignoredCount += 1
+                summary.ignoredReasons.push({ updateId: update.update_id, reason: result.reason || 'ignored' })
+            }
+        } catch (error) {
+            const message = error?.message || 'import_failed'
+            const updateMessageId = Number(update?.channel_post?.message_id || update?.edited_channel_post?.message_id || 0)
+            console.error('Failed to import Telegram update:', {
+                channelName: matchedChannel.name,
+                updateId: update.update_id,
+                messageId: updateMessageId,
+                error: message,
+            })
+            summary.failedCount += 1
+            summary.errors.push({
+                channelName: matchedChannel.name,
+                updateId: update.update_id,
+                messageId: updateMessageId,
+                error: message,
+            })
         }
     }
 
@@ -654,6 +674,7 @@ export async function runTelegramSync(context, channelName) {
     const affectedChannelNames = relatedChannels.map(item => item.name)
     const now = Date.now()
     const processedCountByChannel = new Map()
+    const errorByChannel = new Map()
 
     for (const importedFile of summary.importedFiles) {
         processedCountByChannel.set(
@@ -662,12 +683,22 @@ export async function runTelegramSync(context, channelName) {
         )
     }
 
+    for (const entry of summary.errors) {
+        if (!entry?.channelName || errorByChannel.has(entry.channelName)) {
+            continue
+        }
+        errorByChannel.set(
+            entry.channelName,
+            `Update ${entry.updateId || '?'} failed${entry.messageId ? ` (message ${entry.messageId})` : ''}: ${entry.error}`,
+        )
+    }
+
     await updateTelegramChannels(context.env, affectedChannelNames, current => ({
         ...current,
         lastUpdateId: summary.maxUpdateId || current.lastUpdateId || 0,
         lastSyncAt: now,
         lastProcessedCount: processedCountByChannel.get(current.name) || 0,
-        lastError: '',
+        lastError: errorByChannel.get(current.name) || '',
         lastSyncSource: 'manual',
     }))
 

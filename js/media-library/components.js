@@ -613,6 +613,8 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
   if (!item) {
     return '';
   }
+  const canGoPrevious = currentIndex > 0;
+  const canGoNext = currentIndex < Math.max(0, totalCount - 1);
   const detailLine = [
     item.location,
     item.album,
@@ -707,7 +709,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
           </div>
         </header>
         <div class="cml-preview__body">
-          <button type="button" class="cml-preview__nav is-prev" data-action="preview-previous" aria-label="Previous item">${icon('previous')}</button>
+          <button type="button" class="cml-preview__nav is-prev" data-action="preview-previous" aria-label="Previous item" ${canGoPrevious ? '' : 'disabled aria-disabled="true"'}>${icon('previous')}</button>
           <figure class="cml-preview__figure">
             <div class="cml-preview__stage">
               ${renderMediaAsset(item, 'cml-preview__media', true)}
@@ -717,7 +719,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
               <span>${escapeHtml(detailLine)}</span>
             </figcaption>
           </figure>
-          <button type="button" class="cml-preview__nav is-next" data-action="preview-next" aria-label="Next item">${icon('next')}</button>
+          <button type="button" class="cml-preview__nav is-next" data-action="preview-next" aria-label="Next item" ${canGoNext ? '' : 'disabled aria-disabled="true"'}>${icon('next')}</button>
         </div>
         <footer class="cml-preview__footer">
           <span>${currentIndex + 1} / ${totalCount}</span>

@@ -1687,20 +1687,57 @@ function extractConfiguredQuotaGb(uploadConfig) {
 }
 
 async function apiFetch(url, options = {}) {
-  const response = await fetch(url, {
-    credentials: 'same-origin',
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      ...(options.headers || {})
+  const {
+    timeoutMs = 0,
+    headers = {},
+    signal,
+    ...fetchOptions
+  } = options;
+  let timeoutId = 0;
+  let timeoutController = null;
+  let requestSignal = signal;
+
+  if (timeoutMs > 0) {
+    timeoutController = new AbortController();
+    requestSignal = timeoutController.signal;
+    if (signal instanceof AbortSignal) {
+      if (signal.aborted) {
+        timeoutController.abort(signal.reason);
+      } else {
+        signal.addEventListener('abort', () => timeoutController.abort(signal.reason), { once: true });
+      }
     }
-  });
-  if (response.status === 401) {
-    state.needsLogin = true;
-    render();
-    throw new Error('Unauthorized');
+    timeoutId = window.setTimeout(() => {
+      timeoutController.abort(new DOMException('Request timed out', 'AbortError'));
+    }, timeoutMs);
   }
-  return response;
+
+  try {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      ...fetchOptions,
+      signal: requestSignal,
+      headers: {
+        Accept: 'application/json',
+        ...headers
+      }
+    });
+    if (response.status === 401) {
+      state.needsLogin = true;
+      render();
+      throw new Error('Unauthorized');
+    }
+    return response;
+  } catch (error) {
+    if (timeoutMs > 0 && error?.name === 'AbortError') {
+      throw new Error('Request timed out');
+    }
+    throw error;
+  } finally {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  }
 }
 
 async function fetchJson(url) {
@@ -2031,6 +2068,26 @@ function getAllItems() {
   return state.mediaItems.map((item) => applyAlbumOverride(item));
 }
 
+function syncAlbumAssignments(items = getAllItems()) {
+  const validKeys = new Set(
+    safeArray(items)
+      .map((item) => getPersistentItemKey(item))
+      .filter(Boolean)
+  );
+
+  const nextAssignments = Object.fromEntries(
+    Object.entries(state.albumAssignments).filter(([itemKey]) => validKeys.has(normalizeText(itemKey)))
+  );
+
+  if (isSameRecord(nextAssignments, state.albumAssignments)) {
+    return false;
+  }
+
+  state.albumAssignments = nextAssignments;
+  persistAlbumAssignments();
+  return true;
+}
+
 function syncAlbumCovers(items = getAllItems()) {
   const validKeysByAlbum = new Map();
 
@@ -2149,7 +2206,8 @@ async function restoreBinSelection() {
     const response = await apiFetch('/api/manage/bin/batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'restore', fileIds })
+      body: JSON.stringify({ action: 'restore', fileIds }),
+      timeoutMs: 15000
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.success === false) {
@@ -2161,6 +2219,7 @@ async function restoreBinSelection() {
     state.binSelectedIds = new Set([...state.binSelectedIds].filter((id) => failedIds.includes(id)));
     if (restoredIds.size) {
       showToast(`Restored ${restoredIds.size} item${restoredIds.size === 1 ? '' : 's'} from Bin.`, 'success');
+      window.setTimeout(() => syncLiveMedia({ forceRender: true }), 260);
     }
     if (failedIds.length) {
       showToast(`Failed to restore ${failedIds.length} item${failedIds.length === 1 ? '' : 's'}. Try again.`, 'error');
@@ -2187,7 +2246,8 @@ async function deleteBinSelectionPermanently() {
     const response = await apiFetch('/api/manage/bin/batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', fileIds })
+      body: JSON.stringify({ action: 'delete', fileIds }),
+      timeoutMs: 15000
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.success === false) {
@@ -2221,7 +2281,7 @@ async function emptyBin() {
   state.confirmDialogBusy = true;
   render();
   try {
-    const response = await apiFetch('/api/manage/bin/empty', { method: 'POST' });
+    const response = await apiFetch('/api/manage/bin/empty', { method: 'POST', timeoutMs: 15000 });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.success === false) {
       throw new Error(payload?.error || `Empty bin failed with ${response.status}`);
@@ -2948,12 +3008,12 @@ async function deleteSelectedItems(options = {}) {
       const route = permanent
         ? `${buildDeleteRoute(item.sourceId)}?permanent=true`
         : buildDeleteRoute(item.sourceId);
-      const response = await fetch(route, {
+      const response = await apiFetch(route, {
         method: 'DELETE',
-        credentials: 'same-origin',
         headers: {
           Accept: 'application/json'
-        }
+        },
+        timeoutMs: 15000
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || payload?.success === false) {
@@ -2970,16 +3030,23 @@ async function deleteSelectedItems(options = {}) {
   if (deletedIds.size) {
     state.mediaItems = state.mediaItems.filter((item) => !deletedIds.has(item.id));
     state.selectedIds = new Set([...state.selectedIds].filter((id) => !deletedIds.has(id)));
+    if (state.lastSelectedId && !state.selectedIds.has(state.lastSelectedId)) {
+      state.lastSelectedId = [...state.selectedIds].pop() || null;
+    }
     if (state.previewId && deletedIds.has(state.previewId)) {
       state.previewId = null;
     }
     const nextAssignments = { ...state.albumAssignments };
     deletedKeys.forEach((key) => {
-      delete nextAssignments[key];
+      if (key) {
+        delete nextAssignments[key];
+      }
     });
     state.albumAssignments = nextAssignments;
     persistAlbumAssignments();
-    syncAlbumCovers();
+    const remainingItems = state.mediaItems.map((item) => applyAlbumOverride(item));
+    syncAlbumAssignments(remainingItems);
+    syncAlbumCovers(remainingItems);
     render();
     window.setTimeout(() => syncLiveMedia({ forceRender: true }), 600);
     void syncStorageSummary({ forceRender: true });
@@ -3665,6 +3732,10 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
     void syncStorageSummary();
   }
 
+  if (syncAlbumAssignments(items.map((item) => applyAlbumOverride(item)))) {
+    changed = true;
+  }
+
   if (syncAlbumCovers(items.map((item) => applyAlbumOverride(item)))) {
     changed = true;
   }
@@ -3672,6 +3743,9 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
   const nextSelectedIds = new Set([...state.selectedIds].filter((id) => validIds.has(id)));
   if (nextSelectedIds.size !== state.selectedIds.size) {
     state.selectedIds = nextSelectedIds;
+    if (state.lastSelectedId && !nextSelectedIds.has(state.lastSelectedId)) {
+      state.lastSelectedId = [...nextSelectedIds].pop() || null;
+    }
     changed = true;
   }
 
@@ -3851,15 +3925,19 @@ function closePreview() {
 function movePreview(direction) {
   const items = getFilteredItems();
   if (!items.length || !state.previewId) {
-    return;
+    return false;
   }
   const currentIndex = items.findIndex((item) => item.id === state.previewId);
   if (currentIndex < 0) {
-    return;
+    return false;
   }
   const nextIndex = Math.max(0, Math.min(items.length - 1, currentIndex + direction));
+  if (nextIndex === currentIndex) {
+    return false;
+  }
   state.previewId = items[nextIndex].id;
   render();
+  return true;
 }
 
 function toggleSelect(itemId) {

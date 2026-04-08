@@ -84,6 +84,9 @@
 - Preview detail pages should follow the Google Photos pattern more closely: top-left back arrow, top-right icon-only actions, and a right-side `Info` drawer instead of chip buttons or extra utility actions.
 - The preview toolbar should stay intentionally limited to four real actions we support: `Info`, `Favourite`, `Add to album`, and `Delete`.
 - The dashboard top bar must visually dominate the year scrubber so floating scrubber badges never overlap the upload/avatar area.
+- Destructive media actions must fail soft: partial delete success should prune `selectedIds`, album assignments, album-cover references, and the selection anchor consistently from the same surviving item set instead of leaving dangling state behind.
+- Destructive confirm-dialog flows must never wait forever on the network; timeout/abort should release `confirmDialogBusy` so the dialog can recover from a stalled request.
+- Telegram manual sync should continue past per-update import failures, log the broken update, and persist a per-channel `lastError` instead of aborting the whole batch silently.
 
 ### TODO: EXIF Metadata Integration Handoff (2026-04-08, Claude Opus)
 
