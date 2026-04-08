@@ -4365,7 +4365,7 @@ function mount() {
   consumePendingUploadRequest();
 
   if (!mounted && refs.root) {
-    refs.root.addEventListener('click', handleClick);
+    refs.root.addEventListener('click', handleClick, true);
     refs.root.addEventListener('input', handleInput);
     refs.root.addEventListener('change', handleChange);
     refs.root.addEventListener('focusin', handleFocusIn);
@@ -4887,6 +4887,28 @@ function handleAction(actionTarget) {
 function handleClick(event) {
   const actionTarget = event.target instanceof Element ? event.target.closest('[data-action], [data-primary], [data-secondary], [data-year], [data-anchor]') : null;
   const tileTarget = event.target instanceof Element ? event.target.closest('.cml-media-tile') : null;
+  const clickedControl = event.target instanceof HTMLElement
+    ? event.target.closest('button, a, input, textarea, select, label')
+    : null;
+
+  if (actionTarget instanceof HTMLElement && actionTarget.dataset.action === 'open-preview' && actionTarget.dataset.id) {
+    event.preventDefault();
+    event.stopPropagation();
+    state.avatarMenuOpen = false;
+    openPreview(actionTarget.dataset.id);
+    return;
+  }
+
+  if (tileTarget instanceof HTMLElement && !(clickedControl instanceof HTMLElement)) {
+    const itemId = tileTarget.getAttribute('data-tile-id');
+    if (itemId) {
+      event.preventDefault();
+      event.stopPropagation();
+      state.avatarMenuOpen = false;
+      openPreview(itemId);
+      return;
+    }
+  }
 
   // Close avatar menu when clicking outside it
   if (state.avatarMenuOpen && event.target instanceof Element && !event.target.closest('.cml-avatar-wrap')) {
@@ -4964,13 +4986,6 @@ function handleClick(event) {
 
     if (handleAction(actionTarget)) {
       return;
-    }
-  }
-
-  if (tileTarget instanceof HTMLElement && !(event.target instanceof HTMLElement && event.target.closest('button'))) {
-    const itemId = tileTarget.getAttribute('data-tile-id');
-    if (itemId) {
-      openPreview(itemId);
     }
   }
 }
