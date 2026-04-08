@@ -225,16 +225,12 @@ function formatItemCount(count) {
 
 export function StorageCard(storage, isActive = false) {
   const usedMb = Math.max(0, Number(storage?.usedMb) || 0);
-  const totalQuotaGb = Math.max(0, Number(storage?.totalQuotaGb) || 0);
   const totalCount = Math.max(0, Number(storage?.totalCount) || 0);
   const isLoading = Boolean(storage?.isLoading);
-  const hasQuota = totalQuotaGb > 0;
-  const usedRatio = hasQuota
-    ? Math.max(4, Math.min(100, Math.round((usedMb / (totalQuotaGb * 1024)) * 100)))
-    : Math.max(16, Math.min(52, totalCount ? 22 + totalCount : (isLoading ? 24 : 18)));
-  const usageLine = hasQuota
-    ? `${formatStorageAmountFromMb(usedMb)} of ${formatStorageAmountFromGb(totalQuotaGb)} used`
-    : (isLoading ? 'Calculating...' : `${formatStorageAmountFromMb(usedMb)} indexed`);
+  const usedRatio = 0;
+  const usageLine = isLoading
+    ? 'Calculating... / INFINITE'
+    : `${formatStorageAmountFromMb(usedMb)} / INFINITE`;
   return `
     <button type="button" class="cml-storage-strip ${isActive ? 'is-active' : ''}" data-action="open-storage-panel" aria-label="Storage usage" aria-pressed="${isActive}">
       <span class="cml-storage-strip__heading">

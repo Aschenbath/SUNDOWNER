@@ -958,14 +958,7 @@ function formatStorageLabel(valueMb) {
 }
 
 function formatQuotaSummary(totalQuotaGb) {
-  const numeric = Math.max(0, Number(totalQuotaGb) || 0);
-  if (!numeric) {
-    return 'No quota limit configured';
-  }
-  if (numeric >= 1024) {
-    return `${(numeric / 1024).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')} TB total quota`;
-  }
-  return `${numeric.toFixed(numeric >= 100 ? 0 : numeric >= 10 ? 1 : 2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')} GB total quota`;
+  return 'INFINITE cloud ceiling';
 }
 
 function itemCountLabel(count) {
@@ -3985,6 +3978,7 @@ function updateScrubberThumb() {
   badge.style.top = `${topPct.toFixed(1)}%`;
   scroller.classList.toggle('is-visible', state.scrubberVisible);
   scroller.classList.toggle('is-scrubbing', state.isYearScrubbing);
+  scroller.classList.toggle('has-active-badge', state.scrubberVisible || state.isYearScrubbing);
 }
 
 function handleAction(actionTarget) {
