@@ -636,17 +636,12 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
     <aside class="cml-preview__info ${infoOpen ? 'is-open' : ''}" aria-label="Photo details" aria-hidden="${infoOpen ? 'false' : 'true'}">
       <div class="cml-preview__info-inner">
         <div class="cml-preview__info-toolbar">
-          <button type="button" class="cml-preview__info-back" data-action="toggle-info" aria-label="Back to photo">
-            ${icon('previous')}
-            <span>Back to photo</span>
-          </button>
-        </div>
-        <div class="cml-preview__info-thumb">
-          <img src="${escapeHtml(item.thumbnailUrl || item.sourceUrl)}" alt="" loading="lazy" />
+          <button type="button" class="cml-preview__info-close" data-action="toggle-info" aria-label="Close details">${icon('close')}</button>
+          <h4 class="cml-preview__info-toolbar-title">Info</h4>
         </div>
         <section class="cml-preview__info-section cml-preview__info-section--hero">
-          <p class="cml-preview__info-kicker">${escapeHtml(item.album || 'Library item')}</p>
-          <h4 class="cml-preview__info-title" title="${escapeHtml(item.label || '')}">${escapeHtml(item.label || 'Untitled item')}</h4>
+          <p class="cml-preview__info-kicker">${escapeHtml(formatPreviewTypeLabel(item))}</p>
+          <h4 class="cml-preview__info-title" title="${escapeHtml(item.displayTakenAt || formatTakenAt(item))}">${escapeHtml(item.displayTakenAt || formatTakenAt(item))}</h4>
           <p class="cml-preview__info-copy">${escapeHtml(detailLine)}</p>
         </section>
         ${overviewRows.length ? `
@@ -703,17 +698,12 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
       <div class="cml-preview__backdrop" data-action="close-preview"></div>
       <div class="cml-preview__panel">
         <header class="cml-preview__header">
-          <div class="cml-preview__header-copy">
-            <p class="cml-preview__eyebrow">${escapeHtml(item.album || 'Library item')}</p>
-            <h3 class="cml-preview__title">${escapeHtml(formatTakenAt(item))}</h3>
-            <p class="cml-preview__subtitle">${escapeHtml(item.location || formatPreviewTypeLabel(item))}</p>
-          </div>
+          <button type="button" class="cml-preview__back" data-action="close-preview" aria-label="Back to library">${icon('previous')}</button>
           <div class="cml-preview__header-actions">
-            <button type="button" class="cml-preview__chip ${selected ? 'is-selected' : ''}" data-action="toggle-select" data-id="${escapeHtml(item.id)}">${selected ? 'Selected' : 'Select'}</button>
-            <button type="button" class="cml-preview__chip ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}">Favourite</button>
-            <button type="button" class="cml-preview__chip ${immersive ? 'is-selected' : ''}" data-action="toggle-preview-immersive" aria-label="${immersive ? 'Exit immersive mode' : 'Enter immersive mode'}">${immersive ? 'Windowed' : 'Immersive'}</button>
-            <button type="button" class="cml-preview__chip ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="${infoOpen ? 'Hide details' : 'Show details'}">${icon('info')}<span data-info-toggle-label>${infoOpen ? 'Hide details' : 'Show details'}</span></button>
-            <button type="button" class="cml-preview__close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
+            <button type="button" class="cml-preview__icon-action" data-action="open-preview-add-to-album" data-id="${escapeHtml(item.id)}" aria-label="Add to album">${icon('plus')}</button>
+            <button type="button" class="cml-preview__icon-action ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="${favorited ? 'Remove from favourites' : 'Add to favourites'}">${icon('star')}</button>
+            <button type="button" class="cml-preview__icon-action is-destructive" data-action="request-delete-preview" data-id="${escapeHtml(item.id)}" aria-label="Delete">${icon('trash')}</button>
+            <button type="button" class="cml-preview__icon-action ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="${infoOpen ? 'Hide details' : 'Show details'}">${icon('info')}</button>
           </div>
         </header>
         <div class="cml-preview__body">
@@ -723,7 +713,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
               ${renderMediaAsset(item, 'cml-preview__media', true)}
             </div>
             <figcaption class="cml-preview__caption">
-              <strong>${escapeHtml(item.location || item.label || item.album || 'Private library')}</strong>
+              <strong>${escapeHtml(item.displayTakenAt || formatTakenAt(item))}</strong>
               <span>${escapeHtml(detailLine)}</span>
             </figcaption>
           </figure>
@@ -731,7 +721,7 @@ export function PreviewModal({ item, selected, favorited, currentIndex, totalCou
         </div>
         <footer class="cml-preview__footer">
           <span>${currentIndex + 1} / ${totalCount}</span>
-          <span>${escapeHtml(item.label || 'Library item')}</span>
+          <span>${escapeHtml(item.label || item.location || 'Library item')}</span>
         </footer>
         ${infoPanel}
       </div>

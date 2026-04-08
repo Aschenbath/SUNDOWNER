@@ -3010,6 +3010,24 @@ function requestDeleteSelection(permanent = false) {
   });
 }
 
+function openPreviewAddToAlbum(itemId) {
+  if (!itemId) {
+    return;
+  }
+  state.selectedIds.clear();
+  state.selectedIds.add(itemId);
+  openAlbumDialog('assign');
+}
+
+function requestDeletePreview(itemId) {
+  if (!itemId) {
+    return;
+  }
+  state.selectedIds.clear();
+  state.selectedIds.add(itemId);
+  requestDeleteSelection(false);
+}
+
 function getVisibleSecondaryFilters(items) {
   if (state.primaryFilter !== 'Photos') {
     return [];
@@ -4025,6 +4043,9 @@ function handleAction(actionTarget) {
     case 'open-add-to-album':
       openAlbumDialog('assign');
       return true;
+    case 'open-preview-add-to-album':
+      openPreviewAddToAlbum(actionTarget.dataset.id || state.previewId);
+      return true;
     case 'open-add-to-current-album':
       openAlbumSelection();
       return true;
@@ -4103,6 +4124,9 @@ function handleAction(actionTarget) {
     case 'delete-selected':
       requestDeleteSelection(false);
       return true;
+    case 'request-delete-preview':
+      requestDeletePreview(actionTarget.dataset.id || state.previewId);
+      return true;
     case 'confirm-delete-selected':
       if (!state.confirmDialogBusy) {
         if (state.confirmDialogMode === 'empty-bin') {
@@ -4134,10 +4158,6 @@ function handleAction(actionTarget) {
       return true;
     case 'toggle-info':
       setPreviewInfoOpen(!state.infoOpen);
-      return true;
-    case 'toggle-preview-immersive':
-      state.previewImmersive = !state.previewImmersive;
-      render();
       return true;
     case 'clear-search-filters':
       resetSearchQuery();
@@ -4428,9 +4448,6 @@ function handleKeyDown(event) {
       toggleFavorite(state.previewId);
     } else if (event.key === 'i' || event.key === 'I') {
       setPreviewInfoOpen(!state.infoOpen, { allowRenderFallback: false });
-    } else if (event.key === 'm' || event.key === 'M') {
-      state.previewImmersive = !state.previewImmersive;
-      render();
     }
     return;
   }

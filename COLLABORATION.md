@@ -81,6 +81,9 @@
 - Sidebar width should be reduced toward a compact icon rail with optional expansion rather than a permanently wide column.
 - Card radii should be tightened; overly large radii make dense photo grids feel loose and unlike Google Photos.
 - When asking Claude Code for UI changes, prefer concrete CSS values and component-scoped requests instead of broad visual goals.
+- Preview detail pages should follow the Google Photos pattern more closely: top-left back arrow, top-right icon-only actions, and a right-side `Info` drawer instead of chip buttons or extra utility actions.
+- The preview toolbar should stay intentionally limited to four real actions we support: `Info`, `Favourite`, `Add to album`, and `Delete`.
+- The dashboard top bar must visually dominate the year scrubber so floating scrubber badges never overlap the upload/avatar area.
 
 ### TODO: EXIF Metadata Integration Handoff (2026-04-08, Claude Opus)
 
