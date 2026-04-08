@@ -245,9 +245,16 @@ export class TelegramAPI {
         if (!filePath) {
             throw new Error(`File path not found for fileId: ${fileId}`)
         }
+        return await this.fetchFileResponseByPath(filePath)
+    }
 
+    async fetchFileResponseByPath(filePath, options = {}) {
+        const { headers = {} } = options
         const requestInit = {
-            headers: this.defaultHeaders,
+            headers: {
+                ...this.defaultHeaders,
+                ...headers,
+            },
         }
         const dispatcher = await this.resolveDispatcher()
         if (dispatcher) {
@@ -256,6 +263,22 @@ export class TelegramAPI {
 
         const fullURL = `${this.fileDomain}/file/bot${this.botToken}/${filePath}`
         return await fetch(fullURL, requestInit)
+    }
+
+    async getFileHeaderByPath(filePath, maxBytes = 65536) {
+        if (!filePath) {
+            return null
+        }
+        const endByte = Math.max(0, Number(maxBytes) - 1)
+        const response = await this.fetchFileResponseByPath(filePath, {
+            headers: {
+                Range: `bytes=0-${endByte}`,
+            },
+        })
+        if (!response.ok) {
+            throw new Error(`Telegram file header request failed: ${response.status} ${response.statusText}`)
+        }
+        return await response.arrayBuffer()
     }
 
     async getUpdates(options = {}) {

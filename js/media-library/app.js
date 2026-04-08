@@ -2022,6 +2022,33 @@ function isDocumentLikeSource(fileId, fileLabel, tags) {
   return DOCUMENT_HINT_PATTERN.test(`${fileId} ${fileLabel} ${tags.join(' ')}`);
 }
 
+function inferMimeTypeFromReference(fileId, fileName, rawMimeType) {
+  const normalized = normalizeText(rawMimeType).toLowerCase();
+  if (normalized && normalized !== 'application/octet-stream') {
+    return normalized;
+  }
+  const reference = `${normalizeText(fileName)} ${normalizeText(fileId)}`.toLowerCase();
+  if (/\.(?:jpg|jpeg)\b/.test(reference)) return 'image/jpeg';
+  if (/\.png\b/.test(reference)) return 'image/png';
+  if (/\.webp\b/.test(reference)) return 'image/webp';
+  if (/\.gif\b/.test(reference)) return 'image/gif';
+  if (/\.bmp\b/.test(reference)) return 'image/bmp';
+  if (/\.avif\b/.test(reference)) return 'image/avif';
+  if (/\.heic\b/.test(reference)) return 'image/heic';
+  if (/\.heif\b/.test(reference)) return 'image/heif';
+  if (/\.mp4\b/.test(reference)) return 'video/mp4';
+  if (/\.mov\b/.test(reference)) return 'video/quicktime';
+  if (/\.m4v\b/.test(reference)) return 'video/x-m4v';
+  if (/\.webm\b/.test(reference)) return 'video/webm';
+  if (/\.avi\b/.test(reference)) return 'video/x-msvideo';
+  return normalized;
+}
+
+function supportsBrowserImagePreview(mimeType) {
+  const normalized = normalizeText(mimeType).toLowerCase();
+  return !/^image\/(?:heic|heif)\b/.test(normalized);
+}
+
 function buildIndexedMediaItem(record, domLookup, index) {
   const metadata = record && typeof record === 'object' ? (record.metadata || {}) : {};
   const fileId = normalizeText(record?.name || record?.id || '');
@@ -2029,12 +2056,12 @@ function buildIndexedMediaItem(record, domLookup, index) {
     return null;
   }
 
-  const mimeType = normalizeText(metadata.FileType || '').toLowerCase();
+  const fileName = normalizeText(metadata.FileName || extractFileNameFromPath(fileId) || 'Library item');
+  const mimeType = inferMimeTypeFromReference(fileId, fileName, metadata.FileType || '');
   if (!mimeType.startsWith('image/') && !mimeType.startsWith('video/')) {
     return null;
   }
 
-  const fileName = normalizeText(metadata.FileName || extractFileNameFromPath(fileId) || 'Library item');
   const lookupKeys = getLookupKeys(fileId, fileName, fileName);
   const domMatch = lookupKeys.map((key) => domLookup.get(key)).find(Boolean) || null;
   const type = mimeType.startsWith('video/') ? 'video' : 'photo';
@@ -2075,6 +2102,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     label,
     sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
     exif: metadata.Exif || null,
+    browserPreviewSupported: type !== 'photo' || supportsBrowserImagePreview(mimeType),
     isDocumentLike: isDocumentLikeSource(fileId, fileName, tags),
     sortOrder: timestamp,
     domIndex: index
@@ -2266,12 +2294,12 @@ function buildBinItem(record) {
     return null;
   }
   const metadata = record?.metadata || {};
-  const mimeType = normalizeText(metadata.FileType || '').toLowerCase();
+  const fileName = normalizeText(metadata.FileName || extractFileNameFromPath(fileId) || 'Deleted item');
+  const mimeType = inferMimeTypeFromReference(fileId, fileName, metadata.FileType || '');
   if (!mimeType.startsWith('image/') && !mimeType.startsWith('video/')) {
     return null;
   }
   const type = mimeType.startsWith('video/') ? 'video' : 'photo';
-  const fileName = normalizeText(metadata.FileName || extractFileNameFromPath(fileId) || 'Deleted item');
   const deletedAt = Number(record.deletedAt) || Date.now();
   const deletedDate = new Date(deletedAt);
   const deletedYear = deletedDate.getFullYear();
@@ -2285,6 +2313,8 @@ function buildBinItem(record) {
     width: toPositiveNumber(metadata.Width, type === 'video' ? 1280 : 1200),
     height: toPositiveNumber(metadata.Height, type === 'video' ? 720 : 900),
     sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
+    mimeType,
+    browserPreviewSupported: type !== 'photo' || supportsBrowserImagePreview(mimeType),
     daysLeft: Math.max(0, Number(record.daysLeft) || 0),
     deletedAt,
     takenAt: deletedDate.toISOString(),

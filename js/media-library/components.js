@@ -211,6 +211,20 @@ function renderMediaAsset(item, className, withControls = false) {
   const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
   const mediaUrl = escapeHtml(item.type === 'video' ? sourceUrl : imageUrl);
   const alt = escapeHtml(item.label || item.album || 'Library item');
+  if (item.type === 'photo' && item.browserPreviewSupported === false) {
+    const mimeLabel = escapeHtml(String(item.mimeType || 'image/original').replace(/^image\//i, '').toUpperCase());
+    const previewHint = withControls
+      ? 'This original photo format is preserved, but this browser cannot render it inline.'
+      : 'Inline preview is unavailable in this browser.';
+    return `
+      <div class="${className} cml-media-unsupported ${withControls ? 'cml-media-unsupported--preview' : ''}" role="img" aria-label="${alt}">
+        <span class="cml-media-unsupported__badge">${mimeLabel}</span>
+        ${icon('documents', 'cml-media-unsupported__icon')}
+        <span class="cml-media-unsupported__title">${mimeLabel} original</span>
+        <span class="cml-media-unsupported__meta">${previewHint}</span>
+      </div>
+    `;
+  }
   if (item.type === 'video' && item.thumbnailUrl === sourceUrl) {
     return `<video class="${className}" src="${mediaUrl}" ${withControls ? 'controls' : ''} muted playsinline preload="metadata"></video>`;
   }

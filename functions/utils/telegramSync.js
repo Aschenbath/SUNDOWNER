@@ -1,8 +1,9 @@
 import { getDatabase } from './databaseAdapter.js'
 import { TelegramAPI } from './telegramAPI.js'
+import { inferTelegramExtension, inferTelegramFileType, readTelegramImageMetadata } from './telegramImportedMedia.js'
 import { addFileToIndex, removeFileFromIndex } from './indexManager.js'
 import { getUploadConfig, normalizeUploadSettings } from '../api/manage/sysConfig/upload.js'
-import { sanitizeUploadFolder, sanitizeFileName, resolveFileExt, moderateContent } from '../upload/uploadTools.js'
+import { sanitizeUploadFolder, sanitizeFileName, moderateContent } from '../upload/uploadTools.js'
 import { resolveTelegramDedupeDecision, saveTelegramDedupeRecord } from './telegramDedupe.js'
 
 const TELEGRAM_ALLOWED_UPDATES = ['channel_post', 'edited_channel_post']
@@ -53,22 +54,8 @@ function buildDefaultFileName(kind, messageId, ext) {
     return `${kind}_${messageId}.${ext}`
 }
 
-function inferFileType(kind, media) {
-    if (media?.mime_type) {
-        return media.mime_type
-    }
-    if (kind === 'photo') {
-        return 'image/jpeg'
-    }
-    if (kind === 'animation') {
-        return 'image/gif'
-    }
-    return 'application/octet-stream'
-}
-
 function inferExtension(kind, media, filePath) {
-    const fallbackName = media?.file_name || ''
-    return resolveFileExt(filePath || fallbackName || `${kind}.bin`, inferFileType(kind, media))
+    return inferTelegramExtension(kind, media, filePath)
 }
 
 function extractMediaFromMessage(message) {
@@ -369,9 +356,9 @@ async function cleanupStaleImportedFiles(context, prefix, keepFileId) {
     return staleFileIds
 }
 
-async function buildImportedMetadata(context, channel, message, source, mediaInfo, filePath, importContext = {}) {
+async function buildImportedMetadata(context, channel, message, source, mediaInfo, filePath, importContext = {}, telegramAPI = null) {
     const { kind, media } = mediaInfo
-    const fileType = inferFileType(kind, media)
+    const fileType = inferTelegramFileType(kind, media, filePath)
     const ext = inferExtension(kind, media, filePath)
     const fileName = sanitizeFileName(media.file_name || buildDefaultFileName(kind, message.message_id, ext))
     const importDirectory = importContext.importDirectory || createImportDirectory(channel.name, channel.importDirectory)
@@ -411,6 +398,11 @@ async function buildImportedMetadata(context, channel, message, source, mediaInf
         } catch (error) {
             console.error('Failed to moderate imported Telegram media:', error)
         }
+    }
+
+    if (kind === 'document' && fileType.startsWith('image/') && telegramAPI) {
+        const { exifData } = await readTelegramImageMetadata(telegramAPI, filePath, fileType)
+        if (exifData) metadata.Exif = exifData
     }
 
     if (media.width > 0) metadata.Width = media.width
@@ -453,7 +445,7 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
     const telegramAPI = new TelegramAPI(channel.botToken, channel.proxyUrl || '')
     const filePath = await telegramAPI.getFilePath(mediaInfo.media.file_id)
     const importContext = await resolveAlbumPathForMessage(context, channel, update, message)
-    const { metadata, ext } = await buildImportedMetadata(context, channel, message, source, mediaInfo, filePath, importContext)
+    const { metadata, ext } = await buildImportedMetadata(context, channel, message, source, mediaInfo, filePath, importContext, telegramAPI)
     const directoryKey = sanitizeUploadFolder(importContext.importDirectory || '')
     const fileId = buildImportedFileId(channel.name, directoryKey, message.message_id, fileUniqueId, ext)
     const prefix = buildMessagePrefix(channel.name, directoryKey, message.message_id)

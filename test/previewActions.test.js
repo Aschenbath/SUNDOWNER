@@ -202,4 +202,42 @@ describe('media library download actions', () => {
     assert.match(html, /Album name is required\./);
     assert.match(html, /No albums are available yet\./);
   });
+
+  it('renders HEIC originals with a stable inline-preview fallback instead of a broken image tag', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'managed-6',
+        type: 'photo',
+        label: 'IMG_2038.HEIC',
+        sourceId: 'telegram-import/Telegram_env/IMG_2038.HEIC',
+        sourceUrl: '/file/telegram-import/Telegram_env/IMG_2038.HEIC',
+        thumbnailUrl: '/file/telegram-import/Telegram_env/IMG_2038.HEIC',
+        width: 3024,
+        height: 4032,
+        displayTakenAt: 'April 8, 2026 21:10',
+        mimeType: 'image/heic',
+        sizeMb: 3.8,
+        location: '23.1291°N, 113.2644°E',
+        exif: {
+          gps: {
+            latitude: 23.1291,
+            longitude: 113.2644,
+          },
+        },
+        browserPreviewSupported: false,
+      },
+      selected: false,
+      favorited: false,
+      currentIndex: 0,
+      totalCount: 1,
+      infoOpen: true,
+      immersive: false,
+    });
+
+    assert.match(html, /HEIC original/);
+    assert.match(html, /This original photo format is preserved/);
+    assert.doesNotMatch(html, /<img class="cml-preview__media"/);
+    assert.match(html, /23\.1291°N, 113\.2644°E/);
+    assert.match(html, /Download original/);
+  });
 });
