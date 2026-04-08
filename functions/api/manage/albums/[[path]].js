@@ -1,6 +1,10 @@
 import {
   applyPersistedAlbumFileMutation,
+  buildAlbumStatePayload,
+  createPersistedAlbum,
   getPersistedAlbumFiles,
+  getPersistedAlbumState,
+  replacePersistedAlbumState,
 } from '../../../utils/albumsStore.js';
 
 function jsonResponse(payload, init = {}) {
@@ -23,6 +27,37 @@ export async function onRequest(context) {
   const albumId = resolveAlbumId(params);
 
   if (!albumId) {
+    if (request.method === 'GET') {
+      const state = await getPersistedAlbumState(env);
+      return jsonResponse(state);
+    }
+
+    if (request.method === 'POST') {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return jsonResponse({ error: 'Invalid JSON' }, { status: 400 });
+      }
+
+      try {
+        if (body?.state || body?.migrate) {
+          const nextState = buildAlbumStatePayload(body.state || body.migrate || {});
+          const state = await replacePersistedAlbumState(env, nextState);
+          return jsonResponse(state);
+        }
+
+        if (body?.name) {
+          const state = await createPersistedAlbum(env, body.name);
+          return jsonResponse(state);
+        }
+
+        return jsonResponse({ error: 'Album id is required' }, { status: 400 });
+      } catch (error) {
+        return jsonResponse({ error: error.message || 'Failed to update albums' }, { status: 400 });
+      }
+    }
+
     return jsonResponse({ error: 'Album id is required' }, { status: 400 });
   }
 
