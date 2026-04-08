@@ -411,7 +411,6 @@ export function TopSearchBar({ state, canDeleteSelection = false, canSetAlbumCov
           ${icon('plus')}
           <span>Upload</span>
         </button>
-        <button type="button" class="cml-topbar__icon-button" data-action="open-admin-dashboard" aria-label="Settings">${icon('settings')}</button>
       </div>
       ${AvatarButton({
         adminUsername: state.adminUsername,
