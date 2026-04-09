@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 
 import { onRequest as migrateKvToD1 } from '../functions/api/manage/migrate/kv-to-d1.js';
-import { getDatabase } from '../functions/utils/databaseAdapter.js';
+import { KV_TO_D1_MIGRATION_STATE_KEY, getDatabase } from '../functions/utils/databaseAdapter.js';
+import { D1Database } from '../functions/utils/d1Database.js';
 import { addFileToIndex, getIndexMeta, readIndex } from '../functions/utils/indexManager.js';
 import { SqliteD1 } from '../server/sqliteD1.js';
 
@@ -10,9 +11,15 @@ class MemoryKV {
         this.store = new Map();
         this.metadata = new Map();
         this.putCalls = [];
+        this.listCalls = [];
+        this.failPuts = new Set();
     }
 
     async put(key, value, options = {}) {
+        if (this.failPuts.has(key)) {
+            throw new Error(`KV put failed for ${key}`);
+        }
+
         this.store.set(key, value);
         this.metadata.set(key, options.metadata || null);
         this.putCalls.push({ key, value, options });
@@ -39,6 +46,7 @@ class MemoryKV {
     }
 
     async list(options = {}) {
+        this.listCalls.push(options);
         const prefix = options.prefix || '';
         const limit = options.limit || 1000;
         const cursor = options.cursor || null;
@@ -182,11 +190,109 @@ describe('D1 metadata migration path', () => {
         assert.equal(payload.success, true);
         assert.equal(payload.migratedFiles, 1);
         assert.equal(payload.migratedSettings, 1);
+        assert.equal(payload.migrationStatus.complete, true);
 
         const db = getDatabase(env);
         const migratedRecord = await db.getWithMetadata('photos/imported.jpg');
         assert.equal(migratedRecord.metadata.FileName, 'imported.jpg');
         const uploadConfig = await db.get('manage@sysConfig@upload');
         assert.ok(uploadConfig);
+
+        const d1 = new D1Database(env.img_d1);
+        const migrationStatus = JSON.parse(await d1.get(KV_TO_D1_MIGRATION_STATE_KEY));
+        assert.equal(migrationStatus.complete, true);
+    });
+
+    it('rolls back D1 metadata when the KV write fails in hybrid mode', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+        env.img_url.failPuts.add('photos/rollback.jpg');
+
+        const db = getDatabase(env);
+        await assert.rejects(
+            db.put('photos/rollback.jpg', 'kv-value', {
+                metadata: {
+                    FileName: 'rollback.jpg',
+                    TimeStamp: 10,
+                },
+            }),
+            /KV put failed/,
+        );
+
+        const d1 = new D1Database(env.img_d1);
+        assert.equal(await d1.getWithMetadata('photos/rollback.jpg'), null);
+        assert.equal(await env.img_url.get('photos/rollback.jpg'), null);
+    });
+
+    it('uses KV file listings until the KV-to-D1 migration is marked complete', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+        const db = getDatabase(env);
+
+        await env.img_url.put('photos/legacy.jpg', 'legacy-value', {
+            metadata: {
+                FileName: 'legacy.jpg',
+                TimeStamp: 20,
+            },
+        });
+
+        const beforeMigration = await db.list({ prefix: 'photos/' });
+        assert.deepEqual(beforeMigration.keys.map((item) => item.name), ['photos/legacy.jpg']);
+        assert.equal(env.img_url.listCalls.length, 1);
+
+        const d1 = new D1Database(env.img_d1);
+        await d1.put('photos/migrated.jpg', '', {
+            metadata: {
+                FileName: 'migrated.jpg',
+                TimeStamp: 30,
+            },
+        });
+        await d1.put(KV_TO_D1_MIGRATION_STATE_KEY, JSON.stringify({
+            complete: true,
+            nextCursor: null,
+            updatedAt: Date.now(),
+        }));
+
+        const afterMigration = await db.list({ prefix: 'photos/' });
+        assert.deepEqual(afterMigration.keys.map((item) => item.name), ['photos/migrated.jpg']);
+        assert.equal(env.img_url.listCalls.length, 1);
+    });
+
+    it('reports keys skipped because they are missing metadata during migration', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+
+        await env.img_url.put('photos/no-metadata.jpg', 'kv-value');
+        await env.img_url.put('photos/with-metadata.jpg', 'kv-value', {
+            metadata: {
+                FileName: 'with-metadata.jpg',
+                TimeStamp: 40,
+            },
+        });
+
+        const response = await migrateKvToD1(createContext(
+            env,
+            new Request('https://example.com/api/manage/migrate/kv-to-d1', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ limit: 100, rebuild: false }),
+            }),
+        ));
+
+        assert.equal(response.status, 200);
+        const payload = await response.json();
+        assert.equal(payload.skipped, 1);
+        assert.deepEqual(payload.skippedKeys, [
+            {
+                key: 'photos/no-metadata.jpg',
+                reason: 'missing_metadata',
+            },
+        ]);
     });
 });

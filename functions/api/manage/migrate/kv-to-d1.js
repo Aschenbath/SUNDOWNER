@@ -1,5 +1,6 @@
 import { rebuildIndex } from '../../../utils/indexManager.js';
 import { D1Database } from '../../../utils/d1Database.js';
+import { KV_TO_D1_MIGRATION_STATE_KEY } from '../../../utils/databaseAdapter.js';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -92,23 +93,31 @@ async function onRequestPost(context) {
     let migratedFiles = 0;
     let migratedSettings = 0;
     let skipped = 0;
+    const skippedKeys = [];
+
+    function recordSkippedKey(key, reason) {
+        skipped += 1;
+        if (skippedKeys.length < 100) {
+            skippedKeys.push({ key, reason });
+        }
+    }
 
     for (const item of response.keys || []) {
         const key = item.name;
         if (shouldSkipKey(key)) {
-            skipped += 1;
+            recordSkippedKey(key, 'internal_key');
             continue;
         }
 
         if (key.startsWith('manage@sysConfig@')) {
             if (!includeSettings) {
-                skipped += 1;
+                recordSkippedKey(key, 'settings_excluded');
                 continue;
             }
 
             const value = await env.img_url.get(key);
             if (value === null) {
-                skipped += 1;
+                recordSkippedKey(key, 'missing_setting_value');
                 continue;
             }
 
@@ -118,12 +127,12 @@ async function onRequestPost(context) {
         }
 
         if (key.startsWith('manage@')) {
-            skipped += 1;
+            recordSkippedKey(key, 'unsupported_manage_key');
             continue;
         }
 
         if (!item.metadata || Object.keys(item.metadata).length === 0) {
-            skipped += 1;
+            recordSkippedKey(key, 'missing_metadata');
             continue;
         }
 
@@ -132,6 +141,13 @@ async function onRequestPost(context) {
         });
         migratedFiles += 1;
     }
+
+    const migrationStatus = {
+        complete: !response.cursor,
+        nextCursor: response.cursor || null,
+        updatedAt: Date.now(),
+    };
+    await d1.put(KV_TO_D1_MIGRATION_STATE_KEY, JSON.stringify(migrationStatus));
 
     let rebuildResult = null;
     if (rebuild) {
@@ -143,8 +159,11 @@ async function onRequestPost(context) {
         migratedFiles,
         migratedSettings,
         skipped,
+        skippedKeys,
+        skippedKeysTruncated: skipped > skippedKeys.length,
         nextCursor: response.cursor || null,
         done: !response.cursor,
+        migrationStatus,
         rebuild: rebuildResult,
     }), {
         headers: {

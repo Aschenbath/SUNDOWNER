@@ -1,6 +1,8 @@
 import { D1Database } from './d1Database.js';
 import { stripSensitiveMetadata } from './mediaSecurity.js';
 
+export const KV_TO_D1_MIGRATION_STATE_KEY = 'manage@sysConfig@kvToD1Migration';
+
 function hasKVBinding(env) {
     return Boolean(env?.img_url && typeof env.img_url.get === 'function');
 }
@@ -38,6 +40,18 @@ function sanitizeOptionsForPut(key, options = {}) {
     }
 
     return options;
+}
+
+function parseMigrationStatus(rawValue) {
+    if (!rawValue) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(rawValue);
+    } catch {
+        return null;
+    }
 }
 
 export function createDatabaseAdapter(env) {
@@ -167,14 +181,48 @@ class HybridAdapter {
         this.d1 = d1;
     }
 
+    async snapshotD1Record(key) {
+        return this.d1.getWithMetadata(key);
+    }
+
+    async restoreD1Record(key, snapshot) {
+        if (!snapshot) {
+            await this.d1.delete(key);
+            return;
+        }
+
+        await this.d1.put(key, snapshot.value ?? '', {
+            metadata: snapshot.metadata || {},
+        });
+    }
+
+    async putWithRollback(key, d1Value, kvValue, options = {}) {
+        const snapshot = await this.snapshotD1Record(key);
+        await this.d1.put(key, d1Value, options);
+
+        try {
+            await this.kv.put(key, kvValue, options);
+        } catch (error) {
+            try {
+                await this.restoreD1Record(key, snapshot);
+            } catch (rollbackError) {
+                console.error(`Failed to roll back D1 state for ${key}:`, rollbackError);
+            }
+
+            throw error;
+        }
+    }
+
+    async getMigrationStatus() {
+        const rawValue = await this.d1.get(KV_TO_D1_MIGRATION_STATE_KEY);
+        return parseMigrationStatus(rawValue);
+    }
+
     async put(key, value, options = {}) {
         const sanitizedOptions = sanitizeOptionsForPut(key, options);
 
         if (isSettingsKey(key)) {
-            await Promise.all([
-                this.kv.put(key, value, sanitizedOptions),
-                this.d1.put(key, value, sanitizedOptions),
-            ]);
+            await this.putWithRollback(key, value, value, sanitizedOptions);
             return;
         }
 
@@ -183,10 +231,7 @@ class HybridAdapter {
         }
 
         if (shouldPersistFileMetadataInD1(key)) {
-            await Promise.all([
-                this.kv.put(key, value, sanitizedOptions),
-                this.d1.put(key, '', sanitizedOptions),
-            ]);
+            await this.putWithRollback(key, '', value, sanitizedOptions);
             return;
         }
 
@@ -264,8 +309,17 @@ class HybridAdapter {
     async list(options = {}) {
         const prefix = options.prefix || '';
 
-        if (isSettingsKey(prefix) || isIndexOperationKey(prefix) || isInternalIndexKey(prefix) || (!prefix || shouldPersistFileMetadataInD1(prefix))) {
+        if (isSettingsKey(prefix) || isIndexOperationKey(prefix) || isInternalIndexKey(prefix)) {
             return this.d1.list(options);
+        }
+
+        if (!prefix || shouldPersistFileMetadataInD1(prefix)) {
+            const migrationStatus = await this.getMigrationStatus();
+            if (migrationStatus?.complete === true) {
+                return this.d1.list(options);
+            }
+
+            return this.kv.list(options);
         }
 
         return this.kv.list(options);
