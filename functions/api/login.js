@@ -1,4 +1,4 @@
-import { fetchSecurityConfig } from "../utils/sysConfig";
+import { fetchSecurityConfig } from "../utils/sysConfig.js";
 
 export async function onRequestPost(context) {
     // Contents of context object

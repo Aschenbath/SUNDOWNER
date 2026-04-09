@@ -1,4 +1,4 @@
-import { fetchOthersConfig } from "../../utils/sysConfig";
+import { fetchOthersConfig } from "../../utils/sysConfig.js";
 import { readIndex } from '../../utils/indexManager.js';
 
 // CORS 跨域响应头

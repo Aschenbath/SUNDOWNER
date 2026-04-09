@@ -1,15 +1,15 @@
-import { userAuthCheck, UnauthorizedResponse } from "../utils/userAuth";
-import { fetchUploadConfig, fetchSecurityConfig } from "../utils/sysConfig";
+import { userAuthCheck, UnauthorizedResponse } from "../utils/userAuth.js";
+import { fetchUploadConfig, fetchSecurityConfig } from "../utils/sysConfig.js";
 import {
     createResponse, getUploadIp, getIPAddress, resolveFileExt,
     moderateContent, purgeCDNCache, isBlockedUploadIp, buildUniqueFileId, endUpload, getImageDimensions,
     sanitizeUploadFolder
-} from "./uploadTools";
-import { initializeChunkedUpload, handleChunkUpload, uploadLargeFileToTelegram, handleCleanupRequest } from "./chunkUpload";
-import { handleChunkMerge } from "./chunkMerge";
-import { TelegramAPI } from "../utils/telegramAPI";
-import { DiscordAPI } from "../utils/discordAPI";
-import { HuggingFaceAPI } from "../utils/huggingfaceAPI";
+} from "./uploadTools.js";
+import { initializeChunkedUpload, handleChunkUpload, uploadLargeFileToTelegram, handleCleanupRequest } from "./chunkUpload.js";
+import { handleChunkMerge } from "./chunkMerge.js";
+import { TelegramAPI } from "../utils/telegramAPI.js";
+import { DiscordAPI } from "../utils/discordAPI.js";
+import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getDatabase } from '../utils/databaseAdapter.js';
 import { extractExifData } from './exifExtractor.js';

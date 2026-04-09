@@ -1,5 +1,5 @@
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { purgeCFCache, purgeRandomFileListCache, purgePublicFileListCache } from "./purgeCache";
+import { purgeCFCache, purgeRandomFileListCache, purgePublicFileListCache } from "./purgeCache.js";
 import { DiscordAPI } from "./discordAPI.js";
 import { HuggingFaceAPI } from "./huggingfaceAPI.js";
 import { getDatabase } from './databaseAdapter.js';

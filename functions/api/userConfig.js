@@ -1,4 +1,4 @@
-import { fetchPageConfig } from "../utils/sysConfig";
+import { fetchPageConfig } from "../utils/sysConfig.js";
 
 export async function onRequest(context) {
     const { env } = context;

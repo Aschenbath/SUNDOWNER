@@ -24,7 +24,10 @@ export async function onRequest(context) {
         waitUntil(cleanupExpiredRecycleBin(context));
 
         const url = new URL(request.url);
-        const limit = Math.min(parseInt(url.searchParams.get('limit'), 10) || 200, 500);
+        const requestedLimit = parseInt(url.searchParams.get('limit'), 10);
+        const limit = Number.isFinite(requestedLimit)
+            ? Math.max(1, Math.min(requestedLimit, 500))
+            : 200;
         const now = Date.now();
 
         const records = await listRecycleBinRecords(env, { limit, now });

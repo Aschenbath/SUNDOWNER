@@ -1,5 +1,5 @@
 // WebDAV 服务支持
-import { fetchSecurityConfig, fetchOthersConfig } from "../utils/sysConfig";
+import { fetchSecurityConfig, fetchOthersConfig } from "../utils/sysConfig.js";
 
 export async function onRequest(context) {
     const { request, env } = context;

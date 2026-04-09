@@ -1,8 +1,8 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { fetchSecurityConfig } from "../utils/sysConfig";
-import { TelegramAPI } from "../utils/telegramAPI";
-import { DiscordAPI } from "../utils/discordAPI";
-import { HuggingFaceAPI } from "../utils/huggingfaceAPI";
+import { fetchSecurityConfig } from "../utils/sysConfig.js";
+import { TelegramAPI } from "../utils/telegramAPI.js";
+import { DiscordAPI } from "../utils/discordAPI.js";
+import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
 import {
     setCommonHeaders, setRangeHeaders, handleHeadRequest, getFileContent, isTgChannel,
     returnWithCheck, return404, returnBlockImg, isDomainAllowed

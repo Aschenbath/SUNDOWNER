@@ -1,6 +1,6 @@
 import sentryPlugin from "@cloudflare/pages-plugin-sentry";
 import '@sentry/tracing';
-import { fetchOthersConfig } from "./sysConfig";
+import { fetchOthersConfig } from "./sysConfig.js";
 import { checkDatabaseConfig as checkDbConfig } from './databaseAdapter.js';
 
 let disableTelemetry = false;
