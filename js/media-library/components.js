@@ -216,7 +216,7 @@ function renderMediaAsset(item, className, withControls = false) {
     ? ''
     : ` data-action="open-preview" data-id="${escapeHtml(item.id)}"${previewInlineHandler}`;
   if (item.type === 'photo' && item.browserPreviewSupported === false) {
-    // HEIC/HEIF: use thumbnail if available — the thumbnail is typically JPEG and renderable
+    // HEIC/HEIF: prefer separate thumbnail (JPEG) when available
     const fallbackUrl = item.thumbnailUrl && item.thumbnailUrl !== item.sourceUrl
       ? item.thumbnailUrl
       : (item.posterUrl || '');
@@ -226,19 +226,13 @@ function renderMediaAsset(item, className, withControls = false) {
       const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
       return `<img class="${className}" src="${thumbSrc}" alt="${alt}"${w}${h}${previewActionAttr} loading="lazy" decoding="async" />`;
     }
-    // No renderable resource at all — show placeholder
+    // No separate thumbnail — try loading the original (Safari supports HEIC natively).
+    // On browsers that can't decode it, onerror swaps in a minimal placeholder div.
     const mimeLabel = escapeHtml(String(item.mimeType || 'image/original').replace(/^image\//i, '').toUpperCase());
-    const previewHint = withControls
-      ? 'This original photo format is preserved, but this browser cannot render it inline.'
-      : 'Inline preview is unavailable in this browser.';
-    return `
-      <div class="${className} cml-media-unsupported ${withControls ? 'cml-media-unsupported--preview' : ''}" role="img" aria-label="${alt}"${previewActionAttr}>
-        <span class="cml-media-unsupported__badge">${mimeLabel}</span>
-        ${icon('documents', 'cml-media-unsupported__icon')}
-        <span class="cml-media-unsupported__title">${mimeLabel} original</span>
-        <span class="cml-media-unsupported__meta">${previewHint}</span>
-      </div>
-    `;
+    const w = item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
+    const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
+    const onErrorSwap = `var d=document.createElement('div');d.className='${className} cml-media-unsupported';d.innerHTML='<span class=\\'cml-media-unsupported__title\\'>${mimeLabel} original</span>';this.replaceWith(d)`;
+    return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${previewActionAttr} loading="lazy" decoding="async" onerror="${escapeHtml(onErrorSwap)}" />`;
   }
   if (item.type === 'video' && item.thumbnailUrl === sourceUrl) {
     return `<video class="${className}" src="${mediaUrl}"${previewActionAttr} ${withControls ? 'controls' : ''} muted playsinline preload="metadata"></video>`;
