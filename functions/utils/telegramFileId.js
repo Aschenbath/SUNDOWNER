@@ -8,13 +8,22 @@ function looksLikeTelegramFileId(value = '') {
     return String(value || '').trim().length >= 40;
 }
 
+function readFirstString(metadata = {}, keys = []) {
+    for (const key of keys) {
+        const value = String(metadata?.[key] || '').trim();
+        if (value) {
+            return value;
+        }
+    }
+    return '';
+}
+
 export function resolveStoredTelegramFileId(fileId = '', metadata = {}) {
-    const explicitId = String(
-        metadata?.TgFileId
-        || metadata?.TgFileID
-        || metadata?.tgFileId
-        || '',
-    ).trim();
+    const explicitId = readFirstString(metadata, [
+        'TgFileId',
+        'TgFileID',
+        'tgFileId',
+    ]);
     if (explicitId) {
         return explicitId;
     }
@@ -46,4 +55,45 @@ export function resolveStoredTelegramFileId(fileId = '', metadata = {}) {
     }
 
     return '';
+}
+
+export function resolveStoredTelegramThumbnail(metadata = {}) {
+    const fileId = readFirstString(metadata, [
+        'TgThumbnailFileId',
+        'TgThumbFileId',
+        'tgThumbnailFileId',
+        'tgThumbFileId',
+    ]);
+    if (!fileId) {
+        return null;
+    }
+
+    return {
+        fileId,
+        fileType: readFirstString(metadata, [
+            'TgThumbnailFileType',
+            'TgThumbFileType',
+            'tgThumbnailFileType',
+            'tgThumbFileType',
+        ]) || 'image/jpeg',
+    };
+}
+
+export function resolveStoredTelegramReadTarget(fileId = '', metadata = {}, options = {}) {
+    if (options?.preview === true) {
+        const thumbnail = resolveStoredTelegramThumbnail(metadata);
+        if (thumbnail?.fileId) {
+            return {
+                fileId: thumbnail.fileId,
+                fileType: thumbnail.fileType,
+                isPreview: true,
+            };
+        }
+    }
+
+    return {
+        fileId: resolveStoredTelegramFileId(fileId, metadata),
+        fileType: '',
+        isPreview: false,
+    };
 }

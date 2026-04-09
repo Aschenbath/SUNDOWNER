@@ -14,7 +14,7 @@ import {
     resolveS3Access,
     resolveTelegramAccess,
 } from '../utils/mediaSecurity.js';
-import { resolveStoredTelegramFileId } from '../utils/telegramFileId.js';
+import { resolveStoredTelegramReadTarget } from '../utils/telegramFileId.js';
 
 
 export async function onRequest(context) {  // Contents of context object
@@ -42,6 +42,7 @@ export async function onRequest(context) {  // Contents of context object
 
     const url = new URL(request.url);
     context.url = url;
+    const wantsPreview = ['1', 'true', 'yes'].includes(String(url.searchParams.get('preview') || '').trim().toLowerCase());
 
     const Referer = request.headers.get('Referer')
     context.Referer = Referer;
@@ -107,12 +108,18 @@ export async function onRequest(context) {  // Contents of context object
 
     // 构建目标 URL
     let targetUrl = '';
+    let responseFileType = fileType;
 
     if (isTgChannel(imgRecord)) {
+        const telegramReadTarget = resolveStoredTelegramReadTarget(fileId, imgRecord.metadata || {}, {
+            preview: wantsPreview,
+        });
+        responseFileType = telegramReadTarget.fileType || fileType;
+        const resolveStoredTelegramFileId = () => telegramReadTarget.fileId;
         let TgFileID = resolveStoredTelegramFileId(fileId, imgRecord.metadata || {}); // Tg的file_id
 
         if (imgRecord.metadata?.Channel === 'TelegramNew' && imgRecord.metadata?.IsChunked === true) {
-            return await handleTelegramChunkedFile(context, imgRecord, encodedFileName, fileType);
+            return await handleTelegramChunkedFile(context, imgRecord, encodedFileName, responseFileType);
         }
 
         if (!TgFileID && imgRecord.metadata?.Channel === 'Telegram') {
@@ -157,7 +164,7 @@ export async function onRequest(context) {  // Contents of context object
         }
 
         const headers = new Headers(response.headers);
-        setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
+        setCommonHeaders(headers, encodedFileName, responseFileType, Referer, url);
 
         const newRes = new Response(response.body, {
             status: response.status,

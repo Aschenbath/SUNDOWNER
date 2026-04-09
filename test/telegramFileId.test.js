@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { resolveStoredTelegramFileId } from '../functions/utils/telegramFileId.js';
+import {
+    resolveStoredTelegramFileId,
+    resolveStoredTelegramReadTarget,
+} from '../functions/utils/telegramFileId.js';
 
 describe('resolveStoredTelegramFileId', () => {
     it('prefers explicit TgFileId from metadata', () => {
@@ -47,5 +50,34 @@ describe('resolveStoredTelegramFileId', () => {
         });
 
         assert.equal(fileId, '');
+    });
+    it('prefers Telegram thumbnail ids for preview reads when available', () => {
+        const target = resolveStoredTelegramReadTarget('telegram-import/Telegram_env/IMG_2038.HEIC', {
+            Channel: 'TelegramNew',
+            TgFileId: 'AgAD-original-file-id',
+            TgThumbnailFileId: 'AgAD-thumbnail-file-id',
+            TgThumbnailFileType: 'image/jpeg',
+        }, { preview: true });
+
+        assert.deepEqual(target, {
+            fileId: 'AgAD-thumbnail-file-id',
+            fileType: 'image/jpeg',
+            isPreview: true,
+        });
+    });
+
+    it('falls back to the original Telegram file id for non-preview reads', () => {
+        const target = resolveStoredTelegramReadTarget('telegram-import/Telegram_env/IMG_2038.HEIC', {
+            Channel: 'TelegramNew',
+            TgFileId: 'AgAD-original-file-id',
+            TgThumbnailFileId: 'AgAD-thumbnail-file-id',
+            TgThumbnailFileType: 'image/jpeg',
+        }, { preview: false });
+
+        assert.deepEqual(target, {
+            fileId: 'AgAD-original-file-id',
+            fileType: '',
+            isPreview: false,
+        });
     });
 });

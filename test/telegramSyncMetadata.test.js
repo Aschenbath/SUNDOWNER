@@ -4,13 +4,19 @@ import exifr from 'exifr';
 
 let inferTelegramFileType;
 let buildTelegramImportMetadataHints;
+let buildTelegramThumbnailMetadata;
 let readTelegramImageMetadata;
 
 describe('telegramSync metadata helpers', () => {
   const originalParse = exifr.parse;
 
   before(async () => {
-    ({ inferTelegramFileType, buildTelegramImportMetadataHints, readTelegramImageMetadata } = await import('../functions/utils/telegramImportedMedia.js'));
+    ({
+      inferTelegramFileType,
+      buildTelegramImportMetadataHints,
+      buildTelegramThumbnailMetadata,
+      readTelegramImageMetadata
+    } = await import('../functions/utils/telegramImportedMedia.js'));
   });
 
   afterEach(() => {
@@ -49,6 +55,28 @@ describe('telegramSync metadata helpers', () => {
       TgMediaKind: 'document',
       TgPreservationHint: 'original-likely',
       TgExifRetentionHint: 'likely-retained',
+    });
+  });
+
+  it('stores Telegram thumbnail metadata when a document thumbnail is present', () => {
+    const hints = buildTelegramThumbnailMetadata({
+      file_name: 'IMG_2038.HEIC',
+      thumbnail: {
+        file_id: 'thumb-file-id',
+        file_unique_id: 'thumb-unique-id',
+        width: 320,
+        height: 240,
+        file_size: 12345,
+      },
+    });
+
+    assert.deepEqual(hints, {
+      TgThumbnailFileId: 'thumb-file-id',
+      TgThumbnailFileType: 'image/jpeg',
+      TgThumbnailFileUniqueId: 'thumb-unique-id',
+      TgThumbnailWidth: 320,
+      TgThumbnailHeight: 240,
+      TgThumbnailFileSize: 12345,
     });
   });
 

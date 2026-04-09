@@ -8,6 +8,11 @@ function normalizeKind(kind = '') {
     return String(kind || '').trim().toLowerCase()
 }
 
+function toPositiveInteger(value) {
+    const numeric = Number(value)
+    return Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : 0
+}
+
 function detectExt(reference = '') {
     const match = String(reference || '').trim().match(/\.([A-Za-z0-9]{2,8})(?:$|[?#])/)
     return normalizeExt(match?.[1] || '')
@@ -113,6 +118,32 @@ export function buildTelegramImportMetadataHints(kind, media, filePath = '') {
     }
 
     return hints
+}
+
+export function buildTelegramThumbnailMetadata(media = {}) {
+    const thumbnail = media?.thumbnail || media?.thumb || null
+    const fileId = String(thumbnail?.file_id || '').trim()
+    if (!fileId) {
+        return {}
+    }
+
+    const metadata = {
+        TgThumbnailFileId: fileId,
+        TgThumbnailFileType: 'image/jpeg',
+    }
+
+    const fileUniqueId = String(thumbnail?.file_unique_id || '').trim()
+    if (fileUniqueId) metadata.TgThumbnailFileUniqueId = fileUniqueId
+
+    const width = toPositiveInteger(thumbnail?.width)
+    const height = toPositiveInteger(thumbnail?.height)
+    const fileSize = toPositiveInteger(thumbnail?.file_size)
+
+    if (width > 0) metadata.TgThumbnailWidth = width
+    if (height > 0) metadata.TgThumbnailHeight = height
+    if (fileSize > 0) metadata.TgThumbnailFileSize = fileSize
+
+    return metadata
 }
 
 export async function readTelegramImageMetadata(telegramAPI, filePath, fileType) {
