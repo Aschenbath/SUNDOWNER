@@ -4665,7 +4665,20 @@ function patchTimelineContent() {
     viewportHeight: state.virtualViewportHeight
   });
   if (nextVirtualWindow.signature === refs.timelineVirtualSignature) return;
+
+  // Parse per-section signatures to find which sections actually changed
+  const prevParts = refs.timelineVirtualSignature ? refs.timelineVirtualSignature.split('|') : [];
+  const nextParts = nextVirtualWindow.signature.split('|');
+  const changedSet = new Set();
+  nextParts.forEach((part, i) => {
+    if (part !== prevParts[i]) {
+      const anchorId = part.split(':')[0];
+      if (anchorId) changedSet.add(anchorId);
+    }
+  });
   refs.timelineVirtualSignature = nextVirtualWindow.signature;
+
+  if (!changedSet.size) return;
 
   const activeAlbumName = getActiveAlbumName();
   const activeAlbumItems = activeAlbumName
@@ -4676,6 +4689,7 @@ function patchTimelineContent() {
     : '';
 
   nextVirtualWindow.sections.forEach((section) => {
+    if (!changedSet.has(section.anchorId)) return;
     const el = refs.root.querySelector(`#${CSS.escape(section.anchorId)}`);
     if (!el) return;
     const grid = el.querySelector('.cml-media-grid');
