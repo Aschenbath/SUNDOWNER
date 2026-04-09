@@ -102,6 +102,21 @@ function isMissingFileId(metadata = {}) {
 }
 
 /**
+ * Try to extract chatId and messageId from the key name when metadata lacks them.
+ * Key format: tg_<channelName>_<messageId>_<fileUniqueId>.<ext>
+ * e.g. tg_Telegram_env_42_AgADCx0AAm2GsVY.jpg → messageId=42
+ */
+function extractIdsFromKey(key, env) {
+    const basename = key.split('/').pop().replace(/\.[^.]+$/, ''); // strip dir + ext
+    const match = basename.match(/^tg_(.+)_(\d+)_(.+)$/);
+    if (!match) return null;
+    const messageId = match[2];
+    const chatId = env.TG_CHAT_ID || null;
+    if (!chatId) return null;
+    return { chatId, messageId };
+}
+
+/**
  * Extract the highest-quality file_id from a Telegram message object.
  */
 function extractFileId(message) {
@@ -175,12 +190,15 @@ export async function onRequestPost(context) {
     };
 
     if (dryRun) {
-        results.skipped = candidates.slice(0, limit).map(c => ({
-            id: c.id,
-            reason: 'dry run',
-            chatId: c.metadata.TgChatId,
-            messageId: c.metadata.TgMessageId,
-        }));
+        results.skipped = candidates.slice(0, limit).map(c => {
+            const chatId = c.metadata.TgChatId
+                || extractIdsFromKey(c.id, env)?.chatId
+                || null;
+            const messageId = c.metadata.TgMessageId
+                || extractIdsFromKey(c.id, env)?.messageId
+                || null;
+            return { id: c.id, reason: 'dry run', chatId, messageId };
+        });
         results.processed = results.skipped.length;
         return jsonResponse(results);
     }
@@ -190,11 +208,14 @@ export async function onRequestPost(context) {
     for (const candidate of toProcess) {
         results.processed++;
         const { id, metadata } = candidate;
-        const chatId = metadata.TgChatId;
-        const messageId = metadata.TgMessageId;
+
+        // Prefer metadata fields; fall back to extracting from key name + env
+        const fromKey = extractIdsFromKey(id, env);
+        const chatId = metadata.TgChatId || fromKey?.chatId || null;
+        const messageId = metadata.TgMessageId || fromKey?.messageId || null;
 
         if (!chatId || !messageId) {
-            results.skipped.push({ id, reason: 'missing TgChatId or TgMessageId' });
+            results.skipped.push({ id, reason: 'missing TgChatId or TgMessageId (not in metadata or key)' });
             continue;
         }
 
