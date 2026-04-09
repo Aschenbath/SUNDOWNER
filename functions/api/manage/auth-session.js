@@ -1,4 +1,4 @@
-import { fetchSecurityConfig } from '../../utils/sysConfig';
+import { fetchSecurityConfig } from '../../utils/sysConfig.js';
 import {
   ADMIN_SESSION_MAX_AGE,
   createAdminSessionToken,

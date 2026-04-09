@@ -1,6 +1,6 @@
-import { fetchSecurityConfig } from '../../utils/sysConfig';
-import { checkDatabaseConfig } from '../../utils/middleware';
-import { validateApiToken } from '../../utils/tokenValidator';
+import { fetchSecurityConfig } from '../../utils/sysConfig.js';
+import { checkDatabaseConfig } from '../../utils/middleware.js';
+import { validateApiToken } from '../../utils/tokenValidator.js';
 import { getDatabase } from '../../utils/databaseAdapter.js';
 import { getAdminSessionTokenFromRequest, verifyAdminSessionToken } from '../../utils/adminSession.js';
 

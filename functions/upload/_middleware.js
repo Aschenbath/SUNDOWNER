@@ -1,4 +1,4 @@
-import { errorHandling, telemetryData, checkDatabaseConfig } from '../utils/middleware';
+import { errorHandling, telemetryData, checkDatabaseConfig } from '../utils/middleware.js';
 
 // CORS 跨域响应头
 const corsHeaders = {
