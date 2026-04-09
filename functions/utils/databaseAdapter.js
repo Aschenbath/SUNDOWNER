@@ -179,6 +179,7 @@ class HybridAdapter {
     constructor(kv, d1) {
         this.kv = kv;
         this.d1 = d1;
+        this._migrationStatusPromise = null;
     }
 
     async snapshotD1Record(key) {
@@ -213,9 +214,30 @@ class HybridAdapter {
         }
     }
 
+    async deleteWithRollback(key, options = {}) {
+        const snapshot = await this.snapshotD1Record(key);
+        await this.d1.delete(key);
+
+        try {
+            await this.kv.delete(key, options);
+        } catch (error) {
+            try {
+                await this.restoreD1Record(key, snapshot);
+            } catch (rollbackError) {
+                console.error(`Failed to roll back D1 delete for ${key}:`, rollbackError);
+            }
+
+            throw error;
+        }
+    }
+
     async getMigrationStatus() {
-        const rawValue = await this.d1.get(KV_TO_D1_MIGRATION_STATE_KEY);
-        return parseMigrationStatus(rawValue);
+        if (!this._migrationStatusPromise) {
+            this._migrationStatusPromise = this.d1.get(KV_TO_D1_MIGRATION_STATE_KEY)
+                .then((rawValue) => parseMigrationStatus(rawValue));
+        }
+
+        return this._migrationStatusPromise;
     }
 
     async put(key, value, options = {}) {
@@ -284,10 +306,7 @@ class HybridAdapter {
 
     async delete(key, options = {}) {
         if (isSettingsKey(key)) {
-            await Promise.allSettled([
-                this.kv.delete(key, options),
-                this.d1.delete(key),
-            ]);
+            await this.deleteWithRollback(key, options);
             return;
         }
 
@@ -296,10 +315,7 @@ class HybridAdapter {
         }
 
         if (shouldPersistFileMetadataInD1(key)) {
-            await Promise.allSettled([
-                this.kv.delete(key, options),
-                this.d1.delete(key),
-            ]);
+            await this.deleteWithRollback(key, options);
             return;
         }
 

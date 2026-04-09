@@ -13,6 +13,7 @@ class MemoryKV {
         this.putCalls = [];
         this.listCalls = [];
         this.failPuts = new Set();
+        this.failDeletes = new Set();
     }
 
     async put(key, value, options = {}) {
@@ -41,6 +42,10 @@ class MemoryKV {
     }
 
     async delete(key) {
+        if (this.failDeletes.has(key)) {
+            throw new Error(`KV delete failed for ${key}`);
+        }
+
         this.store.delete(key);
         this.metadata.delete(key);
     }
@@ -257,9 +262,76 @@ describe('D1 metadata migration path', () => {
             updatedAt: Date.now(),
         }));
 
-        const afterMigration = await db.list({ prefix: 'photos/' });
+        const afterMigrationDb = getDatabase(env);
+        const afterMigration = await afterMigrationDb.list({ prefix: 'photos/' });
         assert.deepEqual(afterMigration.keys.map((item) => item.name), ['photos/migrated.jpg']);
         assert.equal(env.img_url.listCalls.length, 1);
+    });
+
+    it('caches migrationStatus per HybridAdapter instance across repeated file list calls', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+        const db = getDatabase(env);
+        const originalGet = db.d1.get.bind(db.d1);
+        let migrationStatusReads = 0;
+
+        await env.img_url.put('photos/one.jpg', 'value-one', {
+            metadata: {
+                FileName: 'one.jpg',
+                TimeStamp: 10,
+            },
+        });
+        await env.img_url.put('photos/two.jpg', 'value-two', {
+            metadata: {
+                FileName: 'two.jpg',
+                TimeStamp: 20,
+            },
+        });
+
+        db.d1.get = async (key) => {
+            if (key === KV_TO_D1_MIGRATION_STATE_KEY) {
+                migrationStatusReads += 1;
+            }
+
+            return originalGet(key);
+        };
+
+        const firstList = await db.list({ prefix: 'photos/' });
+        const secondList = await db.list({ prefix: 'photos/' });
+
+        assert.deepEqual(firstList.keys.map((item) => item.name), ['photos/one.jpg', 'photos/two.jpg']);
+        assert.deepEqual(secondList.keys.map((item) => item.name), ['photos/one.jpg', 'photos/two.jpg']);
+        assert.equal(migrationStatusReads, 1);
+        assert.equal(env.img_url.listCalls.length, 2);
+    });
+
+    it('restores the D1 record when KV delete fails in hybrid mode', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+        const db = getDatabase(env);
+
+        await db.put('photos/delete-rollback.jpg', 'kv-value', {
+            metadata: {
+                FileName: 'delete-rollback.jpg',
+                TimeStamp: 50,
+            },
+        });
+        env.img_url.failDeletes.add('photos/delete-rollback.jpg');
+
+        await assert.rejects(
+            db.delete('photos/delete-rollback.jpg'),
+            /KV delete failed/,
+        );
+
+        const d1 = new D1Database(env.img_d1);
+        const restoredRecord = await d1.getWithMetadata('photos/delete-rollback.jpg');
+        assert.equal(restoredRecord.value, '');
+        assert.equal(restoredRecord.metadata.FileName, 'delete-rollback.jpg');
+        assert.equal(await env.img_url.get('photos/delete-rollback.jpg'), 'kv-value');
     });
 
     it('reports keys skipped because they are missing metadata during migration', async () => {
