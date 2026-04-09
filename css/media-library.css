@@ -978,7 +978,16 @@ body.codex-media-library-active #app {
   cursor: pointer;
   flex-shrink: 0;
   padding: 0;
-  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 140ms ease, transform 140ms ease, border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+/* Lazy checkmark: show on header hover or when section is selected */
+#codex-media-library-root .cml-timeline-section__header:hover .cml-timeline-section__select,
+#codex-media-library-root .cml-timeline-section__select.is-active {
+  opacity: 1;
+  transform: scale(1);
 }
 
 #codex-media-library-root .cml-timeline-section__select .cml-icon {

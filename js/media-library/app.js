@@ -2001,9 +2001,12 @@ function inferAlbumFromFileId(fileId, metadata) {
 }
 
 function formatGPSCoords(lat, lng) {
-  const latDir = lat >= 0 ? 'N' : 'S';
-  const lngDir = lng >= 0 ? 'E' : 'W';
-  return `${Math.abs(lat).toFixed(4)}\u00b0${latDir}, ${Math.abs(lng).toFixed(4)}\u00b0${lngDir}`;
+  const numLat = Number(lat);
+  const numLng = Number(lng);
+  if (!Number.isFinite(numLat) || !Number.isFinite(numLng)) return '';
+  const latDir = numLat >= 0 ? 'N' : 'S';
+  const lngDir = numLng >= 0 ? 'E' : 'W';
+  return `${Math.abs(numLat).toFixed(4)}\u00b0${latDir}, ${Math.abs(numLng).toFixed(4)}\u00b0${lngDir}`;
 }
 
 function inferLocationFromMetadata(metadata, domMatch) {
