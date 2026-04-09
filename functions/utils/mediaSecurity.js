@@ -15,11 +15,26 @@ function cloneMetadata(metadata = {}) {
   return metadata && typeof metadata === 'object' ? { ...metadata } : {};
 }
 
+function normalizeChannelKey(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
 function findChannelByName(section, channelName) {
   if (!section || !Array.isArray(section.channels) || !channelName) {
     return null;
   }
-  return section.channels.find((channel) => channel?.name === channelName) || null;
+  const requested = normalizeChannelKey(channelName);
+  return section.channels.find((channel) => {
+    if (!channel?.name) {
+      return false;
+    }
+    return channel.name === channelName
+      || normalizeChannelKey(channel.name) === requested;
+  }) || null;
 }
 
 async function loadUploadConfig(env) {
@@ -58,7 +73,17 @@ export async function resolveTelegramAccess(env, metadata = {}) {
     };
   }
 
-  if (env.TG_BOT_TOKEN && (!metadata.ChannelName || metadata.ChannelName === 'Telegram_env')) {
+  const normalizedChannelName = normalizeChannelKey(metadata.ChannelName);
+  if (
+    env.TG_BOT_TOKEN
+    && (
+      metadata.Channel === 'Telegram'
+      || metadata.Channel === 'TelegramNew'
+      || !metadata.ChannelName
+      || normalizedChannelName === 'telegram_env'
+      || normalizedChannelName.startsWith('telegram_env_')
+    )
+  ) {
     return {
       botToken: env.TG_BOT_TOKEN,
       chatId: metadata.TgChatId || env.TG_CHAT_ID || null,

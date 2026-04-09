@@ -168,3 +168,7 @@ EXIF 鎻愬彇宸插畬鎴愬苟鍚堝叆 main銆備互涓嬫槸 Codex 鍙兘
 ### 2026-04-09 11:39 Asia/Shanghai
 
 - Follow-up fix for still-broken JPG tiles: the media timeline no longer trusts upstream DOM thumbnail URLs for ordinary browser-supported photos. `resolvePhotoPreviewUrl(...)` now uses the canonical `/file/...` route for JPEG/PNG/WebP/etc. and only keeps the alternate fallback path for HEIC/HEIF preview handling. This avoids stale/provider-specific thumbnail URLs from the hidden upstream dashboard and restores the remaining broken photo tiles. Cache bust advanced to `app.js?v=58`. Reverified with `node --check js/media-library/app.js`.
+
+### 2026-04-09 11:54 Asia/Shanghai
+
+- Fixed a backend compatibility gap for Telegram-backed media that was still causing many `/file/...` image requests to return `500`. `resolveTelegramAccess(...)` in `functions/utils/mediaSecurity.js` now matches configured Telegram channel names after normalization (for example `Telegram env` vs `Telegram_env`) and falls back to `env.TG_BOT_TOKEN` for legacy `Telegram` / `TelegramNew` records even when the stored channel name has suffix variants like `Telegram_env_legacy`. `functions/file/[[path]].js` now also prefers stored `metadata.TgFileId` before falling back to legacy key-derived Telegram ids, while preserving chunked-file handling. Added regression coverage in `test/mediaSecurity.test.js` and reverified with `node --check` on the touched backend files plus targeted Mocha (`2 passing`).

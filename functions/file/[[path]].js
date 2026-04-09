@@ -108,21 +108,24 @@ export async function onRequest(context) {  // Contents of context object
     let targetUrl = '';
 
     if (isTgChannel(imgRecord)) {
-        let TgFileID = ''; // Tg的file_id
+        let TgFileID = String(imgRecord.metadata?.TgFileId || '').trim(); // Tg的file_id
 
-        if (imgRecord.metadata?.Channel === 'Telegram') {
+        if (imgRecord.metadata?.Channel === 'TelegramNew' && imgRecord.metadata?.IsChunked === true) {
+            return await handleTelegramChunkedFile(context, imgRecord, encodedFileName, fileType);
+        }
+
+        if (!TgFileID && imgRecord.metadata?.Channel === 'Telegram') {
             TgFileID = fileId.split('.')[0]; // id为file_id + ext
-        } else if (imgRecord.metadata?.Channel === 'TelegramNew') {
-            // 检查是否为分片文件
-            if (imgRecord.metadata?.IsChunked === true) {
-                return await handleTelegramChunkedFile(context, imgRecord, encodedFileName, fileType);
-            }
-
+        } else if (!TgFileID && imgRecord.metadata?.Channel === 'TelegramNew') {
             TgFileID = imgRecord.metadata?.TgFileId;
 
             if (TgFileID === null) {
                 return new Response('Error: Failed to fetch image', { status: 500 });
             }
+        }
+
+        if (!TgFileID) {
+            return new Response('Error: Telegram file id missing', { status: 500 });
         }
 
         // 获取TG图片真实地址（支持代理域名）
