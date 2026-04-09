@@ -16,6 +16,16 @@ export async function onRequest(context) {
         return new Response(null, { headers: corsHeaders });
     }
 
+    if (request.method !== 'POST') {
+        return new Response(JSON.stringify({
+            success: false,
+            error: 'Method not allowed'
+        }), {
+            status: 405,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+
     try {
         const records = await listRecycleBinRecords(context.env, { limit: 500 });
 
