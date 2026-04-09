@@ -4,6 +4,10 @@ function getBaseNameWithoutExtension(fileId = '') {
     return lastDot > 0 ? normalized.slice(0, lastDot) : normalized;
 }
 
+function looksLikeTelegramFileId(value = '') {
+    return String(value || '').trim().length >= 40;
+}
+
 export function resolveStoredTelegramFileId(fileId = '', metadata = {}) {
     const explicitId = String(
         metadata?.TgFileId
@@ -22,10 +26,18 @@ export function resolveStoredTelegramFileId(fileId = '', metadata = {}) {
     }
 
     // Telegram sync imports are stored as:
-    // tg_<sanitized_channel_name>_<messageId>_<telegram_file_id>.<ext>
+    // tg_<sanitized_channel_name>_<messageId>_<telegram_file_unique_id>.<ext>
     const importedMatch = baseName.match(/^tg_(.+)_(\d+)_(.+)$/);
-    if (importedMatch?.[3]) {
-        return importedMatch[3];
+    const importedCandidate = String(importedMatch?.[3] || '').trim();
+    if (importedCandidate) {
+        const explicitUniqueId = String(metadata?.TgFileUniqueId || '').trim();
+        if (explicitUniqueId && explicitUniqueId === importedCandidate) {
+            return '';
+        }
+        if (looksLikeTelegramFileId(importedCandidate)) {
+            return importedCandidate;
+        }
+        return '';
     }
 
     // Legacy Telegram records used raw file_id as the storage key base name.

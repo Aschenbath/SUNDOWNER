@@ -14,7 +14,7 @@ function hasScheme(value = '') {
     return /^[a-z][a-z0-9+.-]*:\/\//i.test(String(value).trim())
 }
 
-function resolveTelegramOrigin(proxyUrl = '') {
+export function resolveTelegramOrigin(proxyUrl = '') {
     const normalized = String(proxyUrl || '').trim()
     if (!normalized) {
         return DEFAULT_TELEGRAM_ORIGIN
@@ -25,6 +25,11 @@ function resolveTelegramOrigin(proxyUrl = '') {
     }
 
     return `https://${normalized.replace(/^\/+|\/+$/g, '')}`
+}
+
+export function buildTelegramFileUrl(botToken, filePath, proxyUrl = '') {
+    const normalizedPath = String(filePath || '').replace(/^\/+/, '')
+    return `${resolveTelegramOrigin(proxyUrl)}/file/bot${botToken}/${normalizedPath}`
 }
 
 function resolveProxyEndpoint(proxyUrl = '') {
@@ -261,7 +266,7 @@ export class TelegramAPI {
             requestInit.dispatcher = dispatcher
         }
 
-        const fullURL = `${this.fileDomain}/file/bot${this.botToken}/${filePath}`
+        const fullURL = buildTelegramFileUrl(this.botToken, filePath, this.proxyUrl)
         return await fetch(fullURL, requestInit)
     }
 

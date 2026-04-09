@@ -1,5 +1,5 @@
 import { getDatabase } from './databaseAdapter.js'
-import { TelegramAPI } from './telegramAPI.js'
+import { TelegramAPI, buildTelegramFileUrl } from './telegramAPI.js'
 import { buildTelegramImportMetadataHints, inferTelegramExtension, inferTelegramFileType, readTelegramImageMetadata } from './telegramImportedMedia.js'
 import { addFileToIndex, removeFileFromIndex } from './indexManager.js'
 import { getUploadConfig, normalizeUploadSettings } from '../api/manage/sysConfig/upload.js'
@@ -392,8 +392,7 @@ async function buildImportedMetadata(context, channel, message, source, mediaInf
     }
 
     if (filePath) {
-        const moderateDomain = channel.proxyUrl ? `https://${channel.proxyUrl}` : 'https://api.telegram.org'
-        const moderateUrl = `${moderateDomain}/file/bot${channel.botToken}/${filePath}`
+        const moderateUrl = buildTelegramFileUrl(channel.botToken, filePath, channel.proxyUrl || '')
         try {
             metadata.Label = await moderateContent(context.env, moderateUrl)
         } catch (error) {

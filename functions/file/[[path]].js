@@ -1,6 +1,6 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { fetchSecurityConfig } from "../utils/sysConfig.js";
-import { TelegramAPI } from "../utils/telegramAPI.js";
+import { TelegramAPI, buildTelegramFileUrl } from "../utils/telegramAPI.js";
 import { DiscordAPI } from "../utils/discordAPI.js";
 import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
 import {
@@ -142,8 +142,7 @@ export async function onRequest(context) {  // Contents of context object
             return new Response('Error: Failed to fetch image path', { status: 500 });
         }
         // 使用代理域名或官方域名
-        const fileDomain = TgProxyUrl ? `https://${TgProxyUrl}` : 'https://api.telegram.org';
-        targetUrl = `${fileDomain}/file/bot${TgBotToken}/${filePath}`;
+        targetUrl = buildTelegramFileUrl(TgBotToken, filePath, TgProxyUrl);
     } else {
         targetUrl = 'https://telegra.ph/' + url.pathname + url.search;
     }

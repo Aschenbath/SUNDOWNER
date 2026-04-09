@@ -11,13 +11,26 @@ describe('resolveStoredTelegramFileId', () => {
         assert.equal(fileId, 'AgADyBcAAm2GuVY');
     });
 
-    it('extracts telegram file ids from imported telegram-sync keys', () => {
+    it('does not treat imported telegram file_unique_ids as usable file_ids', () => {
         const fileId = resolveStoredTelegramFileId('tg_Telegram_env_43_AgADyBcAAm2GuVY.heic', {
             Channel: 'TelegramNew',
             ChannelName: 'Telegram_env',
+            TgFileUniqueId: 'AgADyBcAAm2GuVY',
         });
 
-        assert.equal(fileId, 'AgADyBcAAm2GuVY');
+        assert.equal(fileId, '');
+    });
+
+    it('still accepts imported keys that already embed a full telegram file_id', () => {
+        const fileId = resolveStoredTelegramFileId(
+            'tg_Telegram_env_43_AgACAgUAAyEFAATnpBp7AAMHadDV-HVlaHAdpHS7GZrXMQS209YAAt8MaxuXRYFW-69-C9Xd0roBAAMCAAN3AAM7BA.heic',
+            {
+                Channel: 'TelegramNew',
+                ChannelName: 'Telegram_env',
+            },
+        );
+
+        assert.equal(fileId, 'AgACAgUAAyEFAATnpBp7AAMHadDV-HVlaHAdpHS7GZrXMQS209YAAt8MaxuXRYFW-69-C9Xd0roBAAMCAAN3AAM7BA');
     });
 
     it('falls back to raw legacy telegram key base names', () => {

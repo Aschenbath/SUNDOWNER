@@ -7,7 +7,7 @@ import {
 } from "./uploadTools.js";
 import { initializeChunkedUpload, handleChunkUpload, uploadLargeFileToTelegram, handleCleanupRequest } from "./chunkUpload.js";
 import { handleChunkMerge } from "./chunkMerge.js";
-import { TelegramAPI } from "../utils/telegramAPI.js";
+import { TelegramAPI, buildTelegramFileUrl } from "../utils/telegramAPI.js";
 import { DiscordAPI } from "../utils/discordAPI.js";
 import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -539,8 +539,7 @@ async function uploadFileToTelegram(context, fullId, metadata, fileExt, fileName
 
 
         // 图像审查（使用代理域名或官方域名）
-        const moderateDomain = tgProxyUrl ? `https://${tgProxyUrl}` : 'https://api.telegram.org';
-        const moderateUrl = `${moderateDomain}/file/bot${tgBotToken}/${filePath}`;
+        const moderateUrl = buildTelegramFileUrl(tgBotToken, filePath, tgProxyUrl);
         metadata.Label = await moderateContent(env, moderateUrl);
 
         // 更新metadata，写入KV数据库
