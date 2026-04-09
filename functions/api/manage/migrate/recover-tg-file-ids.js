@@ -36,7 +36,7 @@ import { getDatabase } from '../../../utils/databaseAdapter.js';
 import { TelegramAPI } from '../../../utils/telegramAPI.js';
 import { resolveTelegramAccess } from '../../../utils/mediaSecurity.js';
 import { addFileToIndex } from '../../../utils/indexManager.js';
-import { getUploadConfig } from '../../sysConfig/upload.js';
+import { getUploadConfig } from '../sysConfig/upload.js';
 
 const INDEX_META_KEY = 'manage@index@meta';
 const INDEX_KEY = 'manage@index';
