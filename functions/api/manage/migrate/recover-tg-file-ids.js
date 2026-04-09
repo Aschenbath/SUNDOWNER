@@ -219,9 +219,17 @@ export async function onRequestPost(context) {
             continue;
         }
 
-        const telegramAccess = await resolveTelegramAccess(env, metadata);
+        let telegramAccess = await resolveTelegramAccess(env, metadata);
+        // Old sync-imported files may lack Channel/ChannelName in metadata.
+        // Fall back to the env-level bot token which is always the default channel.
+        if (!telegramAccess?.botToken && env.TG_BOT_TOKEN) {
+            telegramAccess = {
+                botToken: env.TG_BOT_TOKEN,
+                proxyUrl: env.TG_PROXY_URL || '',
+            };
+        }
         if (!telegramAccess?.botToken) {
-            results.skipped.push({ id, reason: 'no bot token resolved' });
+            results.skipped.push({ id, reason: 'no bot token resolved (TG_BOT_TOKEN env var not set)' });
             continue;
         }
 
