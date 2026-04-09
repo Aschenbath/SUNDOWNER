@@ -654,6 +654,8 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-main-content {
   min-width: 0;
   overflow: auto;
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
   padding: 0 28px 34px;
   scrollbar-width: thin;
   scrollbar-color: rgba(138, 180, 248, 0.25) transparent;
@@ -1144,6 +1146,7 @@ body.codex-media-library-active #app {
   max-width: 340px;
   font-size: 13px;
 }
+
 
 #codex-media-library-root .cml-media-tile__scrim {
   position: absolute;
