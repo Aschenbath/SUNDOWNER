@@ -18,7 +18,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=5';
+} from './components.js?v=6';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -27,6 +27,7 @@ import {
 } from './search-filters.js';
 import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
 import { findPreviewMatch } from './preview-resolution.js';
+import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -1358,18 +1359,6 @@ function stripExtension(value) {
   return String(value || '').replace(FILE_EXTENSION_PATTERN, '');
 }
 
-function createLookupKey(value) {
-  return stripExtension(decodeValue(normalizeText(value))).toLowerCase();
-}
-
-function getLookupKeys(fileId, fileName, label) {
-  const pathName = String(fileId || '').split('/').filter(Boolean).pop() || '';
-  const values = [fileId, pathName, fileName, label]
-    .map(createLookupKey)
-    .filter(Boolean);
-  return [...new Set(values)];
-}
-
 function encodePathForRoute(fileId) {
   return String(fileId || '')
     .split('/')
@@ -1700,7 +1689,7 @@ function hasUnderlyingSurface() {
 function buildDomLookup(items) {
   const lookup = new Map();
   items.forEach((item) => {
-    getLookupKeys(item.sourceId, item.label, item.label).forEach((key) => {
+    buildMediaLookupKeys(item.sourceId, item.label, item.label).forEach((key) => {
       if (key && !lookup.has(key)) {
         lookup.set(key, item);
       }
@@ -2113,7 +2102,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     return null;
   }
 
-  const lookupKeys = getLookupKeys(fileId, fileName, fileName);
+  const lookupKeys = buildMediaLookupKeys(fileId, fileName, fileName);
   const domMatch = lookupKeys.map((key) => domLookup.get(key)).find(Boolean) || null;
   const type = mimeType.startsWith('video/') ? 'video' : 'photo';
   const width = toPositiveNumber(metadata.Width, toPositiveNumber(domMatch?.width, type === 'video' ? 1280 : 1200));
