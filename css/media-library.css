@@ -2978,7 +2978,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-preview__album-panel {
-  --cml-preview-drawer-width: min(480px, 42vw);
+  --cml-preview-drawer-width: var(--cml-preview-info-width);
 }
 
 #codex-media-library-root .cml-preview__info.is-open,
@@ -3414,7 +3414,7 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-preview__album-panel {
-    --cml-preview-drawer-width: min(420px, 44vw);
+    --cml-preview-drawer-width: var(--cml-preview-info-width);
   }
 
   #codex-media-library-root .cml-preview.is-immersive .cml-preview__stage {
