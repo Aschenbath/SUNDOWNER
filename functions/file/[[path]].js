@@ -14,6 +14,7 @@ import {
     resolveS3Access,
     resolveTelegramAccess,
 } from '../utils/mediaSecurity.js';
+import { resolveStoredTelegramFileId } from '../utils/telegramFileId.js';
 
 
 export async function onRequest(context) {  // Contents of context object
@@ -108,7 +109,7 @@ export async function onRequest(context) {  // Contents of context object
     let targetUrl = '';
 
     if (isTgChannel(imgRecord)) {
-        let TgFileID = String(imgRecord.metadata?.TgFileId || '').trim(); // Tg的file_id
+        let TgFileID = resolveStoredTelegramFileId(fileId, imgRecord.metadata || {}); // Tg的file_id
 
         if (imgRecord.metadata?.Channel === 'TelegramNew' && imgRecord.metadata?.IsChunked === true) {
             return await handleTelegramChunkedFile(context, imgRecord, encodedFileName, fileType);
