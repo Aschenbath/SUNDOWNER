@@ -36,6 +36,7 @@ import { getDatabase } from '../../../utils/databaseAdapter.js';
 import { TelegramAPI } from '../../../utils/telegramAPI.js';
 import { resolveTelegramAccess } from '../../../utils/mediaSecurity.js';
 import { addFileToIndex } from '../../../utils/indexManager.js';
+import { getUploadConfig } from '../../sysConfig/upload.js';
 
 const INDEX_META_KEY = 'manage@index@meta';
 const INDEX_KEY = 'manage@index';
@@ -221,15 +222,20 @@ export async function onRequestPost(context) {
 
         let telegramAccess = await resolveTelegramAccess(env, metadata);
         // Old sync-imported files may lack Channel/ChannelName in metadata.
-        // Fall back to the env-level bot token which is always the default channel.
-        if (!telegramAccess?.botToken && env.TG_BOT_TOKEN) {
-            telegramAccess = {
-                botToken: env.TG_BOT_TOKEN,
-                proxyUrl: env.TG_PROXY_URL || '',
-            };
+        // Fall back to first enabled Telegram channel in KV config.
+        if (!telegramAccess?.botToken) {
+            const uploadConfig = await getUploadConfig(db, env);
+            const firstChannel = (uploadConfig?.telegram?.channels || [])
+                .find(ch => ch.botToken && ch.enabled !== false);
+            if (firstChannel) {
+                telegramAccess = {
+                    botToken: firstChannel.botToken,
+                    proxyUrl: firstChannel.proxyUrl || '',
+                };
+            }
         }
         if (!telegramAccess?.botToken) {
-            results.skipped.push({ id, reason: 'no bot token resolved (TG_BOT_TOKEN env var not set)' });
+            results.skipped.push({ id, reason: 'no bot token resolved' });
             continue;
         }
 
