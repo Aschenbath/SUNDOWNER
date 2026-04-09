@@ -1,6 +1,9 @@
 import { dualAuthCheck } from '../utils/dualAuth.js';
 import { fetchSecurityConfig } from '../utils/sysConfig.js';
 
+const ALLOWED_PORTS = new Set(['', '80', '443']);
+const MAX_REDIRECTS = 3;
+
 function parseAllowedHosts(env, securityConfig) {
     const raw = [
         env.FETCH_RES_ALLOWED_HOSTS || '',
@@ -64,78 +67,125 @@ function isAllowedHost(hostname, allowedHosts) {
     ));
 }
 
+function isAllowedPort(parsedTargetUrl) {
+    const port = parsedTargetUrl.port || '';
+    return ALLOWED_PORTS.has(port);
+}
+
+function jsonResponse(payload, status) {
+    return new Response(JSON.stringify(payload), {
+        status,
+        headers: { 'Content-Type': 'application/json' }
+    });
+}
+
+function validateTargetUrl(parsedTargetUrl, allowedHosts) {
+    if (!['https:', 'http:'].includes(parsedTargetUrl.protocol) || parsedTargetUrl.username || parsedTargetUrl.password) {
+        return { ok: false, response: jsonResponse({ error: 'Target URL is not allowed' }, 403) };
+    }
+
+    if (!isAllowedPort(parsedTargetUrl)) {
+        return { ok: false, response: jsonResponse({ error: 'Target port is not allowed' }, 403) };
+    }
+
+    if (isIpLiteral(parsedTargetUrl.hostname) && isBlockedTarget(parsedTargetUrl.hostname)) {
+        return { ok: false, response: jsonResponse({ error: 'Private or local targets are blocked' }, 403) };
+    }
+
+    if (isLocalHostname(parsedTargetUrl.hostname) || !isAllowedHost(parsedTargetUrl.hostname, allowedHosts)) {
+        return { ok: false, response: jsonResponse({ error: 'Target host is not allowlisted' }, 403) };
+    }
+
+    return { ok: true, response: null };
+}
+
+async function fetchWithValidatedRedirects(parsedTargetUrl, allowedHosts) {
+    let currentUrl = parsedTargetUrl;
+
+    for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+        const upstreamResponse = await fetch(currentUrl.toString(), { redirect: 'manual' });
+        const isRedirect = upstreamResponse.status >= 300 && upstreamResponse.status < 400;
+        if (!isRedirect) {
+            return { response: upstreamResponse, blockedResponse: null };
+        }
+
+        if (redirectCount === MAX_REDIRECTS) {
+            throw new Error('Upstream redirect limit exceeded');
+        }
+
+        const location = upstreamResponse.headers.get('Location');
+        if (!location) {
+            throw new Error('Upstream redirect missing location header');
+        }
+
+        let nextUrl;
+        try {
+            nextUrl = new URL(location, currentUrl);
+        } catch {
+            throw new Error('Upstream redirect target is invalid');
+        }
+
+        const validation = validateTargetUrl(nextUrl, allowedHosts);
+        if (!validation.ok) {
+            return { response: null, blockedResponse: validation.response };
+        }
+
+        currentUrl = nextUrl;
+    }
+
+    throw new Error('Upstream redirect handling failed');
+}
+
 export async function onRequest(context) {
     const { request, env } = context;
 
     const requestUrl = new URL(request.url);
     const { authorized } = await dualAuthCheck(env, requestUrl, request);
     if (!authorized) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: 'Unauthorized' }, 401);
+    }
+
+    if (request.method !== 'POST') {
+        return jsonResponse({ error: 'Method not allowed' }, 405);
     }
 
     let jsonRequest;
     try {
         jsonRequest = await request.json();
     } catch {
-        return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: 'Invalid JSON' }, 400);
     }
 
     const targetUrl = jsonRequest?.url;
     if (!targetUrl) {
-        return new Response(JSON.stringify({ error: 'URL is required' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: 'URL is required' }, 400);
     }
 
     let parsedTargetUrl;
     try {
         parsedTargetUrl = new URL(targetUrl);
     } catch {
-        return new Response(JSON.stringify({ error: 'Invalid target URL' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
-
-    if (!['https:', 'http:'].includes(parsedTargetUrl.protocol) || parsedTargetUrl.username || parsedTargetUrl.password) {
-        return new Response(JSON.stringify({ error: 'Target URL is not allowed' }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: 'Invalid target URL' }, 400);
     }
 
     const allowedHosts = parseAllowedHosts(env, await fetchSecurityConfig(env));
     if (allowedHosts.length === 0) {
-        return new Response(JSON.stringify({ error: 'fetchRes is disabled until FETCH_RES_ALLOWED_HOSTS is configured' }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: 'fetchRes is disabled until FETCH_RES_ALLOWED_HOSTS is configured' }, 403);
     }
 
-    if (isIpLiteral(parsedTargetUrl.hostname) && isBlockedTarget(parsedTargetUrl.hostname)) {
-        return new Response(JSON.stringify({ error: 'Private or local targets are blocked' }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' }
-        });
+    const targetValidation = validateTargetUrl(parsedTargetUrl, allowedHosts);
+    if (!targetValidation.ok) {
+        return targetValidation.response;
     }
 
-    if (isLocalHostname(parsedTargetUrl.hostname) || !isAllowedHost(parsedTargetUrl.hostname, allowedHosts)) {
-        return new Response(JSON.stringify({ error: 'Target host is not allowlisted' }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' }
-        });
+    const { response: upstreamResponse, blockedResponse } = await fetchWithValidatedRedirects(parsedTargetUrl, allowedHosts);
+    if (blockedResponse) {
+        return blockedResponse;
     }
 
-    const upstreamResponse = await fetch(parsedTargetUrl.toString());
     const headers = new Headers(upstreamResponse.headers);
     headers.set('Cache-Control', 'no-store');
+    headers.delete('Set-Cookie');
 
     return new Response(upstreamResponse.body, {
         status: upstreamResponse.status,
