@@ -306,8 +306,10 @@ body.codex-media-library-active #app {
   display: grid;
   align-items: center;
   justify-items: start;
+  justify-self: stretch;
   align-self: stretch;
   height: 36px;
+  box-sizing: border-box;
   width: 100% !important;
   min-width: 100% !important;
   max-width: none !important;

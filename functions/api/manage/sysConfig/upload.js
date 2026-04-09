@@ -1,32 +1,81 @@
-﻿import { getDatabase } from '../../../utils/databaseAdapter.js'
+import { getDatabase } from '../../../utils/databaseAdapter.js'
+
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+}
+
+function createJsonResponse(body, init = {}) {
+    const { headers = {}, ...rest } = init
+    return new Response(JSON.stringify(body), {
+        ...rest,
+        headers: {
+            ...corsHeaders,
+            'content-type': 'application/json',
+            ...headers,
+        },
+    })
+}
+
+export function onRequestOptions() {
+    return new Response(null, {
+        status: 204,
+        headers: corsHeaders,
+    })
+}
 
 export async function onRequest(context) {
     const { request, env } = context
     const db = getDatabase(env)
 
     if (request.method === 'GET') {
-        const settings = await getUploadConfig(db, env)
-        return new Response(JSON.stringify(settings), {
-            headers: {
-                'content-type': 'application/json',
-            },
-        })
+        try {
+            const settings = await getUploadConfig(db, env)
+            return createJsonResponse(settings)
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                return createJsonResponse({
+                    success: false,
+                    error: 'Corrupted config data',
+                }, {
+                    status: 500,
+                })
+            }
+
+            return createJsonResponse({
+                success: false,
+                error: 'Failed to load upload config',
+            }, {
+                status: 500,
+            })
+        }
     }
 
     if (request.method === 'POST') {
-        const body = await request.json()
-        const settings = normalizeUploadSettings(body)
+        let body
+        try {
+            body = await request.json()
+        } catch {
+            return createJsonResponse({
+                success: false,
+                error: 'Invalid JSON body',
+            }, {
+                status: 400,
+            })
+        }
 
+        const settings = normalizeUploadSettings(body)
         await db.put('manage@sysConfig@upload', JSON.stringify(settings))
 
-        return new Response(JSON.stringify(settings), {
-            headers: {
-                'content-type': 'application/json',
-            },
-        })
+        return createJsonResponse(settings)
     }
 
-    return new Response('Method Not Allowed', { status: 405 })
+    return new Response('Method Not Allowed', {
+        status: 405,
+        headers: corsHeaders,
+    })
 }
 
 function buildSafeDirectorySegment(name) {
@@ -290,4 +339,3 @@ export async function getUploadConfig(db, env) {
 
     return settings
 }
-

@@ -1,5 +1,5 @@
-import { fetchSecurityConfig } from './sysConfig';
-import { validateApiToken } from './tokenValidator';
+import { fetchSecurityConfig } from './sysConfig.js';
+import { validateApiToken } from './tokenValidator.js';
 import { getDatabase } from './databaseAdapter.js';
 
 export async function userAuthCheck(env, url, request, requiredPermission = null) {

@@ -14,9 +14,39 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getDatabase } from '../utils/databaseAdapter.js';
 import { extractExifData } from './exifExtractor.js';
 
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+};
+
+function withCorsHeaders(response) {
+    const headers = new Headers(response.headers);
+    for (const [key, value] of Object.entries(corsHeaders)) {
+        headers.set(key, value);
+    }
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+    });
+}
+
+export function onRequestOptions() {
+    return new Response(null, {
+        status: 204,
+        headers: corsHeaders,
+    });
+}
+
 
 export async function onRequest(context) {  // Contents of context object
     const { request, env, params, waitUntil, next, data } = context;
+
+    if (request.method === 'OPTIONS') {
+        return onRequestOptions();
+    }
 
     // 解析请求的URL，存入 context
     const url = new URL(request.url);
@@ -32,7 +62,7 @@ export async function onRequest(context) {  // Contents of context object
     // 鉴权
     const requiredPermission = 'upload';
     if (!await userAuthCheck(env, url, request, requiredPermission)) {
-        return UnauthorizedResponse('Unauthorized');
+        return withCorsHeaders(UnauthorizedResponse('Unauthorized'));
     }
 
     // 获得上传IP
@@ -40,21 +70,25 @@ export async function onRequest(context) {  // Contents of context object
     // 判断上传ip是否被封禁
     const isBlockedIp = await isBlockedUploadIp(env, uploadIp);
     if (isBlockedIp) {
-        return createResponse('Error: Your IP is blocked', { status: 403 });
+        return withCorsHeaders(createResponse('Error: Your IP is blocked', { status: 403 }));
     }
 
     // 检查是否为清理请求
     const cleanupRequest = url.searchParams.get('cleanup') === 'true';
     if (cleanupRequest) {
         const uploadId = url.searchParams.get('uploadId');
-        const totalChunks = parseInt(url.searchParams.get('totalChunks')) || 0;
-        return await handleCleanupRequest(context, uploadId, totalChunks);
+        const totalChunksParam = url.searchParams.get('totalChunks');
+        const totalChunks = totalChunksParam === null ? 0 : Number.parseInt(totalChunksParam, 10);
+        if (Number.isNaN(totalChunks)) {
+            return withCorsHeaders(createResponse('Error: totalChunks must be a valid integer', { status: 400 }));
+        }
+        return withCorsHeaders(await handleCleanupRequest(context, uploadId, totalChunks));
     }
 
     // 检查是否为初始化分块上传请求
     const initChunked = url.searchParams.get('initChunked') === 'true';
     if (initChunked) {
-        return await initializeChunkedUpload(context);
+        return withCorsHeaders(await initializeChunkedUpload(context));
     }
 
     // 检查是否为分块上传
@@ -63,14 +97,14 @@ export async function onRequest(context) {  // Contents of context object
 
     if (isChunked) {
         if (isMerge) {
-            return await handleChunkMerge(context);
+            return withCorsHeaders(await handleChunkMerge(context));
         } else {
-            return await handleChunkUpload(context);
+            return withCorsHeaders(await handleChunkUpload(context));
         }
     }
 
     // 处理非分块文件上传
-    return await processFileUpload(context);
+    return withCorsHeaders(await processFileUpload(context));
 }
 
 
