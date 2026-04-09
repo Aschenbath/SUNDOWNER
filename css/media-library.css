@@ -1772,6 +1772,133 @@ body.codex-media-library-active #app {
   font-size: 14px;
 }
 
+#codex-media-library-root .cml-admin-panel__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+#codex-media-library-root .cml-admin-panel__subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#codex-media-library-root .cml-admin-panel__subheader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+#codex-media-library-root .cml-admin-panel__subactions {
+  display: flex;
+  align-items: flex-start;
+}
+
+#codex-media-library-root .cml-admin-panel__subheading {
+  margin: 6px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #edf2f7;
+}
+
+#codex-media-library-root .cml-admin-panel__migration-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+#codex-media-library-root .cml-admin-panel__migration-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(17, 24, 39, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#codex-media-library-root .cml-admin-panel__migration-label,
+#codex-media-library-root .cml-admin-panel__migration-meta,
+#codex-media-library-root .cml-admin-panel__scan-summary span,
+#codex-media-library-root .cml-admin-panel__scan-meta,
+#codex-media-library-root .cml-admin-panel__scan-empty {
+  color: #9aa0a6;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+#codex-media-library-root .cml-admin-panel__migration-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #edf2f7;
+}
+
+#codex-media-library-root .cml-admin-panel__migration-pill {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#codex-media-library-root .cml-admin-panel__migration-pill.is-success {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.24);
+  color: #9ff0cb;
+}
+
+#codex-media-library-root .cml-admin-panel__migration-pill.is-warning {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.24);
+  color: #ffd46f;
+}
+
+#codex-media-library-root .cml-admin-panel__migration-pill.is-muted {
+  background: rgba(255, 255, 255, 0.04);
+  color: #c3cad6;
+}
+
+#codex-media-library-root .cml-admin-panel__scan-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#codex-media-library-root .cml-admin-panel__scan-summary strong,
+#codex-media-library-root .cml-admin-panel__scan-id {
+  color: #edf2f7;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#codex-media-library-root .cml-admin-panel__scan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#codex-media-library-root .cml-admin-panel__scan-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 #codex-media-library-root .cml-storage-panel__panel {
   width: min(980px, calc(100vw - 32px));
   margin-top: 8vh;
@@ -1874,6 +2001,11 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-admin-panel__inline-link:hover {
   background: rgba(138, 180, 248, 0.16);
   color: #8ab4f8;
+}
+
+#codex-media-library-root .cml-admin-panel__inline-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 #codex-media-library-root .cml-preview {
@@ -2757,9 +2889,14 @@ body.codex-media-library-active #app {
 
   #codex-media-library-root .cml-admin-panel__form-grid,
   #codex-media-library-root .cml-admin-panel__stats,
+  #codex-media-library-root .cml-admin-panel__migration-grid,
   #codex-media-library-root .cml-admin-panel__hero,
   #codex-media-library-root .cml-storage-panel__summary {
     grid-template-columns: 1fr;
+  }
+
+  #codex-media-library-root .cml-admin-panel__subheader {
+    flex-direction: column;
   }
 
   #codex-media-library-root .cml-storage-panel__row {

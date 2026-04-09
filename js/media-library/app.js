@@ -18,7 +18,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=6';
+} from './components.js?v=7';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -255,6 +255,12 @@ const state = {
   adminPanelLoading: false,
   adminPanelBusy: false,
   adminPanelError: '',
+  adminMigrationStatus: null,
+  adminMigrationLoading: false,
+  adminMigrationError: '',
+  adminOrphanScanLoading: false,
+  adminOrphanScanError: '',
+  adminOrphanScanResult: null,
   adminProfileDraft: createEmptyAdminProfileDraft(),
   adminPageDraft: createEmptyAdminPageDraft(),
   adminCloudDraft: createEmptyAdminCloudDraft(),
@@ -288,6 +294,7 @@ let scrollRestoring = false;
 const sectionRangeCache = new Map(); // anchorId → { startIndex, endIndex }
 let persistedAlbumStatePromise = null;
 let pendingPersistedAlbumSnapshot = null;
+const ADMIN_ORPHAN_SCAN_LIMIT = 20;
 
 const touchZoom = {
   active: false,
@@ -1865,14 +1872,25 @@ async function loadAdminPanelData() {
 
   state.adminPanelLoading = true;
   state.adminPanelError = '';
+  state.adminMigrationError = '';
   render();
 
   try {
-    const [account, pageConfig, otherSettings] = await Promise.all([
+    const [accountResult, pageConfigResult, otherSettingsResult, migrationStatusResult] = await Promise.allSettled([
       fetchJson('/api/manage/account'),
       fetchJson('/api/manage/sysConfig/page'),
-      fetchJson('/api/manage/sysConfig/others')
+      fetchJson('/api/manage/sysConfig/others'),
+      fetchJson('/api/manage/migrate/status')
     ]);
+
+    const coreFailure = [accountResult, pageConfigResult, otherSettingsResult].find((result) => result.status === 'rejected');
+    if (coreFailure) {
+      throw coreFailure.reason;
+    }
+
+    const account = accountResult.value;
+    const pageConfig = pageConfigResult.value;
+    const otherSettings = otherSettingsResult.value;
 
     applyAdminIdentity(account);
     hydrateAdminProfileDraft(account);
@@ -1880,10 +1898,64 @@ async function loadAdminPanelData() {
     state.adminPageDraft = createAdminPageDraft(state.adminPageConfigSource);
     state.adminOthersConfigSource = otherSettings || {};
     state.adminCloudDraft = createAdminCloudDraft(otherSettings || {});
+
+    if (migrationStatusResult.status === 'fulfilled') {
+      state.adminMigrationStatus = migrationStatusResult.value || null;
+      state.adminMigrationError = '';
+    } else {
+      state.adminMigrationStatus = null;
+      state.adminMigrationError = migrationStatusResult.reason?.message || 'Failed to load migration status';
+    }
   } catch (error) {
     state.adminPanelError = error.message || 'Failed to load admin settings';
   } finally {
     state.adminPanelLoading = false;
+    render();
+  }
+}
+
+async function refreshAdminMigrationStatus({ notify = false } = {}) {
+  if (state.adminMigrationLoading) {
+    return;
+  }
+
+  state.adminMigrationLoading = true;
+  state.adminMigrationError = '';
+  render();
+
+  try {
+    state.adminMigrationStatus = await fetchJson('/api/manage/migrate/status');
+    if (notify) {
+      showToast('Migration status refreshed', 'success');
+    }
+  } catch (error) {
+    state.adminMigrationError = error.message || 'Failed to load migration status';
+  } finally {
+    state.adminMigrationLoading = false;
+    render();
+  }
+}
+
+async function runAdminOrphanScan(limit = ADMIN_ORPHAN_SCAN_LIMIT) {
+  if (state.adminOrphanScanLoading) {
+    return;
+  }
+
+  const safeLimit = Number.parseInt(limit, 10);
+  const finalLimit = Number.isNaN(safeLimit) ? ADMIN_ORPHAN_SCAN_LIMIT : Math.max(1, Math.min(100, safeLimit));
+
+  state.adminOrphanScanLoading = true;
+  state.adminOrphanScanError = '';
+  render();
+
+  try {
+    state.adminOrphanScanResult = await fetchJson(`/api/manage/migrate/scan-orphan-files?limit=${finalLimit}`);
+    const total = Number(state.adminOrphanScanResult?.total) || 0;
+    showToast(total > 0 ? `Found ${total} orphan Telegram records` : 'No orphan Telegram records found', 'success');
+  } catch (error) {
+    state.adminOrphanScanError = error.message || 'Failed to scan orphan Telegram files';
+  } finally {
+    state.adminOrphanScanLoading = false;
     render();
   }
 }
@@ -5139,6 +5211,12 @@ function handleAction(actionTarget) {
       return true;
     case 'save-admin-cloud':
       void saveAdminCloudSettings();
+      return true;
+    case 'refresh-admin-migration-status':
+      void refreshAdminMigrationStatus({ notify: true });
+      return true;
+    case 'scan-admin-orphan-files':
+      void runAdminOrphanScan();
       return true;
     case 'open-native-dashboard':
       window.sessionStorage.setItem('cmlSkipMount', '1');

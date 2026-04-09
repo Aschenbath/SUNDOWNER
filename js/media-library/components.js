@@ -99,6 +99,60 @@ function formatStorageAmountFromGb(value) {
   return `${formatCompactNumber(numeric)} GB`;
 }
 
+function formatAdminDateTime(value) {
+  if (!value) {
+    return 'Not available';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return escapeHtml(String(value));
+  }
+  return escapeHtml(date.toLocaleString());
+}
+
+function getMigrationStateMeta(migration) {
+  switch (migration?.state) {
+    case 'complete':
+      return {
+        label: 'Complete',
+        tone: 'success',
+        description: 'D1 is active and the migration marker is complete.'
+      };
+    case 'in_progress':
+      return {
+        label: 'In progress',
+        tone: 'warning',
+        description: 'Migration has started but still has pending cursor work.'
+      };
+    case 'disabled':
+      return {
+        label: 'Disabled',
+        tone: 'muted',
+        description: 'No D1 binding is available in the current environment.'
+      };
+    case 'not_started':
+    default:
+      return {
+        label: 'Not started',
+        tone: 'muted',
+        description: 'D1 exists, but the KV to D1 migration marker has not been written yet.'
+      };
+  }
+}
+
+function getDatabaseModeLabel(database) {
+  if (database?.usingHybrid) {
+    return 'Hybrid KV + D1';
+  }
+  if (database?.usingD1) {
+    return 'D1 only';
+  }
+  if (database?.usingKV) {
+    return 'KV only';
+  }
+  return 'Unavailable';
+}
+
 function formatTakenAt(item) {
   if (item.displayTakenAt) {
     return item.displayTakenAt;
@@ -1278,6 +1332,15 @@ export function AdminPanel({ state, storageSummary }) {
   const statusHtml = state.adminPanelError
     ? `<p class="cml-admin-panel__status is-error">${escapeHtml(state.adminPanelError)}</p>`
     : '';
+  const migrationSummary = state.adminMigrationStatus?.migration || null;
+  const migrationDatabase = state.adminMigrationStatus?.database || null;
+  const migrationStateMeta = getMigrationStateMeta(migrationSummary);
+  const migrationCursorLabel = migrationSummary?.nextCursor || 'None';
+  const orphanScanResult = state.adminOrphanScanResult;
+  const orphanFiles = Array.isArray(orphanScanResult?.files) ? orphanScanResult.files : [];
+  const orphanScanSummary = orphanScanResult
+    ? `Showing ${escapeHtml(String(orphanScanResult.returned || orphanFiles.length || 0))} of ${escapeHtml(String(orphanScanResult.total || 0))}${orphanScanResult.truncated ? ' candidates' : ' candidates'}`
+    : '';
 
   const accountBody = `
     <section class="cml-admin-panel__section">
@@ -1393,6 +1456,72 @@ export function AdminPanel({ state, storageSummary }) {
           <strong class="cml-admin-panel__stat-value">${escapeHtml(String(totalCount))}</strong>
           <span class="cml-admin-panel__stat-meta">Live media-library count</span>
         </article>
+      </div>
+      <div class="cml-admin-panel__stack">
+        <section class="cml-admin-panel__subsection">
+          <div class="cml-admin-panel__subheader">
+            <div>
+              <p class="cml-admin-panel__eyebrow">Migration</p>
+              <h4 class="cml-admin-panel__subheading">KV to D1 rollout</h4>
+              <p class="cml-admin-panel__copy">This status comes from the new migration endpoints, so you can see whether production is still on KV fallback or has completed the D1 switch.</p>
+            </div>
+            <div class="cml-admin-panel__subactions">
+              <button type="button" class="cml-admin-panel__inline-link" data-action="refresh-admin-migration-status" ${state.adminMigrationLoading ? 'disabled' : ''}>${state.adminMigrationLoading ? 'Refreshing...' : 'Refresh status'}</button>
+            </div>
+          </div>
+          ${state.adminMigrationError ? `<p class="cml-admin-panel__status is-error">${escapeHtml(state.adminMigrationError)}</p>` : ''}
+          <div class="cml-admin-panel__migration-grid">
+            <article class="cml-admin-panel__migration-card">
+              <span class="cml-admin-panel__migration-label">Rollout state</span>
+              <strong class="cml-admin-panel__migration-value">${escapeHtml(migrationStateMeta.label)}</strong>
+              <span class="cml-admin-panel__migration-pill is-${escapeHtml(migrationStateMeta.tone)}">${escapeHtml(migrationStateMeta.description)}</span>
+            </article>
+            <article class="cml-admin-panel__migration-card">
+              <span class="cml-admin-panel__migration-label">Database mode</span>
+              <strong class="cml-admin-panel__migration-value">${escapeHtml(getDatabaseModeLabel(migrationDatabase))}</strong>
+              <span class="cml-admin-panel__migration-meta">Bindings: KV ${migrationDatabase?.hasKV ? 'on' : 'off'} · D1 ${migrationDatabase?.hasD1 ? 'on' : 'off'}</span>
+            </article>
+            <article class="cml-admin-panel__migration-card">
+              <span class="cml-admin-panel__migration-label">Next cursor</span>
+              <strong class="cml-admin-panel__migration-value">${escapeHtml(migrationCursorLabel)}</strong>
+              <span class="cml-admin-panel__migration-meta">Last updated ${formatAdminDateTime(migrationSummary?.updatedAt)}</span>
+            </article>
+          </div>
+        </section>
+        <section class="cml-admin-panel__subsection">
+          <div class="cml-admin-panel__subheader">
+            <div>
+              <p class="cml-admin-panel__eyebrow">Recovery</p>
+              <h4 class="cml-admin-panel__subheading">Telegram orphan scan</h4>
+              <p class="cml-admin-panel__copy">Run the read-only scan for timestamp-style Telegram records that still lack both <code>TgFileId</code> and <code>TgMessageId</code>.</p>
+            </div>
+            <div class="cml-admin-panel__subactions">
+              <button type="button" class="cml-admin-panel__inline-link" data-action="scan-admin-orphan-files" ${state.adminOrphanScanLoading ? 'disabled' : ''}>${state.adminOrphanScanLoading ? 'Scanning...' : 'Run orphan scan'}</button>
+            </div>
+          </div>
+          ${state.adminOrphanScanError ? `<p class="cml-admin-panel__status is-error">${escapeHtml(state.adminOrphanScanError)}</p>` : ''}
+          ${orphanScanResult ? `
+            <div class="cml-admin-panel__scan-summary">
+              <strong>${orphanScanSummary}</strong>
+              <span>${escapeHtml(orphanScanResult.truncated ? 'The API truncated the result set. Re-run with filters or a higher limit if you need the full tail.' : 'The current result reflects the full candidate set returned by the endpoint.')}</span>
+            </div>
+            ${orphanFiles.length ? `
+              <div class="cml-admin-panel__scan-list">
+                ${orphanFiles.map((file) => `
+                  <article class="cml-admin-panel__scan-item">
+                    <strong class="cml-admin-panel__scan-id">${escapeHtml(file.id || '')}</strong>
+                    <span class="cml-admin-panel__scan-meta">${escapeHtml(file.channelName || file.channel || 'Telegram')} · ${escapeHtml(file.directory || '/')}</span>
+                    <span class="cml-admin-panel__scan-meta">${escapeHtml(file.reason || 'Missing Telegram recovery metadata')}</span>
+                  </article>
+                `).join('')}
+              </div>
+            ` : `
+              <p class="cml-admin-panel__scan-empty">No orphan Telegram records matched the current scan.</p>
+            `}
+          ` : `
+            <p class="cml-admin-panel__scan-empty">No scan has been run in this browser session yet.</p>
+          `}
+        </section>
       </div>
       <div class="cml-admin-panel__form-grid">
         <label class="cml-admin-panel__toggle">
