@@ -14,39 +14,6 @@ import {
     resolveS3Access,
     resolveTelegramAccess,
 } from '../utils/mediaSecurity.js';
-import {
-    convertImageBodyToBrowserPreview,
-    readBinaryBody,
-    wantsBrowserPreview,
-} from '../utils/filePreview.js';
-
-async function maybeReturnBrowserPreview(context, body, headers, fileType, status = 200) {
-    if (!wantsBrowserPreview(context.request, context.url, fileType)) {
-        return null;
-    }
-
-    const originalBody = await readBinaryBody(body);
-    const previewHeaders = new Headers(headers);
-
-    try {
-        const convertedBody = await convertImageBodyToBrowserPreview(originalBody);
-        previewHeaders.set('Content-Type', 'image/webp');
-        previewHeaders.set('Content-Length', convertedBody.byteLength.toString());
-        previewHeaders.set('Accept-Ranges', 'none');
-        previewHeaders.delete('Content-Range');
-        return new Response(convertedBody, {
-            status,
-            headers: previewHeaders,
-        });
-    } catch (error) {
-        console.warn(`Browser preview conversion failed for ${fileType || 'unknown file'}: ${error.message}`);
-        previewHeaders.set('Content-Length', originalBody.byteLength.toString());
-        return new Response(originalBody, {
-            status,
-            headers: previewHeaders,
-        });
-    }
-}
 
 
 export async function onRequest(context) {  // Contents of context object
@@ -188,11 +155,6 @@ export async function onRequest(context) {  // Contents of context object
 
         const headers = new Headers(response.headers);
         setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
-
-        const previewResponse = await maybeReturnBrowserPreview(context, response, headers, fileType, response.status);
-        if (previewResponse) {
-            return previewResponse;
-        }
 
         const newRes = new Response(response.body, {
             status: response.status,
@@ -656,11 +618,6 @@ async function handleR2File(context, fileId, encodedFileName, fileType) {
         object.writeHttpMetadata(headers);
         setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
 
-        const previewResponse = await maybeReturnBrowserPreview(context, object.body, headers, fileType);
-        if (previewResponse) {
-            return previewResponse;
-        }
-
         // 处理HEAD请求
         if (request.method === 'HEAD') {
             return handleHeadRequest(headers);
@@ -737,11 +694,6 @@ async function handleS3File(context, metadata, encodedFileName, fileType) {
                 headers.set('Content-Range', response.headers.get('Content-Range'));
             }
 
-            const previewResponse = await maybeReturnBrowserPreview(context, response, headers, fileType, response.status);
-            if (previewResponse) {
-                return previewResponse;
-            }
-
             return new Response(response.body, {
                 status: response.status,
                 headers
@@ -814,11 +766,6 @@ async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType) 
             return handleHeadRequest(headers);
         }
 
-        const previewResponse = await maybeReturnBrowserPreview(context, response.Body, headers, fileType, range ? 206 : 200);
-        if (previewResponse) {
-            return previewResponse;
-        }
-
         // 返回响应，支持流式传输
         const statusCode = range ? 206 : 200; // Range请求返回206 Partial Content
         return new Response(response.Body, {
@@ -887,11 +834,6 @@ async function handleDiscordFile(context, metadata, encodedFileName, fileType) {
         }
         if (response.headers.get('Content-Range')) {
             headers.set('Content-Range', response.headers.get('Content-Range'));
-        }
-
-        const previewResponse = await maybeReturnBrowserPreview(context, response, headers, fileType, response.status);
-        if (previewResponse) {
-            return previewResponse;
         }
 
         return new Response(response.body, {
@@ -963,11 +905,6 @@ async function handleHuggingFaceFile(context, metadata, encodedFileName, fileTyp
         }
         if (response.headers.get('Content-Range')) {
             headers.set('Content-Range', response.headers.get('Content-Range'));
-        }
-
-        const previewResponse = await maybeReturnBrowserPreview(context, response, headers, fileType, response.status);
-        if (previewResponse) {
-            return previewResponse;
         }
 
         return new Response(response.body, {
