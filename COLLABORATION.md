@@ -1,4 +1,5 @@
-# Collaboration Record
+﻿# Collaboration Record
+| 2026-04-09 12:52 | Codex | Reverted the tracked `wrangler.toml` and restored `.gitignore` to ignore it again after confirming the committed Pages config was the likely cause of the production `0 items / 0 MB` regression. The repo now goes back to dashboard-managed Pages bindings, matching the earlier `Use dashboard-managed Pages bindings` direction and avoiding a repo-side config from overriding Cloudflare runtime bindings. |
 
 | Time (Asia/Shanghai) | Task | Notes |
 | --- | --- | --- |
@@ -9,7 +10,7 @@
 | 2026-04-08 21:57 | Codex | Hardened the photo-tile open-preview path again after the delegated click fix still failed in the live UI. `js/media-library/components.js` now renders media tiles (and non-preview asset nodes) with a direct `window.__cmlOpenPreview(event, this.dataset.id)` opener on the tile itself, while `js/media-library/app.js` exposes that global helper to `preventDefault()` / `stopPropagation()` / `stopImmediatePropagation()` before calling `openPreview()`. Added a regression in `test/previewActions.test.js` to lock the direct tile opener markup, bumped the public cache bust to `app.js?v=51`, and reverified with `node --check js/media-library/app.js`, `node --check js/media-library/components.js`, targeted preview Mocha (8 passing), and full direct Mocha (29 passing). |
 | 2026-04-08 21:38 | Codex | Fixed the follow-up click-through regression where clicking a media tile could just rerender/refresh the dashboard instead of opening preview. `js/media-library/app.js` now handles tile `open-preview` clicks at the start of the root click handler, explicitly `preventDefault()` / `stopPropagation()`, closes the avatar menu, and mounts the root click listener in capture phase so later page/navigation handlers cannot steal tile clicks. Bumped the media-library module cache bust to `app.js?v=50` and reverified with `node --check js/media-library/app.js`, targeted `test/previewActions.test.js` (7 passing), and full direct Mocha (28 passing). |
 | 2026-04-08 21:17 | Codex | Fixed the follow-up regression where clicking photo tiles could fail to open the detail overlay after the Telegram document-photo pass. The media asset markup now puts explicit `data-action="open-preview"` / `data-id` on the visible asset node itself (including the HEIC/HEIF fallback block), and the unsupported-original card now overrides the inherited tile-image `opacity: 0` / `pointer-events: none` state so it renders and clicks like a real tile instead of a dead blank area. Also bumped the media-library module cache path to import `components.js?v=2` and advanced public cache busts to `app.js?v=49` / `media-library.css?v=47`. Reverified with `node --check js/media-library/app.js`, targeted preview/Telegram metadata Mocha, and full direct Mocha at 28 passing. |
-| 2026-04-08 21:04 | Codex | Investigated the user's new Telegram file-uploaded photos and closed the two stable regressions behind the “can't open photo” report. `functions/utils/telegramSync.js` now infers image/video MIME types from document file extensions when Telegram omits them, reads Telegram document image headers for EXIF during import, and persists any recovered `Exif.gps` / capture time so original document uploads can keep location metadata in the library. The media-library runtime now treats `image/heic` / `image/heif` (and existing old `application/octet-stream` Telegram records with `.heic/.heif` filenames) as preserved originals with a deliberate inline-preview fallback instead of a broken `<img>` render, so those files stay openable with Info + Download rather than looking dead. Added `functions/utils/telegramImportedMedia.js`, extended preview regression coverage, added `test/telegramSyncMetadata.test.js`, bumped cache busts to `app.js?v=48` / `media-library.css?v=46`, and reverified with `node --check` on the touched JS files plus full direct Mocha at 28 passing. |
+| 2026-04-08 21:04 | Codex | Investigated the user's new Telegram file-uploaded photos and closed the two stable regressions behind the 鈥渃an't open photo鈥?report. `functions/utils/telegramSync.js` now infers image/video MIME types from document file extensions when Telegram omits them, reads Telegram document image headers for EXIF during import, and persists any recovered `Exif.gps` / capture time so original document uploads can keep location metadata in the library. The media-library runtime now treats `image/heic` / `image/heif` (and existing old `application/octet-stream` Telegram records with `.heic/.heif` filenames) as preserved originals with a deliberate inline-preview fallback instead of a broken `<img>` render, so those files stay openable with Info + Download rather than looking dead. Added `functions/utils/telegramImportedMedia.js`, extended preview regression coverage, added `test/telegramSyncMetadata.test.js`, bumped cache busts to `app.js?v=48` / `media-library.css?v=46`, and reverified with `node --check` on the touched JS files plus full direct Mocha at 28 passing. |
 | 2026-04-08 20:29 | Codex | Tightened the preview Add-to-album follow-up from user review: removed the temporary `All / My albums / Shared with me` tabs for now, shrank the oversized `New album` row/card density, and fixed the main responsiveness regression by making preview transient updates stop recomputing the full heavy `getViewModel()` path on every add/favourite/delete interaction. The preview drawer now re-renders from a lightweight preview-specific model instead of rebuilding timeline/collection state, and cache busts advanced to `app.js?v=47` / `media-library.css?v=45`. Reverified with `node --check js/media-library/app.js`, `node --check js/media-library/components.js`, preview Mocha at 6 passing, and full direct Mocha at 25 passing. |
 | 2026-04-08 20:18 | Codex | Finished the Add-to-album UI upgrade in the preview overlay by turning the old minimal drawer into the requested Google-Photos-style sheet: wired preview-local album summaries into `PreviewModal`, added live album search, `All / My albums / Shared with me` tabs, a `Last modified` row, a `New album` entry that expands into inline create mode, and richer album rows with cover thumbs plus item counts. Added drawer-specific state/interaction handling in `js/media-library/app.js`, refreshed the drawer styling in `css/media-library.css`, bumped cache busts to `app.js?v=46` / `media-library.css?v=44`, and extended `test/previewActions.test.js`; `node --check` passed for `js/media-library/app.js` and `js/media-library/components.js`, preview tests passed 6 cases, and full direct Mocha now reports 25 passing. |
 | 2026-04-08 18:33 | Codex | Tightened preview metadata display in the Google-Photos-style info drawer: removed the raw `Library path` row, stopped surfacing default source/import album names such as `Telegram_env` in the hero copy and Overview section, and kept explicit user-meaningful album labels like `scenery` visible. Added preview regression coverage for both the hidden-default and shown-explicit album cases, and bumped the media-library module cache bust to `app.js?v=42`; `node --check` passed for `js/media-library/app.js` and `js/media-library/components.js`, `test/previewActions.test.js` passed 4 tests, and direct Mocha now reports 23 passing. |
@@ -21,7 +22,7 @@
 | 2026-04-08 14:45 | Codex | Did a source-level security follow-up on the remaining `authCode` surface. Kept the existing header/cookie auth compatibility in place to avoid breaking compiled frontend/upload flows, but stopped advertising `authCode` through response CORS allow-header lists in `functions/utils/userAuth.js` and `functions/upload/uploadTools.js`; upload/options paths now only expose `Content-Type, Authorization` in response headers. Verified with `node --check` on both files and direct Mocha at 19 passing. |
 | 2026-04-08 14:31 | Codex | Continued the timeline finish pass by flattening sticky date headers further and reducing right-rail visual weight: section headers now use tighter spacing, smaller title/meta sizing, lighter translucent sticky gradients, and subtler active-state text emphasis instead of a banner-like block; the year rail now rests dimmer with smaller dots/labels and a slightly smaller badge. Bumped `media-library.css` cache bust to `v=34`. Direct Mocha remains green at 19 passing. |
 | 2026-04-08 14:18 | Codex | Removed the redundant top-bar settings/sun entry from the media-library shell because it duplicated the avatar-menu dashboard/admin access. The top-right chrome now keeps only `Upload` and the avatar menu, matching the user's single-entry preference. Verified with `node --check js/media-library/components.js`. |
-| 2026-04-08 13:26 | Codex | Restyled the sidebar storage card to match the user's “private cloud is effectively infinite” preference: it now shows `actual usage / INFINITE`, keeps the progress bar at `0%`, and still reports indexed item count separately. In the same pass, the right-side timeline rail was made steadier by keeping the rail faintly visible at rest instead of fully disappearing, while the month/year badge only surfaces during active scroll/drag states. Bumped cache busts to `app.js?v=33` and `media-library.css?v=32`. Verified with `node --check` on the touched JS files and direct Mocha at 19 passing. |
+| 2026-04-08 13:26 | Codex | Restyled the sidebar storage card to match the user's 鈥減rivate cloud is effectively infinite鈥?preference: it now shows `actual usage / INFINITE`, keeps the progress bar at `0%`, and still reports indexed item count separately. In the same pass, the right-side timeline rail was made steadier by keeping the rail faintly visible at rest instead of fully disappearing, while the month/year badge only surfaces during active scroll/drag states. Bumped cache busts to `app.js?v=33` and `media-library.css?v=32`. Verified with `node --check` on the touched JS files and direct Mocha at 19 passing. |
 | 2026-04-08 13:14 | Codex | Upgraded preview open/close toward shared-element behavior: the preview now snapshots the source tile media and runs a FLIP-style ghost transition into the preview stage (and back on close) when a valid tile is available, while keeping the existing fallback panel fade when it is not. This is driven by new preview transition helpers in `js/media-library/app.js` and cache bust `app.js?v=32`. `node --check` passed for the file and direct Mocha stayed green at 19 passing. |
 | 2026-04-08 13:05 | Codex | Implemented Telegram import dedupe keyed by `channel + message_id`: duplicate channel posts now short-circuit when the same `file_unique_id` repeats, while edited posts that swap media reimport cleanly. The dedupe state is stored in KV and updated on import to keep subsequent syncs idempotent. Added `functions/utils/telegramDedupe.js` plus a CJS Mocha test (`test/telegramDedupe.test.cjs`) to cover dedupe-keying, duplicate skip, changed-media reimport, and corrupted state cleanup. `node --check` passed for the new module and `node .\node_modules\mocha\bin\mocha.js` now reports 19 passing. |
 | 2026-04-08 10:01 | Codex | Fixed the dashboard-entry regression and rolled back the over-styled sticky day headers to a flatter Google-Photos-like treatment. The media-library overlay now normalizes plain `/` visits back to `/dashboard` unless an explicit upload/native bypass is requested, and the dashboard Upload button now opens `/?cmlUpload=1` so the native upload workbench remains reachable without trapping normal photo browsing on the upload-home surface. Also removed the oversized blue-gray day-header pill treatment by flattening sticky section headers, reducing title/meta sizing, and bumping cache busts to `ui-overrides.js?v=6`, `app.js?v=31`, and `media-library.css?v=31`. `node --check` passed for the touched JS files and direct Mocha remains green at 15 passing. |
@@ -64,7 +65,7 @@
 | 2026-04-07 10:09 | Login URL credential leak hardening | Hardened the media-library login overlay so credentials no longer fall back to a native GET submit: the form now falls back to `POST`, the sign-in button no longer uses `type="submit"`, and the delegated login submit handler now intercepts in capture phase while the button click path also prevents default submission. |
 
 | 2026-04-07 11:25 | Claude Code | Security audit found 4 open issues: SSRF in /api/fetchRes, authCode URL/Referer auth leakage, reversible admin_auth cookie credentials, per-file persisted backend secrets in metadata. | No code changes yet; findings only. |
-| 2026-04-07 ~16:00 | Claude Code (Opus) | Google Photos dark mode UI rewrite: sidebar 200px with text logo + search inside sidebar, photo grid gap 2px + border-radius 0, topbar minimal right-aligned, timeline labels YYYY-MM-DD (only Today/Yesterday as relative), JS layout gap synced to 2px. **Unresolved bug:** sidebar nav buttons (Photos/Collections/Bin) visually shorter than subnav buttons (Videos/Favourites) — tried width:100%, align-self:stretch, align-items:stretch on all ancestors, none worked. Root cause unknown, needs browser DevTools computed-style inspection to find what's constraining button width. |
+| 2026-04-07 ~16:00 | Claude Code (Opus) | Google Photos dark mode UI rewrite: sidebar 200px with text logo + search inside sidebar, photo grid gap 2px + border-radius 0, topbar minimal right-aligned, timeline labels YYYY-MM-DD (only Today/Yesterday as relative), JS layout gap synced to 2px. **Unresolved bug:** sidebar nav buttons (Photos/Collections/Bin) visually shorter than subnav buttons (Videos/Favourites) 鈥?tried width:100%, align-self:stretch, align-items:stretch on all ancestors, none worked. Root cause unknown, needs browser DevTools computed-style inspection to find what's constraining button width. |
 | 2026-04-07 13:50 | Claude Code | Fixed sidebar nav width mismatch by replacing primary/secondary nav wrappers with a single-column grid layout, forcing nav buttons to full sidebar width at 36px height, and normalizing label cells so primary and secondary actions stretch identically. Also bumped `media-library.css` cache bust to `v=13`. |
 
 ## Current Phase Direction
@@ -106,36 +107,28 @@
 
 ### TODO: EXIF Metadata Integration Handoff (2026-04-08, Claude Opus)
 
-EXIF 提取已完成并合入 main。以下是 Codex 可能需要配合的事项：
-
-**已完成的改动：**
-- `functions/upload/exifExtractor.js` — 新模块，用 `exifr` 从图片 header 解析 EXIF
-- `functions/upload/index.js` — 上传时调用 extractExifData，存入 `metadata.Exif`
-- `js/media-library/app.js` — EXIF 拍摄时间优先于上传时间；GPS 坐标 fallback 到 Location
-- `js/media-library/components.js` — PreviewModal 新增 Camera section（Camera/Lens/Settings）
-
+EXIF 鎻愬彇宸插畬鎴愬苟鍚堝叆 main銆備互涓嬫槸 Codex 鍙兘闇€瑕侀厤鍚堢殑浜嬮」锛?
+**宸插畬鎴愮殑鏀瑰姩锛?*
+- `functions/upload/exifExtractor.js` 鈥?鏂版ā鍧楋紝鐢?`exifr` 浠庡浘鐗?header 瑙ｆ瀽 EXIF
+- `functions/upload/index.js` 鈥?涓婁紶鏃惰皟鐢?extractExifData锛屽瓨鍏?`metadata.Exif`
+- `js/media-library/app.js` 鈥?EXIF 鎷嶆憚鏃堕棿浼樺厛浜庝笂浼犳椂闂达紱GPS 鍧愭爣 fallback 鍒?Location
+- `js/media-library/components.js` 鈥?PreviewModal 鏂板 Camera section锛圕amera/Lens/Settings锛?
 **TODO (Codex):**
 
-1. **测试** — `exifExtractor.js` 需要单测：
-   - 带 EXIF 的 JPEG buffer → 验证返回 `{ dateTime, camera, gps, shooting }`
-   - 非 EXIF 格式（PNG/GIF）→ 返回 null
-   - 损坏/空 buffer → 不抛异常，返回 null
-   - 可在 `test/` 下放一张小的测试 JPEG 作 fixture
+1. **娴嬭瘯** 鈥?`exifExtractor.js` 闇€瑕佸崟娴嬶細
+   - 甯?EXIF 鐨?JPEG buffer 鈫?楠岃瘉杩斿洖 `{ dateTime, camera, gps, shooting }`
+   - 闈?EXIF 鏍煎紡锛圥NG/GIF锛夆啋 杩斿洖 null
+   - 鎹熷潖/绌?buffer 鈫?涓嶆姏寮傚父锛岃繑鍥?null
+   - 鍙湪 `test/` 涓嬫斁涓€寮犲皬鐨勬祴璇?JPEG 浣?fixture
 
-2. **Preview UX 协调** — Camera section 用的是现有 `cml-preview__info-meta` 样式。
-   做 preview/detail UX 升级时注意这个新 section 的间距/排版一致性。
+2. **Preview UX 鍗忚皟** 鈥?Camera section 鐢ㄧ殑鏄幇鏈?`cml-preview__info-meta` 鏍峰紡銆?   鍋?preview/detail UX 鍗囩骇鏃舵敞鎰忚繖涓柊 section 鐨勯棿璺?鎺掔増涓€鑷存€с€?
+3. **Search filter 鎵╁睍锛堝彲閫夛級** 鈥?metadata 涓幇鍦ㄦ湁锛?   - `Exif.camera.make` / `Exif.camera.model` 鈫?鍙姞 camera 绛涢€?   - `Exif.gps` 瀛樺湪鎬?鈫?鍙姞 "has location" filter
+   - `Exif.dateTime` 鈫?宸茬粡琚?`buildIndexedMediaItem` 鐢ㄤ簬鏃堕棿鎺掑簭
 
-3. **Search filter 扩展（可选）** — metadata 中现在有：
-   - `Exif.camera.make` / `Exif.camera.model` → 可加 camera 筛选
-   - `Exif.gps` 存在性 → 可加 "has location" filter
-   - `Exif.dateTime` → 已经被 `buildIndexedMediaItem` 用于时间排序
-
-4. **存量照片无 EXIF** — 当前改动只对新上传生效。
-   补录需要从 R2 拉文件头重新解析，建议作为独立 issue，不塞进当前迭代。
-
-5. **不需要动的地方：**
-   - DB schema — JSON blob 透明兼容，无需 migration
-   - `telegramSync.js` — Telegram API 不提供原始 EXIF，无需改动
+4. **瀛橀噺鐓х墖鏃?EXIF** 鈥?褰撳墠鏀瑰姩鍙鏂颁笂浼犵敓鏁堛€?   琛ュ綍闇€瑕佷粠 R2 鎷夋枃浠跺ご閲嶆柊瑙ｆ瀽锛屽缓璁綔涓虹嫭绔?issue锛屼笉濉炶繘褰撳墠杩唬銆?
+5. **涓嶉渶瑕佸姩鐨勫湴鏂癸細**
+   - DB schema 鈥?JSON blob 閫忔槑鍏煎锛屾棤闇€ migration
+   - `telegramSync.js` 鈥?Telegram API 涓嶆彁渚涘師濮?EXIF锛屾棤闇€鏀瑰姩
 
 ### Claude Code Collaboration Rules For This Phase
 
@@ -166,4 +159,4 @@ EXIF 提取已完成并合入 main。以下是 Codex 可能需要配合的事项
 
 ### 2026-04-09 00:30 Asia/Shanghai
 
-- Fixed the preview `+` (Add to album) button being unresponsive at runtime despite the previous template-sync fix. Root cause: `openPreviewAddToAlbum` was relying on `renderPreviewTransientLayers()` → `syncPreviewSection` to copy `.is-open` onto the album panel, which went through a full template regeneration / innerHTML sync pipeline. This multi-step DOM rewrite was silently failing to produce visible results even though the state was correct, while the parallel `Info` drawer worked because `setPreviewInfoOpen` uses direct `classList.toggle` DOM manipulation. Fix: added `syncPreviewAlbumDrawer(isOpen)` which uses the same direct DOM class/aria toggle pattern as `setPreviewInfoOpen`, and rewired `openPreviewAddToAlbum`, `closeAlbumDialog`, and the `toggle-info` switch to use it. Also bumped cache busts: `app.js?v=54`, `media-library.css?v=48`, `components.js?v=3`. Reverified with `node --check js/media-library/app.js`, targeted Mocha (`test/previewOverlay.test.js` — 3 passing, `test/previewActions.test.js` — 9 passing), and full direct Mocha (37 passing).
+- Fixed the preview `+` (Add to album) button being unresponsive at runtime despite the previous template-sync fix. Root cause: `openPreviewAddToAlbum` was relying on `renderPreviewTransientLayers()` 鈫?`syncPreviewSection` to copy `.is-open` onto the album panel, which went through a full template regeneration / innerHTML sync pipeline. This multi-step DOM rewrite was silently failing to produce visible results even though the state was correct, while the parallel `Info` drawer worked because `setPreviewInfoOpen` uses direct `classList.toggle` DOM manipulation. Fix: added `syncPreviewAlbumDrawer(isOpen)` which uses the same direct DOM class/aria toggle pattern as `setPreviewInfoOpen`, and rewired `openPreviewAddToAlbum`, `closeAlbumDialog`, and the `toggle-info` switch to use it. Also bumped cache busts: `app.js?v=54`, `media-library.css?v=48`, `components.js?v=3`. Reverified with `node --check js/media-library/app.js`, targeted Mocha (`test/previewOverlay.test.js` 鈥?3 passing, `test/previewActions.test.js` 鈥?9 passing), and full direct Mocha (37 passing).
