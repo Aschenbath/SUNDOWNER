@@ -18,7 +18,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=4';
+} from './components.js?v=5';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -58,6 +58,7 @@ const TIMELINE_SECTION_CHROME_ESTIMATE = 92;
 const TIMELINE_SECTION_GAP = 28;
 const BIN_TIMELINE_SECTION_GAP = 24;
 const TIMELINE_VIRTUAL_OVERSCAN = 960;
+const TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD = 120;
 
 function createEmptyAdminProfileDraft() {
   return {
@@ -271,7 +272,8 @@ const refs = {
   contentInner: null,
   sectionItemIds: new Map(),
   timelineLayoutSections: [],
-  timelineVirtualSignature: ''
+  timelineVirtualSignature: '',
+  timelineVirtualEnabled: false
 };
 
 let mounted = false;
@@ -1372,7 +1374,13 @@ function encodePathForRoute(fileId) {
   return String(fileId || '')
     .split('/')
     .filter(Boolean)
-    .map((part) => encodeURIComponent(part))
+    .map((part) => {
+      try {
+        return encodeURIComponent(decodeURIComponent(part));
+      } catch {
+        return encodeURIComponent(part);
+      }
+    })
     .join('/');
 }
 
@@ -3883,12 +3891,25 @@ function getViewModel() {
     : buildTimelineLayoutSections(baseSections, {
         sectionGap: state.primaryFilter === 'Bin' ? BIN_TIMELINE_SECTION_GAP : TIMELINE_SECTION_GAP
       });
-  const virtualWindow = isCollectionRoot
-    ? { sections: [], signature: '' }
-    : applyTimelineVirtualWindow(laidOutSections, {
-        scrollTop: state.virtualScrollTop,
-        viewportHeight: state.virtualViewportHeight
-      });
+  const shouldVirtualizeTimeline = !isCollectionRoot && timelineItems.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD;
+  const virtualWindow = !shouldVirtualizeTimeline
+    ? {
+        sections: laidOutSections.map((section) => ({
+          ...section,
+          startIndex: section.rows.length ? 0 : -1,
+          endIndex: section.rows.length ? section.rows.length - 1 : -1,
+          topSpacerHeight: 0,
+          bottomSpacerHeight: 0,
+          visibleRows: section.rows
+        })),
+        signature: ''
+      }
+    : isCollectionRoot
+      ? { sections: [], signature: '' }
+      : applyTimelineVirtualWindow(laidOutSections, {
+          scrollTop: state.virtualScrollTop,
+          viewportHeight: state.virtualViewportHeight
+        });
   const sections = virtualWindow.sections;
   const years = isCollectionRoot
     ? []
@@ -3934,6 +3955,7 @@ function getViewModel() {
     sections,
     timelineLayoutSections: laidOutSections,
     timelineVirtualSignature: virtualWindow.signature,
+    timelineVirtualEnabled: shouldVirtualizeTimeline,
     years,
     scrubberSections,
     previewItems,
@@ -4087,6 +4109,7 @@ function render() {
   ]));
   refs.timelineLayoutSections = viewModel.timelineLayoutSections || [];
   refs.timelineVirtualSignature = viewModel.timelineVirtualSignature || '';
+  refs.timelineVirtualEnabled = Boolean(viewModel.timelineVirtualEnabled);
 
   if (refs.scrollRegion) {
     scrollRestoring = true;
@@ -4524,6 +4547,7 @@ function unmount() {
   refs.sectionItemIds = new Map();
   refs.timelineLayoutSections = [];
   refs.timelineVirtualSignature = '';
+  refs.timelineVirtualEnabled = false;
 }
 
 function syncMount() {
@@ -4667,7 +4691,7 @@ function scrollToYear(year) {
 }
 
 function patchTimelineContent() {
-  if (!refs.root) return;
+  if (!refs.root || !refs.timelineVirtualEnabled) return;
   const layoutSections = refs.timelineLayoutSections || [];
   const nextVirtualWindow = applyTimelineVirtualWindow(layoutSections, {
     scrollTop: state.virtualScrollTop,
@@ -4857,7 +4881,7 @@ function handleScroll() {
       render();
       return;
     }
-  } else {
+  } else if (refs.timelineVirtualEnabled) {
     const nextVirtualWindow = applyTimelineVirtualWindow(refs.timelineLayoutSections || [], {
       scrollTop: state.virtualScrollTop,
       viewportHeight: state.virtualViewportHeight

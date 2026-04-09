@@ -211,6 +211,9 @@ function renderMediaAsset(item, className, withControls = false) {
   const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
   const mediaUrl = escapeHtml(item.type === 'video' ? sourceUrl : imageUrl);
   const alt = escapeHtml(item.label || item.album || 'Library item');
+  const originalPhotoUrl = item.type === 'photo' && sourceUrl && sourceUrl !== imageUrl
+    ? escapeHtml(sourceUrl)
+    : '';
   const previewInlineHandler = ' onclick="window.__cmlOpenPreview && window.__cmlOpenPreview(event, this.dataset.id)"';
   const previewActionAttr = withControls
     ? ''
@@ -240,7 +243,12 @@ function renderMediaAsset(item, className, withControls = false) {
   }
   const w = item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
   const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
-  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${previewActionAttr} loading="eager" decoding="async" />`;
+  const fallbackAttr = originalPhotoUrl ? ` data-original-src="${originalPhotoUrl}"` : '';
+  const genericErrorHandler = item.type === 'photo'
+    ? `if(!this.dataset.retryOriginal&&this.dataset.originalSrc){this.dataset.retryOriginal='1';this.src=this.dataset.originalSrc;}`
+    : '';
+  const errorAttr = genericErrorHandler ? ` onerror="${escapeHtml(genericErrorHandler)}"` : '';
+  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${fallbackAttr}${previewActionAttr} loading="eager" decoding="async"${errorAttr} />`;
 }
 
 function formatItemCount(count) {
