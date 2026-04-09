@@ -14,6 +14,9 @@
  *   {
  *     targetChatId: string,   // Required. Chat where messages are forwarded temporarily.
  *                             // Must be accessible by the bot (e.g. your private chat with the bot).
+ *     botToken?:    string,   // Optional. Bot token override when env/KV config is unavailable.
+ *     sourceChatId?: string,  // Optional. Source chat ID override (where original messages live).
+ *     proxyUrl?:    string,   // Optional. Telegram API proxy domain.
  *     limit?:       number,   // Max files to process in this call. Default 20, max 100.
  *     dryRun?:      boolean,  // If true, only list candidates without making changes.
  *     keys?:        string[], // Optional. Process only these specific file keys.
@@ -152,6 +155,9 @@ export async function onRequestPost(context) {
         return jsonResponse({ success: false, error: 'targetChatId is required' }, 400);
     }
 
+    const explicitBotToken = String(body.botToken || '').trim() || null;
+    const explicitSourceChatId = String(body.sourceChatId || '').trim() || null;
+    const explicitProxyUrl = String(body.proxyUrl || '').trim() || '';
     const limit = Math.min(Math.max(parseInt(body.limit) || 20, 1), 100);
     const dryRun = body.dryRun === true;
     const specificKeys = Array.isArray(body.keys) && body.keys.length > 0 ? body.keys : null;
@@ -217,7 +223,7 @@ export async function onRequestPost(context) {
             continue;
         }
 
-        // Resolve Telegram credentials (botToken + proxyUrl + chatId)
+        // Resolve Telegram credentials: metadata → upload config → env → explicit params
         let telegramAccess = await resolveTelegramAccess(env, metadata);
         let chatId = metadata.TgChatId || telegramAccess?.chatId || null;
 
@@ -238,6 +244,14 @@ export async function onRequestPost(context) {
                 }
             }
         }
+        // Final fallback: explicit request params
+        if (!telegramAccess?.botToken && explicitBotToken) {
+            telegramAccess = { botToken: explicitBotToken, proxyUrl: explicitProxyUrl };
+        }
+        if (!chatId) {
+            chatId = explicitSourceChatId;
+        }
+
         if (!telegramAccess?.botToken) {
             results.skipped.push({ id, reason: 'no bot token resolved' });
             continue;
@@ -272,7 +286,17 @@ export async function onRequestPost(context) {
             // Patch KV: read current value, merge metadata, write back
             const record = await db.getWithMetadata(id);
             const currentMetadata = record?.metadata || metadata;
-            const newMetadata = { ...currentMetadata, TgFileId: recoveredFileId };
+            const newMetadata = {
+                ...currentMetadata,
+                TgFileId: recoveredFileId,
+                // Ensure channel credentials are in metadata so file serving
+                // can resolve them via resolveTelegramAccess path 1.
+                TgBotToken: currentMetadata.TgBotToken || telegramAccess.botToken,
+                TgChatId: currentMetadata.TgChatId || chatId,
+                TgProxyUrl: currentMetadata.TgProxyUrl || telegramAccess.proxyUrl || '',
+                Channel: currentMetadata.Channel || 'TelegramNew',
+                ChannelName: currentMetadata.ChannelName || fromKey?.channelName || 'Telegram_env',
+            };
             const value = record?.value ?? '';
 
             await db.put(id, value, { metadata: newMetadata });
