@@ -164,3 +164,7 @@ EXIF 鎻愬彇宸插畬鎴愬苟鍚堝叆 main銆備互涓嬫槸 Codex 鍙兘
 ### 2026-04-09 11:26 Asia/Shanghai
 
 - Fixed two photo-library regressions after bindings were restored. First, the justified timeline now disables row virtualization for smaller libraries (`<= 120` media items), because the old scroll-time patching path was replacing visible rows on every wheel movement and caused the “scroll once, tiles all grey/refresh” behavior. Second, photo tiles now retry the original file URL once when the preferred thumbnail URL fails, and file-route path segments are normalized through `decodeURIComponent -> encodeURIComponent` before building `/file/...` URLs so Chinese names / legacy pre-encoded ids stop producing permanently broken image tiles. Cache busts were advanced to `app.js?v=57` and `components.js?v=5`. Reverified with `node --check js/media-library/app.js` and `node --check js/media-library/components.js`.
+
+### 2026-04-09 11:39 Asia/Shanghai
+
+- Follow-up fix for still-broken JPG tiles: the media timeline no longer trusts upstream DOM thumbnail URLs for ordinary browser-supported photos. `resolvePhotoPreviewUrl(...)` now uses the canonical `/file/...` route for JPEG/PNG/WebP/etc. and only keeps the alternate fallback path for HEIC/HEIF preview handling. This avoids stale/provider-specific thumbnail URLs from the hidden upstream dashboard and restores the remaining broken photo tiles. Cache bust advanced to `app.js?v=58`. Reverified with `node --check js/media-library/app.js`.

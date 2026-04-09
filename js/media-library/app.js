@@ -2089,13 +2089,15 @@ function supportsBrowserImagePreview(mimeType) {
 function resolvePhotoPreviewUrl(fileId, mimeType, fallbackUrl = '') {
   const sourceUrl = buildFileRoute(fileId);
   const normalizedFallback = normalizeText(fallbackUrl);
-  if (normalizedFallback && normalizedFallback !== sourceUrl) {
-    return normalizedFallback;
-  }
   if (!supportsBrowserImagePreview(mimeType)) {
-    return buildFileRoute(fileId, { preview: '1' });
+    return normalizedFallback && normalizedFallback !== sourceUrl
+      ? normalizedFallback
+      : buildFileRoute(fileId, { preview: '1' });
   }
-  return normalizedFallback || sourceUrl;
+  // For browser-native image formats, prefer the canonical /file route.
+  // Upstream DOM thumbnail URLs can be stale or provider-specific and were
+  // causing permanently broken JPG tiles in the photo timeline.
+  return sourceUrl;
 }
 
 function buildIndexedMediaItem(record, domLookup, index) {
