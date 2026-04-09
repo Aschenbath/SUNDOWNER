@@ -220,19 +220,16 @@ function renderMediaAsset(item, className, withControls = false) {
     const fallbackUrl = item.thumbnailUrl && item.thumbnailUrl !== item.sourceUrl
       ? item.thumbnailUrl
       : (item.posterUrl || '');
-    if (fallbackUrl) {
-      const thumbSrc = escapeHtml(fallbackUrl);
+    const imgSrc = escapeHtml(fallbackUrl || (item.sourceUrl || ''));
+    if (imgSrc) {
+      // Try rendering — Safari supports HEIC natively; on failure, onerror
+      // hides the broken img and reveals a CSS fallback label on the tile.
       const w = item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
       const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
-      return `<img class="${className}" src="${thumbSrc}" alt="${alt}"${w}${h}${previewActionAttr} loading="lazy" decoding="async" />`;
+      const mimeTag = String(item.mimeType || 'image').replace(/^image\//i, '').toUpperCase();
+      const errorHandler = `this.style.display='none';this.parentElement.classList.add('is-heic-fallback');this.parentElement.dataset.mimeTag='${escapeHtml(mimeTag)}'`;
+      return `<img class="${className}" src="${imgSrc}" alt="${alt}"${w}${h}${previewActionAttr} loading="lazy" decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
     }
-    // No separate thumbnail — try loading the original (Safari supports HEIC natively).
-    // On browsers that can't decode it, onerror swaps in a minimal placeholder div.
-    const mimeLabel = escapeHtml(String(item.mimeType || 'image/original').replace(/^image\//i, '').toUpperCase());
-    const w = item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
-    const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
-    const onErrorSwap = `var d=document.createElement('div');d.className='${className} cml-media-unsupported';d.innerHTML='<span class=\\'cml-media-unsupported__title\\'>${mimeLabel} original</span>';this.replaceWith(d)`;
-    return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${previewActionAttr} loading="lazy" decoding="async" onerror="${escapeHtml(onErrorSwap)}" />`;
   }
   if (item.type === 'video' && item.thumbnailUrl === sourceUrl) {
     return `<video class="${className}" src="${mediaUrl}"${previewActionAttr} ${withControls ? 'controls' : ''} muted playsinline preload="metadata"></video>`;
@@ -465,7 +462,7 @@ export function MediaTile({ item, selected, layout, isCover = false }) {
   `;
 }
 
-function renderMediaRows(rows, state, coverItemId = '') {
+export function renderMediaRows(rows, state, coverItemId = '') {
   return rows.map((row) => `
     <div class="cml-media-row">
       ${row.items.map((layout) => MediaTile({

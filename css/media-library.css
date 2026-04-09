@@ -1148,6 +1148,25 @@ body.codex-media-library-active #app {
   font-size: 13px;
 }
 
+/* HEIC fallback: when img onerror fires, parent shows format label */
+#codex-media-library-root .is-heic-fallback {
+  position: relative;
+  background: #292929;
+}
+
+#codex-media-library-root .is-heic-fallback::after {
+  content: attr(data-mime-tag) " original";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9aa0a6;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
 
 #codex-media-library-root .cml-media-tile__scrim {
   position: absolute;

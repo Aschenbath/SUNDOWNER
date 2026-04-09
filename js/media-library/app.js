@@ -10,6 +10,7 @@ import {
   LoginOverlay,
   MediaGrid,
   MediaTimelineSection,
+  renderMediaRows,
   PreviewModal,
   SearchSummary,
   Sidebar,
@@ -279,6 +280,7 @@ let liveSyncPromise = null;
 let pendingSyncForceRender = false;
 let timelineRenderRaf = 0;
 let scrollRestoring = false;
+const sectionRangeCache = new Map(); // anchorId → { startIndex, endIndex }
 let persistedAlbumStatePromise = null;
 let pendingPersistedAlbumSnapshot = null;
 
@@ -3964,6 +3966,7 @@ function render() {
   if (!refs.root) {
     return;
   }
+  sectionRangeCache.clear();
 
   if (state.needsLogin) {
     refs.root.innerHTML = LoginOverlay({ error: state.loginError, isLoading: state.isLoggingIn });
@@ -4665,20 +4668,7 @@ function patchTimelineContent() {
     viewportHeight: state.virtualViewportHeight
   });
   if (nextVirtualWindow.signature === refs.timelineVirtualSignature) return;
-
-  // Parse per-section signatures to find which sections actually changed
-  const prevParts = refs.timelineVirtualSignature ? refs.timelineVirtualSignature.split('|') : [];
-  const nextParts = nextVirtualWindow.signature.split('|');
-  const changedSet = new Set();
-  nextParts.forEach((part, i) => {
-    if (part !== prevParts[i]) {
-      const anchorId = part.split(':')[0];
-      if (anchorId) changedSet.add(anchorId);
-    }
-  });
   refs.timelineVirtualSignature = nextVirtualWindow.signature;
-
-  if (!changedSet.size) return;
 
   const activeAlbumName = getActiveAlbumName();
   const activeAlbumItems = activeAlbumName
@@ -4689,23 +4679,98 @@ function patchTimelineContent() {
     : '';
 
   nextVirtualWindow.sections.forEach((section) => {
-    if (!changedSet.has(section.anchorId)) return;
+    const prev = sectionRangeCache.get(section.anchorId);
+    const nextStart = section.startIndex;
+    const nextEnd = section.endIndex;
+    if (prev && prev.startIndex === nextStart && prev.endIndex === nextEnd) return;
+    sectionRangeCache.set(section.anchorId, { startIndex: nextStart, endIndex: nextEnd });
+
     const el = refs.root.querySelector(`#${CSS.escape(section.anchorId)}`);
     if (!el) return;
     const grid = el.querySelector('.cml-media-grid');
     if (!grid) return;
-    const nextGridHtml = MediaGrid({
-      rows: section.visibleRows || section.rows || [],
-      state,
-      coverItemId,
-      topSpacerHeight: section.topSpacerHeight,
-      bottomSpacerHeight: section.bottomSpacerHeight
-    });
-    const template = document.createElement('template');
-    template.innerHTML = nextGridHtml.trim();
-    const nextGrid = template.content.firstElementChild;
-    if (nextGrid) {
-      grid.replaceWith(nextGrid);
+
+    // Update spacer heights in-place
+    const spacers = grid.querySelectorAll('.cml-media-grid__spacer');
+    const topSpacer = spacers[0];
+    const bottomSpacer = spacers.length > 1 ? spacers[spacers.length - 1] : null;
+    const topH = Math.max(0, Math.round(section.topSpacerHeight || 0));
+    const bottomH = Math.max(0, Math.round(section.bottomSpacerHeight || 0));
+
+    if (topSpacer) {
+      topSpacer.style.height = topH > 0 ? `${topH}px` : '0px';
+    } else if (topH > 0) {
+      grid.insertAdjacentHTML('afterbegin', `<div class="cml-media-grid__spacer" style="height:${topH}px" aria-hidden="true"></div>`);
+    }
+    if (bottomSpacer) {
+      bottomSpacer.style.height = bottomH > 0 ? `${bottomH}px` : '0px';
+    } else if (bottomH > 0) {
+      grid.insertAdjacentHTML('beforeend', `<div class="cml-media-grid__spacer" style="height:${bottomH}px" aria-hidden="true"></div>`);
+    }
+
+    // Incremental row update: keep overlapping rows, add/remove at edges
+    const allRows = section.rows || [];
+    const visibleRows = nextStart >= 0 && nextEnd >= nextStart
+      ? allRows.slice(nextStart, nextEnd + 1)
+      : [];
+    const prevStart = prev ? prev.startIndex : -1;
+    const prevEnd = prev ? prev.endIndex : -1;
+    const currentRowEls = grid.querySelectorAll('.cml-media-row');
+
+    if (prevStart < 0 || prevEnd < 0 || !currentRowEls.length) {
+      // No previous rows or empty — full replace of row content only
+      const rowHtml = renderMediaRows(visibleRows, state, coverItemId);
+      // Remove existing rows
+      currentRowEls.forEach((r) => r.remove());
+      // Insert new rows after top spacer
+      const insertTarget = grid.querySelector('.cml-media-grid__spacer');
+      if (insertTarget) {
+        insertTarget.insertAdjacentHTML('afterend', rowHtml);
+      } else {
+        grid.insertAdjacentHTML('afterbegin', rowHtml);
+      }
+    } else if (nextStart >= 0 && nextEnd >= nextStart) {
+      // Remove rows scrolled out at top (prevStart < nextStart)
+      const removeTop = Math.max(0, nextStart - prevStart);
+      for (let i = 0; i < removeTop && currentRowEls[i]; i++) {
+        currentRowEls[i].remove();
+      }
+      // Remove rows scrolled out at bottom (nextEnd < prevEnd)
+      const removeBottom = Math.max(0, prevEnd - nextEnd);
+      for (let i = 0; i < removeBottom; i++) {
+        const idx = currentRowEls.length - 1 - i;
+        if (currentRowEls[idx]) currentRowEls[idx].remove();
+      }
+      // Add new rows at top (nextStart < prevStart)
+      const addTop = Math.max(0, prevStart - nextStart);
+      if (addTop > 0) {
+        const newTopRows = allRows.slice(nextStart, nextStart + addTop);
+        const html = renderMediaRows(newTopRows, state, coverItemId);
+        const firstRow = grid.querySelector('.cml-media-row');
+        if (firstRow) {
+          firstRow.insertAdjacentHTML('beforebegin', html);
+        } else {
+          const topSp = grid.querySelector('.cml-media-grid__spacer');
+          if (topSp) topSp.insertAdjacentHTML('afterend', html);
+          else grid.insertAdjacentHTML('afterbegin', html);
+        }
+      }
+      // Add new rows at bottom (nextEnd > prevEnd)
+      const addBottom = Math.max(0, nextEnd - prevEnd);
+      if (addBottom > 0) {
+        const newBottomRows = allRows.slice(prevEnd + 1, nextEnd + 1);
+        const html = renderMediaRows(newBottomRows, state, coverItemId);
+        const bottomSp = grid.querySelectorAll('.cml-media-grid__spacer');
+        const lastSpacer = bottomSp.length > 1 ? bottomSp[bottomSp.length - 1] : null;
+        if (lastSpacer) {
+          lastSpacer.insertAdjacentHTML('beforebegin', html);
+        } else {
+          grid.insertAdjacentHTML('beforeend', html);
+        }
+      }
+    } else {
+      // Next range empty — remove all rows
+      currentRowEls.forEach((r) => r.remove());
     }
   });
 }
