@@ -71,6 +71,5 @@ functions/
 
 ## Pending Issues (as of 2026-04-09)
 
-1. **时间戳格式文件 500**：`1775628424666_市政厅前的吻.jpg` 等，非 `tg_` 格式，无法从 key 提取 messageId，需手动查原始消息
-2. **D1 迁移**：计划将文件索引从 KV list 迁移到 D1 以根治 list 额度问题。会改动 `functions/file/[[path]].js`（`kv.getWithMetadata` → D1 查询），注意与其他修改的冲突
-3. **侧边栏 button 宽度 bug**：Photos/Collections/Bin 三个按钮比 Videos/Documents/Favourites 短，原因未确定
+1. **时间戳格式文件 500**：`1775628424666_市政厅前的吻.jpg` 等，非 `tg_` 格式，无法从 key 提取 messageId，需手动查原始消息。Codex 已新增 `GET /api/manage/migrate/scan-orphan-files` 用于定位这类候选记录，但还没有自动恢复能力
+2. **D1 迁移**：代码层面的 D1 / hybrid / queryFiles 已完成，但生产还需要 Cloudflare Pages 绑定 `img_d1` 并调用 `POST /api/manage/migrate/kv-to-d1` 完成真正切换
