@@ -50,6 +50,8 @@ const LEGACY_ALBUM_STORAGE_KEYS = [
 ];
 const API_PAGE_SIZE = 400;
 const API_MAX_ITEMS = 1600;
+const API_REQUEST_TIMEOUT_MS = 8000;
+const STORAGE_REQUEST_TIMEOUT_MS = 5000;
 const COLLECTION_PAGE_SIZE = 24;
 const TIMELINE_ROW_GAP = 2;
 const TIMELINE_SECTION_CHROME_ESTIMATE = 92;
@@ -1833,8 +1835,8 @@ async function apiFetch(url, options = {}) {
   }
 }
 
-async function fetchJson(url) {
-  const response = await apiFetch(url);
+async function fetchJson(url, options = {}) {
+  const response = await apiFetch(url, options);
   if (!response.ok) {
     throw new Error(`${url} returned ${response.status}`);
   }
@@ -1956,8 +1958,8 @@ async function performStorageSummarySync({ forceRender = false } = {}) {
 
   try {
     const [quotaResult, uploadResult] = await Promise.allSettled([
-      fetchJson('/api/manage/quota'),
-      fetchJson('/api/manage/sysConfig/upload')
+      fetchJson('/api/manage/quota', { timeoutMs: STORAGE_REQUEST_TIMEOUT_MS }),
+      fetchJson('/api/manage/sysConfig/upload', { timeoutMs: STORAGE_REQUEST_TIMEOUT_MS })
     ]);
 
     const quotaPayload = quotaResult.status === 'fulfilled' ? quotaResult.value : null;
@@ -2161,7 +2163,9 @@ async function fetchListPage(start) {
     recursive: 'true',
     fileType: 'image,video'
   });
-  const response = await apiFetch(`/api/manage/list?${params.toString()}`);
+  const response = await apiFetch(`/api/manage/list?${params.toString()}`, {
+    timeoutMs: API_REQUEST_TIMEOUT_MS
+  });
 
   if (!response.ok) {
     throw new Error(`List API returned ${response.status}`);
@@ -4552,7 +4556,9 @@ function openPreview(itemId) {
   touchZoom.tx = 0;
   touchZoom.ty = 0;
   touchZoom.lastTap = 0;
-  render();
+  if (!renderPreviewTransientLayers()) {
+    render();
+  }
   window.requestAnimationFrame(() => animatePreviewOpenFromTile());
 }
 
@@ -4576,26 +4582,26 @@ function openPreviewFromEvent(event, itemId) {
 }
 
 function closePreview() {
-  animatePreviewCloseToTile(() => {
-    state.previewId = null;
-    state.previewTransitionRect = null;
-    state.previewTransitionSrc = '';
-    state.infoOpen = false;
-    if (state.albumDialogOrigin === 'preview') {
-      state.albumDialogOpen = false;
-      state.albumDialogOrigin = '';
-      state.albumDialogError = '';
-      state.albumDraftName = '';
-      state.albumDrawerSearch = '';
-      state.albumDrawerScope = 'all';
-      state.albumDrawerCreateMode = false;
-    }
-    state.previewImmersive = false;
-    touchZoom.currentScale = 1;
-    touchZoom.tx = 0;
-    touchZoom.ty = 0;
+  state.previewId = null;
+  state.previewTransitionRect = null;
+  state.previewTransitionSrc = '';
+  state.infoOpen = false;
+  if (state.albumDialogOrigin === 'preview') {
+    state.albumDialogOpen = false;
+    state.albumDialogOrigin = '';
+    state.albumDialogError = '';
+    state.albumDraftName = '';
+    state.albumDrawerSearch = '';
+    state.albumDrawerScope = 'all';
+    state.albumDrawerCreateMode = false;
+  }
+  state.previewImmersive = false;
+  touchZoom.currentScale = 1;
+  touchZoom.tx = 0;
+  touchZoom.ty = 0;
+  if (!renderPreviewTransientLayers()) {
     render();
-  });
+  }
 }
 
 function movePreview(direction) {

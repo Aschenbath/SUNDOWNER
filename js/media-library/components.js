@@ -228,7 +228,7 @@ function renderMediaAsset(item, className, withControls = false) {
       const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
       const mimeTag = String(item.mimeType || 'image').replace(/^image\//i, '').toUpperCase();
       const errorHandler = `this.style.display='none';this.parentElement.classList.add('is-heic-fallback');this.parentElement.dataset.mimeTag='${escapeHtml(mimeTag)}'`;
-      return `<img class="${className}" src="${imgSrc}" alt="${alt}"${w}${h}${previewActionAttr} loading="lazy" decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
+      return `<img class="${className}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}"${w}${h}${previewActionAttr} loading="eager" decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
     }
   }
   if (item.type === 'video' && item.thumbnailUrl === sourceUrl) {
@@ -240,7 +240,7 @@ function renderMediaAsset(item, className, withControls = false) {
   }
   const w = item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
   const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
-  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${previewActionAttr} loading="lazy" decoding="async" />`;
+  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${previewActionAttr} loading="eager" decoding="async" />`;
 }
 
 function formatItemCount(count) {
