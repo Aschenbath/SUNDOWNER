@@ -8,6 +8,7 @@ import {
   ConfirmDialog,
   EmptyState,
   LoginOverlay,
+  MediaGrid,
   MediaTimelineSection,
   PreviewModal,
   SearchSummary,
@@ -277,6 +278,7 @@ let liveSyncRaf = 0;
 let liveSyncPromise = null;
 let pendingSyncForceRender = false;
 let timelineRenderRaf = 0;
+let scrollRestoring = false;
 let persistedAlbumStatePromise = null;
 let pendingPersistedAlbumSnapshot = null;
 
@@ -1370,9 +1372,20 @@ function encodePathForRoute(fileId) {
     .join('/');
 }
 
-function buildFileRoute(fileId) {
+function buildFileRoute(fileId, queryParams = null) {
   const encodedPath = encodePathForRoute(fileId);
-  return encodedPath ? `/file/${encodedPath}` : '/file/';
+  const baseRoute = encodedPath ? `/file/${encodedPath}` : '/file/';
+  if (!queryParams || baseRoute === '/file/') {
+    return baseRoute;
+  }
+  const params = new URLSearchParams();
+  Object.entries(queryParams).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== '') {
+      params.set(key, String(value));
+    }
+  });
+  const queryString = params.toString();
+  return queryString ? `${baseRoute}?${queryString}` : baseRoute;
 }
 
 function buildDownloadRoute(fileId) {
@@ -2061,6 +2074,18 @@ function supportsBrowserImagePreview(mimeType) {
   return !/^image\/(?:heic|heif)\b/.test(normalized);
 }
 
+function resolvePhotoPreviewUrl(fileId, mimeType, fallbackUrl = '') {
+  const sourceUrl = buildFileRoute(fileId);
+  const normalizedFallback = normalizeText(fallbackUrl);
+  if (normalizedFallback && normalizedFallback !== sourceUrl) {
+    return normalizedFallback;
+  }
+  if (!supportsBrowserImagePreview(mimeType)) {
+    return buildFileRoute(fileId, { preview: '1' });
+  }
+  return normalizedFallback || sourceUrl;
+}
+
 function buildIndexedMediaItem(record, domLookup, index) {
   const metadata = record && typeof record === 'object' ? (record.metadata || {}) : {};
   const fileId = normalizeText(record?.name || record?.id || '');
@@ -2084,15 +2109,21 @@ function buildIndexedMediaItem(record, domLookup, index) {
   const date = new Date(timestamp);
   const dateParts = createDatePartsFromDate(date);
   const sourceUrl = buildFileRoute(fileId);
-  const posterUrl = domMatch && domMatch.thumbnailUrl !== sourceUrl ? domMatch.thumbnailUrl : '';
   const tags = inferTagsFromMetadata(metadata, fileName, type);
   const label = fileName || inferAlbumFromFileId(fileId, metadata);
+  const browserPreviewSupported = type !== 'photo' || supportsBrowserImagePreview(mimeType);
+  const thumbnailUrl = type === 'photo'
+    ? resolvePhotoPreviewUrl(fileId, mimeType, domMatch?.thumbnailUrl || '')
+    : (domMatch?.thumbnailUrl || sourceUrl);
+  const posterUrl = type === 'video'
+    ? (domMatch && domMatch.thumbnailUrl !== sourceUrl ? domMatch.thumbnailUrl : '')
+    : (thumbnailUrl !== sourceUrl ? thumbnailUrl : '');
 
   return {
     id: `managed-${hashString(fileId)}`,
     sourceId: fileId,
     sourceUrl,
-    thumbnailUrl: domMatch?.thumbnailUrl || sourceUrl,
+    thumbnailUrl,
     posterUrl,
     type,
     mimeType,
@@ -2114,7 +2145,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     label,
     sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
     exif: metadata.Exif || null,
-    browserPreviewSupported: type !== 'photo' || supportsBrowserImagePreview(mimeType),
+    browserPreviewSupported,
     isDocumentLike: isDocumentLikeSource(fileId, fileName, tags),
     sortOrder: timestamp,
     domIndex: index
@@ -2312,21 +2343,26 @@ function buildBinItem(record) {
     return null;
   }
   const type = mimeType.startsWith('video/') ? 'video' : 'photo';
+  const sourceUrl = buildFileRoute(fileId);
+  const browserPreviewSupported = type !== 'photo' || supportsBrowserImagePreview(mimeType);
+  const thumbnailUrl = type === 'photo'
+    ? resolvePhotoPreviewUrl(fileId, mimeType)
+    : sourceUrl;
   const deletedAt = Number(record.deletedAt) || Date.now();
   const deletedDate = new Date(deletedAt);
   const deletedYear = deletedDate.getFullYear();
   return {
     id: fileId,
     label: fileName,
-    thumbnailUrl: buildFileRoute(fileId),
-    sourceUrl: buildFileRoute(fileId),
-    posterUrl: '',
+    thumbnailUrl,
+    sourceUrl,
+    posterUrl: thumbnailUrl !== sourceUrl ? thumbnailUrl : '',
     type,
     width: toPositiveNumber(metadata.Width, type === 'video' ? 1280 : 1200),
     height: toPositiveNumber(metadata.Height, type === 'video' ? 720 : 900),
     sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
     mimeType,
-    browserPreviewSupported: type !== 'photo' || supportsBrowserImagePreview(mimeType),
+    browserPreviewSupported,
     daysLeft: Math.max(0, Number(record.daysLeft) || 0),
     deletedAt,
     takenAt: deletedDate.toISOString(),
@@ -4046,10 +4082,12 @@ function render() {
   refs.timelineVirtualSignature = viewModel.timelineVirtualSignature || '';
 
   if (refs.scrollRegion) {
+    scrollRestoring = true;
     refs.scrollRegion.scrollTop = previousScrollTop;
     state.virtualScrollTop = previousScrollTop;
     state.virtualViewportHeight = refs.scrollRegion.clientHeight;
     refs.scrollRegion.onscroll = handleScroll;
+    requestAnimationFrame(() => { scrollRestoring = false; });
   }
 
   if (searchWasFocused) {
@@ -4619,6 +4657,45 @@ function scrollToYear(year) {
   }
 }
 
+function patchTimelineContent() {
+  if (!refs.root) return;
+  const layoutSections = refs.timelineLayoutSections || [];
+  const nextVirtualWindow = applyTimelineVirtualWindow(layoutSections, {
+    scrollTop: state.virtualScrollTop,
+    viewportHeight: state.virtualViewportHeight
+  });
+  if (nextVirtualWindow.signature === refs.timelineVirtualSignature) return;
+  refs.timelineVirtualSignature = nextVirtualWindow.signature;
+
+  const activeAlbumName = getActiveAlbumName();
+  const activeAlbumItems = activeAlbumName
+    ? getAllItems().filter((item) => normalizeAlbumKey(resolveCollectionAlbum(item)) === normalizeAlbumKey(activeAlbumName))
+    : [];
+  const coverItemId = activeAlbumName
+    ? (findAlbumCoverItem(activeAlbumName, activeAlbumItems).item?.id || '')
+    : '';
+
+  nextVirtualWindow.sections.forEach((section) => {
+    const el = refs.root.querySelector(`#${CSS.escape(section.anchorId)}`);
+    if (!el) return;
+    const grid = el.querySelector('.cml-media-grid');
+    if (!grid) return;
+    const nextGridHtml = MediaGrid({
+      rows: section.visibleRows || section.rows || [],
+      state,
+      coverItemId,
+      topSpacerHeight: section.topSpacerHeight,
+      bottomSpacerHeight: section.bottomSpacerHeight
+    });
+    const template = document.createElement('template');
+    template.innerHTML = nextGridHtml.trim();
+    const nextGrid = template.content.firstElementChild;
+    if (nextGrid) {
+      grid.replaceWith(nextGrid);
+    }
+  });
+}
+
 function scheduleTimelineRender() {
   if (timelineRenderRaf || !refs.root) {
     return;
@@ -4626,7 +4703,7 @@ function scheduleTimelineRender() {
   timelineRenderRaf = window.requestAnimationFrame(() => {
     timelineRenderRaf = 0;
     if (refs.root) {
-      render();
+      patchTimelineContent();
     }
   });
 }
@@ -4680,7 +4757,7 @@ function handleWindowResize() {
 }
 
 function handleScroll() {
-  if (!refs.scrollRegion) {
+  if (!refs.scrollRegion || scrollRestoring) {
     return;
   }
   revealScrubber();

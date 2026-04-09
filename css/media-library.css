@@ -1,5 +1,6 @@
 body.codex-media-library-active {
   overflow: hidden !important;
+  overscroll-behavior: none !important;
   background: #1f1f1f !important;
 }
 
