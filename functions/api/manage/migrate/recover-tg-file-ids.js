@@ -84,7 +84,7 @@ async function scanIndexForCandidates(db) {
         if (!Array.isArray(files)) continue;
 
         for (const file of files) {
-            if (isMissingFileId(file.metadata)) {
+            if (isMissingFileId(file)) {
                 candidates.push({ id: file.id, metadata: file.metadata });
             }
         }
@@ -93,28 +93,24 @@ async function scanIndexForCandidates(db) {
     return candidates;
 }
 
-function isMissingFileId(metadata = {}) {
-    return (
-        (metadata.Channel === 'TelegramNew') &&
-        !metadata.TgFileId &&
-        metadata.TgChatId &&
-        metadata.TgMessageId
-    );
+function isMissingFileId(file) {
+    const metadata = file?.metadata || {};
+    if (metadata.Channel !== 'TelegramNew' || metadata.TgFileId) return false;
+    // messageId can come from metadata or key name
+    if (metadata.TgMessageId) return true;
+    return !!extractIdsFromKey(file.id)?.messageId;
 }
 
 /**
- * Try to extract chatId and messageId from the key name when metadata lacks them.
+ * Extract channelName and messageId from the key name.
  * Key format: tg_<channelName>_<messageId>_<fileUniqueId>.<ext>
- * e.g. tg_Telegram_env_42_AgADCx0AAm2GsVY.jpg → messageId=42
+ * e.g. tg_Telegram_env_42_AgADCx0AAm2GsVY.jpg → channelName=Telegram_env, messageId=42
  */
-function extractIdsFromKey(key, env) {
+function extractIdsFromKey(key) {
     const basename = key.split('/').pop().replace(/\.[^.]+$/, ''); // strip dir + ext
     const match = basename.match(/^tg_(.+)_(\d+)_(.+)$/);
     if (!match) return null;
-    const messageId = match[2];
-    const chatId = env.TG_CHAT_ID || null;
-    if (!chatId) return null;
-    return { chatId, messageId };
+    return { channelName: match[1], messageId: match[2] };
 }
 
 /**
@@ -192,13 +188,9 @@ export async function onRequestPost(context) {
 
     if (dryRun) {
         results.skipped = candidates.slice(0, limit).map(c => {
-            const chatId = c.metadata.TgChatId
-                || extractIdsFromKey(c.id, env)?.chatId
-                || null;
-            const messageId = c.metadata.TgMessageId
-                || extractIdsFromKey(c.id, env)?.messageId
-                || null;
-            return { id: c.id, reason: 'dry run', chatId, messageId };
+            const fromKey = extractIdsFromKey(c.id);
+            const messageId = c.metadata.TgMessageId || fromKey?.messageId || null;
+            return { id: c.id, reason: 'dry run', channelName: fromKey?.channelName, messageId };
         });
         results.processed = results.skipped.length;
         return jsonResponse(results);
@@ -206,36 +198,52 @@ export async function onRequestPost(context) {
 
     const toProcess = candidates.slice(0, limit);
 
+    // Lazy-load upload config (single KV read shared across all candidates)
+    let _uploadConfig = null;
+    async function getUploadConfigOnce() {
+        if (!_uploadConfig) _uploadConfig = await getUploadConfig(db, env);
+        return _uploadConfig;
+    }
+
     for (const candidate of toProcess) {
         results.processed++;
         const { id, metadata } = candidate;
 
-        // Prefer metadata fields; fall back to extracting from key name + env
-        const fromKey = extractIdsFromKey(id, env);
-        const chatId = metadata.TgChatId || fromKey?.chatId || null;
+        const fromKey = extractIdsFromKey(id);
         const messageId = metadata.TgMessageId || fromKey?.messageId || null;
 
-        if (!chatId || !messageId) {
-            results.skipped.push({ id, reason: 'missing TgChatId or TgMessageId (not in metadata or key)' });
+        if (!messageId) {
+            results.skipped.push({ id, reason: 'cannot determine message ID from metadata or key' });
             continue;
         }
 
+        // Resolve Telegram credentials (botToken + proxyUrl + chatId)
         let telegramAccess = await resolveTelegramAccess(env, metadata);
-        // Old sync-imported files may lack Channel/ChannelName in metadata.
-        // Fall back to first enabled Telegram channel in KV config.
-        if (!telegramAccess?.botToken) {
-            const uploadConfig = await getUploadConfig(db, env);
-            const firstChannel = (uploadConfig?.telegram?.channels || [])
-                .find(ch => ch.botToken && ch.enabled !== false);
-            if (firstChannel) {
-                telegramAccess = {
-                    botToken: firstChannel.botToken,
-                    proxyUrl: firstChannel.proxyUrl || '',
-                };
+        let chatId = metadata.TgChatId || telegramAccess?.chatId || null;
+
+        // Fall back to upload config for botToken AND/OR chatId
+        if (!telegramAccess?.botToken || !chatId) {
+            const config = await getUploadConfigOnce();
+            const channels = config?.telegram?.channels || [];
+            const channel = channels.find(ch => ch.botToken && ch.enabled !== false);
+            if (channel) {
+                if (!telegramAccess?.botToken) {
+                    telegramAccess = {
+                        botToken: channel.botToken,
+                        proxyUrl: channel.proxyUrl || '',
+                    };
+                }
+                if (!chatId) {
+                    chatId = channel.chatId || null;
+                }
             }
         }
         if (!telegramAccess?.botToken) {
             results.skipped.push({ id, reason: 'no bot token resolved' });
+            continue;
+        }
+        if (!chatId) {
+            results.skipped.push({ id, reason: 'cannot determine source chat ID' });
             continue;
         }
 
