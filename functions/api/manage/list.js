@@ -2,7 +2,7 @@ import {
     readIndex, mergeOperationsToIndex, deleteAllOperations, rebuildIndex,
     getIndexInfo, getIndexStorageStats
 } from '../../utils/indexManager.js';
-import { checkDatabaseConfig, getDatabase } from '../../utils/databaseAdapter.js';
+import { KV_TO_D1_MIGRATION_STATE_KEY, checkDatabaseConfig, getDatabase } from '../../utils/databaseAdapter.js';
 import { cleanupExpiredRecycleBin, isRecycleBinMetadata } from '../../utils/recycleBin.js';
 import { sanitizeExposedMetadata } from '../../utils/mediaSecurity.js';
 
@@ -13,6 +13,75 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
 };
+const MAX_D1_PAGE_SIZE = 200;
+const DEFAULT_D1_PAGE_SIZE = 50;
+const ALLOWED_SORT_BY = new Set(['created_at', 'file_name', 'file_type']);
+
+function parseMigrationStatus(rawValue) {
+    if (!rawValue) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(rawValue);
+    } catch {
+        return null;
+    }
+}
+
+function clampInteger(value, { min = 1, max = Number.MAX_SAFE_INTEGER, fallback } = {}) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) {
+        return fallback;
+    }
+
+    return Math.min(max, Math.max(min, parsed));
+}
+
+function normalizeSortBy(sortBy) {
+    const normalized = String(sortBy || '').toLowerCase();
+    return ALLOWED_SORT_BY.has(normalized) ? normalized : 'created_at';
+}
+
+function normalizeSortOrder(sortOrder) {
+    return String(sortOrder || '').toLowerCase() === 'asc' ? 'asc' : 'desc';
+}
+
+function shouldUseD1ListQueryPath({
+    recursive,
+    pageRequested,
+    pageSizeRequested,
+    listTypeArray,
+    accessStatusArray,
+    includeTagsArray,
+    excludeTagsArray,
+    labelArray,
+}) {
+    if (!recursive && !pageRequested && !pageSizeRequested) {
+        return false;
+    }
+
+    return listTypeArray.length === 0
+        && accessStatusArray.length === 0
+        && includeTagsArray.length === 0
+        && excludeTagsArray.length === 0
+        && labelArray.length === 0;
+}
+
+async function isD1ListQueryEnabled(env) {
+    const dbConfig = checkDatabaseConfig(env);
+    if (!dbConfig.usingD1) {
+        return false;
+    }
+
+    if (!dbConfig.usingHybrid) {
+        return true;
+    }
+
+    const db = getDatabase(env);
+    const migrationStatus = parseMigrationStatus(await db.get(KV_TO_D1_MIGRATION_STATE_KEY));
+    return migrationStatus?.complete === true;
+}
 
 export async function onRequest(context) {
     const { request, waitUntil } = context;
@@ -35,9 +104,19 @@ export async function onRequest(context) {
     let fileType = url.searchParams.get('fileType') || '';
     let channelName = url.searchParams.get('channelName') || '';
     let recycleBinMode = url.searchParams.get('recycleBin') || 'exclude';
+    const pageRequested = url.searchParams.get('page');
+    const pageSizeRequested = url.searchParams.get('pageSize');
+    const sortByRequested = url.searchParams.get('sortBy');
+    const sortOrderRequested = url.searchParams.get('sortOrder');
+    const typeRequested = url.searchParams.get('type') || '';
+    const favouritesRequested = url.searchParams.get('favourites') === 'true';
+    const trashRequested = url.searchParams.get('trash') === 'true';
 
     if (!['exclude', 'include', 'only'].includes(recycleBinMode)) {
         recycleBinMode = 'exclude';
+    }
+    if (trashRequested) {
+        recycleBinMode = 'only';
     }
 
     // 处理搜索关键字
@@ -143,6 +222,77 @@ export async function onRequest(context) {
         }
 
         // 普通查询：返回数据
+        const canUseD1ListQuery = shouldUseD1ListQueryPath({
+            recursive,
+            pageRequested,
+            pageSizeRequested,
+            listTypeArray,
+            accessStatusArray,
+            includeTagsArray,
+            excludeTagsArray,
+            labelArray,
+        }) && await isD1ListQueryEnabled(context.env);
+
+        if (canUseD1ListQuery) {
+            const db = getDatabase(context.env);
+            const requestedPageSize = pageSizeRequested ?? (count > 0 ? count : DEFAULT_D1_PAGE_SIZE);
+            const pageSize = clampInteger(requestedPageSize, {
+                min: 1,
+                max: MAX_D1_PAGE_SIZE,
+                fallback: DEFAULT_D1_PAGE_SIZE,
+            });
+            const page = clampInteger(pageRequested, {
+                min: 1,
+                fallback: Math.floor(Math.max(0, start) / pageSize) + 1,
+            });
+            const sortBy = normalizeSortBy(sortByRequested);
+            const sortOrder = normalizeSortOrder(sortOrderRequested);
+            const typeFilters = [];
+            if (typeRequested) {
+                typeFilters.push(typeRequested);
+            }
+            typeFilters.push(...fileTypeArray);
+            const channelNameFilters = channelNameArray.length > 0 ? channelNameArray : channelArray;
+            const queryResult = await db.queryFiles({
+                page,
+                pageSize,
+                sortBy,
+                sortOrder,
+                search,
+                directory: dir,
+                types: typeFilters,
+                channels: [],
+                channelNames: channelNameFilters,
+                recycleBinMode,
+                favourites: favouritesRequested,
+            });
+            const compatibleFiles = queryResult.files.map(file => ({
+                name: file.id,
+                metadata: sanitizeExposedMetadata(file.metadata)
+            }));
+            const totalPages = Math.max(1, Math.ceil(queryResult.total / pageSize));
+
+            return new Response(JSON.stringify({
+                files: compatibleFiles,
+                total: queryResult.total,
+                page,
+                pageSize,
+                totalPages,
+                directories: [],
+                totalCount: queryResult.total,
+                directFileCount: compatibleFiles.length,
+                directFolderCount: 0,
+                returnedCount: compatibleFiles.length,
+                start: (page - 1) * pageSize,
+                count: pageSize,
+                indexLastUpdated: Date.now(),
+                isIndexedResponse: true,
+                isD1QueryResponse: true
+            }), {
+                headers: { "Content-Type": "application/json", ...corsHeaders }
+            });
+        }
+
         const result = await readIndex(context, {
             search,
             directory: dir,

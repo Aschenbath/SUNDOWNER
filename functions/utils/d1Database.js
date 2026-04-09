@@ -62,6 +62,37 @@ function normalizeBoolean(value) {
     return value ? 1 : 0;
 }
 
+const ALLOWED_SORT_COLUMNS = {
+    created_at: 'created_at',
+    file_name: 'file_name',
+    file_type: 'file_type',
+};
+
+function normalizeStringArray(value) {
+    if (Array.isArray(value)) {
+        return value.map((item) => String(item || '').trim()).filter(Boolean);
+    }
+
+    if (value === null || value === undefined || value === '') {
+        return [];
+    }
+
+    return [String(value).trim()].filter(Boolean);
+}
+
+function normalizeSortBy(sortBy) {
+    return ALLOWED_SORT_COLUMNS[String(sortBy || '').toLowerCase()] || ALLOWED_SORT_COLUMNS.created_at;
+}
+
+function normalizeSortOrder(sortOrder) {
+    return String(sortOrder || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+}
+
+function isTruthyMetadataValue(value) {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return normalized === '1' || normalized === 'true';
+}
+
 class D1Database {
     constructor(db) {
         this.db = db;
@@ -190,6 +221,119 @@ class D1Database {
 
     async listFiles(options = {}) {
         return this.listRecords(options);
+    }
+
+    async queryFiles(options = {}) {
+        await this.ensureSchema();
+
+        const page = Math.max(1, Number.parseInt(options.page, 10) || 1);
+        const pageSize = Math.min(200, Math.max(1, Number.parseInt(options.pageSize, 10) || 50));
+        const offset = (page - 1) * pageSize;
+        const sortColumn = normalizeSortBy(options.sortBy);
+        const sortDirection = normalizeSortOrder(options.sortOrder);
+        const search = String(options.search || '').trim();
+        const directory = String(options.directory || '').trim();
+        const recycleBinMode = options.recycleBinMode || 'exclude';
+        const favouritesOnly = options.favourites === true;
+        const typeFilters = normalizeStringArray(options.types || options.type).map((value) => value.toLowerCase());
+        const channelFilters = normalizeStringArray(options.channels || options.channel);
+        const channelNameFilters = normalizeStringArray(options.channelNames || options.channelName);
+        const whereClauses = ["id NOT LIKE 'manage@%'", "id NOT LIKE 'chunk_%'"];
+        const params = [];
+
+        if (directory) {
+            const normalizedDirectory = directory.endsWith('/') ? directory : `${directory}/`;
+            whereClauses.push('(COALESCE(directory, \'\') LIKE ? OR id LIKE ?)');
+            params.push(`${normalizedDirectory}%`, `${normalizedDirectory}%`);
+        }
+
+        if (search) {
+            whereClauses.push('COALESCE(file_name, id) LIKE ?');
+            params.push(`%${search}%`);
+        }
+
+        if (channelFilters.length > 0) {
+            const channelClauses = channelFilters.map(() => 'channel = ?');
+            whereClauses.push(`(${channelClauses.join(' OR ')})`);
+            params.push(...channelFilters);
+        }
+
+        if (channelNameFilters.length > 0) {
+            const channelNameClauses = channelNameFilters.map((value) => {
+                if (value.includes(':')) {
+                    return '(channel = ? AND channel_name = ?)';
+                }
+
+                return 'channel_name = ?';
+            });
+            whereClauses.push(`(${channelNameClauses.join(' OR ')})`);
+
+            for (const value of channelNameFilters) {
+                if (value.includes(':')) {
+                    const [channelType, channelName] = value.split(':', 2);
+                    params.push(channelType, channelName);
+                } else {
+                    params.push(value);
+                }
+            }
+        }
+
+        if (typeFilters.length > 0) {
+            const typeClauses = [];
+            for (const type of typeFilters) {
+                if (type === 'image') {
+                    typeClauses.push("COALESCE(file_type, '') LIKE 'image/%'");
+                } else if (type === 'video') {
+                    typeClauses.push("COALESCE(file_type, '') LIKE 'video/%'");
+                } else if (type === 'audio') {
+                    typeClauses.push("COALESCE(file_type, '') LIKE 'audio/%'");
+                } else if (type === 'document' || type === 'other') {
+                    typeClauses.push("(COALESCE(file_type, '') NOT LIKE 'image/%' AND COALESCE(file_type, '') NOT LIKE 'video/%' AND COALESCE(file_type, '') NOT LIKE 'audio/%')");
+                }
+            }
+
+            if (typeClauses.length > 0) {
+                whereClauses.push(`(${typeClauses.join(' OR ')})`);
+            }
+        }
+
+        if (recycleBinMode === 'only') {
+            whereClauses.push("LOWER(COALESCE(json_extract(metadata, '$.RecycleBin'), '')) = 'true'");
+        } else if (recycleBinMode !== 'include') {
+            whereClauses.push("LOWER(COALESCE(json_extract(metadata, '$.RecycleBin'), '')) != 'true'");
+        }
+
+        if (favouritesOnly) {
+            whereClauses.push(`LOWER(COALESCE(
+                CAST(json_extract(metadata, '$.IsFavourite') AS TEXT),
+                CAST(json_extract(metadata, '$.IsFavorite') AS TEXT),
+                CAST(json_extract(metadata, '$.Favourite') AS TEXT),
+                CAST(json_extract(metadata, '$.Favorite') AS TEXT),
+                CAST(json_extract(metadata, '$.Favorited') AS TEXT),
+                '0'
+            )) IN ('1', 'true')`);
+        }
+
+        const whereSql = whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '';
+        const countResult = await this.db.prepare(
+            `SELECT COUNT(*) AS total FROM files${whereSql}`
+        ).bind(...params).first();
+        const total = Number(countResult?.total || 0);
+
+        const rows = await this.db.prepare(
+            `SELECT id, metadata
+             FROM files${whereSql}
+             ORDER BY ${sortColumn} ${sortDirection}, id ${sortDirection}
+             LIMIT ? OFFSET ?`
+        ).bind(...params, pageSize, offset).all();
+
+        return {
+            files: (rows.results || []).map((row) => ({
+                id: row.id,
+                metadata: parseJson(row.metadata, {}),
+            })),
+            total,
+        };
     }
 
     async putSetting(key, value, category = null) {
@@ -372,7 +516,7 @@ class D1Database {
             tgFileId: metadata.TgFileId || null,
             tgChatId: metadata.TgChatId || null,
             tgMessageId: metadata.TgMessageId || null,
-            isChunked: metadata.IsChunked || false,
+            isChunked: isTruthyMetadataValue(metadata.IsChunked),
         };
     }
 

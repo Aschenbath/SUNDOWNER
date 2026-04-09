@@ -173,6 +173,10 @@ class KVAdapter {
 
         return operations;
     }
+
+    async queryFiles() {
+        throw new Error('queryFiles is only available when D1 is configured');
+    }
 }
 
 class HybridAdapter {
@@ -393,6 +397,10 @@ class HybridAdapter {
     async listIndexOperations(options = {}) {
         const response = await this.d1.listIndexOperations(options);
         return response.operations || [];
+    }
+
+    async queryFiles(options = {}) {
+        return this.d1.queryFiles(options);
     }
 }
 

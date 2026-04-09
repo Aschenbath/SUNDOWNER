@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import { onRequest as listRoute } from '../functions/api/manage/list.js';
 import { onRequest as migrateKvToD1 } from '../functions/api/manage/migrate/kv-to-d1.js';
 import { KV_TO_D1_MIGRATION_STATE_KEY, getDatabase } from '../functions/utils/databaseAdapter.js';
 import { D1Database } from '../functions/utils/d1Database.js';
@@ -85,6 +86,18 @@ function createContext(env, request = new Request('https://example.com/api/manag
             return promise;
         },
     };
+}
+
+async function seedD1File(d1, id, metadata = {}) {
+    await d1.put(id, '', {
+        metadata: {
+            FileName: metadata.FileName || id.split('/').pop(),
+            FileType: metadata.FileType || 'image/jpeg',
+            TimeStamp: metadata.TimeStamp || 1,
+            Directory: metadata.Directory || 'photos/',
+            ...metadata,
+        },
+    });
 }
 
 describe('D1 metadata migration path', () => {
@@ -366,5 +379,120 @@ describe('D1 metadata migration path', () => {
                 reason: 'missing_metadata',
             },
         ]);
+    });
+
+    it('queryFiles paginates and returns the total count', async () => {
+        const d1 = new D1Database(new SqliteD1(':memory:'));
+
+        await seedD1File(d1, 'photos/a.jpg', { FileName: 'a.jpg', TimeStamp: 1 });
+        await seedD1File(d1, 'photos/b.jpg', { FileName: 'b.jpg', TimeStamp: 2 });
+        await seedD1File(d1, 'photos/c.jpg', { FileName: 'c.jpg', TimeStamp: 3 });
+
+        const firstPage = await d1.queryFiles({
+            page: 1,
+            pageSize: 2,
+            sortBy: 'file_name',
+            sortOrder: 'asc',
+        });
+        const secondPage = await d1.queryFiles({
+            page: 2,
+            pageSize: 2,
+            sortBy: 'file_name',
+            sortOrder: 'asc',
+        });
+
+        assert.equal(firstPage.total, 3);
+        assert.deepEqual(firstPage.files.map((file) => file.id), ['photos/a.jpg', 'photos/b.jpg']);
+        assert.equal(secondPage.total, 3);
+        assert.deepEqual(secondPage.files.map((file) => file.id), ['photos/c.jpg']);
+    });
+
+    it('queryFiles filters by file_type category', async () => {
+        const d1 = new D1Database(new SqliteD1(':memory:'));
+
+        await seedD1File(d1, 'photos/image.jpg', { FileType: 'image/jpeg', TimeStamp: 1 });
+        await seedD1File(d1, 'photos/video.mp4', { FileType: 'video/mp4', TimeStamp: 2 });
+        await seedD1File(d1, 'photos/doc.pdf', { FileType: 'application/pdf', TimeStamp: 3 });
+
+        const result = await d1.queryFiles({
+            types: ['image'],
+            page: 1,
+            pageSize: 10,
+        });
+
+        assert.equal(result.total, 1);
+        assert.deepEqual(result.files.map((file) => file.id), ['photos/image.jpg']);
+    });
+
+    it('queryFiles searches by file_name with LIKE binding', async () => {
+        const d1 = new D1Database(new SqliteD1(':memory:'));
+
+        await seedD1File(d1, 'photos/sunrise.jpg', { FileName: 'sunrise.jpg', TimeStamp: 1 });
+        await seedD1File(d1, 'photos/night.jpg', { FileName: 'night.jpg', TimeStamp: 2 });
+
+        const result = await d1.queryFiles({
+            search: 'sun',
+            page: 1,
+            pageSize: 10,
+        });
+
+        assert.equal(result.total, 1);
+        assert.deepEqual(result.files.map((file) => file.id), ['photos/sunrise.jpg']);
+    });
+
+    it('queryFiles sorts deterministically in both asc and desc order', async () => {
+        const d1 = new D1Database(new SqliteD1(':memory:'));
+
+        await seedD1File(d1, 'photos/b.jpg', { FileName: 'b.jpg', TimeStamp: 1 });
+        await seedD1File(d1, 'photos/a.jpg', { FileName: 'a.jpg', TimeStamp: 2 });
+
+        const ascResult = await d1.queryFiles({
+            page: 1,
+            pageSize: 10,
+            sortBy: 'file_name',
+            sortOrder: 'asc',
+        });
+        const descResult = await d1.queryFiles({
+            page: 1,
+            pageSize: 10,
+            sortBy: 'file_name',
+            sortOrder: 'desc',
+        });
+
+        assert.deepEqual(ascResult.files.map((file) => file.id), ['photos/a.jpg', 'photos/b.jpg']);
+        assert.deepEqual(descResult.files.map((file) => file.id), ['photos/b.jpg', 'photos/a.jpg']);
+    });
+
+    it('list route returns D1-backed paginated responses when migration is complete', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+        const d1 = new D1Database(env.img_d1);
+
+        await seedD1File(d1, 'photos/a.jpg', { FileName: 'a.jpg', TimeStamp: 1 });
+        await seedD1File(d1, 'photos/b.jpg', { FileName: 'b.jpg', TimeStamp: 2 });
+        await seedD1File(d1, 'photos/c.jpg', { FileName: 'c.jpg', TimeStamp: 3 });
+        await d1.put(KV_TO_D1_MIGRATION_STATE_KEY, JSON.stringify({
+            complete: true,
+            nextCursor: null,
+            updatedAt: Date.now(),
+        }));
+
+        const response = await listRoute(createContext(
+            env,
+            new Request('https://example.com/api/manage/list?recursive=true&page=2&pageSize=2&sortBy=file_name&sortOrder=asc', {
+                method: 'GET',
+            }),
+        ));
+
+        assert.equal(response.status, 200);
+        const payload = await response.json();
+        assert.equal(payload.isD1QueryResponse, true);
+        assert.equal(payload.total, 3);
+        assert.equal(payload.page, 2);
+        assert.equal(payload.pageSize, 2);
+        assert.equal(payload.totalPages, 2);
+        assert.deepEqual(payload.files.map((file) => file.name), ['photos/c.jpg']);
     });
 });
