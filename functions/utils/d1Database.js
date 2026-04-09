@@ -1,413 +1,469 @@
-/**
- * D1 数据库操作工具类
- */
+import { stripSensitiveMetadata } from './mediaSecurity.js';
+
+const SCHEMA_STATEMENTS = [
+    `CREATE TABLE IF NOT EXISTS files (
+        id TEXT PRIMARY KEY,
+        value TEXT,
+        metadata TEXT NOT NULL DEFAULT '{}',
+        file_name TEXT,
+        file_type TEXT,
+        file_size REAL,
+        upload_ip TEXT,
+        upload_address TEXT,
+        list_type TEXT,
+        timestamp INTEGER,
+        label TEXT,
+        directory TEXT,
+        channel TEXT,
+        channel_name TEXT,
+        tg_file_id TEXT,
+        tg_chat_id TEXT,
+        tg_message_id TEXT,
+        is_chunked INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_files_timestamp ON files(timestamp DESC, id ASC)',
+    'CREATE INDEX IF NOT EXISTS idx_files_directory ON files(directory, timestamp DESC, id ASC)',
+    'CREATE INDEX IF NOT EXISTS idx_files_channel ON files(channel, channel_name, timestamp DESC, id ASC)',
+    `CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT,
+        category TEXT,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_settings_category ON settings(category)',
+    `CREATE TABLE IF NOT EXISTS index_operations (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        processed INTEGER DEFAULT 0,
+        expires_at INTEGER,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_index_operations_timestamp ON index_operations(timestamp ASC, id ASC)',
+    'CREATE INDEX IF NOT EXISTS idx_index_operations_expires_at ON index_operations(expires_at)',
+];
+
+function parseJson(value, fallback) {
+    if (!value) {
+        return fallback;
+    }
+
+    try {
+        return JSON.parse(value);
+    } catch {
+        return fallback;
+    }
+}
+
+function normalizeBoolean(value) {
+    return value ? 1 : 0;
+}
 
 class D1Database {
     constructor(db) {
         this.db = db;
+        this.schemaReady = null;
     }
-}
 
-import { stripSensitiveMetadata } from './mediaSecurity.js';
+    async ensureSchema() {
+        if (!this.schemaReady) {
+            this.schemaReady = (async () => {
+                for (const sql of SCHEMA_STATEMENTS) {
+                    await this.db.prepare(sql).run();
+                }
+            })();
+        }
 
-// ==================== 文件操作 ====================
+        return this.schemaReady;
+    }
 
-/**
- * 保存文件记录 (替代 KV.put)
- */
-D1Database.prototype.putFile = function(fileId, value, options) {
-    value = value || '';
-    options = options || {};
-    var metadata = stripSensitiveMetadata(options.metadata || {});
-    
-    // 从metadata中提取字段用于索引
-    var extractedFields = this.extractMetadataFields(metadata);
-    
-    var stmt = this.db.prepare(
-        'INSERT OR REPLACE INTO files (' +
-        'id, value, metadata, file_name, file_type, file_size, ' +
-        'upload_ip, upload_address, list_type, timestamp, ' +
-        'label, directory, channel, channel_name, ' +
-        'tg_file_id, tg_chat_id, tg_bot_token, is_chunked' +
-        ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    );
-    
-    return stmt.bind(
-        fileId,
-        value,
-        JSON.stringify(metadata),
-        extractedFields.fileName,
-        extractedFields.fileType,
-        extractedFields.fileSize,
-        extractedFields.uploadIP,
-        extractedFields.uploadAddress,
-        extractedFields.listType,
-        extractedFields.timestamp,
-        extractedFields.label,
-        extractedFields.directory,
-        extractedFields.channel,
-        extractedFields.channelName,
-        extractedFields.tgFileId,
-        extractedFields.tgChatId,
-        extractedFields.tgBotToken,
-        extractedFields.isChunked
-    ).run();
-};
+    async putFile(fileId, value, options = {}) {
+        await this.ensureSchema();
+        const metadata = stripSensitiveMetadata(options.metadata || {});
+        const extractedFields = this.extractMetadataFields(metadata);
 
-/**
- * 获取文件记录 (替代 KV.get)
- */
-D1Database.prototype.getFile = function(fileId) {
-    var self = this;
-    var stmt = this.db.prepare('SELECT * FROM files WHERE id = ?');
-    return stmt.bind(fileId).first().then(function(result) {
-        if (!result) return null;
-        
+        return this.db.prepare(
+            `INSERT OR REPLACE INTO files (
+                id, value, metadata, file_name, file_type, file_size,
+                upload_ip, upload_address, list_type, timestamp,
+                label, directory, channel, channel_name,
+                tg_file_id, tg_chat_id, tg_message_id, is_chunked,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM files WHERE id = ?), CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)`
+        ).bind(
+            fileId,
+            value ?? '',
+            JSON.stringify(metadata),
+            extractedFields.fileName,
+            extractedFields.fileType,
+            extractedFields.fileSize,
+            extractedFields.uploadIP,
+            extractedFields.uploadAddress,
+            extractedFields.listType,
+            extractedFields.timestamp,
+            extractedFields.label,
+            extractedFields.directory,
+            extractedFields.channel,
+            extractedFields.channelName,
+            extractedFields.tgFileId,
+            extractedFields.tgChatId,
+            extractedFields.tgMessageId,
+            normalizeBoolean(extractedFields.isChunked),
+            fileId,
+        ).run();
+    }
+
+    async getFile(fileId) {
+        await this.ensureSchema();
+        const result = await this.db.prepare('SELECT value, metadata FROM files WHERE id = ?').bind(fileId).first();
+        if (!result) {
+            return null;
+        }
+
         return {
             value: result.value,
-            metadata: JSON.parse(result.metadata || '{}')
+            metadata: parseJson(result.metadata, {}),
         };
-    });
-};
-
-/**
- * 获取文件记录包含元数据 (替代 KV.getWithMetadata)
- */
-D1Database.prototype.getFileWithMetadata = function(fileId) {
-    return this.getFile(fileId);
-};
-
-/**
- * 删除文件记录 (替代 KV.delete)
- */
-D1Database.prototype.deleteFile = function(fileId) {
-    var stmt = this.db.prepare('DELETE FROM files WHERE id = ?');
-    return stmt.bind(fileId).run();
-};
-
-/**
- * 列出文件 (替代 KV.list)
- */
-D1Database.prototype.listFiles = function(options) {
-    options = options || {};
-    var prefix = options.prefix || '';
-    var limit = options.limit || 1000;
-    var cursor = options.cursor || null;
-    
-    var query = 'SELECT id, metadata FROM files';
-    var params = [];
-    
-    if (prefix) {
-        query += ' WHERE id LIKE ?';
-        params.push(prefix + '%');
     }
-    
-    if (cursor) {
-        query += prefix ? ' AND' : ' WHERE';
-        query += ' id > ?';
-        params.push(cursor);
+
+    async getFileWithMetadata(fileId) {
+        return this.getFile(fileId);
     }
-    
-    query += ' ORDER BY id LIMIT ?';
-    params.push(limit + 1);
-    
-    var stmt = this.db.prepare(query);
-    if (params.length > 0) {
-        stmt = stmt.bind.apply(stmt, params);
+
+    async deleteFile(fileId) {
+        await this.ensureSchema();
+        return this.db.prepare('DELETE FROM files WHERE id = ?').bind(fileId).run();
     }
-    return stmt.all().then(function(response) {
-        var results = response.results || [];
-        var hasMore = results.length > limit;
+
+    async listRecords(options = {}) {
+        await this.ensureSchema();
+
+        const prefix = options.prefix || '';
+        const limit = options.limit || 1000;
+        const cursor = options.cursor || null;
+        const includeInternal = options.includeInternal === true;
+        const whereClauses = [];
+        const params = [];
+
+        if (!includeInternal) {
+            whereClauses.push("id NOT LIKE 'manage@%'");
+            whereClauses.push("id NOT LIKE 'chunk_%'");
+        }
+
+        if (prefix) {
+            whereClauses.push('id LIKE ?');
+            params.push(prefix + '%');
+        }
+
+        if (cursor) {
+            whereClauses.push('id > ?');
+            params.push(cursor);
+        }
+
+        const query =
+            'SELECT id, metadata FROM files'
+            + (whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '')
+            + ' ORDER BY id LIMIT ?';
+        params.push(limit + 1);
+
+        const response = await this.db.prepare(query).bind(...params).all();
+        const results = response.results || [];
+        const hasMore = results.length > limit;
         if (hasMore) {
             results.pop();
         }
 
-        var keys = results.map(function(row) {
-            return {
-                name: row.id,
-                metadata: JSON.parse(row.metadata || '{}')
-            };
-        });
-        
+        const keys = results.map((row) => ({
+            name: row.id,
+            metadata: parseJson(row.metadata, {}),
+        }));
+
         return {
-            keys: keys,
+            keys,
             cursor: hasMore && keys.length > 0 ? keys[keys.length - 1].name : null,
-            list_complete: !hasMore
+            list_complete: !hasMore,
         };
-    });
-};
-
-// ==================== 设置操作 ====================
-
-/**
- * 保存设置 (替代 KV.put)
- */
-D1Database.prototype.putSetting = function(key, value, category) {
-    if (!category && key.startsWith('manage@sysConfig@')) {
-        category = key.split('@')[2];
     }
-    
-    var stmt = this.db.prepare(
-        'INSERT OR REPLACE INTO settings (key, value, category) VALUES (?, ?, ?)'
-    );
-    
-    return stmt.bind(key, value, category).run();
-};
 
-/**
- * 获取设置 (替代 KV.get)
- */
-D1Database.prototype.getSetting = function(key) {
-    var stmt = this.db.prepare('SELECT value FROM settings WHERE key = ?');
-    return stmt.bind(key).first().then(function(result) {
+    async listFiles(options = {}) {
+        return this.listRecords(options);
+    }
+
+    async putSetting(key, value, category = null) {
+        await this.ensureSchema();
+
+        let finalCategory = category;
+        if (!finalCategory && key.startsWith('manage@sysConfig@')) {
+            finalCategory = key.split('@')[2] || null;
+        }
+
+        return this.db.prepare(
+            'INSERT OR REPLACE INTO settings (key, value, category, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)'
+        ).bind(key, value, finalCategory).run();
+    }
+
+    async getSetting(key) {
+        await this.ensureSchema();
+        const result = await this.db.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first();
         return result ? result.value : null;
-    });
-};
-
-/**
- * 删除设置 (替代 KV.delete)
- */
-D1Database.prototype.deleteSetting = function(key) {
-    var stmt = this.db.prepare('DELETE FROM settings WHERE key = ?');
-    return stmt.bind(key).run();
-};
-
-/**
- * 列出设置 (替代 KV.list)
- */
-D1Database.prototype.listSettings = function(options) {
-    options = options || {};
-    var prefix = options.prefix || '';
-    var limit = options.limit || 1000;
-    
-    var query = 'SELECT key, value FROM settings';
-    var params = [];
-    
-    if (prefix) {
-        query += ' WHERE key LIKE ?';
-        params.push(prefix + '%');
     }
-    
-    query += ' ORDER BY key LIMIT ?';
-    params.push(limit);
-    
-    var stmt = this.db.prepare(query);
-    if (params.length > 0) {
-        stmt = stmt.bind.apply(stmt, params);
+
+    async deleteSetting(key) {
+        await this.ensureSchema();
+        return this.db.prepare('DELETE FROM settings WHERE key = ?').bind(key).run();
     }
-    return stmt.all().then(function(response) {
-        var results = response.results || [];
-        var keys = results.map(function(row) {
-            return {
-                name: row.key,
-                value: row.value
-            };
-        });
 
-        return { keys: keys };
-    });
-};
+    async listSettings(options = {}) {
+        await this.ensureSchema();
 
-// ==================== 索引操作 ====================
+        const prefix = options.prefix || '';
+        const limit = options.limit || 1000;
+        const cursor = options.cursor || null;
+        const whereClauses = [];
+        const params = [];
 
-/**
- * 保存索引操作记录
- */
-D1Database.prototype.putIndexOperation = function(operationId, operation) {
-    var stmt = this.db.prepare(
-        'INSERT OR REPLACE INTO index_operations (id, type, timestamp, data) VALUES (?, ?, ?, ?)'
-    );
-    
-    return stmt.bind(
-        operationId,
-        operation.type,
-        operation.timestamp,
-        JSON.stringify(operation.data)
-    ).run();
-};
+        if (prefix) {
+            whereClauses.push('key LIKE ?');
+            params.push(prefix + '%');
+        }
 
-/**
- * 获取索引操作记录
- */
-D1Database.prototype.getIndexOperation = function(operationId) {
-    var stmt = this.db.prepare('SELECT * FROM index_operations WHERE id = ?');
-    return stmt.bind(operationId).first().then(function(result) {
-        if (!result) return null;
-        
+        if (cursor) {
+            whereClauses.push('key > ?');
+            params.push(cursor);
+        }
+
+        const query =
+            'SELECT key, value FROM settings'
+            + (whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '')
+            + ' ORDER BY key LIMIT ?';
+        params.push(limit + 1);
+
+        const response = await this.db.prepare(query).bind(...params).all();
+        const results = response.results || [];
+        const hasMore = results.length > limit;
+        if (hasMore) {
+            results.pop();
+        }
+
+        const keys = results.map((row) => ({
+            name: row.key,
+            value: row.value,
+        }));
+
         return {
+            keys,
+            cursor: hasMore && keys.length > 0 ? keys[keys.length - 1].name : null,
+            list_complete: !hasMore,
+        };
+    }
+
+    async putIndexOperation(operationId, operation, options = {}) {
+        await this.ensureSchema();
+        const expirationTtl = Number(options.expirationTtl) || 0;
+        const expiresAt = expirationTtl > 0 ? Date.now() + (expirationTtl * 1000) : null;
+
+        return this.db.prepare(
+            `INSERT OR REPLACE INTO index_operations (
+                id, type, timestamp, data, processed, expires_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+        ).bind(
+            operationId,
+            operation.type,
+            operation.timestamp,
+            JSON.stringify(operation.data),
+            normalizeBoolean(operation.processed),
+            expiresAt,
+        ).run();
+    }
+
+    async getIndexOperation(operationId) {
+        await this.ensureSchema();
+        const result = await this.db.prepare(
+            'SELECT id, type, timestamp, data, processed FROM index_operations WHERE id = ?'
+        ).bind(operationId).first();
+
+        if (!result) {
+            return null;
+        }
+
+        return {
+            id: result.id,
             type: result.type,
             timestamp: result.timestamp,
-            data: JSON.parse(result.data)
+            data: parseJson(result.data, {}),
+            processed: Boolean(result.processed),
         };
-    });
-};
-
-/**
- * 删除索引操作记录
- */
-D1Database.prototype.deleteIndexOperation = function(operationId) {
-    var stmt = this.db.prepare('DELETE FROM index_operations WHERE id = ?');
-    return stmt.bind(operationId).run();
-};
-
-/**
- * 列出索引操作记录
- */
-D1Database.prototype.listIndexOperations = function(options) {
-    options = options || {};
-    var limit = options.limit || 1000;
-    var processed = options.processed;
-    
-    var query = 'SELECT * FROM index_operations';
-    var params = [];
-    
-    if (processed !== null && processed !== undefined) {
-        query += ' WHERE processed = ?';
-        params.push(processed);
     }
-    
-    query += ' ORDER BY timestamp LIMIT ?';
-    params.push(limit);
-    
-    var stmt = this.db.prepare(query);
-    if (params.length > 0) {
-        stmt = stmt.bind.apply(stmt, params);
+
+    async deleteIndexOperation(operationId) {
+        await this.ensureSchema();
+        return this.db.prepare('DELETE FROM index_operations WHERE id = ?').bind(operationId).run();
     }
-    return stmt.all().then(function(response) {
-        var results = response.results || [];
-        return results.map(function(row) {
-            return {
+
+    async listIndexOperations(options = {}) {
+        await this.ensureSchema();
+        const limit = options.limit || 1000;
+        const cursor = options.cursor || null;
+        const processed = options.processed;
+        const now = Date.now();
+        const whereClauses = ['(expires_at IS NULL OR expires_at > ?)'];
+        const params = [now];
+
+        if (processed !== null && processed !== undefined) {
+            whereClauses.push('processed = ?');
+            params.push(normalizeBoolean(processed));
+        }
+
+        if (cursor) {
+            whereClauses.push('id > ?');
+            params.push(cursor);
+        }
+
+        const query =
+            'SELECT id, type, timestamp, data, processed FROM index_operations'
+            + ` WHERE ${whereClauses.join(' AND ')}`
+            + ' ORDER BY id LIMIT ?';
+        params.push(limit + 1);
+
+        const response = await this.db.prepare(query).bind(...params).all();
+        const results = response.results || [];
+        const hasMore = results.length > limit;
+        if (hasMore) {
+            results.pop();
+        }
+
+        return {
+            keys: results.map((row) => ({
+                name: `manage@index@operation_${row.id}`,
+                metadata: {
+                    type: row.type,
+                    timestamp: row.timestamp,
+                    processed: Boolean(row.processed),
+                },
+            })),
+            cursor: hasMore && results.length > 0 ? results[results.length - 1].id : null,
+            list_complete: !hasMore,
+            operations: results.map((row) => ({
                 id: row.id,
                 type: row.type,
                 timestamp: row.timestamp,
-                data: JSON.parse(row.data),
-                processed: row.processed
-            };
-        });
-    });
-};
-
-// ==================== 工具方法 ====================
-
-/**
- * 从metadata中提取字段用于索引
- */
-D1Database.prototype.extractMetadataFields = function(metadata) {
-    return {
-        fileName: metadata.FileName || null,
-        fileType: metadata.FileType || null,
-        fileSize: metadata.FileSize || null,
-        uploadIP: metadata.UploadIP || null,
-        uploadAddress: metadata.UploadAddress || null,
-        listType: metadata.ListType || null,
-        timestamp: metadata.TimeStamp || null,
-        label: metadata.Label || null,
-        directory: metadata.Directory || null,
-        channel: metadata.Channel || null,
-        channelName: metadata.ChannelName || null,
-        tgFileId: metadata.TgFileId || null,
-        tgChatId: metadata.TgChatId || null,
-        tgBotToken: null,
-        isChunked: metadata.IsChunked || false
-    };
-};
-
-// ==================== 通用方法 ====================
-
-/**
- * 通用的put方法，根据key类型自动选择存储位置
- */
-D1Database.prototype.put = function(key, value, options) {
-    options = options || {};
-    if (!key.startsWith('manage@') && options.metadata) {
-        options = Object.assign({}, options, {
-            metadata: stripSensitiveMetadata(options.metadata)
-        });
+                data: parseJson(row.data, {}),
+                processed: Boolean(row.processed),
+            })),
+        };
     }
 
-    if (key.startsWith('manage@sysConfig@')) {
-        return this.putSetting(key, value);
-    } else if (key.startsWith('manage@index@operation_')) {
-        var operationId = key.replace('manage@index@operation_', '');
-        var operation = JSON.parse(value);
-        return this.putIndexOperation(operationId, operation);
-    } else {
+    extractMetadataFields(metadata) {
+        return {
+            fileName: metadata.FileName || null,
+            fileType: metadata.FileType || null,
+            fileSize: metadata.FileSize || null,
+            uploadIP: metadata.UploadIP || null,
+            uploadAddress: metadata.UploadAddress || null,
+            listType: metadata.ListType || null,
+            timestamp: metadata.TimeStamp || null,
+            label: metadata.Label || null,
+            directory: metadata.Directory || null,
+            channel: metadata.Channel || null,
+            channelName: metadata.ChannelName || null,
+            tgFileId: metadata.TgFileId || null,
+            tgChatId: metadata.TgChatId || null,
+            tgMessageId: metadata.TgMessageId || null,
+            isChunked: metadata.IsChunked || false,
+        };
+    }
+
+    async put(key, value, options = {}) {
+        await this.ensureSchema();
+
+        if (key.startsWith('manage@sysConfig@')) {
+            return this.putSetting(key, value);
+        }
+
+        if (key.startsWith('manage@index@operation_')) {
+            const operationId = key.replace('manage@index@operation_', '');
+            const operation = parseJson(value, null);
+            if (!operation) {
+                throw new Error(`Invalid operation payload for key ${key}`);
+            }
+            return this.putIndexOperation(operationId, operation, options);
+        }
+
         return this.putFile(key, value, options);
     }
-};
 
-/**
- * 通用的get方法，根据key类型自动选择获取位置
- */
-D1Database.prototype.get = function(key) {
-    var self = this;
+    async get(key) {
+        await this.ensureSchema();
 
-    if (key.startsWith('manage@sysConfig@')) {
-        return this.getSetting(key);
-    } else if (key.startsWith('manage@index@operation_')) {
-        var operationId = key.replace('manage@index@operation_', '');
-        return this.getIndexOperation(operationId).then(function(operation) {
-            return operation ? JSON.stringify(operation) : null;
-        });
-    } else {
-        return this.getFile(key).then(function(file) {
-            return file ? file.value : null;
-        });
+        if (key.startsWith('manage@sysConfig@')) {
+            return this.getSetting(key);
+        }
+
+        if (key.startsWith('manage@index@operation_')) {
+            const operationId = key.replace('manage@index@operation_', '');
+            const operation = await this.getIndexOperation(operationId);
+            return operation ? JSON.stringify({
+                type: operation.type,
+                timestamp: operation.timestamp,
+                data: operation.data,
+                processed: operation.processed,
+            }) : null;
+        }
+
+        const file = await this.getFile(key);
+        return file ? file.value : null;
     }
-};
 
-/**
- * 通用的getWithMetadata方法
- */
-D1Database.prototype.getWithMetadata = function(key) {
-    var self = this;
+    async getWithMetadata(key) {
+        await this.ensureSchema();
 
-    if (key.startsWith('manage@sysConfig@')) {
-        return this.getSetting(key).then(function(value) {
-            return value ? { value: value, metadata: {} } : null;
-        });
-    } else {
+        if (key.startsWith('manage@sysConfig@')) {
+            const value = await this.getSetting(key);
+            return value !== null ? { value, metadata: {} } : null;
+        }
+
         return this.getFileWithMetadata(key);
     }
-};
 
-/**
- * 通用的delete方法
- */
-D1Database.prototype.delete = function(key) {
-    if (key.startsWith('manage@sysConfig@')) {
-        return this.deleteSetting(key);
-    } else if (key.startsWith('manage@index@operation_')) {
-        var operationId = key.replace('manage@index@operation_', '');
-        return this.deleteIndexOperation(operationId);
-    } else {
+    async delete(key) {
+        await this.ensureSchema();
+
+        if (key.startsWith('manage@sysConfig@')) {
+            return this.deleteSetting(key);
+        }
+
+        if (key.startsWith('manage@index@operation_')) {
+            const operationId = key.replace('manage@index@operation_', '');
+            return this.deleteIndexOperation(operationId);
+        }
+
         return this.deleteFile(key);
     }
-};
 
-/**
- * 通用的list方法
- */
-D1Database.prototype.list = function(options) {
-    options = options || {};
-    var prefix = options.prefix || '';
-    var self = this;
+    async list(options = {}) {
+        await this.ensureSchema();
+        const prefix = options.prefix || '';
 
-    if (prefix.startsWith('manage@sysConfig@')) {
-        return this.listSettings(options);
-    } else if (prefix.startsWith('manage@index@operation_')) {
-        return this.listIndexOperations(options).then(function(operations) {
-            var keys = operations.map(function(op) {
-                return {
-                    name: 'manage@index@operation_' + op.id
-                };
+        if (prefix.startsWith('manage@sysConfig@')) {
+            return this.listSettings(options);
+        }
+
+        if (prefix.startsWith('manage@index@operation_')) {
+            return this.listIndexOperations(options);
+        }
+
+        if (prefix.startsWith('manage@index') || prefix.startsWith('chunk_')) {
+            return this.listRecords({
+                ...options,
+                includeInternal: true,
             });
-            return { keys: keys };
-        });
-    } else {
+        }
+
         return this.listFiles(options);
     }
-};
+}
 
-// 导出构造函数
 export { D1Database };

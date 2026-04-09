@@ -376,7 +376,7 @@ async function fetchTelegramChunkWithRetry(botToken, chunk, proxyUrl = '', maxRe
 
 // 处理 Discord 渠道分片文件读取
 async function handleDiscordChunkedFile(context, imgRecord, encodedFileName, fileType) {
-    const { request, url, Referer } = context;
+    const { env, request, url, Referer } = context;
 
     const metadata = imgRecord.metadata;
     const discordAccess = await resolveDiscordAccess(env, metadata || {});

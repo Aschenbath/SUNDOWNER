@@ -2,7 +2,7 @@ import {
     readIndex, mergeOperationsToIndex, deleteAllOperations, rebuildIndex,
     getIndexInfo, getIndexStorageStats
 } from '../../utils/indexManager.js';
-import { getDatabase } from '../../utils/databaseAdapter.js';
+import { checkDatabaseConfig, getDatabase } from '../../utils/databaseAdapter.js';
 import { cleanupExpiredRecycleBin, isRecycleBinMetadata } from '../../utils/recycleBin.js';
 import { sanitizeExposedMetadata } from '../../utils/mediaSecurity.js';
 
@@ -162,6 +162,18 @@ export async function onRequest(context) {
 
         // 索引读取失败，直接从 KV 中获取所有文件记录
         if (!result.success) {
+            const dbConfig = checkDatabaseConfig(context.env);
+            if (dbConfig.usingD1) {
+                return new Response(JSON.stringify({
+                    error: 'Index unavailable',
+                    message: 'D1-backed metadata query failed'
+                }), {
+                    status: 503,
+                    headers: { "Content-Type": "application/json", ...corsHeaders }
+                });
+            }
+
+            console.error('Index read failed, falling back to direct database scan.');
             const dbRecords = await getAllFileRecords(context.env, dir, recycleBinMode);
 
             return new Response(JSON.stringify({

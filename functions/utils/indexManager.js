@@ -39,6 +39,10 @@
 
 import { getDatabase, checkDatabaseConfig } from './databaseAdapter.js';
 
+const OPERATION_TTL_SECONDS = 3600;
+const REBUILD_LOCK_KEY = 'manage@index@rebuild_lock';
+const REBUILD_LOCK_TTL_SECONDS = 60;
+
 const INDEX_KEY = 'manage@index';
 const INDEX_META_KEY = 'manage@index@meta'; // 索引元数据键
 const OPERATION_KEY_PREFIX = 'manage@index@operation_';
@@ -58,6 +62,135 @@ export function getIndexChunkSize(env) {
     return config.usingD1 ? INDEX_CHUNK_SIZE_D1 : INDEX_CHUNK_SIZE_KV;
 }
 
+function usesD1MetadataIndex(env) {
+    return checkDatabaseConfig(env).usingD1;
+}
+
+async function readJsonValue(db, key) {
+    const rawValue = await db.get(key);
+    if (!rawValue) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(rawValue);
+    } catch (error) {
+        console.warn(`Failed to parse JSON value for ${key}:`, error);
+        return null;
+    }
+}
+
+function buildIndexMetadataFromFiles(files, lastUpdated = Date.now()) {
+    const channelStats = {};
+    let totalSizeMB = 0;
+
+    for (const file of files) {
+        const fileSize = parseFloat(file.metadata?.FileSize) || 0;
+        totalSizeMB += fileSize;
+
+        const channelName = file.metadata?.ChannelName;
+        if (!channelName) {
+            continue;
+        }
+
+        if (!channelStats[channelName]) {
+            channelStats[channelName] = { usedMB: 0, fileCount: 0 };
+        }
+
+        channelStats[channelName].usedMB += fileSize;
+        channelStats[channelName].fileCount += 1;
+    }
+
+    for (const stats of Object.values(channelStats)) {
+        stats.usedMB = Math.round(stats.usedMB * 100) / 100;
+    }
+
+    return {
+        lastUpdated,
+        totalCount: files.length,
+        totalSizeMB: Math.round(totalSizeMB * 100) / 100,
+        channelStats,
+        lastOperationId: null,
+        chunkCount: 0,
+        chunkSize: INDEX_CHUNK_SIZE_D1,
+    };
+}
+
+async function loadAllIndexedFilesFromDatabase(context) {
+    const { env } = context;
+    const db = getDatabase(env);
+    const files = [];
+    let cursor = null;
+
+    while (true) {
+        const response = await db.list({
+            limit: KV_LIST_LIMIT,
+            cursor,
+        });
+
+        if (!response || !Array.isArray(response.keys)) {
+            throw new Error('Invalid database list response');
+        }
+
+        for (const item of response.keys) {
+            if (item.name.startsWith('manage@') || item.name.startsWith('chunk_')) {
+                continue;
+            }
+
+            if (!item.metadata || !item.metadata.TimeStamp) {
+                continue;
+            }
+
+            files.push({
+                id: item.name,
+                metadata: item.metadata || {},
+            });
+        }
+
+        cursor = response.cursor;
+        if (!cursor) {
+            break;
+        }
+    }
+
+    files.sort((a, b) => (b.metadata?.TimeStamp || 0) - (a.metadata?.TimeStamp || 0));
+    return files;
+}
+
+async function acquireRebuildLock(context) {
+    const { env } = context;
+    const db = getDatabase(env);
+    const now = Date.now();
+    const lockValue = await readJsonValue(db, REBUILD_LOCK_KEY);
+
+    if (lockValue && now - Number(lockValue.lockedAt || 0) < REBUILD_LOCK_TTL_SECONDS * 1000) {
+        return false;
+    }
+
+    await db.put(REBUILD_LOCK_KEY, JSON.stringify({ lockedAt: now }), {
+        expirationTtl: REBUILD_LOCK_TTL_SECONDS,
+    });
+    return true;
+}
+
+async function releaseRebuildLock(context) {
+    const { env } = context;
+    const db = getDatabase(env);
+    await db.delete(REBUILD_LOCK_KEY).catch(() => {});
+}
+
+async function scheduleRebuildIfNeeded(context) {
+    const { waitUntil } = context;
+    const acquired = await acquireRebuildLock(context);
+    if (!acquired) {
+        console.log('Index rebuild already in progress, skipping duplicate rebuild request.');
+        return false;
+    }
+
+    waitUntil(rebuildIndex(context, null, { lockAcquired: true }));
+    return true;
+}
+
 /**
  * 添加文件到索引
  * @param {Object} context - 上下文对象，包含 env 和其他信息
@@ -69,6 +202,15 @@ export async function addFileToIndex(context, fileId, metadata = null) {
     const db = getDatabase(env);
 
     try {
+        if (usesD1MetadataIndex(env)) {
+            if (metadata === null) {
+                const fileData = await db.getWithMetadata(fileId);
+                metadata = fileData?.metadata || {};
+            }
+
+            return { success: true, operationId: null, storage: 'd1' };
+        }
+
         if (metadata === null) {
             // 如果未传入metadata，尝试从数据库中获取
             const fileData = await db.getWithMetadata(fileId);
@@ -102,6 +244,14 @@ export async function batchAddFilesToIndex(context, files, options = {}) {
         const { env } = context;
         const { skipExisting = false } = options;
         const db = getDatabase(env);
+        if (usesD1MetadataIndex(env)) {
+            return {
+                success: true,
+                operationId: null,
+                totalProcessed: files.length,
+                storage: 'd1'
+            };
+        }
 
         // 处理每个文件的metadata
         const processedFiles = [];
@@ -156,6 +306,10 @@ export async function batchAddFilesToIndex(context, files, options = {}) {
 export async function removeFileFromIndex(context, fileId) {
     try {
         // 记录删除操作
+        if (usesD1MetadataIndex(context.env)) {
+            return { success: true, operationId: null, storage: 'd1' };
+        }
+
         const operationId = await recordOperation(context, 'remove', {
             fileId
         });
@@ -176,6 +330,15 @@ export async function removeFileFromIndex(context, fileId) {
 export async function batchRemoveFilesFromIndex(context, fileIds) {
     try {
         // 记录批量删除操作
+        if (usesD1MetadataIndex(context.env)) {
+            return {
+                success: true,
+                operationId: null,
+                totalProcessed: fileIds.length,
+                storage: 'd1'
+            };
+        }
+
         const operationId = await recordOperation(context, 'batch_remove', {
             fileIds
         });
@@ -210,6 +373,10 @@ export async function moveFileInIndex(context, originalFileId, newFileId, newMet
         const db = getDatabase(env);
 
         // 确定最终的metadata
+        if (usesD1MetadataIndex(env)) {
+            return { success: true, operationId: null, storage: 'd1' };
+        }
+
         let finalMetadata = newMetadata;
         if (finalMetadata === null) {
             // 如果没有提供新metadata，尝试从数据库中获取
@@ -249,6 +416,15 @@ export async function batchMoveFilesInIndex(context, moveOperations) {
         const db = getDatabase(env);
 
         // 处理每个移动操作的metadata
+        if (usesD1MetadataIndex(env)) {
+            return {
+                success: true,
+                operationId: null,
+                totalProcessed: moveOperations.length,
+                storage: 'd1'
+            };
+        }
+
         const processedOperations = [];
         for (const operation of moveOperations) {
             const { originalFileId, newFileId, metadata } = operation;
@@ -307,6 +483,13 @@ export async function mergeOperationsToIndex(context, options = {}) {
     
     try {
         console.log('Starting operations merge...');
+        if (usesD1MetadataIndex(context.env)) {
+            return {
+                success: true,
+                processedOperations: 0,
+                message: 'D1 metadata mode does not use pending index operations'
+            };
+        }
         
         // 获取当前索引
         const currentIndex = await getIndex(context);
@@ -772,12 +955,37 @@ export async function readIndex(context, options = {}) {
  * @param {Object} context - 上下文对象
  * @param {Function} progressCallback - 进度回调函数
  */
-export async function rebuildIndex(context, progressCallback = null) {
+export async function rebuildIndex(context, progressCallback = null, options = {}) {
     const { env, waitUntil } = context;
     const db = getDatabase(env);
+    const lockAcquired = options.lockAcquired === true;
+    let ownsLock = lockAcquired;
 
     try {
         console.log('Starting index rebuild...');
+        if (!ownsLock) {
+            ownsLock = await acquireRebuildLock(context);
+            if (!ownsLock) {
+                return {
+                    success: true,
+                    skipped: true,
+                    message: 'Index rebuild already in progress'
+                };
+            }
+        }
+
+        if (usesD1MetadataIndex(env)) {
+            const files = await loadAllIndexedFilesFromDatabase(context);
+            const metadata = buildIndexMetadataFromFiles(files);
+            await db.put(INDEX_META_KEY, JSON.stringify(metadata));
+
+            console.log(`D1 index rebuild completed. Indexed ${files.length} files.`);
+            return {
+                success: true,
+                processedCount: files.length,
+                indexedCount: files.length
+            };
+        }
         
         let cursor = null;
         let processedCount = 0;
@@ -862,6 +1070,10 @@ export async function rebuildIndex(context, progressCallback = null) {
             success: false,
             error: error.message
         };
+    } finally {
+        if (ownsLock) {
+            await releaseRebuildLock(context);
+        }
     }
 }
 
@@ -935,6 +1147,19 @@ export async function getIndexMeta(context) {
     const db = getDatabase(env);
 
     try {
+        if (usesD1MetadataIndex(env)) {
+            const files = await loadAllIndexedFilesFromDatabase(context);
+            const metadata = buildIndexMetadataFromFiles(files);
+            await db.put(INDEX_META_KEY, JSON.stringify(metadata));
+            return {
+                success: true,
+                totalCount: metadata.totalCount || 0,
+                totalSizeMB: metadata.totalSizeMB || 0,
+                channelStats: metadata.channelStats || {},
+                lastUpdated: metadata.lastUpdated,
+            };
+        }
+
         const metadataStr = await db.get(INDEX_META_KEY);
         if (!metadataStr) {
             return {
@@ -985,6 +1210,10 @@ async function recordOperation(context, type, data) {
     const { env } = context;
     const db = getDatabase(env);
 
+    if (usesD1MetadataIndex(env)) {
+        return null;
+    }
+
     const operationId = generateOperationId();
     const operation = {
         type,
@@ -993,7 +1222,9 @@ async function recordOperation(context, type, data) {
     };
     
     const operationKey = OPERATION_KEY_PREFIX + operationId;
-    await db.put(operationKey, JSON.stringify(operation));
+    await db.put(operationKey, JSON.stringify(operation), {
+        expirationTtl: OPERATION_TTL_SECONDS,
+    });
 
     return operationId;
 }
@@ -1006,6 +1237,13 @@ async function recordOperation(context, type, data) {
 async function getAllPendingOperations(context, lastOperationId = null) {
     const { env } = context;
     const db = getDatabase(env);
+
+    if (usesD1MetadataIndex(env)) {
+        return {
+            operations: [],
+            isAll: true,
+        };
+    }
 
     const operations = [];
 
@@ -1276,6 +1514,15 @@ export async function deleteAllOperations(context) {
     const db = getDatabase(env);
     
     try {
+        if (usesD1MetadataIndex(env)) {
+            return {
+                success: true,
+                deletedCount: 0,
+                totalFound: 0,
+                message: 'D1 metadata mode does not persist index operations'
+            };
+        }
+
         console.log('Starting to delete all atomic operations...');
         
         // 获取所有原子操作
@@ -1351,17 +1598,29 @@ export async function deleteAllOperations(context) {
 async function getIndex(context) {
     const { waitUntil } = context;
     try {
+        if (usesD1MetadataIndex(context.env)) {
+            const files = await loadAllIndexedFilesFromDatabase(context);
+            const metadata = buildIndexMetadataFromFiles(files);
+            return {
+                files,
+                lastUpdated: metadata.lastUpdated,
+                totalCount: metadata.totalCount,
+                lastOperationId: null,
+                success: true,
+            };
+        }
+
         // 首先尝试加载分块索引
         const index = await loadChunkedIndex(context);
         if (index.success) {
             return index;
         } else {
             // 如果加载失败，触发重建索引
-            waitUntil(rebuildIndex(context));
+            await scheduleRebuildIfNeeded(context);
         }
     } catch (error) {
         console.warn('Error reading index, creating new one:', error);
-        waitUntil(rebuildIndex(context));
+        await scheduleRebuildIfNeeded(context);
     }
     
     // 返回空的索引结构
@@ -1703,6 +1962,25 @@ export async function clearChunkedIndex(context, onlyNonUsed = false) {
     const db = getDatabase(env);
     
     try {
+        if (usesD1MetadataIndex(env)) {
+            const records = await db.list({
+                prefix: INDEX_KEY,
+            });
+
+            const deletePromises = [];
+            for (const item of records.keys || []) {
+                if (item.name === INDEX_META_KEY || item.name.startsWith(`${INDEX_KEY}_`)) {
+                    if (onlyNonUsed && item.name.startsWith(`${INDEX_KEY}_`)) {
+                        continue;
+                    }
+                    deletePromises.push(db.delete(item.name).catch(() => {}));
+                }
+            }
+
+            await Promise.all(deletePromises);
+            return true;
+        }
+
         console.log('Starting chunked index cleanup...');
         
         // 获取元数据
@@ -1797,6 +2075,19 @@ export async function getIndexStorageStats(context) {
         const metadata = JSON.parse(metadataStr);
         
         // 检查各个分块的存在情况
+        if (usesD1MetadataIndex(env)) {
+            const metadata = await getIndexMeta(context);
+            return {
+                success: true,
+                isChunked: false,
+                metadata,
+                chunks: [],
+                totalChunks: 0,
+                existingChunks: 0,
+                totalSize: 0
+            };
+        }
+
         const chunkChecks = [];
         for (let chunkId = 0; chunkId < metadata.chunkCount; chunkId++) {
             const chunkKey = `${INDEX_KEY}_${chunkId}`;
