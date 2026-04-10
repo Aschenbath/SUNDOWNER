@@ -4,6 +4,7 @@ import { TelegramAPI } from '../utils/telegramAPI.js';
 import { DiscordAPI } from '../utils/discordAPI.js';
 import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, AbortMultipartUploadCommand } from "@aws-sdk/client-s3";
 import { getDatabase, checkDatabaseConfig } from '../utils/databaseAdapter.js';
+import { extractEmbeddedPreview, supportsEmbeddedPreviewExtraction } from './exifExtractor.js';
 
 // 初始化分块上传
 export async function initializeChunkedUpload(context) {
@@ -1242,6 +1243,26 @@ export async function uploadLargeFileToTelegram(context, file, fullId, metadata,
         metadata.TotalChunks = totalChunks;
         metadata.FileSize = (fileSize / 1024 / 1024).toFixed(2);
 
+        // 为 HEIC 等格式提取内嵌预览并上传为独立缩略图
+        if (supportsEmbeddedPreviewExtraction(fileType)) {
+            try {
+                const previewBuffer = new Uint8Array(await file.slice(0, Math.min(fileSize, 1024 * 1024)).arrayBuffer());
+                const preview = await extractEmbeddedPreview(previewBuffer, fileType);
+                if (preview?.bytes?.byteLength) {
+                    const previewBlob = new File([preview.bytes], 'preview.jpg', { type: preview.mimeType || 'image/jpeg' });
+                    const tgProxyUrl = tgChannel.proxyUrl || '';
+                    const tgApi = new TelegramAPI(tgBotToken, tgProxyUrl);
+                    const previewResp = await tgApi.sendFile(previewBlob, tgChatId, 'sendPhoto', 'photo');
+                    const previewInfo = tgApi.getFileInfo(previewResp);
+                    if (previewInfo?.file_id) {
+                        metadata.TgThumbnailFileId = previewInfo.file_id;
+                        metadata.TgThumbnailFileType = preview.mimeType || 'image/jpeg';
+                    }
+                }
+            } catch (e) {
+                // 预览提取是 best-effort，不影响主上传流程
+            }
+        }
 
         // 将分片信息存储到value中
         const chunksData = JSON.stringify(chunks);

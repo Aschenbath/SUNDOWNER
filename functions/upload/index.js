@@ -576,6 +576,14 @@ async function uploadFileToTelegram(context, fullId, metadata, fileExt, fileName
         const moderateUrl = buildTelegramFileUrl(tgBotToken, filePath, tgProxyUrl);
         metadata.Label = await moderateContent(env, moderateUrl);
 
+        // 提取 Telegram 自动生成的缩略图（用于 HEIC 等浏览器不支持预览的格式）
+        const mediaObj = response?.result?.document || response?.result?.video || response?.result?.animation;
+        const thumbnail = mediaObj?.thumbnail || mediaObj?.thumb;
+        if (thumbnail?.file_id) {
+            metadata.TgThumbnailFileId = thumbnail.file_id;
+            metadata.TgThumbnailFileType = 'image/jpeg';
+        }
+
         // 更新metadata，写入KV数据库
         try {
             metadata.Channel = "TelegramNew";
@@ -583,7 +591,6 @@ async function uploadFileToTelegram(context, fullId, metadata, fileExt, fileName
 
             metadata.TgFileId = id;
             metadata.TgChatId = tgChatId;
-            // 保存代理域名配置
             await db.put(fullId, "", {
                 metadata: metadata,
             });

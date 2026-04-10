@@ -256,7 +256,10 @@ export async function onRequest(context) {  // Contents of context object
         let TgFileID = resolveStoredTelegramFileId(fileId, imgRecord.metadata || {}); // Tg的file_id
 
         if (imgRecord.metadata?.Channel === 'TelegramNew' && imgRecord.metadata?.IsChunked === true) {
-            return await handleTelegramChunkedFile(context, imgRecord, encodedFileName, responseFileType);
+            // 如果请求预览且有存储的缩略图，跳过分片处理，走正常缩略图路径
+            if (!(wantsPreview && telegramReadTarget.isPreview)) {
+                return await handleTelegramChunkedFile(context, imgRecord, encodedFileName, responseFileType);
+            }
         }
 
         if (!TgFileID && imgRecord.metadata?.Channel === 'Telegram') {
