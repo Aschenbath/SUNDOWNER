@@ -59,6 +59,33 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-preview__caption/);
   });
 
+  it('marks favorited preview stars as pressed so the UI can render a filled active state', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'managed-fav-1',
+        type: 'photo',
+        label: 'IMG_0625.JPEG',
+        sourceId: 'photos/2026/IMG_0625.JPEG',
+        sourceUrl: '/file/photos/2026/IMG_0625.JPEG',
+        thumbnailUrl: '/file/photos/2026/IMG_0625.JPEG',
+        width: 1080,
+        height: 1440,
+        displayTakenAt: 'April 8, 2026 18:42',
+        mimeType: 'image/jpeg',
+      },
+      selected: false,
+      favorited: true,
+      currentIndex: 1,
+      totalCount: 5,
+      infoOpen: false,
+      immersive: false,
+    });
+
+    assert.match(html, /cml-preview__icon-action is-favorited/);
+    assert.match(html, /aria-label="Remove from favourites"/);
+    assert.match(html, /aria-pressed="true"/);
+  });
+
   it('hides default source albums and library path from preview details', () => {
     const html = PreviewModal({
       item: {
@@ -353,6 +380,8 @@ describe('media library download actions', () => {
     assert.doesNotMatch(appSource, /preferTransientRender/);
     assert.match(appSource, /function animateContentViewTransition\(\)/);
     assert.match(appSource, /if \(actionTarget\.dataset\.secondary\) \{\s*state\.primaryFilter = 'Photos';/);
+    assert.match(appSource, /function syncSelectionUi\(changedItemIds = \[\]\)/);
+    assert.match(appSource, /if \(!syncSelectionUi\(\[itemId\]\)\) \{\s*render\(\);/);
   });
 
   it('shows only remaining days on bin tiles without exposing file names', () => {

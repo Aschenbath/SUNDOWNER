@@ -18,7 +18,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=10';
+} from './components.js?v=11';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -61,6 +61,8 @@ const TIMELINE_SECTION_GAP = 28;
 const BIN_TIMELINE_SECTION_GAP = 24;
 const TIMELINE_VIRTUAL_OVERSCAN = 960;
 const TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD = 120;
+const TILE_SELECTION_CHECK_MARKUP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 12.8 3.7 3.7 7.5-8.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+const TILE_SELECTION_RING_MARKUP = '<span class="cml-media-tile__select-ring"></span>';
 
 function createEmptyAdminProfileDraft() {
   return {
@@ -2963,10 +2965,13 @@ function clearSelection({ shouldRender = true } = {}) {
   if (!state.selectedIds.size) {
     return;
   }
+  const clearedIds = [...state.selectedIds];
   state.selectedIds.clear();
   state.lastSelectedId = null;
   if (shouldRender) {
-    render();
+    if (!syncSelectionUi(clearedIds)) {
+      render();
+    }
   }
 }
 
@@ -4416,6 +4421,93 @@ function render() {
   setupImageLoadAnimations();
 }
 
+function syncTopbarSelectionState() {
+  const currentTopbar = refs.root?.querySelector('.cml-topbar');
+  if (!(currentTopbar instanceof HTMLElement)) {
+    return;
+  }
+  const selectedItems = getSelectedItems();
+  const activeAlbumName = getActiveAlbumName();
+  const canSetAlbumCover = Boolean(
+    activeAlbumName
+    && selectedItems.length === 1
+    && normalizeAlbumKey(resolveCollectionAlbum(selectedItems[0])) === normalizeAlbumKey(activeAlbumName)
+  );
+  const markup = TopSearchBar({
+    state,
+    canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item)),
+    canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
+    canSetAlbumCover
+  }).trim();
+  if (!markup) {
+    return;
+  }
+  const template = document.createElement('template');
+  template.innerHTML = markup;
+  const nextTopbar = template.content.firstElementChild;
+  if (nextTopbar instanceof HTMLElement) {
+    currentTopbar.replaceWith(nextTopbar);
+  }
+}
+
+function syncSelectionTileState(tile, selected) {
+  if (!(tile instanceof HTMLElement)) {
+    return;
+  }
+  tile.classList.toggle('is-selected', selected);
+  const selectButton = tile.querySelector('.cml-media-tile__select');
+  if (selectButton instanceof HTMLElement) {
+    selectButton.innerHTML = selected ? TILE_SELECTION_CHECK_MARKUP : TILE_SELECTION_RING_MARKUP;
+    selectButton.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  }
+}
+
+function syncTimelineSelectionControls() {
+  if (!(refs.root instanceof HTMLElement)) {
+    return;
+  }
+  refs.root.querySelectorAll('.cml-timeline-section__select[data-section]').forEach((button) => {
+    const sectionId = button.getAttribute('data-section') || '';
+    const itemIds = refs.sectionItemIds.get(sectionId) || [];
+    const allSelected = itemIds.length > 0 && itemIds.every((id) => state.selectedIds.has(id));
+    button.classList.toggle('is-active', allSelected);
+    button.setAttribute('aria-pressed', allSelected ? 'true' : 'false');
+  });
+}
+
+function syncSelectionUi(changedItemIds = []) {
+  if (!(refs.root instanceof HTMLElement) || state.primaryFilter === 'Bin' || state.needsLogin) {
+    return false;
+  }
+  const changedSet = new Set(changedItemIds.filter(Boolean));
+  refs.root.querySelectorAll('.cml-media-tile[data-tile-id]').forEach((tile) => {
+    const itemId = tile.getAttribute('data-tile-id') || '';
+    if (changedSet.size && !changedSet.has(itemId)) {
+      return;
+    }
+    syncSelectionTileState(tile, state.selectedIds.has(itemId));
+  });
+  refs.root.classList.toggle('has-selection', state.selectedIds.size > 0);
+  syncTopbarSelectionState();
+  syncTimelineSelectionControls();
+  return true;
+}
+
+function syncPreviewFavoriteButton(itemId) {
+  if (!(refs.root instanceof HTMLElement) || !state.previewId || normalizeText(itemId) !== normalizeText(state.previewId)) {
+    return false;
+  }
+  const favoriteButton = refs.root.querySelector('.cml-preview [data-action="toggle-favorite"]');
+  if (!(favoriteButton instanceof HTMLElement)) {
+    return false;
+  }
+  const favorited = state.favoriteIds.has(itemId);
+  favoriteButton.classList.toggle('is-favorited', favorited);
+  favoriteButton.setAttribute('aria-label', favorited ? 'Remove from favourites' : 'Add to favourites');
+  favoriteButton.setAttribute('aria-pressed', favorited ? 'true' : 'false');
+  return true;
+}
+
 function getPreviewOverlayModel({
   previewItems = null,
   previewItem = null,
@@ -5000,8 +5092,16 @@ function handleTileSelect(itemId, event) {
     if (fromIdx >= 0 && toIdx >= 0) {
       const lo = Math.min(fromIdx, toIdx);
       const hi = Math.max(fromIdx, toIdx);
-      items.slice(lo, hi + 1).forEach(item => state.selectedIds.add(item.id));
-      render();
+      const changedIds = [];
+      items.slice(lo, hi + 1).forEach((item) => {
+        if (!state.selectedIds.has(item.id)) {
+          changedIds.push(item.id);
+        }
+        state.selectedIds.add(item.id);
+      });
+      if (!syncSelectionUi(changedIds)) {
+        render();
+      }
       return;
     }
   }
@@ -5015,7 +5115,9 @@ function toggleSelect(itemId) {
   } else {
     state.selectedIds.add(itemId);
   }
-  render();
+  if (!syncSelectionUi([itemId])) {
+    render();
+  }
 }
 
 function toggleFavorite(itemId) {
@@ -5026,6 +5128,9 @@ function toggleFavorite(itemId) {
   }
   persistFavorites();
   const preferPreviewRender = state.previewId && normalizeText(itemId) === normalizeText(state.previewId) && state.secondaryFilter !== 'Favourites';
+  if (preferPreviewRender && syncPreviewFavoriteButton(itemId)) {
+    return;
+  }
   if (!(preferPreviewRender && renderPreviewTransientLayers())) {
     render();
   }

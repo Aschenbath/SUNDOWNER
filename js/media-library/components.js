@@ -1036,7 +1036,7 @@ export function PreviewModal({
           <header class="cml-preview__header">
             <div class="cml-preview__header-actions">
               <button type="button" class="cml-preview__icon-action ${albumDrawerOpen ? 'is-selected' : ''}" data-action="open-preview-add-to-album" data-id="${escapeHtml(item.id)}" aria-label="Add to album" aria-pressed="${albumDrawerOpen ? 'true' : 'false'}">${icon('plus')}</button>
-              <button type="button" class="cml-preview__icon-action ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="${favorited ? 'Remove from favourites' : 'Add to favourites'}">${icon('star')}</button>
+              <button type="button" class="cml-preview__icon-action ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="${favorited ? 'Remove from favourites' : 'Add to favourites'}" aria-pressed="${favorited ? 'true' : 'false'}">${icon('star')}</button>
               <button type="button" class="cml-preview__icon-action is-destructive" data-action="request-delete-preview" data-id="${escapeHtml(item.id)}" aria-label="Delete">${icon('trash')}</button>
               <button type="button" class="cml-preview__icon-action ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="${infoOpen ? 'Hide details' : 'Show details'}" aria-pressed="${infoOpen ? 'true' : 'false'}">${icon('info')}</button>
               <button type="button" class="cml-preview__close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
