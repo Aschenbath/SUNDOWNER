@@ -4839,6 +4839,12 @@ function openPreviewFromEvent(event, itemId) {
   if (!normalizedId) {
     return false;
   }
+  if (event && event.target) {
+    const selectBtn = event.target.closest('[data-action="toggle-select"]');
+    if (selectBtn) {
+      return false;
+    }
+  }
   if (event && typeof event.preventDefault === 'function') {
     event.preventDefault();
   }
