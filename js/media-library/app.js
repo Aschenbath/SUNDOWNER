@@ -6,7 +6,6 @@ import {
   CollectionGrid,
   CollectionSummary,
   ConfirmDialog,
-  RenameAlbumDialog,
   EmptyState,
   LoginOverlay,
   MediaGrid,
@@ -3481,6 +3480,19 @@ function closeRenameAlbumDialog() {
   render();
 }
 
+function focusInlineRenameInput({ select = false } = {}) {
+  requestAnimationFrame(() => {
+    const input = refs.root ? refs.root.querySelector('[data-focus-key="rename-album-inline"]') : null;
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    input.focus();
+    if (select) {
+      input.select();
+    }
+  });
+}
+
 async function submitRenameAlbum() {
   const oldName = state.renameAlbumTarget;
   const newName = normalizeText(state.renameAlbumDraftName).replace(/\s+/g, ' ');
@@ -4291,7 +4303,11 @@ function render() {
                     collectionCount: viewModel.totalCollectionCount,
                     itemCount: viewModel.filteredItems.length,
                     coverLabel: viewModel.activeAlbumCoverLabel,
-                    hasCustomCover: viewModel.hasCustomAlbumCover
+                    hasCustomCover: viewModel.hasCustomAlbumCover,
+                    renameAlbumDialogOpen: state.renameAlbumDialogOpen,
+                    renameAlbumDraftName: state.renameAlbumDraftName,
+                    renameAlbumError: state.renameAlbumError,
+                    renameAlbumBusy: state.renameAlbumBusy
                   })
                   : ''}
                 ${SearchSummary({
@@ -4331,7 +4347,6 @@ function render() {
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
       ${StoragePanel({ state, insights: storageInsights })}
       ${AlbumDialog({ state, albums: viewModel.availableAlbums })}
-      ${RenameAlbumDialog({ state })}
       ${ConfirmDialog({ state })}
       ${state.toastMessage ? `
         <div class="cml-toast cml-toast--${state.toastType}" role="alert" aria-live="polite">
@@ -4341,6 +4356,10 @@ function render() {
       ` : ''}
     </div>
   `;
+
+  if (state.renameAlbumDialogOpen) {
+    focusInlineRenameInput({ select: true });
+  }
 
   refs.root.classList.toggle('has-selection', state.selectedIds.size > 0);
 
@@ -4613,7 +4632,6 @@ function renderPreviewTransientLayers({ animateDirection = 0 } = {}) {
   template.innerHTML = `
     ${PreviewModal(previewModel)}
     ${AlbumDialog({ state, albums: getAvailableAlbumNames(allItems) })}
-    ${RenameAlbumDialog({ state })}
     ${ConfirmDialog({ state })}
     ${getToastMarkup()}
   `.trim();

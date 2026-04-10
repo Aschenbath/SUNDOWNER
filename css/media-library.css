@@ -82,33 +82,29 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar__brand {
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 112px;
-  margin: 8px 0 6px;
-  padding: 18px 16px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
-    rgba(244, 241, 233, 0.03);
-  text-align: center;
+  justify-content: flex-start;
+  min-height: 56px;
+  margin: 4px 0 10px;
+  padding: 10px 6px 8px;
+  background: transparent;
 }
 
 #codex-media-library-root .cml-sidebar__brand-wordmark {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   width: 100%;
-  min-height: 72px;
+  min-height: 0;
 }
 
 #codex-media-library-root .cml-sidebar__brand-name {
   display: inline-block;
   color: #f1ece1;
-  font-size: clamp(26px, 2vw, 34px);
+  font-size: clamp(28px, 2.2vw, 36px);
   font-weight: 700;
-  letter-spacing: 0.18em;
-  line-height: 1;
-  text-indent: 0.18em;
+  letter-spacing: 0.12em;
+  line-height: 0.96;
+  text-indent: 0.12em;
   text-transform: uppercase;
 }
 
@@ -754,6 +750,52 @@ body.codex-media-library-active #app {
   outline: 2px solid rgba(138, 180, 248, 0.72);
   outline-offset: 6px;
   border-radius: 4px;
+}
+
+#codex-media-library-root .cml-view-summary__rename {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: min(560px, 100%);
+}
+
+#codex-media-library-root .cml-view-summary__rename-field {
+  width: 100%;
+}
+
+#codex-media-library-root .cml-view-summary__rename-input {
+  width: 100%;
+  padding: 0 0 8px;
+  border: 0;
+  border-bottom: 2px solid rgba(138, 180, 248, 0.72);
+  background: transparent;
+  color: #f1f4fb;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+#codex-media-library-root .cml-view-summary__rename-input::placeholder {
+  color: rgba(241, 244, 251, 0.36);
+}
+
+#codex-media-library-root .cml-view-summary__rename-input:focus-visible {
+  outline: none;
+  border-bottom-color: rgba(166, 200, 255, 0.96);
+}
+
+#codex-media-library-root .cml-view-summary__rename-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#codex-media-library-root .cml-view-summary__rename-error {
+  margin: 0;
+  color: #ffb4ab;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 #codex-media-library-root .cml-view-summary__copy {

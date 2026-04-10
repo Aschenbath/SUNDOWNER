@@ -609,7 +609,7 @@ export function MediaTimelineSection({ section, state, layoutWidth, coverItemId 
   `;
 }
 
-export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, itemCount = 0, coverLabel = '', hasCustomCover = false }) {
+export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, itemCount = 0, coverLabel = '', hasCustomCover = false, renameAlbumDialogOpen = false, renameAlbumDraftName = '', renameAlbumError = '', renameAlbumBusy = false }) {
   const hasActiveAlbum = Boolean(activeAlbumName);
   const title = hasActiveAlbum ? activeAlbumName : `${collectionCount} album${collectionCount === 1 ? '' : 's'}`;
   const copy = hasActiveAlbum
@@ -625,15 +625,38 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
       ` : ''}
       <p class="cml-view-summary__eyebrow">${hasActiveAlbum ? 'Album' : 'Albums'}</p>
       ${hasActiveAlbum ? `
-        <button
-          type="button"
-          class="cml-view-summary__title-button"
-          data-action="rename-album"
-          data-album-name="${escapeHtml(activeAlbumName)}"
-          aria-label="Rename album ${escapeHtml(activeAlbumName)}"
-        >
-          <span class="cml-view-summary__title">${escapeHtml(title)}</span>
-        </button>
+        ${renameAlbumDialogOpen ? `
+          <div class="cml-view-summary__rename">
+            <label class="cml-view-summary__rename-field">
+              <span class="cml-sr-only">Album name</span>
+              <input
+                type="text"
+                class="cml-view-summary__rename-input"
+                data-rename-album-input
+                data-focus-key="rename-album-inline"
+                value="${escapeHtml(renameAlbumDraftName || '')}"
+                placeholder="Album name"
+                maxlength="64"
+                ${renameAlbumBusy ? 'disabled' : ''}
+              />
+            </label>
+            <div class="cml-view-summary__rename-actions">
+              <button type="button" class="cml-topbar__secondary-button" data-action="close-rename-album-dialog" ${renameAlbumBusy ? 'disabled' : ''}>Cancel</button>
+              <button type="button" class="cml-topbar__upload-button" data-action="submit-rename-album" ${renameAlbumBusy ? 'disabled' : ''}>${renameAlbumBusy ? 'Renaming...' : 'Save'}</button>
+            </div>
+            ${renameAlbumError ? `<p class="cml-view-summary__rename-error">${escapeHtml(renameAlbumError)}</p>` : ''}
+          </div>
+        ` : `
+          <button
+            type="button"
+            class="cml-view-summary__title-button"
+            data-action="rename-album"
+            data-album-name="${escapeHtml(activeAlbumName)}"
+            aria-label="Rename album ${escapeHtml(activeAlbumName)}"
+          >
+            <span class="cml-view-summary__title">${escapeHtml(title)}</span>
+          </button>
+        `}
       ` : `<h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>`}
       <p class="cml-view-summary__copy">${escapeHtml(copy)}</p>
       ${hasActiveAlbum ? `
@@ -1087,37 +1110,6 @@ export function AlbumDialog({ state, albums }) {
         <footer class="cml-dialog__footer">
           <button type="button" class="cml-topbar__secondary-button" data-action="close-album-dialog">Cancel</button>
           <button type="button" class="cml-topbar__upload-button" data-action="submit-album-dialog">${isAssignMode ? 'Create and add' : 'Create album'}</button>
-        </footer>
-      </div>
-    </div>
-  `;
-}
-
-export function RenameAlbumDialog({ state }) {
-  if (!state.renameAlbumDialogOpen) {
-    return '';
-  }
-  return `
-    <div class="cml-dialog" role="dialog" aria-modal="true" aria-label="Rename album">
-      <div class="cml-dialog__backdrop" data-action="close-rename-album-dialog"></div>
-      <div class="cml-dialog__panel cml-album-dialog">
-        <header class="cml-dialog__header">
-          <div>
-            <h3 class="cml-dialog__title">Rename album</h3>
-            <p class="cml-dialog__copy">Enter a new name for "${escapeHtml(state.renameAlbumTarget)}".</p>
-          </div>
-          <button type="button" class="cml-dialog__close" data-action="close-rename-album-dialog" aria-label="Close dialog">${icon('close')}</button>
-        </header>
-        <div class="cml-album-dialog__section">
-          <label class="cml-album-dialog__field">
-            <span class="cml-album-dialog__label">Album name</span>
-            <input type="text" class="cml-album-dialog__input" data-rename-album-input value="${escapeHtml(state.renameAlbumDraftName || '')}" placeholder="New album name" maxlength="64" />
-          </label>
-          ${state.renameAlbumError ? `<p class="cml-album-dialog__error">${escapeHtml(state.renameAlbumError)}</p>` : ''}
-        </div>
-        <footer class="cml-dialog__footer">
-          <button type="button" class="cml-topbar__secondary-button" data-action="close-rename-album-dialog">Cancel</button>
-          <button type="button" class="cml-topbar__upload-button" data-action="submit-rename-album" ${state.renameAlbumBusy ? 'disabled' : ''}>${state.renameAlbumBusy ? 'Renaming...' : 'Rename'}</button>
         </footer>
       </div>
     </div>

@@ -317,6 +317,24 @@ describe('media library download actions', () => {
     assert.match(gridHtml, /class="cml-collection-card__cover /);
   });
 
+  it('renders album renaming inline at the title position instead of a dialog overlay', () => {
+    const inlineHtml = CollectionSummary({
+      activeAlbumName: 'scenery',
+      itemCount: 12,
+      renameAlbumDialogOpen: true,
+      renameAlbumDraftName: 'scenery',
+      renameAlbumError: '',
+      renameAlbumBusy: false
+    });
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(inlineHtml, /cml-view-summary__rename-input/);
+    assert.match(inlineHtml, /data-focus-key="rename-album-inline"/);
+    assert.match(inlineHtml, /Save/);
+    assert.match(inlineHtml, /Cancel/);
+    assert.doesNotMatch(appSource, /RenameAlbumDialog\(\{ state \}\)/);
+  });
+
   it('keeps the selection add-to-album dialog path wired through preferPreviewRender state', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
