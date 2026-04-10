@@ -611,10 +611,10 @@ export function MediaTimelineSection({ section, state, layoutWidth, coverItemId 
 
 export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, itemCount = 0, coverLabel = '', hasCustomCover = false, renameAlbumDialogOpen = false, renameAlbumDraftName = '', renameAlbumError = '', renameAlbumBusy = false }) {
   const hasActiveAlbum = Boolean(activeAlbumName);
-  const title = hasActiveAlbum ? activeAlbumName : `${collectionCount} album${collectionCount === 1 ? '' : 's'}`;
+  const title = hasActiveAlbum ? activeAlbumName : 'Albums';
   const copy = hasActiveAlbum
     ? `${itemCount} item${itemCount === 1 ? '' : 's'} in this album`
-    : 'Albums now show album categories first. Open an album to browse its photos.';
+    : `${collectionCount} album${collectionCount === 1 ? '' : 's'}`;
   return `
     <section class="cml-view-summary">
       ${hasActiveAlbum ? `
@@ -658,7 +658,7 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
           </button>
         `}
       ` : `<h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>`}
-      <p class="cml-view-summary__copy">${escapeHtml(copy)}</p>
+      ${copy ? `<p class="cml-view-summary__copy ${hasActiveAlbum ? '' : 'cml-view-summary__copy--albums'}">${escapeHtml(copy)}</p>` : ''}
       ${hasActiveAlbum ? `
         <div class="cml-view-summary__actions">
           <button type="button" class="cml-topbar__secondary-button is-destructive" data-action="delete-album" data-album-name="${escapeHtml(activeAlbumName)}">${icon('trash')}<span>Delete album</span></button>
@@ -674,7 +674,7 @@ export function CollectionGrid({ collections }) {
       ${collections.map((collection) => `
         <button
           type="button"
-          class="cml-collection-card"
+          class="cml-collection-card ${collection.coverItem ? '' : 'is-empty'}"
           data-action="open-collection"
           data-album-name="${escapeHtml(collection.name)}"
           aria-label="Open album ${escapeHtml(collection.name)}"
@@ -683,11 +683,9 @@ export function CollectionGrid({ collections }) {
             ${collection.coverItem
               ? renderMediaAsset(collection.coverItem, 'cml-collection-card__image', false, { noAction: true })
               : `<span class="cml-collection-card__placeholder">${icon('albums')}</span>`}
-            ${collection.hasCustomCover ? `<span class="cml-collection-card__cover-badge">Cover</span>` : ''}
             ${collection.coverItem?.type === 'video' ? `<span class="cml-collection-card__badge">${icon('play')}</span>` : ''}
           </span>
           <span class="cml-collection-card__body">
-            <span class="cml-collection-card__eyebrow">Album</span>
             <strong class="cml-collection-card__title">${escapeHtml(collection.name)}</strong>
             <span class="cml-collection-card__meta">${collection.itemCount} item${collection.itemCount === 1 ? '' : 's'}</span>
             <span class="cml-collection-card__copy">${escapeHtml(formatAlbumDate(collection.createdAt || collection.lastModifiedAt) || 'Empty album')}</span>

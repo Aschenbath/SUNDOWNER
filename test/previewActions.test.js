@@ -315,6 +315,17 @@ describe('media library download actions', () => {
     assert.match(gridHtml, />2026-04-07</);
     assert.doesNotMatch(gridHtml, /19:35/);
     assert.match(gridHtml, /class="cml-collection-card__cover /);
+    assert.doesNotMatch(gridHtml, />Cover</);
+  });
+
+  it('renders the albums root with a compact title-and-count header', () => {
+    const rootHtml = CollectionSummary({
+      collectionCount: 2
+    });
+
+    assert.match(rootHtml, />Albums</);
+    assert.match(rootHtml, />2 albums</);
+    assert.doesNotMatch(rootHtml, /Albums now show album categories first/);
   });
 
   it('renders album renaming inline at the title position instead of a dialog overlay', () => {
@@ -340,6 +351,7 @@ describe('media library download actions', () => {
 
     assert.match(appSource, /function openAlbumDialog\(mode = 'create', \{ origin = '', preferPreviewRender = false \} = \{\}\)/);
     assert.doesNotMatch(appSource, /preferTransientRender/);
+    assert.match(appSource, /function animateContentViewTransition\(\)/);
   });
 
   it('shows only remaining days on bin tiles without exposing file names', () => {

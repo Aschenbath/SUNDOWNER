@@ -821,6 +821,8 @@ function setPreviewInfoOpen(isOpen, { allowRenderFallback = true } = {}) {
 let yearScrollerDragActive = false;
 let scrubberHideTimeoutId = 0;
 let previewTransitionInFlight = false;
+let lastContentViewKey = '';
+let contentTransitionTimeoutId = 0;
 
 function clearScrubberHideTimeout() {
   if (scrubberHideTimeoutId) {
@@ -3480,6 +3482,36 @@ function closeRenameAlbumDialog() {
   render();
 }
 
+function buildContentViewKey(viewModel) {
+  return [
+    state.primaryFilter,
+    viewModel.activeAlbumName || '',
+    state.secondaryFilter || ''
+  ].join('|');
+}
+
+function animateContentViewTransition() {
+  if (!(refs.contentInner instanceof HTMLElement)) {
+    return;
+  }
+  refs.contentInner.classList.add('is-view-transitioning');
+  requestAnimationFrame(() => {
+    if (!(refs.contentInner instanceof HTMLElement)) {
+      return;
+    }
+    refs.contentInner.classList.add('is-view-transition-settled');
+  });
+  if (contentTransitionTimeoutId) {
+    window.clearTimeout(contentTransitionTimeoutId);
+  }
+  contentTransitionTimeoutId = window.setTimeout(() => {
+    if (refs.contentInner instanceof HTMLElement) {
+      refs.contentInner.classList.remove('is-view-transitioning', 'is-view-transition-settled');
+    }
+    contentTransitionTimeoutId = 0;
+  }, 320);
+}
+
 function focusInlineRenameInput({ select = false } = {}) {
   requestAnimationFrame(() => {
     const input = refs.root ? refs.root.querySelector('[data-focus-key="rename-album-inline"]') : null;
@@ -3775,25 +3807,7 @@ function requestDeletePreview(itemId) {
 }
 
 function getVisibleSecondaryFilters(items) {
-  if (state.primaryFilter !== 'Photos') {
-    return [];
-  }
-
-  if (!items.length && !state.secondaryFilter) {
-    return [];
-  }
-
-  const filters = [];
-  if (items.some((item) => item.type === 'video') || state.secondaryFilter === 'Videos') {
-    filters.push('Videos');
-  }
-  if (items.some((item) => item.isDocumentLike) || state.secondaryFilter === 'Documents') {
-    filters.push('Documents');
-  }
-  if (items.some((item) => state.favoriteIds.has(item.id)) || state.secondaryFilter === 'Favourites') {
-    filters.push('Favourites');
-  }
-  return filters;
+  return [...navigationModel.secondary];
 }
 
 function getFilteredItems(items = getAllItems()) {
@@ -4265,6 +4279,9 @@ function render() {
       || document.activeElement.classList.contains('cml-sidebar__search-input')
     );
   const viewModel = getViewModel();
+  const contentViewKey = buildContentViewKey(viewModel);
+  const shouldAnimateContentView = Boolean(lastContentViewKey) && lastContentViewKey !== contentViewKey;
+  lastContentViewKey = contentViewKey;
   const storageInsights = buildStorageInsights();
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const activeSearchFilterCount = countActiveMediaSearchFilters(parsedSearch.filters);
@@ -4373,6 +4390,10 @@ function render() {
   refs.timelineLayoutSections = viewModel.timelineLayoutSections || [];
   refs.timelineVirtualSignature = viewModel.timelineVirtualSignature || '';
   refs.timelineVirtualEnabled = Boolean(viewModel.timelineVirtualEnabled);
+
+  if (shouldAnimateContentView) {
+    animateContentViewTransition();
+  }
 
   if (refs.scrollRegion) {
     scrollRestoring = true;
