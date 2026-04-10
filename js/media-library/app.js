@@ -2363,7 +2363,10 @@ function getAllItems() {
   return state.mediaItems.map((item) => applyAlbumOverride(item));
 }
 
-function syncAlbumAssignments(items = getAllItems()) {
+function syncAlbumAssignments(items = getAllItems(), { pruneMissing = false } = {}) {
+  if (!pruneMissing) {
+    return false;
+  }
   const validKeys = new Set(
     safeArray(items)
       .map((item) => getPersistentItemKey(item))
@@ -3677,7 +3680,7 @@ async function deleteSelectedItems(options = {}) {
     state.albumAssignments = nextAssignments;
     persistAlbumAssignments();
     const remainingItems = state.mediaItems.map((item) => applyAlbumOverride(item));
-    syncAlbumAssignments(remainingItems);
+  syncAlbumAssignments(remainingItems, { pruneMissing: true });
     syncAlbumCovers(remainingItems);
     if (previewDeleteFlow) {
       const previewItemsAfterDelete = getFilteredItems();
@@ -4811,10 +4814,6 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
     state.mediaItems = items;
     changed = true;
     void syncStorageSummary();
-  }
-
-  if (syncAlbumAssignments(items.map((item) => applyAlbumOverride(item)))) {
-    changed = true;
   }
 
   if (syncAlbumCovers(items.map((item) => applyAlbumOverride(item)))) {

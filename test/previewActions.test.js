@@ -382,6 +382,9 @@ describe('media library download actions', () => {
     assert.match(appSource, /if \(actionTarget\.dataset\.secondary\) \{\s*state\.primaryFilter = 'Photos';/);
     assert.match(appSource, /function syncSelectionUi\(changedItemIds = \[\]\)/);
     assert.match(appSource, /if \(!syncSelectionUi\(\[itemId\]\)\) \{\s*render\(\);/);
+    assert.match(appSource, /function syncAlbumAssignments\(items = getAllItems\(\), \{ pruneMissing = false \} = \{\}\)/);
+    assert.match(appSource, /syncAlbumAssignments\(remainingItems, \{ pruneMissing: true \}\)/);
+    assert.doesNotMatch(appSource, /if \(syncAlbumAssignments\(items\.map\(\(item\) => applyAlbumOverride\(item\)\)\)\)/);
   });
 
   it('shows only remaining days on bin tiles without exposing file names', () => {
