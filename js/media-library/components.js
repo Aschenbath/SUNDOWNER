@@ -520,7 +520,7 @@ export function MediaTile({ item, selected, layout, isCover = false }) {
   const style = `width:${layout.width}px;height:${layout.height}px;`;
   return `
     <article class="cml-media-tile ${selected ? 'is-selected' : ''}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}">
-      <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item" onclick="event.stopPropagation()">
+      <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
       ${renderMediaAsset(item, 'cml-media-tile__image')}

@@ -5490,7 +5490,17 @@ function handleClick(event) {
     ? event.target.closest('button, a, input, textarea, select, label')
     : null;
 
-  if (actionTarget instanceof HTMLElement && actionTarget.dataset.action === 'open-preview' && actionTarget.dataset.id) {
+  // Ignore clicks on disabled controls
+  if (clickedControl instanceof HTMLElement && clickedControl.hasAttribute('disabled')) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
+  // Select button clicks should only toggle selection, never open preview
+  const isSelectClick = event.target instanceof Element && event.target.closest('[data-action="toggle-select"]');
+
+  if (!isSelectClick && actionTarget instanceof HTMLElement && actionTarget.dataset.action === 'open-preview' && actionTarget.dataset.id) {
     event.preventDefault();
     event.stopPropagation();
     state.avatarMenuOpen = false;
@@ -5498,7 +5508,7 @@ function handleClick(event) {
     return;
   }
 
-  if (tileTarget instanceof HTMLElement && !(clickedControl instanceof HTMLElement)) {
+  if (!isSelectClick && tileTarget instanceof HTMLElement && !(clickedControl instanceof HTMLElement)) {
     const itemId = tileTarget.getAttribute('data-tile-id');
     if (itemId) {
       event.preventDefault();
@@ -5701,6 +5711,25 @@ function handleKeyDown(event) {
   if (state.adminPanelOpen) {
     if (event.key === 'Escape') {
       closeAdminPanel();
+    }
+    return;
+  }
+
+  if (state.confirmDialogOpen) {
+    if (event.key === 'Escape') {
+      closeConfirmDialog();
+    }
+    return;
+  }
+
+  if (state.renameAlbumDialogOpen) {
+    if (event.key === 'Escape') {
+      closeRenameAlbumDialog();
+      return;
+    }
+    if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.hasAttribute('data-rename-album-input')) {
+      event.preventDefault();
+      submitRenameAlbum();
     }
     return;
   }
