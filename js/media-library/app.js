@@ -2969,7 +2969,7 @@ function clearSelection({ shouldRender = true } = {}) {
   }
 }
 
-function openAlbumDialog(mode = 'create', { origin = '', preferTransientRender = false } = {}) {
+function openAlbumDialog(mode = 'create', { origin = '', preferPreviewRender = false } = {}) {
   state.albumDialogOpen = true;
   state.albumDialogMode = mode;
   state.albumDialogOrigin = normalizeText(origin || '');
@@ -4070,25 +4070,20 @@ function buildCollectionSummaries(items) {
     })
     .map((group) => {
       const { item: coverItem, isCustom } = findAlbumCoverItem(group.name, group.items);
-      const locationSummary = summarizeLocations(group.items);
-      const metaParts = [];
-      if (coverItem?.displayTakenAt) {
-        metaParts.push(coverItem.displayTakenAt);
-      }
-      if (locationSummary) {
-        metaParts.push(locationSummary);
-      }
+      const lastModifiedAt = Math.max(0, ...group.items.map((item) => getAlbumSortTimestamp(item)));
       return {
         ...group,
         coverItem,
         hasCustomCover: isCustom,
         itemCount: group.items.length,
-        metaLine: metaParts.join(' · ') || 'Empty album'
+        createdAt: coverItem?.takenAt || coverItem?.createdAt || coverItem?.updatedAt || '',
+        lastModifiedAt,
+        metaLine: ''
       };
     })
     .sort((left, right) => {
-      const rightTime = right.coverItem ? Date.parse(right.coverItem.takenAt) : -Infinity;
-      const leftTime = left.coverItem ? Date.parse(left.coverItem.takenAt) : -Infinity;
+      const rightTime = Number.isFinite(right.lastModifiedAt) ? right.lastModifiedAt : -Infinity;
+      const leftTime = Number.isFinite(left.lastModifiedAt) ? left.lastModifiedAt : -Infinity;
       if (rightTime !== leftTime) {
         return rightTime - leftTime;
       }

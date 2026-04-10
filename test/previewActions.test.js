@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
-import { MediaTile, PreviewModal, TopSearchBar } from '../js/media-library/components.js';
+import { CollectionGrid, CollectionSummary, MediaTile, PreviewModal, TopSearchBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('renders a selection download action without replacing delete/add-to-album controls', () => {
@@ -283,5 +284,37 @@ describe('media library download actions', () => {
 
     assert.match(html, /data-action="open-preview"/);
     assert.match(html, /data-action="toggle-select"/);
+  });
+
+  it('keeps collection cards on date-only metadata and omits the cover summary line', () => {
+    const summaryHtml = CollectionSummary({
+      activeAlbumName: 'scenery',
+      collectionCount: 3,
+      itemCount: 12,
+      coverLabel: 'IMG_0626.JPEG',
+      hasCustomCover: true,
+    });
+    const gridHtml = CollectionGrid({
+      collections: [{
+        name: 'scenery',
+        itemCount: 12,
+        createdAt: '2026-04-07T19:35:00+08:00',
+        lastModifiedAt: Date.parse('2026-04-09T08:00:00+08:00'),
+        coverItem: null,
+        hasCustomCover: false,
+      }]
+    });
+
+    assert.doesNotMatch(summaryHtml, /Custom cover/);
+    assert.doesNotMatch(summaryHtml, /IMG_0626\.JPEG/);
+    assert.match(gridHtml, />2026-04-07</);
+    assert.doesNotMatch(gridHtml, /19:35/);
+  });
+
+  it('keeps the selection add-to-album dialog path wired through preferPreviewRender state', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /function openAlbumDialog\(mode = 'create', \{ origin = '', preferPreviewRender = false \} = \{\}\)/);
+    assert.doesNotMatch(appSource, /preferTransientRender/);
   });
 });

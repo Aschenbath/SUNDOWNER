@@ -168,6 +168,17 @@ function formatTakenAt(item) {
   return `${item.monthLabel} ${item.day}, ${item.year} ${hh}:${mm}`;
 }
 
+function formatAlbumDate(value) {
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function formatPreviewTypeLabel(item) {
   if (!item) {
     return 'Photo';
@@ -601,9 +612,6 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
   const copy = hasActiveAlbum
     ? `${itemCount} item${itemCount === 1 ? '' : 's'} in this album`
     : 'Collections now show album categories first. Open an album to browse its photos.';
-  const coverLine = hasActiveAlbum && coverLabel
-    ? `${hasCustomCover ? 'Custom cover' : 'Cover'}: ${coverLabel}`
-    : '';
   return `
     <section class="cml-view-summary">
       ${hasActiveAlbum ? `
@@ -615,7 +623,6 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
       <p class="cml-view-summary__eyebrow">${hasActiveAlbum ? 'Collection' : 'Collections'}</p>
       <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
       <p class="cml-view-summary__copy">${escapeHtml(copy)}</p>
-      ${coverLine ? `<p class="cml-view-summary__cover">${escapeHtml(coverLine)}</p>` : ''}
       ${hasActiveAlbum ? `
         <div class="cml-view-summary__actions">
           <button type="button" class="cml-topbar__secondary-button" data-action="rename-album" data-album-name="${escapeHtml(activeAlbumName)}">${icon('settings')}<span>Rename</span></button>
@@ -648,7 +655,7 @@ export function CollectionGrid({ collections }) {
             <span class="cml-collection-card__eyebrow">Album</span>
             <strong class="cml-collection-card__title">${escapeHtml(collection.name)}</strong>
             <span class="cml-collection-card__meta">${collection.itemCount} item${collection.itemCount === 1 ? '' : 's'}</span>
-            <span class="cml-collection-card__copy">${escapeHtml(collection.metaLine || 'Empty album')}</span>
+            <span class="cml-collection-card__copy">${escapeHtml(formatAlbumDate(collection.createdAt || collection.lastModifiedAt) || 'Empty album')}</span>
           </span>
         </button>
       `).join('')}
