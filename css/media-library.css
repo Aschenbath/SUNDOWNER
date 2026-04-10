@@ -1188,15 +1188,17 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-media-tile__select {
   position: absolute;
-  top: 12px;
-  left: 12px;
+  top: 0;
+  left: 0;
   z-index: 2;
   display: inline-flex;
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
+  padding: 12px;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: 0 0 12px 0;
+  box-sizing: border-box;
   background: rgba(31, 31, 31, 0.5);
   color: #f8fbff;
   opacity: 0;
