@@ -8,6 +8,7 @@ import {
     returnWithCheck, return404, returnBlockImg, isDomainAllowed
 } from './fileTools.js';
 import { getDatabase } from '../utils/databaseAdapter.js';
+import { extractEmbeddedPreview, supportsEmbeddedPreviewExtraction } from '../upload/exifExtractor.js';
 import {
     resolveDiscordAccess,
     resolveHuggingFaceAccess,
@@ -15,6 +16,136 @@ import {
     resolveTelegramAccess,
 } from '../utils/mediaSecurity.js';
 import { resolveStoredTelegramReadTarget } from '../utils/telegramFileId.js';
+
+function buildPreviewFileName(fileName = 'preview.jpg') {
+    const normalized = String(fileName || '').trim();
+    if (!normalized) {
+        return 'preview.jpg';
+    }
+
+    const lastDot = normalized.lastIndexOf('.');
+    const baseName = lastDot > 0 ? normalized.slice(0, lastDot) : normalized;
+    return `${baseName}.jpg`;
+}
+
+function buildEmbeddedPreviewResponse(context, fileName, preview) {
+    const { request, Referer, url } = context;
+    const headers = new Headers();
+    setCommonHeaders(headers, encodeURIComponent(buildPreviewFileName(fileName)), preview.mimeType || 'image/jpeg', Referer, url);
+    headers.set('Content-Length', String(preview.bytes.byteLength || 0));
+
+    if (request.method === 'HEAD') {
+        return handleHeadRequest(headers);
+    }
+
+    return new Response(preview.bytes, {
+        status: 200,
+        headers,
+    });
+}
+
+async function fetchBinaryBufferFromUrl(targetUrl) {
+    if (!targetUrl) {
+        return null;
+    }
+
+    const response = await fetch(targetUrl, {
+        method: 'GET',
+    });
+    if (!response.ok) {
+        return null;
+    }
+
+    return new Uint8Array(await response.arrayBuffer());
+}
+
+async function resolveTelegramSourceUrl(env, metadata = {}, fileId = '', options = {}) {
+    const telegramReadTarget = resolveStoredTelegramReadTarget(fileId, metadata, options);
+    let telegramFileId = telegramReadTarget.fileId;
+
+    if (!telegramFileId && metadata?.Channel === 'Telegram') {
+        telegramFileId = fileId.split('.')[0];
+    } else if (!telegramFileId && metadata?.Channel === 'TelegramNew') {
+        telegramFileId = metadata?.TgFileId;
+        if (telegramFileId === null) {
+            return null;
+        }
+    }
+
+    if (!telegramFileId) {
+        return null;
+    }
+
+    const telegramAccess = await resolveTelegramAccess(env, metadata || {});
+    if (!telegramAccess?.botToken) {
+        return null;
+    }
+
+    const tgApi = new TelegramAPI(telegramAccess.botToken, telegramAccess.proxyUrl || '');
+    const filePath = await tgApi.getFilePath(telegramFileId);
+    if (!filePath) {
+        return null;
+    }
+
+    return {
+        targetUrl: buildTelegramFileUrl(telegramAccess.botToken, filePath, telegramAccess.proxyUrl || ''),
+        fileType: telegramReadTarget.fileType || metadata?.FileType || '',
+        isPreview: telegramReadTarget.isPreview === true,
+    };
+}
+
+async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fileType) {
+    if (!context.wantsPreview || !supportsEmbeddedPreviewExtraction(fileType)) {
+        return null;
+    }
+
+    const metadata = imgRecord?.metadata || {};
+    let sourceBuffer = null;
+
+    try {
+        switch (metadata.Channel) {
+            case 'CloudflareR2': {
+                const r2Object = await context.env?.img_r2?.get?.(fileId);
+                if (!r2Object || typeof r2Object.arrayBuffer !== 'function') {
+                    return null;
+                }
+                sourceBuffer = new Uint8Array(await r2Object.arrayBuffer());
+                break;
+            }
+            case 'Telegram':
+            case 'TelegramNew': {
+                if (metadata?.IsChunked === true) {
+                    return null;
+                }
+
+                const previewReadTarget = resolveStoredTelegramReadTarget(fileId, metadata, { preview: true });
+                if (previewReadTarget?.isPreview) {
+                    return null;
+                }
+
+                const originalTarget = await resolveTelegramSourceUrl(context.env, metadata, fileId, { preview: false });
+                sourceBuffer = await fetchBinaryBufferFromUrl(originalTarget?.targetUrl || '');
+                break;
+            }
+            default:
+                return null;
+        }
+    } catch (error) {
+        console.warn(`Failed to load embedded preview source for ${fileId}:`, error.message || error);
+        return null;
+    }
+
+    if (!sourceBuffer?.byteLength) {
+        return null;
+    }
+
+    const preview = await extractEmbeddedPreview(sourceBuffer, fileType);
+    if (!preview?.bytes?.byteLength) {
+        return null;
+    }
+
+    return buildEmbeddedPreviewResponse(context, fileName, preview);
+}
 
 
 export async function onRequest(context) {  // Contents of context object
@@ -43,6 +174,7 @@ export async function onRequest(context) {  // Contents of context object
     const url = new URL(request.url);
     context.url = url;
     const wantsPreview = ['1', 'true', 'yes'].includes(String(url.searchParams.get('preview') || '').trim().toLowerCase());
+    context.wantsPreview = wantsPreview;
 
     const Referer = request.headers.get('Referer')
     context.Referer = Referer;
@@ -75,6 +207,11 @@ export async function onRequest(context) {  // Contents of context object
     }
 
     /* Cloudflare R2渠道 */
+    const embeddedPreviewResponse = await tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fileType);
+    if (embeddedPreviewResponse) {
+        return embeddedPreviewResponse;
+    }
+
     if (imgRecord.metadata?.Channel === 'CloudflareR2') {
         return await handleR2File(context, fileId, encodedFileName, fileType);
     }

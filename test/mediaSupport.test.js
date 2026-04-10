@@ -9,12 +9,12 @@ describe('media support helpers', () => {
     assert.equal(supportsBrowserImagePreview('image/jpeg'), true);
   });
 
-  it('hides photo items whose preview is browser-unsupported', () => {
+  it('keeps HEIC items visible even when the browser cannot render the original file', () => {
     assert.equal(shouldDisplayMediaItem({
       type: 'photo',
       mimeType: 'image/heic',
       browserPreviewSupported: false,
-    }), false);
+    }), true);
 
     assert.equal(shouldDisplayMediaItem({
       type: 'photo',

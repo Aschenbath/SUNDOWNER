@@ -7,19 +7,5 @@ export function supportsBrowserImagePreview(mimeType) {
 }
 
 export function shouldDisplayMediaItem(item = {}) {
-  const type = String(item?.type || '').trim().toLowerCase();
-  if (type !== 'photo') {
-    return true;
-  }
-
-  if (item?.browserPreviewSupported === false) {
-    return false;
-  }
-
-  const mimeType = normalizeMimeType(item?.mimeType || item?.fileType || '');
-  if (!mimeType) {
-    return true;
-  }
-
-  return supportsBrowserImagePreview(mimeType);
+  return Boolean(item && typeof item === 'object');
 }

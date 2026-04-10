@@ -211,7 +211,7 @@ describe('media library download actions', () => {
         label: 'IMG_2038.HEIC',
         sourceId: 'telegram-import/Telegram_env/IMG_2038.HEIC',
         sourceUrl: '/file/telegram-import/Telegram_env/IMG_2038.HEIC',
-        thumbnailUrl: '/file/telegram-import/Telegram_env/IMG_2038.HEIC',
+        thumbnailUrl: '/file/telegram-import/Telegram_env/IMG_2038.HEIC?preview=1',
         width: 3024,
         height: 4032,
         displayTakenAt: 'April 8, 2026 21:10',
@@ -241,7 +241,7 @@ describe('media library download actions', () => {
     assert.match(html, /Download original/);
   });
 
-  it('does not render unsupported HEIC tiles in the photo timeline', () => {
+  it('renders HEIC tiles with the preview route instead of hiding them', () => {
     const html = MediaTile({
       item: {
         id: 'managed-heic-hidden',
@@ -259,7 +259,9 @@ describe('media library download actions', () => {
       layout: { width: 220, height: 280 }
     });
 
-    assert.equal(html, '');
+    assert.match(html, /data-action="open-preview"/);
+    assert.match(html, /IMG_2038\.HEIC\?preview=1/);
+    assert.match(html, /<img class="cml-media-tile__image"/);
   });
 
   it('renders media tiles with a direct preview opener on the tile element', () => {
