@@ -1188,32 +1188,33 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-media-tile__select {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 8px;
+  left: 8px;
   z-index: 2;
   display: inline-flex;
-  width: 48px;
-  height: 48px;
-  padding: 12px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 0 0 12px 0;
-  box-sizing: border-box;
-  background: rgba(31, 31, 31, 0.5);
-  color: #f8fbff;
+  border: 2px solid rgba(232, 234, 237, 0.66);
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(232, 234, 237, 0.94);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.35);
   opacity: 0;
-  transform: translateY(6px);
-  transition: opacity 160ms ease, transform 160ms ease;
-  backdrop-filter: blur(12px);
+  transform: scale(0.85);
+  transition: opacity 140ms ease, transform 140ms ease, border-color 140ms ease, background-color 140ms ease, color 140ms ease;
   cursor: pointer;
 }
 
 #codex-media-library-root .cml-media-tile__select-ring {
-  display: block;
+  display: none;
+}
+
+#codex-media-library-root .cml-media-tile__select .cml-icon {
   width: 18px;
   height: 18px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.92);
 }
 
 #codex-media-library-root .cml-media-tile__video-badge {
@@ -1263,7 +1264,13 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-media-tile:hover .cml-media-tile__select,
 #codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__select {
-  transform: translateY(0);
+  transform: scale(1);
+}
+
+#codex-media-library-root .cml-media-tile__select:hover {
+  border-color: #8ab4f8;
+  background: rgba(138, 180, 248, 0.12);
+  color: #8ab4f8;
 }
 
 /* ── Timeline scrubber (Google Photos style) ───────────────────── */
@@ -2682,19 +2689,12 @@ body.codex-media-library-active #app {
 
 /* ── Select button polish ──────────────────────────────────────── */
 
-#codex-media-library-root .cml-media-tile__select {
-  transition: opacity 140ms ease, transform 140ms ease, background 140ms ease;
-}
-
-#codex-media-library-root .cml-media-tile:hover .cml-media-tile__select,
 #codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__select {
-  transform: translateY(0) scale(1);
-}
-
-#codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__select {
-  background: #1a73e8;
-  color: #ffffff;
+  border-color: #8ab4f8;
+  background: #8ab4f8;
+  color: #1f1f1f;
   opacity: 1;
+  transform: scale(1);
 }
 
 #codex-media-library-root .cml-media-tile,
