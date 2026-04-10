@@ -282,6 +282,6 @@ describe('media library download actions', () => {
     });
 
     assert.match(html, /data-action="open-preview"/);
-    assert.match(html, /window\.__cmlOpenPreview && window\.__cmlOpenPreview\(event, this\.dataset\.id\)/);
+    assert.match(html, /onclick="event\.stopPropagation\(\)"/);
   });
 });

@@ -262,7 +262,7 @@ export function buildJustifiedRows(items, options = {}) {
   return rows;
 }
 
-function renderMediaAsset(item, className, withControls = false) {
+function renderMediaAsset(item, className, withControls = false, { noAction = false } = {}) {
   const sourceUrl = item.sourceUrl || item.thumbnailUrl;
   const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
   const mediaUrl = escapeHtml(item.type === 'video' ? sourceUrl : imageUrl);
@@ -270,10 +270,9 @@ function renderMediaAsset(item, className, withControls = false) {
   const originalPhotoUrl = item.type === 'photo' && sourceUrl && sourceUrl !== imageUrl
     ? escapeHtml(sourceUrl)
     : '';
-  const previewInlineHandler = ' onclick="window.__cmlOpenPreview && window.__cmlOpenPreview(event, this.dataset.id)"';
-  const previewActionAttr = withControls
+  const previewActionAttr = (withControls || noAction)
     ? ''
-    : ` data-action="open-preview" data-id="${escapeHtml(item.id)}"${previewInlineHandler}`;
+    : ` data-action="open-preview" data-id="${escapeHtml(item.id)}"`;
   if (item.type === 'photo' && item.browserPreviewSupported === false) {
     // HEIC/HEIF: prefer separate thumbnail (JPEG) when available
     const fallbackUrl = item.thumbnailUrl && item.thumbnailUrl !== item.sourceUrl
@@ -520,8 +519,8 @@ export function MediaTile({ item, selected, layout, isCover = false }) {
   const previewLabel = `${item.label || item.album} - ${formatTakenAt(item)}`;
   const style = `width:${layout.width}px;height:${layout.height}px;`;
   return `
-    <article class="cml-media-tile ${selected ? 'is-selected' : ''}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}" onclick="window.__cmlOpenPreview && window.__cmlOpenPreview(event, this.dataset.id)">
-      <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
+    <article class="cml-media-tile ${selected ? 'is-selected' : ''}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}">
+      <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item" onclick="event.stopPropagation()">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
       ${renderMediaAsset(item, 'cml-media-tile__image')}
@@ -640,7 +639,7 @@ export function CollectionGrid({ collections }) {
         >
           <span class="cml-collection-card__cover ${collection.coverItem ? '' : 'is-empty'}">
             ${collection.coverItem
-              ? renderMediaAsset(collection.coverItem, 'cml-collection-card__image')
+              ? renderMediaAsset(collection.coverItem, 'cml-collection-card__image', false, { noAction: true })
               : `<span class="cml-collection-card__placeholder">${icon('albums')}</span>`}
             ${collection.hasCustomCover ? `<span class="cml-collection-card__cover-badge">Cover</span>` : ''}
             ${collection.coverItem?.type === 'video' ? `<span class="cml-collection-card__badge">${icon('play')}</span>` : ''}
