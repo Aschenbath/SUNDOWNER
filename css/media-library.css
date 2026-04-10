@@ -935,11 +935,11 @@ body.codex-media-library-active #app {
   flex-direction: column;
   min-width: 0;
   padding: 0;
-  border: 0;
+  border: 0 !important;
   border-radius: 0;
   overflow: visible;
-  background: transparent;
-  box-shadow: none;
+  background: transparent !important;
+  box-shadow: none !important;
   color: inherit;
   cursor: pointer;
   text-align: left;
@@ -957,7 +957,7 @@ body.codex-media-library-active #app {
   aspect-ratio: 1 / 1;
   overflow: hidden;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.04);
+  background: transparent;
 }
 
 #codex-media-library-root .cml-collection-card__cover.is-empty {
@@ -1012,7 +1012,9 @@ body.codex-media-library-active #app {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 14px 2px 0;
+  padding: 14px 0 0;
+  background: transparent !important;
+  box-shadow: none !important;
   text-align: left;
 }
 
