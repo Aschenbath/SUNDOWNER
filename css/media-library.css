@@ -1065,8 +1065,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-media-tile.is-selected {
-  outline: 2px solid rgba(138, 180, 248, 0.92);
-  outline-offset: -2px;
+  background: #202124;
 }
 
 #codex-media-library-root .cml-media-tile__image {
@@ -1076,7 +1075,7 @@ body.codex-media-library-active #app {
   object-fit: cover;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 260ms ease;
+  transition: opacity 260ms ease, transform 200ms ease, border-radius 200ms ease;
 }
 
 #codex-media-library-root .cml-media-tile.is-img-loaded .cml-media-tile__image {
@@ -1182,7 +1181,7 @@ body.codex-media-library-active #app {
   inset: 0;
   background: linear-gradient(180deg, rgba(31, 31, 31, 0.02), rgba(31, 31, 31, 0.02) 38%, rgba(31, 31, 31, 0.24));
   opacity: 0;
-  transition: opacity 160ms ease;
+  transition: opacity 160ms ease, transform 200ms ease, border-radius 200ms ease;
   pointer-events: none;
 }
 
@@ -1264,6 +1263,12 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-media-tile:hover .cml-media-tile__select,
 #codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__select {
+  transform: scale(1);
+}
+
+/* Show all checkboxes when any item is selected */
+#codex-media-library-root.has-selection .cml-media-tile__select {
+  opacity: 1;
   transform: scale(1);
 }
 
@@ -2682,24 +2687,25 @@ body.codex-media-library-active #app {
   z-index: 1;
 }
 
-#codex-media-library-root .cml-media-tile.is-selected {
-  outline: 2.5px solid rgba(138, 180, 248, 0.95);
-  outline-offset: -2px;
-}
-
 /* ── Select button polish ──────────────────────────────────────── */
 
 #codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__select {
-  border-color: #8ab4f8;
-  background: #8ab4f8;
-  color: #1f1f1f;
+  border-color: #1a73e8;
+  background: #1a73e8;
+  color: #ffffff;
   opacity: 1;
   transform: scale(1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Google Photos-style: selected photo shrinks with rounded corners */
+#codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__image,
+#codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__scrim {
+  transform: scale(0.9);
+  border-radius: 6px;
 }
 
 #codex-media-library-root .cml-media-tile,
-#codex-media-library-root .cml-media-tile__image,
-#codex-media-library-root .cml-media-tile__scrim,
 #codex-media-library-root .cml-media-tile__video,
 #codex-media-library-root .cml-media-tile__placeholder {
   border-radius: 0 !important;

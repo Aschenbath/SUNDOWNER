@@ -4347,6 +4347,8 @@ function render() {
     </div>
   `;
 
+  refs.root.classList.toggle('has-selection', state.selectedIds.size > 0);
+
   refs.scrollRegion = refs.root.querySelector('.cml-main-content');
   refs.sectionAnchors = [...refs.root.querySelectorAll('.cml-timeline-section')];
   refs.contentInner = refs.root.querySelector('.cml-main-content__inner');
