@@ -4912,6 +4912,23 @@ function movePreview(direction) {
   return true;
 }
 
+function handleTileSelect(itemId, event) {
+  if (event && event.shiftKey && state.lastSelectedId) {
+    const items = getFilteredItems();
+    const fromIdx = items.findIndex(item => item.id === state.lastSelectedId);
+    const toIdx = items.findIndex(item => item.id === itemId);
+    if (fromIdx >= 0 && toIdx >= 0) {
+      const lo = Math.min(fromIdx, toIdx);
+      const hi = Math.max(fromIdx, toIdx);
+      items.slice(lo, hi + 1).forEach(item => state.selectedIds.add(item.id));
+      render();
+      return;
+    }
+  }
+  state.lastSelectedId = itemId;
+  toggleSelect(itemId);
+}
+
 function toggleSelect(itemId) {
   if (state.selectedIds.has(itemId)) {
     state.selectedIds.delete(itemId);
@@ -5502,11 +5519,18 @@ function handleClick(event) {
   // Select button clicks should only toggle selection, never open preview
   const isSelectClick = event.target instanceof Element && event.target.closest('[data-action="toggle-select"]');
 
+  // In selection mode, clicking anywhere on a tile toggles selection instead of opening preview
+  const inSelectionMode = state.selectedIds.size > 0;
+
   if (!isSelectClick && actionTarget instanceof HTMLElement && actionTarget.dataset.action === 'open-preview' && actionTarget.dataset.id) {
     event.preventDefault();
     event.stopPropagation();
-    state.avatarMenuOpen = false;
-    openPreview(actionTarget.dataset.id);
+    if (inSelectionMode) {
+      handleTileSelect(actionTarget.dataset.id, event);
+    } else {
+      state.avatarMenuOpen = false;
+      openPreview(actionTarget.dataset.id);
+    }
     return;
   }
 
@@ -5515,8 +5539,12 @@ function handleClick(event) {
     if (itemId) {
       event.preventDefault();
       event.stopPropagation();
-      state.avatarMenuOpen = false;
-      openPreview(itemId);
+      if (inSelectionMode) {
+        handleTileSelect(itemId, event);
+      } else {
+        state.avatarMenuOpen = false;
+        openPreview(itemId);
+      }
       return;
     }
   }
