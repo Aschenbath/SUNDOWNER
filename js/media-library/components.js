@@ -1,3 +1,5 @@
+import { shouldDisplayMediaItem } from './media-support.js';
+
 const icons = {
   photos: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5a2.5 2.5 0 0 1 2.5-2.5h11A2.5 2.5 0 0 1 20 6.5v11A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m7 15 3.2-3.6 2.6 2.8 2.4-2.2L18 15.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="8.3" r="1.4" fill="currentColor"/></svg>',
   updates: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M12 16v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M4 12h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M16 12h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
@@ -509,6 +511,9 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
 }
 
 export function MediaTile({ item, selected, layout, isCover = false }) {
+  if (!shouldDisplayMediaItem(item)) {
+    return '';
+  }
   const previewLabel = `${item.label || item.album} - ${formatTakenAt(item)}`;
   const style = `width:${layout.width}px;height:${layout.height}px;`;
   return `
@@ -525,16 +530,22 @@ export function MediaTile({ item, selected, layout, isCover = false }) {
 }
 
 export function renderMediaRows(rows, state, coverItemId = '') {
-  return rows.map((row) => `
-    <div class="cml-media-row">
-      ${row.items.map((layout) => MediaTile({
-        item: layout.item,
-        layout,
-        selected: state.selectedIds.has(layout.item.id),
-        isCover: coverItemId && layout.item.id === coverItemId
-      })).join('')}
-    </div>
-  `).join('');
+  return rows.map((row) => {
+    const visibleItems = row.items.filter((layout) => shouldDisplayMediaItem(layout.item));
+    if (!visibleItems.length) {
+      return '';
+    }
+    return `
+      <div class="cml-media-row">
+        ${visibleItems.map((layout) => MediaTile({
+          item: layout.item,
+          layout,
+          selected: state.selectedIds.has(layout.item.id),
+          isCover: coverItemId && layout.item.id === coverItemId
+        })).join('')}
+      </div>
+    `;
+  }).join('');
 }
 
 export function MediaGrid({ rows, state, coverItemId = '', topSpacerHeight = 0, bottomSpacerHeight = 0 }) {

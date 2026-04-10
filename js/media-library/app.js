@@ -18,7 +18,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=7';
+} from './components.js?v=8';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -28,6 +28,7 @@ import {
 import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
+import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -1648,9 +1649,13 @@ function extractLiveMediaItems() {
     const type = inferMediaType(candidates, src, node);
     const dateParts = parseDateMetadata(candidates, domIndex);
     const album = stripExtension(fileLabel) || 'Library';
+    const mimeType = type === 'photo'
+      ? inferMimeTypeFromReference(src, fileLabel, '')
+      : '';
+    const browserPreviewSupported = type !== 'photo' || supportsBrowserImagePreview(mimeType);
 
     seen.add(src);
-    items.push({
+    const nextItem = {
       id: `live-${hashString(src)}`,
       sourceId: src,
       sourceUrl: src,
@@ -1673,10 +1678,15 @@ function extractLiveMediaItems() {
       personLabels: [],
       label: fileLabel,
       sizeMb: 0,
+      mimeType,
+      browserPreviewSupported,
       isDocumentLike: DOCUMENT_HINT_PATTERN.test(`${src} ${fileLabel}`),
       sortOrder: Date.parse(dateParts.takenAt),
       domIndex
-    });
+    };
+    if (shouldDisplayMediaItem(nextItem)) {
+      items.push(nextItem);
+    }
   });
 
   return items
@@ -2142,11 +2152,6 @@ function inferMimeTypeFromReference(fileId, fileName, rawMimeType) {
   return normalized;
 }
 
-function supportsBrowserImagePreview(mimeType) {
-  const normalized = normalizeText(mimeType).toLowerCase();
-  return !/^image\/(?:heic|heif)\b/.test(normalized);
-}
-
 function resolvePhotoPreviewUrl(fileId, mimeType, fallbackUrl = '') {
   const sourceUrl = buildFileRoute(fileId);
   const normalizedFallback = normalizeText(fallbackUrl);
@@ -2194,7 +2199,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     ? (domMatch && domMatch.thumbnailUrl !== sourceUrl ? domMatch.thumbnailUrl : '')
     : (thumbnailUrl !== sourceUrl ? thumbnailUrl : '');
 
-  return {
+  const nextItem = {
     id: `managed-${hashString(fileId)}`,
     sourceId: fileId,
     sourceUrl,
@@ -2225,6 +2230,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     sortOrder: timestamp,
     domIndex: index
   };
+  return shouldDisplayMediaItem(nextItem) ? nextItem : null;
 }
 
 async function fetchListPage(start) {
@@ -2428,7 +2434,7 @@ function buildBinItem(record) {
   const deletedAt = Number(record.deletedAt) || Date.now();
   const deletedDate = new Date(deletedAt);
   const deletedYear = deletedDate.getFullYear();
-  return {
+  const nextItem = {
     id: fileId,
     label: fileName,
     thumbnailUrl,
@@ -2447,6 +2453,7 @@ function buildBinItem(record) {
     timelineLabel: createTimelineLabel(deletedDate),
     isDocumentLike: DOCUMENT_HINT_PATTERN.test(`${fileId} ${fileName}`)
   };
+  return shouldDisplayMediaItem(nextItem) ? nextItem : null;
 }
 
 async function fetchBinItems() {

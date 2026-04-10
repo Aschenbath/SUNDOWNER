@@ -241,6 +241,27 @@ describe('media library download actions', () => {
     assert.match(html, /Download original/);
   });
 
+  it('does not render unsupported HEIC tiles in the photo timeline', () => {
+    const html = MediaTile({
+      item: {
+        id: 'managed-heic-hidden',
+        type: 'photo',
+        label: 'IMG_2038.HEIC',
+        sourceUrl: '/file/telegram-import/Telegram_env/IMG_2038.HEIC',
+        thumbnailUrl: '/file/telegram-import/Telegram_env/IMG_2038.HEIC?preview=1',
+        width: 3024,
+        height: 4032,
+        displayTakenAt: 'April 8, 2026 21:10',
+        mimeType: 'image/heic',
+        browserPreviewSupported: false,
+      },
+      selected: false,
+      layout: { width: 220, height: 280 }
+    });
+
+    assert.equal(html, '');
+  });
+
   it('renders media tiles with a direct preview opener on the tile element', () => {
     const html = MediaTile({
       item: {

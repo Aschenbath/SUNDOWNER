@@ -27,7 +27,15 @@ async function errorHandling(context) {
   try {
     return await context.next()
   } catch (err) {
-    return new Response(`${err.message}\n${err.stack}`, { status: 500 })
+    console.error('Manage middleware request failed', err)
+    return new Response('Internal Server Error', {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/plain;charset=UTF-8',
+        'Cache-Control': 'no-store',
+      },
+    })
   }
 }
 
@@ -39,8 +47,13 @@ function basicAuthentication(request) {
     return BadRequestException('Malformed authorization header.')
   }
 
-  const buffer = Uint8Array.from(atob(encoded), character => character.charCodeAt(0))
-  const decoded = new TextDecoder().decode(buffer).normalize()
+  let decoded = ''
+  try {
+    const buffer = Uint8Array.from(atob(encoded), character => character.charCodeAt(0))
+    decoded = new TextDecoder().decode(buffer).normalize()
+  } catch {
+    return BadRequestException('Invalid authorization value.')
+  }
   const index = decoded.indexOf(':')
 
   if (index === -1 || /[\0-\x1F\x7F]/.test(decoded)) {
@@ -58,6 +71,7 @@ function UnauthorizedException(reason) {
     status: 401,
     statusText: 'Unauthorized',
     headers: {
+      ...corsHeaders,
       'Content-Type': 'text/plain;charset=UTF-8',
       'Cache-Control': 'no-store',
       'Content-Length': reason.length,
@@ -70,6 +84,7 @@ function BadRequestException(reason) {
     status: 400,
     statusText: 'Bad Request',
     headers: {
+      ...corsHeaders,
       'Content-Type': 'text/plain;charset=UTF-8',
       'Cache-Control': 'no-store',
       'Content-Length': reason.length,
@@ -137,7 +152,11 @@ async function authentication(context) {
       return context.next()
     }
 
-    const { user, pass } = basicAuthentication(context.request)
+    const basicAuth = basicAuthentication(context.request)
+    if (basicAuth instanceof Response) {
+      return basicAuth
+    }
+    const { user, pass } = basicAuth
     if (basicUser !== user || basicPass !== pass) {
       return UnauthorizedException('Invalid credentials.')
     }
