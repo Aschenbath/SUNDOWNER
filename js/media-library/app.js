@@ -4451,15 +4451,53 @@ function getPreviewItems(items = getAllItems()) {
   return state.primaryFilter === 'Bin' ? [] : getFilteredItems(items);
 }
 
-function syncPreviewSection(currentParent, nextParent, selector) {
+function getPreviewMediaSignature(node) {
+  if (!(node instanceof HTMLElement)) {
+    return '';
+  }
+  const mediaNode = node.querySelector('.cml-preview__media');
+  if (!(mediaNode instanceof HTMLElement)) {
+    return '';
+  }
+  const source = mediaNode.getAttribute('src')
+    || mediaNode.getAttribute('data-src')
+    || mediaNode.getAttribute('poster')
+    || mediaNode.currentSrc
+    || '';
+  const tagName = normalizeText(mediaNode.tagName).toLowerCase();
+  const poster = mediaNode.getAttribute('poster') || '';
+  return `${tagName}|${source}|${poster}`;
+}
+
+function syncPreviewSection(currentParent, nextParent, selector, { preserveFigure = false } = {}) {
   if (!(currentParent instanceof HTMLElement) || !(nextParent instanceof HTMLElement)) {
     return;
   }
   const currentNode = currentParent.querySelector(selector);
   const nextNode = nextParent.querySelector(selector);
   if (currentNode instanceof HTMLElement && nextNode instanceof HTMLElement) {
+    const currentFigure = preserveFigure ? currentNode.querySelector('.cml-preview__figure') : null;
+    const nextFigure = preserveFigure ? nextNode.querySelector('.cml-preview__figure') : null;
+    const shouldReuseFigure = Boolean(
+      currentFigure
+      && nextFigure
+      && getPreviewMediaSignature(currentFigure) !== ''
+      && getPreviewMediaSignature(currentFigure) === getPreviewMediaSignature(nextFigure)
+    );
     currentNode.className = nextNode.className;
     currentNode.innerHTML = nextNode.innerHTML;
+    if (shouldReuseFigure) {
+      const replacementFigure = currentNode.querySelector('.cml-preview__figure');
+      const nextStage = nextNode.querySelector('.cml-preview__stage');
+      if (replacementFigure instanceof HTMLElement) {
+        replacementFigure.replaceWith(currentFigure);
+        currentFigure.className = nextFigure.className;
+        const currentStage = currentFigure.querySelector('.cml-preview__stage');
+        if (currentStage instanceof HTMLElement && nextStage instanceof HTMLElement) {
+          currentStage.className = nextStage.className;
+        }
+      }
+    }
   } else if (currentNode instanceof HTMLElement && !nextNode) {
     currentNode.remove();
   } else if (!(currentNode instanceof HTMLElement) && nextNode instanceof HTMLElement) {
@@ -4498,15 +4536,21 @@ function renderPreviewOverlay({ animateDirection = 0, nextPreviewElement = null 
     : '';
   const currentPanel = currentPreview.querySelector('.cml-preview__panel');
   const nextPanel = nextPreview.querySelector('.cml-preview__panel');
+  const shouldPreservePreviewFigure = animateDirection === 0
+    && normalizeText(currentPreview.dataset.previewId) !== ''
+    && normalizeText(currentPreview.dataset.previewId) === normalizeText(nextPreview.dataset.previewId);
 
   currentPreview.className = nextPreview.className;
   currentPreview.setAttribute('role', nextPreview.getAttribute('role') || 'dialog');
   currentPreview.setAttribute('aria-modal', nextPreview.getAttribute('aria-modal') || 'true');
+  currentPreview.dataset.previewId = nextPreview.dataset.previewId || '';
 
   if (currentPanel instanceof HTMLElement && nextPanel instanceof HTMLElement) {
     currentPanel.className = nextPanel.className;
     PREVIEW_PANEL_SECTION_SELECTORS.forEach((selector) => {
-      syncPreviewSection(currentPanel, nextPanel, selector);
+      syncPreviewSection(currentPanel, nextPanel, selector, {
+        preserveFigure: shouldPreservePreviewFigure && selector === '.cml-preview__main'
+      });
     });
   } else {
     currentPreview.replaceWith(nextPreview);
@@ -4681,7 +4725,9 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
   }
 
   if ((changed || forceRender) && refs.root) {
-    render();
+    if (!(state.previewId && renderPreviewTransientLayers())) {
+      render();
+    }
   }
 }
 

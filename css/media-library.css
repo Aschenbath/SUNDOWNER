@@ -2722,8 +2722,11 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-media-tile,
+#codex-media-library-root .cml-media-tile__image,
+#codex-media-library-root .cml-media-tile__scrim,
 #codex-media-library-root .cml-media-tile__video,
-#codex-media-library-root .cml-media-tile__placeholder {
+#codex-media-library-root .cml-media-tile__placeholder,
+#codex-media-library-root .cml-media-unsupported {
   border-radius: 0 !important;
 }
 
@@ -2976,7 +2979,7 @@ body.codex-media-library-active #app {
   z-index: 5;
   padding: 12px 18px 24px;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   border-bottom: 0;
   background: linear-gradient(180deg, rgba(8, 9, 11, 0.86), rgba(8, 9, 11, 0));
   backdrop-filter: blur(14px);
@@ -3014,12 +3017,17 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-preview__header-actions {
+  display: inline-flex;
+  align-items: center;
   flex-wrap: nowrap;
   justify-content: flex-end;
   gap: 6px;
+  margin-left: auto;
+  max-width: 100%;
 }
 
 #codex-media-library-root .cml-preview__back,
+#codex-media-library-root .cml-preview__close,
 #codex-media-library-root .cml-preview__icon-action,
 #codex-media-library-root .cml-preview__info-close {
   display: inline-flex;
@@ -3036,16 +3044,22 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-preview__back:hover,
+#codex-media-library-root .cml-preview__close:hover,
 #codex-media-library-root .cml-preview__icon-action:hover,
 #codex-media-library-root .cml-preview__info-close:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
 #codex-media-library-root .cml-preview__back .cml-icon,
+#codex-media-library-root .cml-preview__close .cml-icon,
 #codex-media-library-root .cml-preview__icon-action .cml-icon,
 #codex-media-library-root .cml-preview__info-close .cml-icon {
   width: 24px;
   height: 24px;
+}
+
+#codex-media-library-root .cml-preview__close {
+  margin-left: 10px;
 }
 
 #codex-media-library-root .cml-preview__icon-action.is-favorited {
@@ -3599,15 +3613,16 @@ body.codex-media-library-active #app {
 
 @media (max-width: 1180px) {
   #codex-media-library-root .cml-preview__header {
-    flex-direction: column;
+    flex-direction: row;
     align-items: flex-start;
     gap: 12px;
     padding: 12px 16px 22px;
   }
 
   #codex-media-library-root .cml-preview__header-actions {
-    width: 100%;
-    justify-content: flex-start;
+    width: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   #codex-media-library-root .cml-preview__info,

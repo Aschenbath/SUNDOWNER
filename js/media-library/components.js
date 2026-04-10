@@ -989,17 +989,17 @@ export function PreviewModal({
   `;
 
   return `
-    <div class="cml-preview ${infoOpen ? 'has-info' : ''} ${albumDrawerOpen ? 'has-album' : ''} ${immersive ? 'is-immersive' : ''}" role="dialog" aria-modal="true">
+    <div class="cml-preview ${infoOpen ? 'has-info' : ''} ${albumDrawerOpen ? 'has-album' : ''} ${immersive ? 'is-immersive' : ''}" role="dialog" aria-modal="true" data-preview-id="${escapeHtml(item.id)}">
       <div class="cml-preview__backdrop" data-action="close-preview"></div>
       <div class="cml-preview__panel">
         <div class="cml-preview__main">
           <header class="cml-preview__header">
-            <button type="button" class="cml-preview__back" data-action="close-preview" aria-label="Back to library">${icon('previous')}</button>
             <div class="cml-preview__header-actions">
               <button type="button" class="cml-preview__icon-action ${albumDrawerOpen ? 'is-selected' : ''}" data-action="open-preview-add-to-album" data-id="${escapeHtml(item.id)}" aria-label="Add to album" aria-pressed="${albumDrawerOpen ? 'true' : 'false'}">${icon('plus')}</button>
               <button type="button" class="cml-preview__icon-action ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="${favorited ? 'Remove from favourites' : 'Add to favourites'}">${icon('star')}</button>
               <button type="button" class="cml-preview__icon-action is-destructive" data-action="request-delete-preview" data-id="${escapeHtml(item.id)}" aria-label="Delete">${icon('trash')}</button>
               <button type="button" class="cml-preview__icon-action ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="${infoOpen ? 'Hide details' : 'Show details'}" aria-pressed="${infoOpen ? 'true' : 'false'}">${icon('info')}</button>
+              <button type="button" class="cml-preview__close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
             </div>
           </header>
           <div class="cml-preview__body">
