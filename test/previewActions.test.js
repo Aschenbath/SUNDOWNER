@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { CollectionGrid, CollectionSummary, MediaTile, PreviewModal, TopSearchBar } from '../js/media-library/components.js';
+import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, PreviewModal, Sidebar, TopSearchBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('renders a selection download action without replacing delete/add-to-album controls', () => {
@@ -286,7 +286,7 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="toggle-select"/);
   });
 
-  it('keeps collection cards on date-only metadata and omits the cover summary line', () => {
+  it('keeps collection cards on date-only metadata, uses clickable album titles, and omits the cover summary line', () => {
     const summaryHtml = CollectionSummary({
       activeAlbumName: 'scenery',
       collectionCount: 3,
@@ -307,8 +307,14 @@ describe('media library download actions', () => {
 
     assert.doesNotMatch(summaryHtml, /Custom cover/);
     assert.doesNotMatch(summaryHtml, /IMG_0626\.JPEG/);
+    assert.match(summaryHtml, />Album</);
+    assert.match(summaryHtml, /All albums/);
+    assert.match(summaryHtml, /class="cml-view-summary__title-button"/);
+    assert.match(summaryHtml, /data-action="rename-album"/);
+    assert.doesNotMatch(summaryHtml, />\s*Rename\s*</);
     assert.match(gridHtml, />2026-04-07</);
     assert.doesNotMatch(gridHtml, /19:35/);
+    assert.match(gridHtml, /class="cml-collection-card__cover /);
   });
 
   it('keeps the selection add-to-album dialog path wired through preferPreviewRender state', () => {
@@ -316,5 +322,75 @@ describe('media library download actions', () => {
 
     assert.match(appSource, /function openAlbumDialog\(mode = 'create', \{ origin = '', preferPreviewRender = false \} = \{\}\)/);
     assert.doesNotMatch(appSource, /preferTransientRender/);
+  });
+
+  it('shows only remaining days on bin tiles without exposing file names', () => {
+    const binItem = {
+      id: 'bin-1',
+      type: 'photo',
+      label: 'photo_29.jpg',
+      sourceUrl: '/file/bin/photo_29.jpg',
+      thumbnailUrl: '/file/bin/photo_29.jpg',
+      width: 1200,
+      height: 900,
+      daysLeft: 45,
+      year: 2026,
+      timelineLabel: 'Today'
+    };
+    const html = BinGrid({
+      items: [binItem],
+      binSelectedIds: new Set(),
+      isBinLoading: false,
+      layoutWidth: 1200,
+      sections: [{
+        anchorId: 'bin-2026-today',
+        year: '2026',
+        label: 'Today',
+        metaLine: '45 days left before permanent deletion',
+        items: [binItem],
+        visibleRows: [{
+          items: [{
+            item: binItem,
+            width: 240,
+            height: 180
+          }]
+        }],
+        topSpacerHeight: 0,
+        bottomSpacerHeight: 0
+      }]
+    });
+
+    assert.match(html, /45 days left/);
+    assert.doesNotMatch(html, /cml-bin-media-tile__name/);
+    assert.match(html, /aria-label="45 days left before permanent deletion"/);
+    assert.match(html, /aria-label="Select item with 45 days left remaining"/);
+  });
+
+  it('shows Albums in the sidebar, keeps secondary filters visible in Bin, and uses the text wordmark', () => {
+    const html = Sidebar({
+      navigationModel: {
+        primary: ['Photos', 'Collections', 'Bin'],
+        secondary: ['Videos', 'Favourites']
+      },
+      state: {
+        primaryFilter: 'Bin',
+        secondaryFilter: '',
+        searchQuery: ''
+      },
+      storageSummary: {
+        usedMb: 50.9,
+        totalQuotaGb: 0,
+        totalCount: 20,
+        isLoading: false
+      },
+      searchQuery: ''
+    });
+
+    assert.match(html, /cml-sidebar__brand-wordmark/);
+    assert.match(html, />SUNDOWNER</);
+    assert.match(html, />Albums</);
+    assert.match(html, /data-secondary="Videos"/);
+    assert.match(html, /data-secondary="Favourites"/);
+    assert.doesNotMatch(html, /logo-sundowner\.svg/);
   });
 });

@@ -353,7 +353,9 @@ export function Sidebar({
   return `
     <aside class="cml-sidebar">
       <div class="cml-sidebar__brand">
-        <img class="cml-sidebar__brand-logo" src="/logo-sundowner.svg?v=2" alt="SUNDOWNER" />
+        <div class="cml-sidebar__brand-wordmark" aria-label="SUNDOWNER">
+          <span class="cml-sidebar__brand-name">SUNDOWNER</span>
+        </div>
       </div>
       <label class="cml-sidebar__search" aria-label="Search">
         ${icon('search', 'cml-sidebar__search-icon')}
@@ -363,11 +365,12 @@ export function Sidebar({
         ${navigationModel.primary.map((label) => {
           const key = label.toLowerCase();
           const active = state.primaryFilter === label ? 'is-active' : '';
-          const iconName = key === 'photos' ? 'photos' : key === 'bin' ? 'trash' : 'collections';
+          const iconName = key === 'photos' ? 'photos' : key === 'bin' ? 'trash' : 'albums';
+          const displayLabel = label === 'Collections' ? 'Albums' : label;
           return `
             <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}" aria-current="${state.primaryFilter === label ? 'page' : 'false'}">
               ${icon(iconName)}
-              <span class="cml-sidebar__nav-label">${escapeHtml(label)}</span>
+              <span class="cml-sidebar__nav-label">${escapeHtml(displayLabel)}</span>
             </button>
           `;
         }).join('')}
@@ -611,21 +614,30 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
   const title = hasActiveAlbum ? activeAlbumName : `${collectionCount} album${collectionCount === 1 ? '' : 's'}`;
   const copy = hasActiveAlbum
     ? `${itemCount} item${itemCount === 1 ? '' : 's'} in this album`
-    : 'Collections now show album categories first. Open an album to browse its photos.';
+    : 'Albums now show album categories first. Open an album to browse its photos.';
   return `
     <section class="cml-view-summary">
       ${hasActiveAlbum ? `
         <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-collection">
           ${icon('previous')}
-          <span>All collections</span>
+          <span>All albums</span>
         </button>
       ` : ''}
-      <p class="cml-view-summary__eyebrow">${hasActiveAlbum ? 'Collection' : 'Collections'}</p>
-      <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
+      <p class="cml-view-summary__eyebrow">${hasActiveAlbum ? 'Album' : 'Albums'}</p>
+      ${hasActiveAlbum ? `
+        <button
+          type="button"
+          class="cml-view-summary__title-button"
+          data-action="rename-album"
+          data-album-name="${escapeHtml(activeAlbumName)}"
+          aria-label="Rename album ${escapeHtml(activeAlbumName)}"
+        >
+          <span class="cml-view-summary__title">${escapeHtml(title)}</span>
+        </button>
+      ` : `<h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>`}
       <p class="cml-view-summary__copy">${escapeHtml(copy)}</p>
       ${hasActiveAlbum ? `
         <div class="cml-view-summary__actions">
-          <button type="button" class="cml-topbar__secondary-button" data-action="rename-album" data-album-name="${escapeHtml(activeAlbumName)}">${icon('settings')}<span>Rename</span></button>
           <button type="button" class="cml-topbar__secondary-button is-destructive" data-action="delete-album" data-album-name="${escapeHtml(activeAlbumName)}">${icon('trash')}<span>Delete album</span></button>
         </div>
       ` : ''}
@@ -1203,16 +1215,16 @@ function BinMediaTile({ item, selected, layout }) {
   const urgency = item.daysLeft <= 7 ? 'is-urgent' : item.daysLeft <= 14 ? 'is-warning' : '';
   const daysLabel = item.daysLeft === 1 ? '1 day left' : `${item.daysLeft} days left`;
   const style = `width:${layout.width}px;height:${layout.height}px;`;
+  const accessibleLabel = `${daysLabel} before permanent deletion`;
   return `
-    <article class="cml-media-tile cml-bin-media-tile ${selected ? 'is-selected' : ''}" data-tile-id="${escapeHtml(item.id)}" style="${style}" aria-label="${escapeHtml(item.label)}">
-      <button type="button" class="cml-media-tile__select" data-action="toggle-bin-select" data-bin-id="${escapeHtml(item.id)}" aria-label="Select ${escapeHtml(item.label)}">
+    <article class="cml-media-tile cml-bin-media-tile ${selected ? 'is-selected' : ''}" data-tile-id="${escapeHtml(item.id)}" style="${style}" aria-label="${escapeHtml(accessibleLabel)}">
+      <button type="button" class="cml-media-tile__select" data-action="toggle-bin-select" data-bin-id="${escapeHtml(item.id)}" aria-label="Select item with ${escapeHtml(daysLabel)} remaining">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
       ${renderMediaAsset(item, 'cml-media-tile__image')}
       <div class="cml-media-tile__scrim"></div>
       ${item.type === 'video' ? `<span class="cml-media-tile__video-badge" aria-hidden="true">${icon('play')}</span>` : ''}
       <div class="cml-bin-media-tile__meta">
-        <span class="cml-bin-media-tile__name" title="${escapeHtml(item.label)}">${escapeHtml(item.label)}</span>
         <span class="cml-bin-media-tile__expiry ${urgency}">${escapeHtml(daysLabel)}</span>
       </div>
     </article>

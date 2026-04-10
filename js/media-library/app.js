@@ -4181,7 +4181,7 @@ function getViewModel() {
   return {
     navigationModel: {
       primary: navigationModel.primary,
-      secondary: state.primaryFilter === 'Bin' ? [] : visibleSecondaryFilters
+      secondary: visibleSecondaryFilters
     },
     activeAlbumName,
     activeAlbumCoverId: activeAlbumCover.item?.id || '',

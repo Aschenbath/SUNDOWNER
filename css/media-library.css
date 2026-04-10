@@ -82,13 +82,34 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar__brand {
   display: flex;
   align-items: center;
-  padding: 10px 16px 14px;
+  justify-content: center;
+  min-height: 112px;
+  margin: 8px 0 6px;
+  padding: 18px 16px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    rgba(244, 241, 233, 0.03);
+  text-align: center;
 }
 
-#codex-media-library-root .cml-sidebar__brand-logo {
-  display: block;
-  width: min(196px, 100%);
-  height: auto;
+#codex-media-library-root .cml-sidebar__brand-wordmark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 72px;
+}
+
+#codex-media-library-root .cml-sidebar__brand-name {
+  display: inline-block;
+  color: #f1ece1;
+  font-size: clamp(26px, 2vw, 34px);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  line-height: 1;
+  text-indent: 0.18em;
+  text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-sidebar__search {
@@ -711,6 +732,30 @@ body.codex-media-library-active #app {
   font-weight: 600;
 }
 
+#codex-media-library-root .cml-view-summary__title-button {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: opacity 160ms ease;
+}
+
+#codex-media-library-root .cml-view-summary__title-button:hover {
+  opacity: 0.84;
+}
+
+#codex-media-library-root .cml-view-summary__title-button:focus-visible {
+  outline: 2px solid rgba(138, 180, 248, 0.72);
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
 #codex-media-library-root .cml-view-summary__copy {
   max-width: 720px;
   margin: 0;
@@ -832,7 +877,7 @@ body.codex-media-library-active #app {
   min-width: 0;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
   background: rgba(45, 45, 45, 0.94);
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.22);
@@ -851,6 +896,7 @@ body.codex-media-library-active #app {
   display: block;
   aspect-ratio: 1.18;
   overflow: hidden;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.05);
 }
 
@@ -868,6 +914,7 @@ body.codex-media-library-active #app {
   height: 100%;
   display: block;
   object-fit: cover;
+  border-radius: 0;
 }
 
 #codex-media-library-root .cml-collection-card__placeholder {
