@@ -466,6 +466,51 @@ export async function deletePersistedAlbum(env, albumIdOrName) {
   });
 }
 
+export async function renamePersistedAlbum(env, albumIdOrName, newName) {
+  const target = normalizeText(albumIdOrName);
+  const nextName = normalizeAlbumName(newName);
+  if (!target || !nextName) {
+    throw new Error('Album name is required');
+  }
+  if (target === FAVORITES_ALBUM_ID || normalizeAlbumLookup(target) === normalizeAlbumLookup(FAVORITES_ALBUM_NAME)) {
+    throw new Error('Cannot rename favourites');
+  }
+
+  const state = await getPersistedAlbumState(env);
+  const album = state.albums.find((entry) =>
+    normalizeText(entry.id) === target || normalizeAlbumLookup(entry.name) === normalizeAlbumLookup(target),
+  );
+  if (!album) {
+    throw new Error('Album not found');
+  }
+
+  const duplicate = state.albums.find((entry) =>
+    entry !== album && normalizeAlbumLookup(entry.name) === normalizeAlbumLookup(nextName),
+  );
+  if (duplicate) {
+    throw new Error('An album with that name already exists');
+  }
+
+  const oldKey = normalizeAlbumLookup(album.name);
+  const nextAssignments = Object.fromEntries(
+    Object.entries(state.albumAssignments).map(([fileId, albumName]) =>
+      normalizeAlbumLookup(albumName) === oldKey ? [fileId, nextName] : [fileId, albumName],
+    ),
+  );
+  const nextCovers = { ...state.albumCovers };
+  if (nextCovers[oldKey] !== undefined) {
+    nextCovers[normalizeAlbumLookup(nextName)] = nextCovers[oldKey];
+    delete nextCovers[oldKey];
+  }
+
+  return replacePersistedAlbumState(env, {
+    ...state,
+    albumNames: state.albumNames.map((n) => normalizeAlbumLookup(n) === oldKey ? nextName : n),
+    albumAssignments: nextAssignments,
+    albumCovers: nextCovers,
+  });
+}
+
 export function buildAlbumStatePayload(state) {
   return normalizeAlbumStatePayload(state);
 }

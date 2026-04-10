@@ -4,6 +4,7 @@ import {
   createPersistedAlbum,
   deletePersistedAlbum,
   getPersistedAlbumState,
+  renamePersistedAlbum,
   replacePersistedAlbumState,
 } from '../../utils/albumsStore.js';
 
@@ -54,6 +55,28 @@ export async function onRequest(context) {
       return jsonResponse({ error: 'Unsupported album operation' }, { status: 400 });
     } catch (error) {
       return jsonResponse({ error: error.message || 'Failed to update albums' }, { status: 400 });
+    }
+  }
+
+  if (request.method === 'PATCH') {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON' }, { status: 400 });
+    }
+
+    const albumId = body?.id || body?.name || url.searchParams.get('id') || url.searchParams.get('name');
+    const newName = body?.newName;
+    if (!albumId || !newName) {
+      return jsonResponse({ error: 'Album id and newName are required' }, { status: 400 });
+    }
+
+    try {
+      const state = await renamePersistedAlbum(env, albumId, newName);
+      return jsonResponse(state);
+    } catch (error) {
+      return jsonResponse({ error: error.message || 'Failed to rename album' }, { status: 400 });
     }
   }
 

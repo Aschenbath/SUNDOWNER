@@ -470,6 +470,9 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
             ${activeAlbumName && canSetAlbumCover ? `
               <button type="button" class="cml-topbar__secondary-button" data-action="set-album-cover">Set as cover</button>
             ` : ''}
+            ${activeAlbumName ? `
+              <button type="button" class="cml-topbar__secondary-button" data-action="remove-from-album">Remove from album</button>
+            ` : ''}
             <button type="button" class="cml-topbar__secondary-button is-destructive" data-action="delete-selected" ${canDeleteSelection ? '' : 'disabled'}>${icon('trash')}<span>Delete</span></button>
           </div>
         </div>
@@ -614,6 +617,12 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
       <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
       <p class="cml-view-summary__copy">${escapeHtml(copy)}</p>
       ${coverLine ? `<p class="cml-view-summary__cover">${escapeHtml(coverLine)}</p>` : ''}
+      ${hasActiveAlbum ? `
+        <div class="cml-view-summary__actions">
+          <button type="button" class="cml-topbar__secondary-button" data-action="rename-album" data-album-name="${escapeHtml(activeAlbumName)}">${icon('settings')}<span>Rename</span></button>
+          <button type="button" class="cml-topbar__secondary-button is-destructive" data-action="delete-album" data-album-name="${escapeHtml(activeAlbumName)}">${icon('trash')}<span>Delete album</span></button>
+        </div>
+      ` : ''}
     </section>
   `;
 }
@@ -1066,12 +1075,43 @@ export function AlbumDialog({ state, albums }) {
   `;
 }
 
+export function RenameAlbumDialog({ state }) {
+  if (!state.renameAlbumDialogOpen) {
+    return '';
+  }
+  return `
+    <div class="cml-dialog" role="dialog" aria-modal="true" aria-label="Rename album">
+      <div class="cml-dialog__backdrop" data-action="close-rename-album-dialog"></div>
+      <div class="cml-dialog__panel cml-album-dialog">
+        <header class="cml-dialog__header">
+          <div>
+            <h3 class="cml-dialog__title">Rename album</h3>
+            <p class="cml-dialog__copy">Enter a new name for "${escapeHtml(state.renameAlbumTarget)}".</p>
+          </div>
+          <button type="button" class="cml-dialog__close" data-action="close-rename-album-dialog" aria-label="Close dialog">${icon('close')}</button>
+        </header>
+        <div class="cml-album-dialog__section">
+          <label class="cml-album-dialog__field">
+            <span class="cml-album-dialog__label">Album name</span>
+            <input type="text" class="cml-album-dialog__input" data-rename-album-input value="${escapeHtml(state.renameAlbumDraftName || '')}" placeholder="New album name" maxlength="64" />
+          </label>
+          ${state.renameAlbumError ? `<p class="cml-album-dialog__error">${escapeHtml(state.renameAlbumError)}</p>` : ''}
+        </div>
+        <footer class="cml-dialog__footer">
+          <button type="button" class="cml-topbar__secondary-button" data-action="close-rename-album-dialog">Cancel</button>
+          <button type="button" class="cml-topbar__upload-button" data-action="submit-rename-album" ${state.renameAlbumBusy ? 'disabled' : ''}>${state.renameAlbumBusy ? 'Renaming...' : 'Rename'}</button>
+        </footer>
+      </div>
+    </div>
+  `;
+}
+
 export function ConfirmDialog({ state }) {
   if (!state.confirmDialogOpen) {
     return '';
   }
 
-  const isDestructive = ['delete', 'delete-permanently', 'delete-bin-permanently', 'empty-bin'].includes(state.confirmDialogMode);
+  const isDestructive = ['delete', 'delete-permanently', 'delete-bin-permanently', 'empty-bin', 'delete-album'].includes(state.confirmDialogMode);
   const countLabel = state.confirmDialogSelectionCount > 1
     ? `${state.confirmDialogSelectionCount} items selected`
     : state.confirmDialogSelectionCount === 1
@@ -1335,7 +1375,8 @@ export function AdminPanel({ state, storageSummary }) {
   const tabs = [
     { id: 'account', label: 'Account', iconName: 'user' },
     { id: 'site', label: 'Site', iconName: 'settings' },
-    { id: 'cloud', label: 'Cloud', iconName: 'cloud' }
+    { id: 'cloud', label: 'Cloud', iconName: 'cloud' },
+    { id: 'telegram', label: 'Telegram', iconName: 'updates' }
   ];
   const usedMb = Math.max(0, Number(storageSummary?.usedMb) || 0);
   const totalCount = Math.max(0, Number(storageSummary?.totalCount) || 0);
@@ -1565,13 +1606,79 @@ export function AdminPanel({ state, storageSummary }) {
     </section>
   `;
 
+  const tgChannels = Array.isArray(state.adminTelegramChannels) ? state.adminTelegramChannels : [];
+  const telegramBody = `
+    <section class="cml-admin-panel__section">
+      <div class="cml-admin-panel__hero-copy cml-admin-panel__hero-copy--compact">
+        <p class="cml-admin-panel__eyebrow">Telegram</p>
+        <h3 class="cml-admin-panel__section-title">Channel sync</h3>
+        <p class="cml-admin-panel__copy">Manage Telegram channel sync webhooks and trigger manual imports from this panel.</p>
+      </div>
+      <div class="cml-admin-panel__section-footer" style="margin-bottom:12px">
+        <div class="cml-admin-panel__footer-actions">
+          <button type="button" class="cml-admin-panel__secondary" data-action="refresh-admin-telegram" ${state.adminTelegramLoading ? 'disabled' : ''}>${icon('restore')}<span>${state.adminTelegramLoading ? 'Refreshing...' : 'Refresh status'}</span></button>
+        </div>
+      </div>
+      ${state.adminTelegramError ? `<p class="cml-admin-panel__status is-error">${escapeHtml(state.adminTelegramError)}</p>` : ''}
+      ${!tgChannels.length && !state.adminTelegramLoading ? `
+        <p class="cml-admin-panel__scan-empty">No Telegram channels configured.</p>
+      ` : ''}
+      <div class="cml-admin-panel__stack">
+        ${tgChannels.map((ch) => {
+          const webhookUrl = ch.webhookInfo?.url || '';
+          const fmtTime = (v) => { if (!v) return '--'; const d = new Date(Number(v)); return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString(); };
+          return `
+            <section class="cml-admin-panel__subsection">
+              <div class="cml-admin-panel__subheader">
+                <div>
+                  <h4 class="cml-admin-panel__subheading">${escapeHtml(ch.name)}</h4>
+                  <p class="cml-admin-panel__copy">chatId: ${escapeHtml(ch.chatId || 'N/A')} &middot; ${escapeHtml(ch.importDirectory || '/')}</p>
+                </div>
+                <div class="cml-admin-panel__subactions" style="display:flex;gap:6px;flex-wrap:wrap">
+                  <span class="cml-admin-panel__migration-pill is-${ch.syncEnabled ? 'success' : 'warning'}">${ch.syncEnabled ? 'Sync on' : 'Sync off'}</span>
+                  <span class="cml-admin-panel__migration-pill is-${webhookUrl ? 'success' : 'warning'}">${webhookUrl ? 'Webhook active' : 'No webhook'}</span>
+                </div>
+              </div>
+              <div class="cml-admin-panel__migration-grid">
+                <article class="cml-admin-panel__migration-card">
+                  <span class="cml-admin-panel__migration-label">Last sync</span>
+                  <strong class="cml-admin-panel__migration-value" style="font-size:13px">${escapeHtml(fmtTime(ch.lastSyncAt))}</strong>
+                  <span class="cml-admin-panel__migration-meta">Source: ${escapeHtml(ch.lastSyncSource || '--')}</span>
+                </article>
+                <article class="cml-admin-panel__migration-card">
+                  <span class="cml-admin-panel__migration-label">Last processed</span>
+                  <strong class="cml-admin-panel__migration-value">${ch.lastProcessedCount || 0}</strong>
+                  <span class="cml-admin-panel__migration-meta">Update ID: ${ch.lastUpdateId || 0}</span>
+                </article>
+                <article class="cml-admin-panel__migration-card">
+                  <span class="cml-admin-panel__migration-label">Webhook queue</span>
+                  <strong class="cml-admin-panel__migration-value">${ch.webhookInfo?.pending_update_count != null ? ch.webhookInfo.pending_update_count : '--'}</strong>
+                  <span class="cml-admin-panel__migration-meta">Last event: ${escapeHtml(fmtTime(ch.lastWebhookEventAt))}</span>
+                </article>
+              </div>
+              ${ch.lastError ? `<p class="cml-admin-panel__status is-error" style="margin-top:8px">Error: ${escapeHtml(ch.lastError)}</p>` : ''}
+              <div class="cml-admin-panel__footer-actions" style="margin-top:10px;gap:8px">
+                <button type="button" class="cml-admin-panel__primary" data-action="tg-setup-webhook" data-channel="${escapeHtml(ch.name)}" ${state.adminTelegramBusy ? 'disabled' : ''}>${icon('save')}<span>Setup webhook</span></button>
+                <button type="button" class="cml-admin-panel__secondary" data-action="tg-run-sync" data-channel="${escapeHtml(ch.name)}" ${!ch.manualRunAllowed || state.adminTelegramBusy ? 'disabled' : ''}><span>Manual sync</span></button>
+                <button type="button" class="cml-admin-panel__ghost is-destructive" data-action="tg-delete-webhook" data-channel="${escapeHtml(ch.name)}" ${state.adminTelegramBusy ? 'disabled' : ''}>Delete webhook</button>
+              </div>
+              <p class="cml-admin-panel__copy" style="margin-top:6px;font-size:12px">Webhook: ${escapeHtml(webhookUrl || 'Not set')}</p>
+            </section>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `;
+
   const panelBody = state.adminPanelLoading
     ? `<div class="cml-admin-panel__loading">Loading admin settings...</div>`
     : activeTab === 'site'
       ? siteBody
       : activeTab === 'cloud'
         ? cloudBody
-        : accountBody;
+        : activeTab === 'telegram'
+          ? telegramBody
+          : accountBody;
 
   return `
     <div class="cml-dialog cml-admin-panel" role="dialog" aria-modal="true" aria-labelledby="cml-admin-panel-title">

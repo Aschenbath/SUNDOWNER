@@ -727,6 +727,13 @@ body.codex-media-library-active #app {
   letter-spacing: 0.02em;
 }
 
+#codex-media-library-root .cml-view-summary__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
 #codex-media-library-root .cml-search-summary__eyebrow {
   margin: 0 0 6px;
   color: #7e8898;

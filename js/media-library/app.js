@@ -6,6 +6,7 @@ import {
   CollectionGrid,
   CollectionSummary,
   ConfirmDialog,
+  RenameAlbumDialog,
   EmptyState,
   LoginOverlay,
   MediaGrid,
@@ -18,7 +19,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=8';
+} from './components.js?v=9';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -262,6 +263,15 @@ const state = {
   adminOrphanScanLoading: false,
   adminOrphanScanError: '',
   adminOrphanScanResult: null,
+  adminTelegramChannels: [],
+  adminTelegramLoading: false,
+  adminTelegramError: '',
+  adminTelegramBusy: false,
+  renameAlbumDialogOpen: false,
+  renameAlbumTarget: '',
+  renameAlbumDraftName: '',
+  renameAlbumError: '',
+  renameAlbumBusy: false,
   adminProfileDraft: createEmptyAdminProfileDraft(),
   adminPageDraft: createEmptyAdminPageDraft(),
   adminCloudDraft: createEmptyAdminCloudDraft(),
@@ -1886,11 +1896,12 @@ async function loadAdminPanelData() {
   render();
 
   try {
-    const [accountResult, pageConfigResult, otherSettingsResult, migrationStatusResult] = await Promise.allSettled([
+    const [accountResult, pageConfigResult, otherSettingsResult, migrationStatusResult, telegramStatusResult] = await Promise.allSettled([
       fetchJson('/api/manage/account'),
       fetchJson('/api/manage/sysConfig/page'),
       fetchJson('/api/manage/sysConfig/others'),
-      fetchJson('/api/manage/migrate/status')
+      fetchJson('/api/manage/migrate/status'),
+      fetchJson('/api/manage/telegram-sync/status')
     ]);
 
     const coreFailure = [accountResult, pageConfigResult, otherSettingsResult].find((result) => result.status === 'rejected');
@@ -1915,6 +1926,14 @@ async function loadAdminPanelData() {
     } else {
       state.adminMigrationStatus = null;
       state.adminMigrationError = migrationStatusResult.reason?.message || 'Failed to load migration status';
+    }
+
+    if (telegramStatusResult.status === 'fulfilled') {
+      const tgData = telegramStatusResult.value;
+      state.adminTelegramChannels = Array.isArray(tgData.data) ? tgData.data : (tgData.data ? [tgData.data] : []);
+      state.adminTelegramError = '';
+    } else {
+      state.adminTelegramChannels = [];
     }
   } catch (error) {
     state.adminPanelError = error.message || 'Failed to load admin settings';
@@ -1966,6 +1985,56 @@ async function runAdminOrphanScan(limit = ADMIN_ORPHAN_SCAN_LIMIT) {
     state.adminOrphanScanError = error.message || 'Failed to scan orphan Telegram files';
   } finally {
     state.adminOrphanScanLoading = false;
+    render();
+  }
+}
+
+async function refreshAdminTelegram() {
+  if (state.adminTelegramLoading) {
+    return;
+  }
+  state.adminTelegramLoading = true;
+  state.adminTelegramError = '';
+  render();
+
+  try {
+    const data = await fetchJson('/api/manage/telegram-sync/status');
+    const items = Array.isArray(data.data) ? data.data : (data.data ? [data.data] : []);
+    state.adminTelegramChannels = items;
+  } catch (error) {
+    state.adminTelegramError = error.message || 'Failed to load Telegram status';
+  } finally {
+    state.adminTelegramLoading = false;
+    render();
+  }
+}
+
+async function adminTelegramAction(action, channelName) {
+  if (state.adminTelegramBusy) {
+    return;
+  }
+  state.adminTelegramBusy = true;
+  state.adminTelegramError = '';
+  render();
+
+  try {
+    const enc = encodeURIComponent(channelName);
+    if (action === 'setup') {
+      await postJson(`/api/manage/telegram-sync/webhook/setup?channelName=${enc}`, {});
+      showToast('Webhook registered', 'success');
+    } else if (action === 'delete') {
+      await postJson(`/api/manage/telegram-sync/webhook/delete?channelName=${enc}`, {});
+      showToast('Webhook deleted', 'success');
+    } else if (action === 'run') {
+      await postJson(`/api/manage/telegram-sync/run?channelName=${enc}`, {});
+      showToast('Manual sync completed', 'success');
+    }
+    await refreshAdminTelegram();
+  } catch (error) {
+    state.adminTelegramError = error.message || `Action ${action} failed`;
+    showToast(state.adminTelegramError, 'error');
+  } finally {
+    state.adminTelegramBusy = false;
     render();
   }
 }
@@ -3394,6 +3463,113 @@ function setSelectedItemAsAlbumCover() {
   return true;
 }
 
+function openRenameAlbumDialog(albumName) {
+  state.renameAlbumDialogOpen = true;
+  state.renameAlbumTarget = albumName;
+  state.renameAlbumDraftName = albumName;
+  state.renameAlbumError = '';
+  state.renameAlbumBusy = false;
+  render();
+}
+
+function closeRenameAlbumDialog() {
+  state.renameAlbumDialogOpen = false;
+  state.renameAlbumTarget = '';
+  state.renameAlbumDraftName = '';
+  state.renameAlbumError = '';
+  state.renameAlbumBusy = false;
+  render();
+}
+
+async function submitRenameAlbum() {
+  const oldName = state.renameAlbumTarget;
+  const newName = normalizeText(state.renameAlbumDraftName).replace(/\s+/g, ' ');
+  if (!newName) {
+    state.renameAlbumError = 'Album name cannot be empty';
+    render();
+    return;
+  }
+  if (newName.toLowerCase() === oldName.toLowerCase()) {
+    closeRenameAlbumDialog();
+    return;
+  }
+
+  state.renameAlbumBusy = true;
+  state.renameAlbumError = '';
+  render();
+
+  try {
+    const payload = await apiFetch('/api/manage/albums', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: oldName, newName })
+    }).then((r) => r.json());
+
+    if (payload?.error) {
+      throw new Error(payload.error);
+    }
+
+    applyPersistedAlbumState(payload);
+    if (state.activeAlbumName && state.activeAlbumName.toLowerCase() === oldName.toLowerCase()) {
+      state.activeAlbumName = newName;
+    }
+    closeRenameAlbumDialog();
+    showToast('Album renamed', 'success');
+  } catch (error) {
+    state.renameAlbumError = error.message || 'Failed to rename album';
+    state.renameAlbumBusy = false;
+    render();
+  }
+}
+
+async function deleteAlbum(albumName) {
+  try {
+    const payload = await apiFetch(`/api/manage/albums?id=${encodeURIComponent(albumName)}`, {
+      method: 'DELETE',
+      headers: { Accept: 'application/json' }
+    }).then((r) => r.json());
+
+    if (payload?.error) {
+      throw new Error(payload.error);
+    }
+
+    applyPersistedAlbumState(payload);
+    state.activeAlbumName = '';
+    clearSelection({ shouldRender: false });
+    resetLoadedCount();
+    render();
+    showToast('Album deleted', 'success');
+  } catch (error) {
+    showToast(error.message || 'Failed to delete album', 'error');
+  }
+}
+
+function removeSelectionFromAlbum() {
+  const activeAlbumName = getActiveAlbumName();
+  if (!activeAlbumName) {
+    return;
+  }
+  const selectedItems = getSelectedItems();
+  if (!selectedItems.length) {
+    return;
+  }
+
+  const albumKey = normalizeAlbumKey(activeAlbumName);
+  const removedKeys = new Set(selectedItems.map((item) => getPersistentItemKey(item)).filter(Boolean));
+  const nextAssignments = Object.fromEntries(
+    Object.entries(state.albumAssignments).filter(([fileId, name]) => {
+      if (normalizeAlbumKey(name) !== albumKey) return true;
+      return !removedKeys.has(normalizeText(fileId));
+    })
+  );
+
+  state.albumAssignments = nextAssignments;
+  persistAlbumAssignments();
+  clearSelection({ shouldRender: false });
+  render();
+  showToast(`Removed ${removedKeys.size} item${removedKeys.size === 1 ? '' : 's'} from album`, 'success');
+}
+
 async function deleteSelectedItems(options = {}) {
   const selectedItems = getSelectedItems().filter((item) => canDeleteItem(item));
   if (!selectedItems.length) {
@@ -4160,6 +4336,7 @@ function render() {
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
       ${StoragePanel({ state, insights: storageInsights })}
       ${AlbumDialog({ state, albums: viewModel.availableAlbums })}
+      ${RenameAlbumDialog({ state })}
       ${ConfirmDialog({ state })}
       ${state.toastMessage ? `
         <div class="cml-toast cml-toast--${state.toastType}" role="alert" aria-live="polite">
@@ -4395,6 +4572,7 @@ function renderPreviewTransientLayers({ animateDirection = 0 } = {}) {
   template.innerHTML = `
     ${PreviewModal(previewModel)}
     ${AlbumDialog({ state, albums: getAvailableAlbumNames(allItems) })}
+    ${RenameAlbumDialog({ state })}
     ${ConfirmDialog({ state })}
     ${getToastMarkup()}
   `.trim();
@@ -5077,6 +5255,33 @@ function handleAction(actionTarget) {
     case 'set-album-cover':
       setSelectedItemAsAlbumCover();
       return true;
+    case 'rename-album':
+      if (actionTarget.dataset.albumName) {
+        openRenameAlbumDialog(actionTarget.dataset.albumName);
+      }
+      return true;
+    case 'close-rename-album-dialog':
+      closeRenameAlbumDialog();
+      return true;
+    case 'submit-rename-album':
+      void submitRenameAlbum();
+      return true;
+    case 'delete-album':
+      if (actionTarget.dataset.albumName) {
+        state.confirmDialogOpen = true;
+        state.confirmDialogMode = 'delete-album';
+        state.confirmDialogOrigin = 'collection';
+        state.confirmDialogTitle = 'Delete album';
+        state.confirmDialogCopy = `Are you sure you want to delete "${actionTarget.dataset.albumName}"? The photos will not be deleted from your library.`;
+        state.confirmDialogConfirmLabel = 'Delete';
+        state.confirmDialogSelectionCount = 0;
+        state._deleteAlbumTarget = actionTarget.dataset.albumName;
+        render();
+      }
+      return true;
+    case 'remove-from-album':
+      removeSelectionFromAlbum();
+      return true;
     case 'select-section': {
       const sectionId = normalizeText(actionTarget.dataset.section);
       const itemIds = sectionId
@@ -5127,7 +5332,12 @@ function handleAction(actionTarget) {
     case 'confirm-delete-selected':
       if (!state.confirmDialogBusy) {
         const preferPreviewRender = state.confirmDialogOrigin === 'preview';
-        if (state.confirmDialogMode === 'empty-bin') {
+        if (state.confirmDialogMode === 'delete-album') {
+          const albumTarget = state._deleteAlbumTarget;
+          resetConfirmDialog();
+          render();
+          void deleteAlbum(albumTarget);
+        } else if (state.confirmDialogMode === 'empty-bin') {
           void emptyBin();
         } else if (state.confirmDialogMode === 'delete-bin-permanently') {
           state.confirmDialogBusy = true;
@@ -5224,6 +5434,24 @@ function handleAction(actionTarget) {
       return true;
     case 'scan-admin-orphan-files':
       void runAdminOrphanScan();
+      return true;
+    case 'refresh-admin-telegram':
+      void refreshAdminTelegram();
+      return true;
+    case 'tg-setup-webhook':
+      if (actionTarget.dataset.channel) {
+        void adminTelegramAction('setup', actionTarget.dataset.channel);
+      }
+      return true;
+    case 'tg-delete-webhook':
+      if (actionTarget.dataset.channel) {
+        void adminTelegramAction('delete', actionTarget.dataset.channel);
+      }
+      return true;
+    case 'tg-run-sync':
+      if (actionTarget.dataset.channel) {
+        void adminTelegramAction('run', actionTarget.dataset.channel);
+      }
       return true;
     case 'open-native-dashboard':
       window.sessionStorage.setItem('cmlSkipMount', '1');
@@ -5396,6 +5624,13 @@ function handleInput(event) {
         selectionStart,
         selectionEnd
       });
+    }
+    return;
+  }
+  if (input.hasAttribute('data-rename-album-input')) {
+    state.renameAlbumDraftName = input.value;
+    if (state.renameAlbumError) {
+      state.renameAlbumError = '';
     }
     return;
   }
