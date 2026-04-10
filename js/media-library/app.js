@@ -5660,12 +5660,14 @@ function handleClick(event) {
     }
 
     if (actionTarget.dataset.secondary) {
+      state.primaryFilter = 'Photos';
       state.secondaryFilter = actionTarget.dataset.secondary === state.secondaryFilter ? '' : actionTarget.dataset.secondary;
       state.storagePanelOpen = false;
       state.activeAlbumName = '';
       state.albumSelectionTarget = '';
       state.previewId = null;
       state.selectedIds.clear();
+      state.binSelectedIds.clear();
       resetLoadedCount();
       render();
       return;

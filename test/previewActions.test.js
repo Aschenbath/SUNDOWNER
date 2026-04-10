@@ -352,6 +352,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /function openAlbumDialog\(mode = 'create', \{ origin = '', preferPreviewRender = false \} = \{\}\)/);
     assert.doesNotMatch(appSource, /preferTransientRender/);
     assert.match(appSource, /function animateContentViewTransition\(\)/);
+    assert.match(appSource, /if \(actionTarget\.dataset\.secondary\) \{\s*state\.primaryFilter = 'Photos';/);
   });
 
   it('shows only remaining days on bin tiles without exposing file names', () => {
