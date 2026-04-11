@@ -353,7 +353,6 @@ export function Sidebar({
   storageSummary,
   searchQuery = '',
 }) {
-  const searchValue = escapeHtml(searchQuery || state.searchQuery || '');
   return `
     <aside class="cml-sidebar">
       <div class="cml-sidebar__brand">
@@ -361,10 +360,6 @@ export function Sidebar({
           <span class="cml-sidebar__brand-name">SUNDOWNER</span>
         </div>
       </div>
-      <label class="cml-sidebar__search" aria-label="Search">
-        ${icon('search', 'cml-sidebar__search-icon')}
-        <input type="search" class="cml-sidebar__search-input" placeholder="Search photos, type:video, loc:guangzhou" value="${searchValue}" />
-      </label>
       <div class="cml-sidebar__nav" role="navigation" aria-label="Primary navigation">
         ${navigationModel.primary.map((label) => {
           const key = label.toLowerCase();
@@ -452,7 +447,7 @@ function AvatarButton({
 
 export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSelection = false, canSetAlbumCover = false }) {
   const selectedCount = state.selectedIds.size;
-  const searchValue = escapeHtml(state.searchQuery);
+  const searchValue = escapeHtml(state.searchDraft ?? state.searchQuery);
   const activeAlbumName = String(state.activeAlbumName || '');
   const albumSelectionTarget = String(state.albumSelectionTarget || '');
   const isAlbumPickerMode = Boolean(albumSelectionTarget);
@@ -498,6 +493,10 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   }
   return `
     <header class="cml-topbar">
+      <label class="cml-topbar__search" aria-label="Search">
+        ${icon('search', 'cml-topbar__search-icon')}
+        <input type="search" class="cml-topbar__search-input" placeholder="Search photos, descriptions, type:video" value="${searchValue}" />
+      </label>
       <div class="cml-topbar__actions">
         ${isAlbumPickerMode ? `
           <button type="button" class="cml-topbar__secondary-button" data-action="cancel-add-to-current-album">

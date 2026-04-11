@@ -1805,6 +1805,7 @@ function matchesSearchQuery(item, query) {
     item.monthLabel,
     item.day,
     item.timelineLabel,
+    item.description,
     ...item.tags,
     ...item.personLabels
   ].join(' ').toLowerCase();
@@ -6163,7 +6164,7 @@ function handleKeyDown(event) {
     return;
   }
 
-  if (event.target instanceof HTMLInputElement && event.target.classList.contains('cml-sidebar__search-input')) {
+  if (event.target instanceof HTMLInputElement && (event.target.classList.contains('cml-sidebar__search-input') || event.target.classList.contains('cml-topbar__search-input'))) {
     if (event.key === 'Enter') {
       event.preventDefault();
       applySearchQuery(event.target.value);
