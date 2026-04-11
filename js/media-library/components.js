@@ -318,6 +318,13 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
     ? `if(!this.dataset.retryOriginal&&this.dataset.originalSrc){this.dataset.retryOriginal='1';this.src=this.dataset.originalSrc;}`
     : '';
   const errorAttr = genericErrorHandler ? ` onerror="${escapeHtml(genericErrorHandler)}"` : '';
+  // Blur-up: load tiny Telegram thumbnail first, then swap to full image
+  const blurThumb = !withControls && item.blurThumbUrl && item.blurThumbUrl !== imageUrl
+    ? item.blurThumbUrl : '';
+  if (blurThumb) {
+    const fullSrcAttr = ` data-full-src="${mediaUrl}"`;
+    return `<img class="${className} is-blur-placeholder" src="${escapeHtml(blurThumb)}" alt="${alt}"${w}${h}${fallbackAttr}${fullSrcAttr}${previewActionAttr} loading="eager" decoding="async"${errorAttr} />`;
+  }
   return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${fallbackAttr}${previewActionAttr} loading="eager" decoding="async"${errorAttr} />`;
 }
 

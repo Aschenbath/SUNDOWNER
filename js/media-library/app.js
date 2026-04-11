@@ -446,6 +446,59 @@ function setupPreviewTouchHandlers() {
       touchZoom.isPan = false;
     }
   }, { passive: true });
+
+  // Mouse wheel zoom — anchor to cursor position
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
+    const next = Math.max(1, Math.min(6, touchZoom.currentScale * factor));
+    if (next === touchZoom.currentScale) return;
+    const rect = stage.getBoundingClientRect();
+    const cx = e.clientX - rect.left - rect.width / 2;
+    const cy = e.clientY - rect.top - rect.height / 2;
+    const d = next / touchZoom.currentScale;
+    touchZoom.tx = cx - d * (cx - touchZoom.tx);
+    touchZoom.ty = cy - d * (cy - touchZoom.ty);
+    touchZoom.currentScale = next;
+    _tzApply(mediaEl);
+    if (touchZoom.currentScale < 1.05) _tzReset(mediaEl);
+  }, { passive: false });
+
+  // Double-click to toggle 2.5× zoom
+  stage.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.cml-preview__nav')) return;
+    if (touchZoom.currentScale > 1.05) {
+      _tzReset(mediaEl);
+    } else {
+      touchZoom.currentScale = 2.5;
+      touchZoom.tx = 0;
+      touchZoom.ty = 0;
+      mediaEl.style.transition = 'transform 240ms ease';
+      _tzApply(mediaEl);
+      window.setTimeout(() => { mediaEl.style.transition = ''; }, 250);
+    }
+  });
+
+  // Mouse drag pan when zoomed
+  let isMousePan = false;
+  stage.addEventListener('mousedown', (e) => {
+    if (touchZoom.currentScale > 1.05 && e.button === 0) {
+      isMousePan = true;
+      touchZoom.startMidX = e.clientX;
+      touchZoom.startMidY = e.clientY;
+      touchZoom.startTx = touchZoom.tx;
+      touchZoom.startTy = touchZoom.ty;
+      e.preventDefault();
+    }
+  });
+  stage.addEventListener('mousemove', (e) => {
+    if (!isMousePan) return;
+    touchZoom.tx = touchZoom.startTx + (e.clientX - touchZoom.startMidX);
+    touchZoom.ty = touchZoom.startTy + (e.clientY - touchZoom.startMidY);
+    _tzApply(mediaEl);
+  });
+  stage.addEventListener('mouseup', () => { isMousePan = false; });
+  stage.addEventListener('mouseleave', () => { isMousePan = false; });
 }
 
 async function fetchAdminIdentity() {
@@ -518,10 +571,19 @@ function setupImageLoadAnimations() {
     if (!tile) {
       return;
     }
+    const fullSrc = img.dataset.fullSrc || '';
     if (img.complete && img.naturalWidth > 0) {
       // Skip fade-in for already-cached images (avoids flash on every render)
       img.style.transition = 'none';
       tile.classList.add('is-img-loaded');
+      if (fullSrc && img.src !== fullSrc) {
+        // Blur thumb cached — swap to full immediately
+        img.classList.remove('is-blur-placeholder');
+        img.src = fullSrc;
+        tile.classList.add('is-full-loaded');
+      } else if (fullSrc) {
+        tile.classList.add('is-full-loaded');
+      }
       const id = tile.dataset?.tileId || tile.dataset?.id;
       if (id) {
         const nw = img.naturalWidth;
@@ -534,11 +596,31 @@ function setupImageLoadAnimations() {
       }
       return;
     }
-    img.addEventListener('load', () => {
-      tile.classList.add('is-img-loaded');
-      captureDimension(img, tile);
-    }, { once: true });
-    img.addEventListener('error', () => tile.classList.add('is-img-loaded'), { once: true });
+    if (fullSrc) {
+      // Blur-up: load tiny thumbnail first, then swap to full
+      img.addEventListener('load', function onBlurLoad() {
+        tile.classList.add('is-img-loaded');
+        const full = new Image();
+        full.src = fullSrc;
+        full.addEventListener('load', () => {
+          img.classList.remove('is-blur-placeholder');
+          img.src = fullSrc;
+          tile.classList.add('is-full-loaded');
+          captureDimension(img, tile);
+        }, { once: true });
+        full.addEventListener('error', () => {
+          // Full load failed — keep blur thumbnail visible
+          captureDimension(img, tile);
+        }, { once: true });
+      }, { once: true });
+      img.addEventListener('error', () => tile.classList.add('is-img-loaded'), { once: true });
+    } else {
+      img.addEventListener('load', () => {
+        tile.classList.add('is-img-loaded');
+        captureDimension(img, tile);
+      }, { once: true });
+      img.addEventListener('error', () => tile.classList.add('is-img-loaded'), { once: true });
+    }
   });
   // Apply cached mismatches synchronously — render() runs before the browser
   // gets a chance to paint, so the user never sees the wrong aspect ratio.
@@ -2297,11 +2379,14 @@ function buildIndexedMediaItem(record, domLookup, index) {
   const tags = inferTagsFromMetadata(metadata, fileName, type);
   const label = fileName || inferAlbumFromFileId(fileId, metadata);
   const browserPreviewSupported = type !== 'photo' || supportsBrowserImagePreview(mimeType);
+  const videoThumbUrl = (type === 'video' && metadata.TgThumbnailFileId)
+    ? buildFileRoute(fileId, { preview: '1' })
+    : '';
   const thumbnailUrl = type === 'photo'
     ? resolvePhotoPreviewUrl(fileId, mimeType, domMatch?.thumbnailUrl || '')
-    : (domMatch?.thumbnailUrl || sourceUrl);
+    : (domMatch?.thumbnailUrl || videoThumbUrl || sourceUrl);
   const posterUrl = type === 'video'
-    ? (domMatch && domMatch.thumbnailUrl !== sourceUrl ? domMatch.thumbnailUrl : '')
+    ? (thumbnailUrl !== sourceUrl ? thumbnailUrl : '')
     : (thumbnailUrl !== sourceUrl ? thumbnailUrl : '');
 
   const nextItem = {
@@ -2332,6 +2417,9 @@ function buildIndexedMediaItem(record, domLookup, index) {
     exif: metadata.Exif || null,
     browserPreviewSupported,
     description: normalizeText(metadata.Description || ''),
+    blurThumbUrl: (type === 'photo' && metadata.TgThumbnailFileId)
+      ? buildFileRoute(fileId, { preview: '1' })
+      : '',
     isDocumentLike: isDocumentLikeSource(fileId, fileName, tags),
     sortOrder: timestamp,
     domIndex: index

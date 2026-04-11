@@ -2888,6 +2888,19 @@ body.codex-media-library-active #app {
   animation: cml-shimmer 1.6s ease-in-out infinite;
 }
 
+/* ── Blur-up progressive loading ───────────────────────────────── */
+
+#codex-media-library-root .cml-media-tile__image.is-blur-placeholder {
+  filter: blur(12px);
+  transform: translateZ(0) scale(1.08);
+}
+
+#codex-media-library-root .cml-media-tile.is-full-loaded .cml-media-tile__image {
+  filter: none;
+  transform: translateZ(0) scale(1);
+  transition: filter 350ms ease, transform 350ms ease;
+}
+
 /* ── Tile hover lift ───────────────────────────────────────────── */
 
 #codex-media-library-root .cml-media-tile:hover {
