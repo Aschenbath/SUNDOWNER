@@ -34,3 +34,5 @@
 26-04-11 by claude: Fix immersive mode — add max-width/max-height overrides and CSS transition animation, use lightweight DOM patching instead of full re-render
 26-04-11 by claude: Fix avatar menu click causing photo grid flicker — surgical DOM toggle instead of full innerHTML rebuild
 26-04-11 by claude: Simplify description editing — Enter auto-saves (blur triggers save), Escape cancels, removed Save/Cancel buttons
+26-04-11 by claude: Rebuild immersive mode as PPT-style fullscreen slideshow — pure black, all chrome hidden, only image + hover nav arrows, ESC exits immersive
+26-04-11 by claude: Fix avatar menu flicker completely — surgical DOM insert/remove for both open and close, zero full re-renders

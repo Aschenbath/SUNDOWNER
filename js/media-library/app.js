@@ -3353,7 +3353,18 @@ function patchAvatarMenu() {
     return;
   }
   if (!existingMenu) {
-    render();
+    const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const name = esc(state.adminDisplayName || state.adminUsername || 'Admin');
+    const user = esc(state.adminUsername || 'admin');
+    const tpl = document.createElement('template');
+    tpl.innerHTML = `<div class="cml-avatar-menu" role="menu">
+      <div class="cml-avatar-menu__header"><div><p class="cml-avatar-menu__name">${name}</p><p class="cml-avatar-menu__meta">@${user}</p><p class="cml-avatar-menu__role">Administrator</p></div></div>
+      <div class="cml-avatar-menu__divider"></div>
+      <button type="button" class="cml-avatar-menu__item" data-action="open-admin-dashboard" role="menuitem">Admin dashboard</button>
+      <div class="cml-avatar-menu__divider"></div>
+      <button type="button" class="cml-avatar-menu__item cml-avatar-menu__item--danger" data-action="logout" role="menuitem">Sign out</button>
+    </div>`.trim();
+    wrap.appendChild(tpl.content.firstElementChild);
   }
 }
 
@@ -6466,7 +6477,10 @@ function handleKeyDown(event) {
 
   if (state.previewId) {
     if (event.key === 'Escape') {
-      if (state.infoOpen) {
+      if (state.previewImmersive) {
+        state.previewImmersive = false;
+        if (!renderPreviewTransientLayers()) { render(); }
+      } else if (state.infoOpen) {
         setPreviewInfoOpen(false, { allowRenderFallback: false });
       } else {
         closePreview();
