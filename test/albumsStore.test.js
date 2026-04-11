@@ -62,8 +62,8 @@ describe('albumsStore fallback persistence', () => {
 
     assert.deepEqual(payload.albumNames, ['Trips', 'Family']);
     assert.deepEqual(payload.albumAssignments, {
-      a1: 'Trips',
-      a2: 'Family',
+      a1: ['Trips'],
+      a2: ['Family'],
     });
     assert.deepEqual(payload.albumCovers, {
       trips: 'a1',
@@ -92,7 +92,7 @@ describe('albumsStore fallback persistence', () => {
     const state = await getPersistedAlbumState(env);
 
     assert.deepEqual(state.albumNames, ['Trips']);
-    assert.deepEqual(state.albumAssignments, { fileA: 'Trips' });
+    assert.deepEqual(state.albumAssignments, { fileA: ['Trips'] });
     assert.deepEqual(state.albumCovers, { trips: 'fileA' });
     assert.deepEqual(state.favorites, ['fileB']);
     assert.equal(state.albums.length, 1);
@@ -137,8 +137,8 @@ describe('albumsStore fallback persistence', () => {
     const tripsFiles = await getPersistedAlbumFiles(env, 'Trips');
 
     assert.deepEqual(state.albumAssignments, {
-      fileC: 'Family',
-      fileD: 'Trips',
+      fileC: ['Family'],
+      fileD: ['Trips'],
     });
     assert.deepEqual(state.albumCovers, { family: 'fileC' });
     assert.deepEqual(state.favorites, ['fileD', 'fileE']);

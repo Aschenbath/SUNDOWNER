@@ -155,7 +155,15 @@ function loadStringRecord(key) {
   }
   return Object.fromEntries(
     Object.entries(value)
-      .map(([entryKey, entryValue]) => [normalizeText(entryKey), normalizeText(entryValue)])
+      .map(([entryKey, entryValue]) => {
+        const normalizedKey = normalizeText(entryKey);
+        if (Array.isArray(entryValue)) {
+          const normalized = entryValue.map((v) => normalizeText(v)).filter(Boolean);
+          return [normalizedKey, normalized.length ? normalized : null];
+        }
+        const normalized = normalizeText(entryValue);
+        return [normalizedKey, normalized || null];
+      })
       .filter(([entryKey, entryValue]) => entryKey && entryValue)
   );
 }
@@ -1234,7 +1242,7 @@ function getStoredAlbumCoverKey(albumName) {
 
 function findAlbumCoverItem(albumName, items) {
   const albumKey = normalizeAlbumKey(albumName);
-  const albumItems = safeArray(items).filter((item) => normalizeAlbumKey(resolveCollectionAlbum(item)) === albumKey);
+  const albumItems = safeArray(items).filter((item) => itemBelongsToAlbum(item, albumName));
   if (!albumItems.length) {
     return { item: null, isCustom: false };
   }
@@ -1248,17 +1256,37 @@ function findAlbumCoverItem(albumName, items) {
   return { item: albumItems[0], isCustom: false };
 }
 
-function getAssignedAlbumName(item) {
+function getAssignedAlbumNames(item) {
   const key = getPersistentItemKey(item);
-  return key ? normalizeText(state.albumAssignments[key] || '') : '';
+  if (!key) { return []; }
+  const value = state.albumAssignments[key];
+  if (Array.isArray(value)) { return value.map(normalizeText).filter(Boolean); }
+  const single = normalizeText(value || '');
+  return single ? [single] : [];
+}
+
+function getAssignedAlbumName(item) {
+  return getAssignedAlbumNames(item)[0] || '';
 }
 
 function getStoredCollectionAlbum(item) {
   return normalizeText(item?.collectionAlbum || item?.tgAlbumPath || item?.metadataAlbum || '');
 }
 
+function resolveCollectionAlbums(item) {
+  const assigned = getAssignedAlbumNames(item);
+  if (assigned.length) { return assigned; }
+  const stored = getStoredCollectionAlbum(item);
+  return stored ? [stored] : [];
+}
+
 function resolveCollectionAlbum(item) {
-  return getAssignedAlbumName(item) || getStoredCollectionAlbum(item);
+  return resolveCollectionAlbums(item)[0] || '';
+}
+
+function itemBelongsToAlbum(item, albumName) {
+  const albumKey = normalizeAlbumKey(albumName);
+  return resolveCollectionAlbums(item).some((name) => normalizeAlbumKey(name) === albumKey);
 }
 
 function resolveItemAlbum(item) {
@@ -1288,8 +1316,10 @@ function getAvailableAlbumNames(items = state.mediaItems) {
   };
 
   state.albumNames.forEach(pushAlbum);
-  safeArray(items).forEach((item) => pushAlbum(resolveCollectionAlbum(item)));
-  Object.values(state.albumAssignments).forEach(pushAlbum);
+  safeArray(items).forEach((item) => resolveCollectionAlbums(item).forEach(pushAlbum));
+  Object.values(state.albumAssignments).forEach((value) => {
+    if (Array.isArray(value)) { value.forEach(pushAlbum); } else { pushAlbum(value); }
+  });
   return names;
 }
 
@@ -1323,12 +1353,14 @@ function buildPreviewAlbumEntries(items = getAllItems()) {
   });
 
   safeArray(items).forEach((item) => {
-    const group = ensureGroup(resolveCollectionAlbum(item));
-    if (!group) {
-      return;
-    }
-    group.items.push(item);
-    group.lastModifiedAt = Math.max(group.lastModifiedAt, getAlbumSortTimestamp(item));
+    const albums = resolveCollectionAlbums(item);
+    if (!albums.length) { return; }
+    albums.forEach((albumName) => {
+      const group = ensureGroup(albumName);
+      if (!group) { return; }
+      group.items.push(item);
+      group.lastModifiedAt = Math.max(group.lastModifiedAt, getAlbumSortTimestamp(item));
+    });
   });
 
   return [...groups.values()]
@@ -2391,15 +2423,16 @@ function syncAlbumCovers(items = getAllItems()) {
   const validKeysByAlbum = new Map();
 
   safeArray(items).forEach((item) => {
-    const albumKey = normalizeAlbumKey(resolveCollectionAlbum(item));
     const itemKey = getPersistentItemKey(item);
-    if (!albumKey || !itemKey) {
-      return;
-    }
-    if (!validKeysByAlbum.has(albumKey)) {
+    if (!itemKey) { return; }
+    resolveCollectionAlbums(item).forEach((albumName) => {
+      const albumKey = normalizeAlbumKey(albumName);
+      if (!albumKey) { return; }
+      if (!validKeysByAlbum.has(albumKey)) {
       validKeysByAlbum.set(albumKey, new Set());
     }
     validKeysByAlbum.get(albumKey).add(itemKey);
+    });
   });
 
   const nextAlbumCovers = Object.fromEntries(
@@ -2837,7 +2870,15 @@ function loadStringRecordFromApi(value) {
   }
   return Object.fromEntries(
     Object.entries(value)
-      .map(([entryKey, entryValue]) => [normalizeText(entryKey), normalizeText(entryValue)])
+      .map(([entryKey, entryValue]) => {
+        const normalizedKey = normalizeText(entryKey);
+        if (Array.isArray(entryValue)) {
+          const normalized = entryValue.map((v) => normalizeText(v)).filter(Boolean);
+          return [normalizedKey, normalized.length ? normalized : null];
+        }
+        const normalized = normalizeText(entryValue);
+        return [normalizedKey, normalized || null];
+      })
       .filter(([entryKey, entryValue]) => entryKey && entryValue)
   );
 }
@@ -3416,7 +3457,11 @@ function commitSelectionToAlbum(albumName) {
   selectedItems.forEach((item) => {
     const key = getPersistentItemKey(item);
     if (key) {
-      nextAssignments[key] = canonicalAlbumName;
+      const existing = Array.isArray(nextAssignments[key]) ? [...nextAssignments[key]] : (nextAssignments[key] ? [nextAssignments[key]] : []);
+      if (!existing.some((name) => normalizeAlbumKey(name) === normalizeAlbumKey(canonicalAlbumName))) {
+        existing.push(canonicalAlbumName);
+      }
+      nextAssignments[key] = existing;
     }
   });
   state.albumAssignments = nextAssignments;
@@ -3484,7 +3529,7 @@ function setSelectedItemAsAlbumCover() {
   }
 
   const [selectedItem] = selectedItems;
-  if (normalizeAlbumKey(resolveCollectionAlbum(selectedItem)) !== normalizeAlbumKey(activeAlbumName)) {
+  if (!itemBelongsToAlbum(selectedItem, activeAlbumName)) {
     return false;
   }
 
@@ -3640,12 +3685,18 @@ function removeSelectionFromAlbum() {
 
   const albumKey = normalizeAlbumKey(activeAlbumName);
   const removedKeys = new Set(selectedItems.map((item) => getPersistentItemKey(item)).filter(Boolean));
-  const nextAssignments = Object.fromEntries(
-    Object.entries(state.albumAssignments).filter(([fileId, name]) => {
-      if (normalizeAlbumKey(name) !== albumKey) return true;
-      return !removedKeys.has(normalizeText(fileId));
-    })
-  );
+  const nextAssignments = {};
+  for (const [fileId, value] of Object.entries(state.albumAssignments)) {
+    if (!removedKeys.has(normalizeText(fileId))) {
+      nextAssignments[fileId] = value;
+    } else {
+      const names = Array.isArray(value) ? value : [value];
+      const filtered = names.filter((name) => normalizeAlbumKey(name) !== albumKey);
+      if (filtered.length) {
+        nextAssignments[fileId] = filtered;
+      }
+    }
+  }
 
   state.albumAssignments = nextAssignments;
   persistAlbumAssignments();
@@ -4162,10 +4213,12 @@ function buildCollectionSummaries(items) {
 
   state.albumNames.forEach((albumName) => ensureGroup(albumName));
   items.forEach((item) => {
-    const group = ensureGroup(resolveCollectionAlbum(item));
-    if (group) {
-      group.items.push(item);
-    }
+    resolveCollectionAlbums(item).forEach((albumName) => {
+      const group = ensureGroup(albumName);
+      if (group) {
+        group.items.push(item);
+      }
+    });
   });
 
   return [...groups.values()]
@@ -4212,7 +4265,7 @@ function getViewModel() {
   const filteredItems = getFilteredItems();
   const selectedItems = getSelectedItems();
   const activeAlbumItems = activeAlbumName
-    ? getAllItems().filter((item) => normalizeAlbumKey(resolveCollectionAlbum(item)) === normalizeAlbumKey(activeAlbumName))
+    ? getAllItems().filter((item) => itemBelongsToAlbum(item, activeAlbumName))
     : [];
   const activeAlbumCover = activeAlbumName
     ? findAlbumCoverItem(activeAlbumName, activeAlbumItems)
@@ -4278,7 +4331,7 @@ function getViewModel() {
   const canSetAlbumCover = Boolean(
     activeAlbumName
     && selectedItems.length === 1
-    && normalizeAlbumKey(resolveCollectionAlbum(selectedItems[0])) === normalizeAlbumKey(activeAlbumName)
+    && itemBelongsToAlbum(selectedItems[0], activeAlbumName)
   );
 
   if (years.length && !years.some((year) => String(year) === String(state.activeYear))) {
@@ -4510,7 +4563,7 @@ function syncTopbarSelectionState() {
   const canSetAlbumCover = Boolean(
     activeAlbumName
     && selectedItems.length === 1
-    && normalizeAlbumKey(resolveCollectionAlbum(selectedItems[0])) === normalizeAlbumKey(activeAlbumName)
+    && itemBelongsToAlbum(selectedItems[0], activeAlbumName)
   );
   const markup = TopSearchBar({
     state,
@@ -5246,7 +5299,7 @@ function patchTimelineContent() {
 
   const activeAlbumName = getActiveAlbumName();
   const activeAlbumItems = activeAlbumName
-    ? getAllItems().filter((item) => normalizeAlbumKey(resolveCollectionAlbum(item)) === normalizeAlbumKey(activeAlbumName))
+    ? getAllItems().filter((item) => itemBelongsToAlbum(item, activeAlbumName))
     : [];
   const coverItemId = activeAlbumName
     ? (findAlbumCoverItem(activeAlbumName, activeAlbumItems).item?.id || '')

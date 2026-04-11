@@ -77,11 +77,16 @@ function createEmptyAlbumState() {
   };
 }
 
+function normalizeAssignmentValue(value) {
+  const names = Array.isArray(value) ? value : (value ? [value] : []);
+  return names.map(normalizeAlbumName).filter(Boolean);
+}
+
 function normalizeAlbumStatePayload(input = {}) {
   const albumNames = dedupeAlbumNames(input.albumNames || []);
   const assignmentEntries = Object.entries(input.albumAssignments || {})
-    .map(([fileId, albumName]) => [normalizeFileId(fileId), normalizeAlbumName(albumName)])
-    .filter(([fileId, albumName]) => fileId && albumName);
+    .map(([fileId, value]) => [normalizeFileId(fileId), normalizeAssignmentValue(value)])
+    .filter(([fileId, names]) => fileId && names.length);
   const coverEntries = Object.entries(input.albumCovers || {})
     .map(([albumName, fileId]) => [normalizeAlbumName(albumName), normalizeFileId(fileId)])
     .filter(([albumName, fileId]) => albumName && fileId);
@@ -89,16 +94,24 @@ function normalizeAlbumStatePayload(input = {}) {
 
   const allAlbumNames = dedupeAlbumNames([
     ...albumNames,
-    ...assignmentEntries.map(([, albumName]) => albumName),
+    ...assignmentEntries.flatMap(([, names]) => names),
     ...coverEntries.map(([albumName]) => albumName),
   ]);
   const canonicalByLookup = new Map(allAlbumNames.map((albumName) => [normalizeAlbumLookup(albumName), albumName]));
 
   const albumAssignments = {};
-  for (const [fileId, albumName] of assignmentEntries) {
-    const canonicalName = canonicalByLookup.get(normalizeAlbumLookup(albumName));
-    if (canonicalName) {
-      albumAssignments[fileId] = canonicalName;
+  for (const [fileId, names] of assignmentEntries) {
+    const canonicalNames = [];
+    const seen = new Set();
+    for (const name of names) {
+      const canonical = canonicalByLookup.get(normalizeAlbumLookup(name));
+      if (canonical && !seen.has(normalizeAlbumLookup(canonical))) {
+        seen.add(normalizeAlbumLookup(canonical));
+        canonicalNames.push(canonical);
+      }
+    }
+    if (canonicalNames.length) {
+      albumAssignments[fileId] = canonicalNames;
     }
   }
 
@@ -199,7 +212,10 @@ async function loadAlbumStateFromD1(env) {
     const fileId = normalizeFileId(row.file_id);
     const albumName = normalizeAlbumName(row.name);
     if (fileId && albumName) {
-      state.albumAssignments[fileId] = albumName;
+      if (!state.albumAssignments[fileId]) {
+        state.albumAssignments[fileId] = [];
+      }
+      state.albumAssignments[fileId].push(albumName);
     }
   });
 
@@ -247,16 +263,19 @@ async function replaceAlbumStateInD1(env, nextState) {
   await d1Run(env, 'DELETE FROM album_files WHERE album_id = ?', [FAVORITES_ALBUM_ID]);
   await d1Run(env, 'DELETE FROM album_files WHERE album_id != ?', [FAVORITES_ALBUM_ID]);
 
-  for (const [fileId, albumName] of Object.entries(normalizedState.albumAssignments)) {
-    const album = resolvedByLookup.get(normalizeAlbumLookup(albumName));
-    if (!album) {
-      continue;
+  for (const [fileId, albumNames] of Object.entries(normalizedState.albumAssignments)) {
+    const names = Array.isArray(albumNames) ? albumNames : [albumNames];
+    for (const albumName of names) {
+      const album = resolvedByLookup.get(normalizeAlbumLookup(albumName));
+      if (!album) {
+        continue;
+      }
+      await d1Run(
+        env,
+        'INSERT OR REPLACE INTO album_files (album_id, file_id) VALUES (?, ?)',
+        [album.id, fileId],
+      );
     }
-    await d1Run(
-      env,
-      'INSERT OR REPLACE INTO album_files (album_id, file_id) VALUES (?, ?)',
-      [album.id, fileId],
-    );
   }
 
   for (const fileId of normalizedState.favorites) {
@@ -344,7 +363,10 @@ export async function getPersistedAlbumFiles(env, albumId) {
   return {
     album,
     fileIds: Object.entries(state.albumAssignments)
-      .filter(([, albumName]) => normalizeAlbumLookup(albumName) === normalizeAlbumLookup(album.name))
+      .filter(([, value]) => {
+        const names = Array.isArray(value) ? value : [value];
+        return names.some((name) => normalizeAlbumLookup(name) === normalizeAlbumLookup(album.name));
+      })
       .map(([fileId]) => fileId),
   };
 }
@@ -381,23 +403,39 @@ export async function applyPersistedAlbumFileMutation(env, albumId, mutation = {
   const albumLookup = normalizeAlbumLookup(album.name);
 
   if (mode === 'replace') {
-    Object.entries(nextAssignments).forEach(([fileId, albumName]) => {
-      if (normalizeAlbumLookup(albumName) === albumLookup) {
+    for (const [fileId, value] of Object.entries(nextAssignments)) {
+      const names = Array.isArray(value) ? value : [value];
+      const filtered = names.filter((name) => normalizeAlbumLookup(name) !== albumLookup);
+      if (filtered.length) {
+        nextAssignments[fileId] = filtered;
+      } else {
         delete nextAssignments[fileId];
       }
-    });
+    }
     fileIds.forEach((fileId) => {
-      nextAssignments[fileId] = album.name;
+      const existing = Array.isArray(nextAssignments[fileId]) ? [...nextAssignments[fileId]] : (nextAssignments[fileId] ? [nextAssignments[fileId]] : []);
+      if (!existing.some((name) => normalizeAlbumLookup(name) === albumLookup)) {
+        existing.push(album.name);
+      }
+      nextAssignments[fileId] = existing;
     });
   } else if (mode === 'remove') {
     fileIds.forEach((fileId) => {
-      if (normalizeAlbumLookup(nextAssignments[fileId]) === albumLookup) {
+      const current = Array.isArray(nextAssignments[fileId]) ? nextAssignments[fileId] : (nextAssignments[fileId] ? [nextAssignments[fileId]] : []);
+      const filtered = current.filter((name) => normalizeAlbumLookup(name) !== albumLookup);
+      if (filtered.length) {
+        nextAssignments[fileId] = filtered;
+      } else {
         delete nextAssignments[fileId];
       }
     });
   } else {
     fileIds.forEach((fileId) => {
-      nextAssignments[fileId] = album.name;
+      const existing = Array.isArray(nextAssignments[fileId]) ? [...nextAssignments[fileId]] : (nextAssignments[fileId] ? [nextAssignments[fileId]] : []);
+      if (!existing.some((name) => normalizeAlbumLookup(name) === albumLookup)) {
+        existing.push(album.name);
+      }
+      nextAssignments[fileId] = existing;
     });
   }
 
@@ -452,9 +490,14 @@ export async function deletePersistedAlbum(env, albumIdOrName) {
     throw new Error('Album not found');
   }
 
-  const nextAssignments = Object.fromEntries(
-    Object.entries(state.albumAssignments).filter(([, albumName]) => normalizeAlbumLookup(albumName) !== normalizeAlbumLookup(album.name)),
-  );
+  const nextAssignments = {};
+  for (const [fileId, value] of Object.entries(state.albumAssignments)) {
+    const names = Array.isArray(value) ? value : [value];
+    const filtered = names.filter((name) => normalizeAlbumLookup(name) !== normalizeAlbumLookup(album.name));
+    if (filtered.length) {
+      nextAssignments[fileId] = filtered;
+    }
+  }
   const nextCovers = { ...state.albumCovers };
   delete nextCovers[normalizeAlbumLookup(album.name)];
 
@@ -493,9 +536,10 @@ export async function renamePersistedAlbum(env, albumIdOrName, newName) {
 
   const oldKey = normalizeAlbumLookup(album.name);
   const nextAssignments = Object.fromEntries(
-    Object.entries(state.albumAssignments).map(([fileId, albumName]) =>
-      normalizeAlbumLookup(albumName) === oldKey ? [fileId, nextName] : [fileId, albumName],
-    ),
+    Object.entries(state.albumAssignments).map(([fileId, value]) => {
+      const names = Array.isArray(value) ? value : [value];
+      return [fileId, names.map((name) => normalizeAlbumLookup(name) === oldKey ? nextName : name)];
+    }),
   );
   const nextCovers = { ...state.albumCovers };
   if (nextCovers[oldKey] !== undefined) {
