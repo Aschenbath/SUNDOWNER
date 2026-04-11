@@ -746,11 +746,14 @@ body.codex-media-library-active #app {
   min-width: 0;
   padding: 0;
   border: 0;
-  background: transparent;
+  border-radius: 0;
+  background: none;
   color: inherit;
-  cursor: pointer;
+  cursor: text;
   text-align: left;
-  transition: opacity 160ms ease;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 #codex-media-library-root .cml-view-summary__title-button:hover {

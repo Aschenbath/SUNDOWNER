@@ -368,8 +368,8 @@ describe('media library download actions', () => {
 
     assert.match(inlineHtml, /cml-view-summary__rename-input/);
     assert.match(inlineHtml, /data-focus-key="rename-album-inline"/);
-    assert.match(inlineHtml, /Save/);
-    assert.match(inlineHtml, /Cancel/);
+    assert.doesNotMatch(inlineHtml, /Save/);
+    assert.doesNotMatch(inlineHtml, /Cancel/);
     assert.doesNotMatch(appSource, /RenameAlbumDialog\(\{ state \}\)/);
   });
 

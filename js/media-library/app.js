@@ -5025,6 +5025,7 @@ function mount() {
     refs.root.addEventListener('input', handleInput);
     refs.root.addEventListener('change', handleChange);
     refs.root.addEventListener('focusin', handleFocusIn);
+    refs.root.addEventListener('focusout', handleFocusOut);
     refs.root.addEventListener('submit', (e) => {
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'login') {
         e.preventDefault();
@@ -6027,6 +6028,18 @@ function handleFocusIn(event) {
   }
 }
 
+function handleFocusOut(event) {
+  if (state.renameAlbumDialogOpen && event.target instanceof HTMLInputElement && event.target.hasAttribute('data-rename-album-input')) {
+    const draft = normalizeText(event.target.value).replace(/\s+/g, ' ');
+    state.renameAlbumDraftName = draft;
+    if (!draft || draft.toLowerCase() === state.renameAlbumTarget.toLowerCase()) {
+      closeRenameAlbumDialog();
+    } else {
+      void submitRenameAlbum();
+    }
+  }
+}
+
 function moveFocus(delta) {
   const tiles = [...(refs.root ? refs.root.querySelectorAll('.cml-media-tile') : [])];
   if (!tiles.length) {
@@ -6080,7 +6093,7 @@ function handleKeyDown(event) {
     }
     if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.hasAttribute('data-rename-album-input')) {
       event.preventDefault();
-      submitRenameAlbum();
+      event.target.blur();
     }
     return;
   }

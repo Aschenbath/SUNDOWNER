@@ -510,6 +510,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
             <span>Add photos</span>
           </button>
         ` : canCreateAlbum ? `
+
           <button type="button" class="cml-topbar__secondary-button" data-action="open-create-album">
             ${icon('plus')}
             <span>New album</span>
@@ -519,6 +520,9 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
           ${icon('plus')}
           <span>Upload</span>
         </button>
+        ${activeAlbumName ? `
+          <button type="button" class="cml-topbar__secondary-button is-destructive" data-action="delete-album" data-album-name="${escapeHtml(activeAlbumName)}">${icon('trash')}<span>Delete album</span></button>
+        ` : ''}
       </div>
       ${AvatarButton({
         adminUsername: state.adminUsername,
@@ -644,10 +648,6 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
                 ${renameAlbumBusy ? 'disabled' : ''}
               />
             </label>
-            <div class="cml-view-summary__rename-actions">
-              <button type="button" class="cml-topbar__secondary-button" data-action="close-rename-album-dialog" ${renameAlbumBusy ? 'disabled' : ''}>Cancel</button>
-              <button type="button" class="cml-topbar__upload-button" data-action="submit-rename-album" ${renameAlbumBusy ? 'disabled' : ''}>${renameAlbumBusy ? 'Renaming...' : 'Save'}</button>
-            </div>
             ${renameAlbumError ? `<p class="cml-view-summary__rename-error">${escapeHtml(renameAlbumError)}</p>` : ''}
           </div>
         ` : `
@@ -663,11 +663,6 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
         `}
       ` : `<h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>`}
       ${copy ? `<p class="cml-view-summary__copy ${hasActiveAlbum ? '' : 'cml-view-summary__copy--albums'}">${escapeHtml(copy)}</p>` : ''}
-      ${hasActiveAlbum ? `
-        <div class="cml-view-summary__actions">
-          <button type="button" class="cml-topbar__secondary-button is-destructive" data-action="delete-album" data-album-name="${escapeHtml(activeAlbumName)}">${icon('trash')}<span>Delete album</span></button>
-        </div>
-      ` : ''}
     </section>
   `;
 }
