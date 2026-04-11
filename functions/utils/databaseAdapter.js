@@ -31,6 +31,23 @@ function shouldPersistFileMetadataInD1(key) {
     return !String(key).startsWith('manage@') && !isTransientChunkKey(key);
 }
 
+const KV_METADATA_CORE_KEYS = [
+    'FileName', 'FileType', 'FileSize', 'TimeStamp', 'Label', 'Directory',
+    'Channel', 'ChannelName', 'ListType', 'Width', 'Height',
+    'TgFileId', 'TgChatId', 'TgMessageId', 'TgFileUniqueId',
+    'Album', 'TgAlbumPath', 'Description',
+];
+
+function trimMetadataForKV(metadata) {
+    const trimmed = {};
+    for (const key of KV_METADATA_CORE_KEYS) {
+        if (metadata[key] !== undefined && metadata[key] !== null) {
+            trimmed[key] = metadata[key];
+        }
+    }
+    return trimmed;
+}
+
 function sanitizeOptionsForPut(key, options = {}) {
     if (!String(key).startsWith('manage@') && options.metadata) {
         return {
@@ -80,7 +97,11 @@ class KVAdapter {
     }
 
     async put(key, value, options = {}) {
-        return this.kv.put(key, value, sanitizeOptionsForPut(key, options));
+        const sanitized = sanitizeOptionsForPut(key, options);
+        if (!String(key).startsWith('manage@') && sanitized.metadata) {
+            sanitized.metadata = trimMetadataForKV(sanitized.metadata);
+        }
+        return this.kv.put(key, value, sanitized);
     }
 
     async get(key, options = {}) {
@@ -205,8 +226,12 @@ class HybridAdapter {
         const snapshot = await this.snapshotD1Record(key);
         await this.d1.put(key, d1Value, options);
 
+        const kvOptions = options.metadata
+            ? { ...options, metadata: trimMetadataForKV(stripSensitiveMetadata(options.metadata)) }
+            : options;
+
         try {
-            await this.kv.put(key, kvValue, options);
+            await this.kv.put(key, kvValue, kvOptions);
         } catch (error) {
             try {
                 await this.restoreD1Record(key, snapshot);
