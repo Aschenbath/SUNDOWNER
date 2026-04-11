@@ -3090,17 +3090,48 @@ function closeConfirmDialog() {
   }
 }
 
+function patchToastDom() {
+  if (!refs.root) { return false; }
+  const existing = refs.root.querySelector('.cml-toast');
+  if (state.toastMessage) {
+    if (existing) {
+      existing.className = `cml-toast cml-toast--${state.toastType}`;
+      const msg = existing.querySelector('.cml-toast__message');
+      if (msg) { msg.textContent = state.toastMessage; }
+      return true;
+    }
+    const toast = document.createElement('div');
+    toast.className = `cml-toast cml-toast--${state.toastType}`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'polite');
+    const msg = document.createElement('span');
+    msg.className = 'cml-toast__message';
+    msg.textContent = state.toastMessage;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cml-toast__dismiss';
+    btn.setAttribute('data-action', 'dismiss-toast');
+    btn.setAttribute('aria-label', 'Dismiss');
+    btn.textContent = '\u2715';
+    toast.append(msg, btn);
+    refs.root.appendChild(toast);
+    return true;
+  }
+  if (existing) { existing.remove(); }
+  return true;
+}
+
 function showToast(message, type = 'error') {
   if (state.toastTimeoutId) {
     window.clearTimeout(state.toastTimeoutId);
   }
   state.toastMessage = String(message || '');
   state.toastType = String(type || 'error');
-  render();
+  if (!patchToastDom()) { render(); }
   state.toastTimeoutId = window.setTimeout(() => {
     state.toastMessage = '';
     state.toastTimeoutId = 0;
-    render();
+    patchToastDom();
   }, 4500);
 }
 
@@ -3110,7 +3141,7 @@ function dismissToast() {
     state.toastTimeoutId = 0;
   }
   state.toastMessage = '';
-  render();
+  patchToastDom();
 }
 
 function openAdminPanel(tab = 'account') {
@@ -5808,7 +5839,7 @@ function handleClick(event) {
   const isSelectClick = event.target instanceof Element && event.target.closest('[data-action="toggle-select"]');
 
   // In selection mode, clicking anywhere on a tile toggles selection instead of opening preview
-  const inSelectionMode = state.selectedIds.size > 0;
+  const inSelectionMode = state.selectedIds.size > 0 || Boolean(state.albumSelectionTarget);
 
   if (!isSelectClick && actionTarget instanceof HTMLElement && actionTarget.dataset.action === 'open-preview' && actionTarget.dataset.id) {
     event.preventDefault();
