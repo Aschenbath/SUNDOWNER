@@ -21,3 +21,6 @@
 26-04-11 by claude: Support searching photos by description text
 26-04-11 by claude: Beautify album rename input — replace ugly bordered rectangle with subtle underline + glow animation
 26-04-11 by claude: Reposition search bar to topbar far-left with space-between layout, remove redundant "ALBUM" eyebrow and "Album name" placeholder
+26-04-11 by claude: Add mouse wheel zoom (cursor-anchored, 1-6x), double-click toggle zoom, and click-drag pan in preview modal for desktop users
+26-04-11 by claude: Fix video tile performance — use Telegram thumbnail via ?preview=1 instead of downloading full video for poster frame
+26-04-11 by claude: Implement blur-up progressive image loading — tiny Telegram thumbnail loads first as blurred placeholder, then swaps to full-quality image with smooth transition
