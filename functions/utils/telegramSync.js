@@ -552,7 +552,7 @@ function createChannelStatus(channel, snapshot, webhookInfo = null) {
         lastSyncSource: snapshot.lastSyncSource,
         lastWebhookEventAt: snapshot.lastWebhookEventAt,
         webhookInfo,
-        manualRunAllowed: !webhookInfo?.url,
+        manualRunAllowed: true,
     }
 }
 
@@ -655,19 +655,36 @@ export async function runTelegramSync(context, channelName) {
 
     const telegramAPI = new TelegramAPI(channel.botToken, channel.proxyUrl || '')
     const webhookInfo = await telegramAPI.getWebhookInfo()
-    if (channel.syncMode === 'webhook' && webhookInfo?.url) {
-        const error = new Error('Webhook is active for this bot. Disable webhook or switch to polling before running manual sync.')
-        error.status = 409
-        throw error
+
+    // Temporarily remove webhook so getUpdates works, then restore it
+    const hadWebhook = Boolean(webhookInfo?.url)
+    if (hadWebhook) {
+        await telegramAPI.deleteWebhook(false)
+    }
+
+    let updates
+    try {
+        const relatedChannelsForFetch = (await getTelegramSyncChannelsByBot(context.env, channel)).filter(item => item.syncEnabled && item.enabled)
+        updates = await telegramAPI.getUpdates({
+            offset: Number(channel.lastUpdateId || 0) > 0 ? Number(channel.lastUpdateId || 0) + 1 : undefined,
+            limit: 100,
+            timeout: 0,
+            allowedUpdates: TELEGRAM_ALLOWED_UPDATES,
+        })
+    } finally {
+        if (hadWebhook) {
+            const webhookSecret = channel.webhookSecret || ''
+            const origin = new URL(context.request.url).origin
+            const encodedChannelName = encodeURIComponent(channel.name)
+            const webhookUrl = `${origin}/api/manage/telegram-sync/webhook/${encodedChannelName}`
+            await telegramAPI.setWebhook(webhookUrl, {
+                secretToken: webhookSecret,
+                allowedUpdates: TELEGRAM_ALLOWED_UPDATES,
+            })
+        }
     }
 
     const relatedChannels = (await getTelegramSyncChannelsByBot(context.env, channel)).filter(item => item.syncEnabled && item.enabled)
-    const updates = await telegramAPI.getUpdates({
-        offset: Number(channel.lastUpdateId || 0) > 0 ? Number(channel.lastUpdateId || 0) + 1 : undefined,
-        limit: 100,
-        timeout: 0,
-        allowedUpdates: TELEGRAM_ALLOWED_UPDATES,
-    })
 
     const summary = await processUpdatesForChannels(context, relatedChannels, updates, 'manual')
     const affectedChannelNames = relatedChannels.map(item => item.name)
