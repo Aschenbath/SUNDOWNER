@@ -24,3 +24,9 @@
 26-04-11 by claude: Add mouse wheel zoom (cursor-anchored, 1-6x), double-click toggle zoom, and click-drag pan in preview modal for desktop users
 26-04-11 by claude: Fix video tile performance — use Telegram thumbnail via ?preview=1 instead of downloading full video for poster frame
 26-04-11 by claude: Implement blur-up progressive image loading — tiny Telegram thumbnail loads first as blurred placeholder, then swaps to full-quality image with smooth transition
+26-04-11 by claude: Add fullscreen immersive mode toggle — expand/collapse button in preview header + keyboard shortcut 'e' to toggle immersive view
+26-04-11 by claude: Add photo rotation in preview — rotate button + keyboard shortcut 'r', smooth 90° CSS transitions, auto-reset on navigate/close
+26-04-11 by claude: Add PWA manifest with theme color (#101113) for installable web app support
+26-04-11 by claude: Build custom upload flow with XHR progress bar — floating overlay shows per-file progress, file count, animated fill bar, auto-refresh library on complete
+26-04-11 by claude: Enhance empty state with mode-specific SVG illustrations (landscape/album/frame) and floating animation
+26-04-11 by claude: Polish timeline scrubber — active dot glow effect, smoother badge transition, larger touch targets via padding trick

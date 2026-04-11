@@ -49,7 +49,7 @@ describe('media library download actions', () => {
       immersive: false,
     });
 
-    assert.equal((html.match(/class="cml-preview__icon-action/g) || []).length, 4);
+    assert.equal((html.match(/class="cml-preview__icon-action/g) || []).length, 6);
     assert.match(html, /data-action="download-preview"/);
     assert.match(html, /Download original/);
     assert.match(html, /class="cml-preview__main"/);

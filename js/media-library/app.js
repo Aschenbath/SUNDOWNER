@@ -18,7 +18,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=11';
+} from './components.js?v=12';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -251,6 +251,11 @@ const state = {
   toastTimeoutId: 0,
   infoOpen: false,
   previewImmersive: false,
+  previewRotation: 0,
+  uploadQueue: [],
+  uploadActive: false,
+  uploadTotal: 0,
+  uploadDone: 0,
   lastSelectedId: null,
   needsLogin: false,
   loginError: '',
@@ -2908,14 +2913,127 @@ function consumePendingUploadRequest() {
 }
 
 function requestNativeUpload() {
-  const input = findNativeUploadInput();
-  if (input) {
-    input.click();
-    return;
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.multiple = true;
+  fileInput.accept = 'image/*,video/*';
+  fileInput.style.display = 'none';
+  document.body.appendChild(fileInput);
+  fileInput.addEventListener('change', () => {
+    const files = [...fileInput.files];
+    document.body.removeChild(fileInput);
+    if (files.length) {
+      startUploadQueue(files);
+    }
+  }, { once: true });
+  fileInput.click();
+}
+
+function startUploadQueue(files) {
+  state.uploadQueue = files.map((file) => ({ file, progress: 0, status: 'pending' }));
+  state.uploadActive = true;
+  state.uploadTotal = files.length;
+  state.uploadDone = 0;
+  renderUploadOverlay();
+  processUploadQueue();
+}
+
+async function processUploadQueue() {
+  for (let i = 0; i < state.uploadQueue.length; i++) {
+    const entry = state.uploadQueue[i];
+    if (entry.status !== 'pending') continue;
+    entry.status = 'uploading';
+    try {
+      await uploadSingleFile(entry, i);
+      entry.status = 'done';
+      state.uploadDone += 1;
+    } catch (err) {
+      entry.status = 'error';
+      state.uploadDone += 1;
+      console.warn('[upload] failed:', entry.file.name, err);
+    }
+    renderUploadOverlay();
   }
-  const url = new URL(window.location.origin + '/');
-  url.searchParams.set('cmlUpload', '1');
-  window.location.assign(`${url.pathname}${url.search}`);
+  const failCount = state.uploadQueue.filter((e) => e.status === 'error').length;
+  if (failCount > 0) {
+    showToast(`${state.uploadDone - failCount} uploaded, ${failCount} failed`, 'error');
+  } else {
+    showToast(`${state.uploadDone} file${state.uploadDone === 1 ? '' : 's'} uploaded`, 'success');
+  }
+  window.setTimeout(() => {
+    state.uploadActive = false;
+    state.uploadQueue = [];
+    removeUploadOverlay();
+  }, 1200);
+  void performSyncLiveMedia({ forceRender: true });
+}
+
+function uploadSingleFile(entry, index) {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('file', entry.file);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload');
+    xhr.withCredentials = true;
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        entry.progress = Math.round((e.loaded / e.total) * 100);
+        renderUploadOverlay();
+      }
+    });
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        entry.progress = 100;
+        resolve();
+      } else {
+        reject(new Error(`HTTP ${xhr.status}`));
+      }
+    });
+    xhr.addEventListener('error', () => reject(new Error('Network error')));
+    xhr.addEventListener('abort', () => reject(new Error('Aborted')));
+    xhr.send(formData);
+    entry._xhr = xhr;
+  });
+}
+
+function renderUploadOverlay() {
+  let overlay = refs.root?.querySelector('.cml-upload-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'cml-upload-overlay';
+    refs.root?.appendChild(overlay);
+  }
+  const totalProgress = state.uploadQueue.length
+    ? Math.round(state.uploadQueue.reduce((s, e) => s + e.progress, 0) / state.uploadQueue.length)
+    : 0;
+  const currentIdx = state.uploadQueue.findIndex((e) => e.status === 'uploading');
+  const currentName = currentIdx >= 0 ? state.uploadQueue[currentIdx].file.name : '';
+  const label = state.uploadDone >= state.uploadTotal
+    ? 'Upload complete'
+    : `Uploading ${state.uploadDone + 1} of ${state.uploadTotal}`;
+  overlay.innerHTML = `
+    <div class="cml-upload-overlay__content">
+      <div class="cml-upload-overlay__info">
+        <span class="cml-upload-overlay__label">${label}</span>
+        <span class="cml-upload-overlay__pct">${totalProgress}%</span>
+      </div>
+      <div class="cml-upload-overlay__bar">
+        <div class="cml-upload-overlay__fill" style="width:${totalProgress}%"></div>
+      </div>
+      ${currentName ? `<span class="cml-upload-overlay__filename">${currentName.length > 30 ? currentName.slice(0, 27) + '...' : currentName}</span>` : ''}
+    </div>
+  `;
+  if (!overlay.classList.contains('is-visible')) {
+    requestAnimationFrame(() => overlay.classList.add('is-visible'));
+  }
+}
+
+function removeUploadOverlay() {
+  const overlay = refs.root?.querySelector('.cml-upload-overlay');
+  if (overlay) {
+    overlay.classList.remove('is-visible');
+    window.setTimeout(() => overlay.remove(), 400);
+  }
 }
 
 function resetLoadedCount() {
@@ -5226,6 +5344,7 @@ function openPreview(itemId) {
   state.previewTransitionSrc = sourceHint || resolvedPreviewItem?.thumbnailUrl || resolvedPreviewItem?.sourceUrl || '';
   state.infoOpen = false;
   state.previewImmersive = false;
+  state.previewRotation = 0;
   touchZoom.currentScale = 1;
   touchZoom.tx = 0;
   touchZoom.ty = 0;
@@ -5276,11 +5395,19 @@ function closePreview() {
     state.albumDrawerCreateMode = false;
   }
   state.previewImmersive = false;
+  state.previewRotation = 0;
   touchZoom.currentScale = 1;
   touchZoom.tx = 0;
   touchZoom.ty = 0;
   if (!renderPreviewTransientLayers()) {
     render();
+  }
+}
+
+function applyPreviewRotation() {
+  const mediaEl = refs.root?.querySelector('.cml-preview__media');
+  if (mediaEl instanceof HTMLElement) {
+    mediaEl.style.transform = state.previewRotation ? `rotate(${state.previewRotation}deg)` : '';
   }
 }
 
@@ -5299,6 +5426,7 @@ function movePreview(direction) {
   }
   const nextItem = items[nextIndex];
   state.previewId = nextItem.id;
+  state.previewRotation = 0;
   const sourceTile = refs.root?.querySelector(`.cml-media-tile[data-tile-id="${nextItem.id}"]`) || null;
   state.previewTransitionRect = snapshotRect(sourceTile);
   state.previewTransitionSrc = getMediaSourceFromTile(sourceTile);
@@ -5649,6 +5777,14 @@ function handleAction(actionTarget) {
       return true;
     case 'download-preview':
       downloadPreviewItem(actionTarget.dataset.id || state.previewId);
+      return true;
+    case 'toggle-immersive':
+      state.previewImmersive = !state.previewImmersive;
+      render();
+      return true;
+    case 'rotate-preview':
+      state.previewRotation = (state.previewRotation + 90) % 360;
+      applyPreviewRotation();
       return true;
     case 'open-add-to-current-album':
       openAlbumSelection();
@@ -6293,6 +6429,12 @@ function handleKeyDown(event) {
       toggleFavorite(state.previewId);
     } else if (event.key === 'i' || event.key === 'I') {
       setPreviewInfoOpen(!state.infoOpen, { allowRenderFallback: false });
+    } else if (event.key === 'e' || event.key === 'E') {
+      state.previewImmersive = !state.previewImmersive;
+      render();
+    } else if (event.key === 'r' || event.key === 'R') {
+      state.previewRotation = (state.previewRotation + 90) % 360;
+      applyPreviewRotation();
     }
     return;
   }

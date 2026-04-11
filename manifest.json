@@ -1,0 +1,17 @@
+{
+  "name": "SUNDOWNER",
+  "short_name": "SUNDOWNER",
+  "description": "A private-first photo and file space",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101113",
+  "theme_color": "#101113",
+  "icons": [
+    {
+      "src": "/logo-sundowner.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

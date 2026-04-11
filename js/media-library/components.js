@@ -26,7 +26,10 @@ const icons = {
   user: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.6" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.4 19.2a6.6 6.6 0 0 1 13.2 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
   image: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m7.5 15.5 3-3 2.2 2.2 3.8-4.2L19 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8.8" cy="9" r="1.2" fill="currentColor"/></svg>',
   save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.8h11l3 3v11.4A1.8 1.8 0 0 1 17.2 21H6.8A1.8 1.8 0 0 1 5 19.2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 4.8v5.2h8V6.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.5 16h7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
-  download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v9.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.2 10.9 3.8 3.8 3.8-3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 18.5h13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v9.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.2 10.9 3.8 3.8 3.8-3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 18.5h13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  expand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  collapse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 0 1 13.1-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m15.5 4 2.1 3-3.1 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M19.5 12a7.5 7.5 0 0 1-13.1 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.5 20-2.1-3 3.1-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
 
 const secondaryIconMap = {
@@ -1043,7 +1046,9 @@ export function PreviewModal({
               <button type="button" class="cml-preview__icon-action ${albumDrawerOpen ? 'is-selected' : ''}" data-action="open-preview-add-to-album" data-id="${escapeHtml(item.id)}" aria-label="Add to album" aria-pressed="${albumDrawerOpen ? 'true' : 'false'}">${icon('plus')}</button>
               <button type="button" class="cml-preview__icon-action ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="${favorited ? 'Remove from favourites' : 'Add to favourites'}" aria-pressed="${favorited ? 'true' : 'false'}">${icon('star')}</button>
               <button type="button" class="cml-preview__icon-action is-destructive" data-action="request-delete-preview" data-id="${escapeHtml(item.id)}" aria-label="Delete">${icon('trash')}</button>
+              <button type="button" class="cml-preview__icon-action" data-action="rotate-preview" aria-label="Rotate">${icon('rotate')}</button>
               <button type="button" class="cml-preview__icon-action ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="${infoOpen ? 'Hide details' : 'Show details'}" aria-pressed="${infoOpen ? 'true' : 'false'}">${icon('info')}</button>
+              <button type="button" class="cml-preview__icon-action ${immersive ? 'is-selected' : ''}" data-action="toggle-immersive" aria-label="${immersive ? 'Exit immersive' : 'Immersive mode'}">${icon(immersive ? 'collapse' : 'expand')}</button>
               <button type="button" class="cml-preview__close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
             </div>
           </header>
@@ -1154,6 +1159,12 @@ export function ConfirmDialog({ state }) {
   `;
 }
 
+const emptyStateIllustrations = {
+  media: '<svg viewBox="0 0 120 100" aria-hidden="true"><rect x="18" y="22" width="84" height="56" rx="6" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5"/><path d="M30 62 l18-20 14 16 10-12 20 22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/><circle cx="42" cy="38" r="6" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5"/><path d="M52 86 h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.25"/></svg>',
+  collections: '<svg viewBox="0 0 120 100" aria-hidden="true"><rect x="22" y="28" width="76" height="50" rx="5" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5"/><rect x="30" y="20" width="60" height="8" rx="3" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.35"/><path d="M44 53 h32" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3"/><path d="M50 61 h20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity="0.2"/></svg>',
+  'album-detail': '<svg viewBox="0 0 120 100" aria-hidden="true"><rect x="25" y="18" width="70" height="64" rx="5" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5"/><path d="M44 50 h32" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.2"/><path d="M54 58 h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity="0.15"/><path d="M55 40 l5-6 5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/><path d="M60 34 v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.4"/></svg>'
+};
+
 export function EmptyState({ query, isLoading = false, mode = 'media', actionLabel = '', actionAction = '' }) {
   const title = isLoading ? 'Loading your library' : 'Nothing to show right now';
   const emptyCopy = mode === 'collections'
@@ -1172,9 +1183,10 @@ export function EmptyState({ query, isLoading = false, mode = 'media', actionLab
           ? `No uploaded photos match \"${escapeHtml(query)}\" for adding to this album.`
         : `No memories match \"${escapeHtml(query)}\". Try a place, person or album.`)
       : emptyCopy;
+  const illustration = emptyStateIllustrations[mode] || emptyStateIllustrations.media;
   return `
     <section class="cml-empty-state">
-      <div class="cml-empty-state__icon">${icon('memory')}</div>
+      <div class="cml-empty-state__illustration">${illustration}</div>
       <h2 class="cml-empty-state__title">${title}</h2>
       <p class="cml-empty-state__copy">${copy}</p>
       ${!isLoading && !query && actionLabel && actionAction ? `
