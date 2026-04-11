@@ -3916,9 +3916,12 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-preview.is-immersive .cml-preview__panel {
   width: calc(100vw - 12px);
   height: calc(100vh - 12px);
+  max-width: calc(100vw - 12px);
+  max-height: calc(100vh - 12px);
   border-radius: 18px;
   background: rgba(16, 17, 19, 0.985);
   border-color: rgba(255, 255, 255, 0.04);
+  transition: width 280ms ease, height 280ms ease, max-width 280ms ease, max-height 280ms ease, border-radius 280ms ease;
 }
 
 #codex-media-library-root .cml-preview.is-immersive .cml-preview__header,

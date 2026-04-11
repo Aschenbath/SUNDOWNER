@@ -3338,6 +3338,25 @@ function closeConfirmDialog() {
   }
 }
 
+function patchAvatarMenu() {
+  if (!refs.root) { render(); return; }
+  const wrap = refs.root.querySelector('.cml-avatar-wrap');
+  if (!(wrap instanceof HTMLElement)) { render(); return; }
+  const btn = wrap.querySelector('.cml-avatar-btn');
+  if (btn instanceof HTMLElement) {
+    btn.classList.toggle('is-open', state.avatarMenuOpen);
+    btn.setAttribute('aria-expanded', String(state.avatarMenuOpen));
+  }
+  const existingMenu = wrap.querySelector('.cml-avatar-menu');
+  if (!state.avatarMenuOpen) {
+    if (existingMenu) { existingMenu.remove(); }
+    return;
+  }
+  if (!existingMenu) {
+    render();
+  }
+}
+
 function patchToastDom() {
   if (!refs.root) { return false; }
   const existing = refs.root.querySelector('.cml-toast');
@@ -5406,9 +5425,34 @@ function closePreview() {
 
 function applyPreviewRotation() {
   const mediaEl = refs.root?.querySelector('.cml-preview__media');
-  if (mediaEl instanceof HTMLElement) {
-    mediaEl.style.transform = state.previewRotation ? `rotate(${state.previewRotation}deg)` : '';
+  if (!(mediaEl instanceof HTMLElement)) return;
+  const deg = state.previewRotation;
+  if (!deg) {
+    mediaEl.style.transform = '';
+    return;
   }
+  const isSwapped = deg === 90 || deg === 270;
+  if (isSwapped) {
+    const stage = mediaEl.closest('.cml-preview__stage');
+    if (stage) {
+      const sw = stage.clientWidth;
+      const sh = stage.clientHeight;
+      const mw = mediaEl.naturalWidth || mediaEl.videoWidth || mediaEl.offsetWidth;
+      const mh = mediaEl.naturalHeight || mediaEl.videoHeight || mediaEl.offsetHeight;
+      if (mw && mh) {
+        const fitW = Math.min(sw, mw);
+        const fitH = Math.min(sh, mh);
+        const rotatedNeedsW = fitH;
+        const rotatedNeedsH = fitW;
+        const scaleX = sw / rotatedNeedsW;
+        const scaleY = sh / rotatedNeedsH;
+        const scale = Math.min(scaleX, scaleY, 1);
+        mediaEl.style.transform = `rotate(${deg}deg) scale(${scale})`;
+        return;
+      }
+    }
+  }
+  mediaEl.style.transform = `rotate(${deg}deg)`;
 }
 
 function movePreview(direction) {
@@ -5780,7 +5824,7 @@ function handleAction(actionTarget) {
       return true;
     case 'toggle-immersive':
       state.previewImmersive = !state.previewImmersive;
-      render();
+      if (!renderPreviewTransientLayers()) { render(); }
       return true;
     case 'rotate-preview':
       state.previewRotation = (state.previewRotation + 90) % 360;
@@ -5972,20 +6016,26 @@ function handleAction(actionTarget) {
       textarea.rows = 3;
       textarea.placeholder = 'Add a description';
       textarea.value = currentDesc;
-      const actionsDiv = document.createElement('div');
-      actionsDiv.className = 'cml-preview__info-description-actions';
-      const cancelBtn = document.createElement('button');
-      cancelBtn.type = 'button';
-      cancelBtn.className = 'cml-topbar__secondary-button';
-      cancelBtn.setAttribute('data-action', 'cancel-description');
-      cancelBtn.textContent = 'Cancel';
-      const saveBtn = document.createElement('button');
-      saveBtn.type = 'button';
-      saveBtn.className = 'cml-topbar__upload-button';
-      saveBtn.setAttribute('data-action', 'save-description');
-      saveBtn.textContent = 'Save';
-      actionsDiv.append(cancelBtn, saveBtn);
-      descSection.append(textarea, actionsDiv);
+      let cancelled = false;
+      const commitEdit = () => {
+        if (cancelled) return;
+        const value = textarea.value.trim();
+        patchDescriptionDisplay(descSection, value);
+        void savePreviewDescription(state.previewId, value);
+      };
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          textarea.blur();
+        }
+        if (e.key === 'Escape') {
+          cancelled = true;
+        }
+      });
+      textarea.addEventListener('blur', () => {
+        commitEdit();
+      });
+      descSection.append(textarea);
       textarea.focus();
       textarea.setSelectionRange(textarea.value.length, textarea.value.length);
       return true;
@@ -6016,7 +6066,7 @@ function handleAction(actionTarget) {
       return true;
     case 'toggle-avatar':
       state.avatarMenuOpen = !state.avatarMenuOpen;
-      render();
+      patchAvatarMenu();
       return true;
     case 'open-admin-dashboard':
       openAdminPanel('account');
@@ -6431,7 +6481,7 @@ function handleKeyDown(event) {
       setPreviewInfoOpen(!state.infoOpen, { allowRenderFallback: false });
     } else if (event.key === 'e' || event.key === 'E') {
       state.previewImmersive = !state.previewImmersive;
-      render();
+      if (!renderPreviewTransientLayers()) { render(); }
     } else if (event.key === 'r' || event.key === 'R') {
       state.previewRotation = (state.previewRotation + 90) % 360;
       applyPreviewRotation();

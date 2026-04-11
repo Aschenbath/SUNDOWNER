@@ -30,3 +30,7 @@
 26-04-11 by claude: Build custom upload flow with XHR progress bar — floating overlay shows per-file progress, file count, animated fill bar, auto-refresh library on complete
 26-04-11 by claude: Enhance empty state with mode-specific SVG illustrations (landscape/album/frame) and floating animation
 26-04-11 by claude: Polish timeline scrubber — active dot glow effect, smoother badge transition, larger touch targets via padding trick
+26-04-11 by claude: Fix rotation overflow — rotated landscape images now scale to fit within preview bounds instead of overflowing
+26-04-11 by claude: Fix immersive mode — add max-width/max-height overrides and CSS transition animation, use lightweight DOM patching instead of full re-render
+26-04-11 by claude: Fix avatar menu click causing photo grid flicker — surgical DOM toggle instead of full innerHTML rebuild
+26-04-11 by claude: Simplify description editing — Enter auto-saves (blur triggers save), Escape cancels, removed Save/Cancel buttons
