@@ -3659,7 +3659,7 @@ async function deleteSelectedItems(options = {}) {
       deletedKeys.add(getPersistentItemKey(item));
     } catch (error) {
       console.error('[media-library] delete failed', error);
-      failedItems.push(item.label || item.sourceId);
+      failedItems.push(item.id);
     }
   }
 
@@ -3848,6 +3848,15 @@ async function savePreviewDescription(itemId, description) {
   } catch (error) {
     showToast(error.message || 'Failed to save description');
   }
+}
+
+function patchDescriptionDisplay(section, text) {
+  section.textContent = '';
+  section.setAttribute('data-action', 'edit-description');
+  const p = document.createElement('p');
+  p.className = 'cml-preview__info-description' + (text ? ' has-content' : '');
+  p.textContent = text || 'Add a description';
+  section.appendChild(p);
 }
 
 function getVisibleSecondaryFilters(items) {
@@ -5674,14 +5683,21 @@ function handleAction(actionTarget) {
     case 'save-description': {
       const textarea = refs.root.querySelector('.cml-preview__info-description-input');
       const value = textarea ? textarea.value.trim() : '';
-      void savePreviewDescription(state.previewId, value).then(() => {
-        renderPreviewTransientLayers() || render();
-      });
+      const descSection = refs.root.querySelector('.cml-preview__info-section--description');
+      if (descSection) {
+        patchDescriptionDisplay(descSection, value);
+      }
+      void savePreviewDescription(state.previewId, value);
       return true;
     }
-    case 'cancel-description':
-      renderPreviewTransientLayers() || render();
+    case 'cancel-description': {
+      const descSection = refs.root.querySelector('.cml-preview__info-section--description');
+      if (descSection) {
+        const currentItem = getAllItems().find((entry) => entry.id === state.previewId);
+        patchDescriptionDisplay(descSection, currentItem?.description || '');
+      }
       return true;
+    }
     case 'clear-search-filters':
       resetSearchQuery();
       clearSelection({ shouldRender: false });
@@ -6067,7 +6083,11 @@ function handleKeyDown(event) {
   if (event.target instanceof HTMLTextAreaElement && event.target.classList.contains('cml-preview__info-description-input')) {
     if (event.key === 'Escape') {
       event.preventDefault();
-      renderPreviewTransientLayers() || render();
+      const descSection = refs.root.querySelector('.cml-preview__info-section--description');
+      if (descSection) {
+        const currentItem = getAllItems().find((entry) => entry.id === state.previewId);
+        patchDescriptionDisplay(descSection, currentItem?.description || '');
+      }
     }
     return;
   }

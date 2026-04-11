@@ -45,6 +45,10 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function safeDisplayLabel(item) {
+  return item.description || item.displayTakenAt || item.album || (item.type === 'video' ? 'Video' : 'Photo');
+}
+
 function icon(name, extraClass = '') {
   return `<span class="cml-icon ${extraClass}">${icons[name] || ''}</span>`;
 }
@@ -277,7 +281,7 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
   const sourceUrl = item.sourceUrl || item.thumbnailUrl;
   const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
   const mediaUrl = escapeHtml(item.type === 'video' ? sourceUrl : imageUrl);
-  const alt = escapeHtml(item.label || item.album || 'Library item');
+  const alt = escapeHtml(safeDisplayLabel(item));
   const originalPhotoUrl = item.type === 'photo' && sourceUrl && sourceUrl !== imageUrl
     ? escapeHtml(sourceUrl)
     : '';
@@ -530,7 +534,7 @@ export function MediaTile({ item, selected, layout, isCover = false }) {
   if (!shouldDisplayMediaItem(item)) {
     return '';
   }
-  const previewLabel = `${item.label || item.album} - ${formatTakenAt(item)}`;
+  const previewLabel = `${safeDisplayLabel(item)} - ${formatTakenAt(item)}`;
   const style = `width:${layout.width}px;height:${layout.height}px;`;
   return `
     <article class="cml-media-tile ${selected ? 'is-selected' : ''}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}">
@@ -887,7 +891,7 @@ export function PreviewModal({
     }),
     renderPreviewInfoItem({
       iconName: 'image',
-      title: item.label || 'Library item',
+      title: item.type === 'video' ? 'Video' : 'Photo',
       meta: fileMeta
     }),
     renderPreviewInfoItem({
@@ -1054,7 +1058,7 @@ export function PreviewModal({
           <footer class="cml-preview__footer">
             <div class="cml-preview__footer-meta">
               <span class="cml-preview__footer-primary">${currentIndex + 1} / ${totalCount}</span>
-              <span class="cml-preview__footer-secondary">${escapeHtml(item.label || item.location || 'Library item')}</span>
+              <span class="cml-preview__footer-secondary">${escapeHtml(item.description || item.location || safeDisplayLabel(item))}</span>
             </div>
             <div class="cml-preview__footer-actions">
               <button type="button" class="cml-preview__footer-action" data-action="download-preview" data-id="${escapeHtml(item.id)}" ${canDownload ? '' : 'disabled'}>${icon('download')}<span>Download original</span></button>
