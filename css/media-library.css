@@ -3914,6 +3914,15 @@ body.codex-media-library-active #app {
 }
 
 /* Immersive = PPT-style fullscreen slideshow: pure black, only image + nav arrows */
+#codex-media-library-root .cml-preview.is-immersive {
+  padding: 0;
+  z-index: 99999;
+}
+
+#codex-media-library-root .cml-preview.is-immersive .cml-preview__backdrop {
+  background: #000;
+}
+
 #codex-media-library-root .cml-preview.is-immersive .cml-preview__panel {
   width: 100vw;
   height: 100vh;
