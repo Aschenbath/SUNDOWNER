@@ -20,3 +20,4 @@
 26-04-11 by claude: Move search bar from sidebar to topbar (same row as Upload/Add Photos) with pill-shaped focus-glow styling
 26-04-11 by claude: Support searching photos by description text
 26-04-11 by claude: Beautify album rename input — replace ugly bordered rectangle with subtle underline + glow animation
+26-04-11 by claude: Reposition search bar to topbar far-left with space-between layout, remove redundant "ALBUM" eyebrow and "Album name" placeholder
