@@ -334,7 +334,7 @@ describe('media library download actions', () => {
 
     assert.doesNotMatch(summaryHtml, /Custom cover/);
     assert.doesNotMatch(summaryHtml, /IMG_0626\.JPEG/);
-    assert.match(summaryHtml, />Album</);
+    assert.doesNotMatch(summaryHtml, />Album</);
     assert.match(summaryHtml, /All albums/);
     assert.match(summaryHtml, /class="cml-view-summary__title-button"/);
     assert.match(summaryHtml, /data-action="rename-album"/);

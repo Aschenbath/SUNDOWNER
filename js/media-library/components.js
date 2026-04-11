@@ -630,7 +630,7 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
           <span>All albums</span>
         </button>
       ` : ''}
-      <p class="cml-view-summary__eyebrow">${hasActiveAlbum ? 'Album' : 'Albums'}</p>
+      ${hasActiveAlbum ? '' : `<p class="cml-view-summary__eyebrow">Albums</p>`}
       ${hasActiveAlbum ? `
         ${renameAlbumDialogOpen ? `
           <div class="cml-view-summary__rename">
@@ -642,7 +642,7 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
                 data-rename-album-input
                 data-focus-key="rename-album-inline"
                 value="${escapeHtml(renameAlbumDraftName || '')}"
-                placeholder="Album name"
+                placeholder=""
                 maxlength="64"
                 ${renameAlbumBusy ? 'disabled' : ''}
               />
