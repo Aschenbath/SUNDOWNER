@@ -3550,6 +3550,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-preview__info-section--description {
   padding-top: 18px;
+  cursor: pointer;
 }
 
 #codex-media-library-root .cml-preview__info-description {
@@ -3559,6 +3560,39 @@ body.codex-media-library-active #app {
   color: #9aa0a6;
   font-size: 15px;
   line-height: 1.4;
+}
+
+#codex-media-library-root .cml-preview__info-description.has-content {
+  color: #e8eaed;
+}
+
+#codex-media-library-root .cml-preview__info-description-input {
+  display: block;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 12px;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8eaed;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+#codex-media-library-root .cml-preview__info-description-input:focus {
+  border-color: #8ab4f8;
+}
+
+#codex-media-library-root .cml-preview__info-description-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 #codex-media-library-root .cml-preview__info-heading {

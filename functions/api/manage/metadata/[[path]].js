@@ -61,10 +61,10 @@ export async function onRequest(context) {
         }
 
         // 验证请求体中包含可更新的字段
-        if (!body || (typeof body.FileName !== 'string' && typeof body.FileType !== 'string')) {
+        if (!body || (typeof body.FileName !== 'string' && typeof body.FileType !== 'string' && typeof body.Description !== 'string')) {
             return new Response(JSON.stringify({
                 success: false,
-                message: 'At least one of FileName or FileType is required.',
+                message: 'At least one of FileName, FileType, or Description is required.',
             }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -93,6 +93,9 @@ export async function onRequest(context) {
         }
         if (typeof body.FileType === 'string') {
             updatedMetadata.FileType = body.FileType;
+        }
+        if (typeof body.Description === 'string') {
+            updatedMetadata.Description = body.Description;
         }
 
         // 保存更新后的 metadata

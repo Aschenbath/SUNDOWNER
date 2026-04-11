@@ -2298,6 +2298,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
     exif: metadata.Exif || null,
     browserPreviewSupported,
+    description: normalizeText(metadata.Description || ''),
     isDocumentLike: isDocumentLikeSource(fileId, fileName, tags),
     sortOrder: timestamp,
     domIndex: index
@@ -3814,6 +3815,41 @@ function requestDeletePreview(itemId) {
   requestDeleteSelection(false, { origin: 'preview' });
 }
 
+async function savePreviewDescription(itemId, description) {
+  const item = getAllItems().find((entry) => entry.id === itemId);
+  if (!item || !item.sourceId) {
+    showToast('Cannot save description for this item');
+    return;
+  }
+
+  const encodedPath = String(item.sourceId)
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join(',');
+
+  try {
+    const response = await apiFetch(`/api/manage/metadata/${encodedPath}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Description: description })
+    });
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || 'Failed to save description');
+    }
+
+    const mediaItem = state.mediaItems.find((entry) => entry.id === itemId);
+    if (mediaItem) {
+      mediaItem.description = normalizeText(description);
+    }
+
+    showToast('Description saved', 'success');
+  } catch (error) {
+    showToast(error.message || 'Failed to save description');
+  }
+}
+
 function getVisibleSecondaryFilters(items) {
   return [...navigationModel.secondary];
 }
@@ -4479,17 +4515,27 @@ function syncTimelineSelectionControls() {
 }
 
 function syncSelectionUi(changedItemIds = []) {
-  if (!(refs.root instanceof HTMLElement) || state.primaryFilter === 'Bin' || state.needsLogin) {
+  const isCollectionRoot = state.primaryFilter === 'Collections' && !getActiveAlbumName();
+  if (!(refs.root instanceof HTMLElement) || state.primaryFilter === 'Bin' || state.needsLogin || isCollectionRoot) {
+    return false;
+  }
+  const visibleTiles = [...refs.root.querySelectorAll('.cml-media-tile[data-tile-id]')];
+  if (!visibleTiles.length) {
     return false;
   }
   const changedSet = new Set(changedItemIds.filter(Boolean));
-  refs.root.querySelectorAll('.cml-media-tile[data-tile-id]').forEach((tile) => {
+  let patchedTiles = 0;
+  visibleTiles.forEach((tile) => {
     const itemId = tile.getAttribute('data-tile-id') || '';
     if (changedSet.size && !changedSet.has(itemId)) {
       return;
     }
+    patchedTiles += 1;
     syncSelectionTileState(tile, state.selectedIds.has(itemId));
   });
+  if (changedSet.size && patchedTiles === 0) {
+    return false;
+  }
   refs.root.classList.toggle('has-selection', state.selectedIds.size > 0);
   syncTopbarSelectionState();
   syncTimelineSelectionControls();
@@ -5594,6 +5640,48 @@ function handleAction(actionTarget) {
         setPreviewInfoOpen(!state.infoOpen);
       }
       return true;
+    case 'edit-description': {
+      const descSection = refs.root.querySelector('.cml-preview__info-section--description');
+      if (!descSection) { return true; }
+      const currentItem = getAllItems().find((entry) => entry.id === state.previewId);
+      const currentDesc = currentItem?.description || '';
+      descSection.textContent = '';
+      descSection.removeAttribute('data-action');
+      const textarea = document.createElement('textarea');
+      textarea.className = 'cml-preview__info-description-input';
+      textarea.setAttribute('data-focus-key', 'description-edit');
+      textarea.rows = 3;
+      textarea.placeholder = 'Add a description';
+      textarea.value = currentDesc;
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'cml-preview__info-description-actions';
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'cml-topbar__secondary-button';
+      cancelBtn.setAttribute('data-action', 'cancel-description');
+      cancelBtn.textContent = 'Cancel';
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'cml-topbar__upload-button';
+      saveBtn.setAttribute('data-action', 'save-description');
+      saveBtn.textContent = 'Save';
+      actionsDiv.append(cancelBtn, saveBtn);
+      descSection.append(textarea, actionsDiv);
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      return true;
+    }
+    case 'save-description': {
+      const textarea = refs.root.querySelector('.cml-preview__info-description-input');
+      const value = textarea ? textarea.value.trim() : '';
+      void savePreviewDescription(state.previewId, value).then(() => {
+        renderPreviewTransientLayers() || render();
+      });
+      return true;
+    }
+    case 'cancel-description':
+      renderPreviewTransientLayers() || render();
+      return true;
     case 'clear-search-filters':
       resetSearchQuery();
       clearSelection({ shouldRender: false });
@@ -5972,6 +6060,14 @@ function handleKeyDown(event) {
       event.target.value = state.searchQuery;
       state.searchDraft = state.searchQuery;
       event.target.select();
+    }
+    return;
+  }
+
+  if (event.target instanceof HTMLTextAreaElement && event.target.classList.contains('cml-preview__info-description-input')) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      renderPreviewTransientLayers() || render();
     }
     return;
   }

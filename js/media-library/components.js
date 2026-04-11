@@ -912,8 +912,8 @@ export function PreviewModal({
           <button type="button" class="cml-preview__info-close" data-action="toggle-info" aria-label="Close details">${icon('close')}</button>
           <h4 class="cml-preview__info-toolbar-title">Info</h4>
         </div>
-        <section class="cml-preview__info-section cml-preview__info-section--description">
-          <p class="cml-preview__info-description">Add a description</p>
+        <section class="cml-preview__info-section cml-preview__info-section--description" data-action="edit-description">
+          <p class="cml-preview__info-description ${item.description ? 'has-content' : ''}">${item.description ? escapeHtml(item.description) : 'Add a description'}</p>
         </section>
         ${item.personLabels && item.personLabels.length ? `
           <section class="cml-preview__info-section">
