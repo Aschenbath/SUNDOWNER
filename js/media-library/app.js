@@ -3658,6 +3658,7 @@ function openCollection(albumName) {
   state.previewId = null;
   clearSelection({ shouldRender: false });
   resetLoadedCount();
+  pushNavigationHash();
   render();
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
@@ -3674,6 +3675,7 @@ function closeCollection() {
   state.previewId = null;
   clearSelection({ shouldRender: false });
   resetLoadedCount();
+  pushNavigationHash();
   render();
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
@@ -3693,6 +3695,7 @@ function openAlbumSelection(albumName = getActiveAlbumName()) {
   state.previewId = null;
   clearSelection({ shouldRender: false });
   resetLoadedCount();
+  pushNavigationHash();
   render();
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
@@ -6409,6 +6412,7 @@ function handleClick(event) {
       state.selectedIds.clear();
       state.binSelectedIds.clear();
       resetLoadedCount();
+      pushNavigationHash();
       render();
       if (state.primaryFilter === 'Bin') {
         void fetchBinItems();
@@ -6426,6 +6430,7 @@ function handleClick(event) {
       state.selectedIds.clear();
       state.binSelectedIds.clear();
       resetLoadedCount();
+      pushNavigationHash();
       render();
       return;
     }
@@ -6757,10 +6762,93 @@ function patchHistory() {
   window.addEventListener('popstate', syncMount);
 }
 
+// ── URL hash navigation persistence ──
+function buildNavigationHash() {
+  const primary = state.primaryFilter || 'Photos';
+  const secondary = state.secondaryFilter || '';
+  const album = state.activeAlbumName || '';
+  if (secondary) {
+    return '#/' + secondary.toLowerCase();
+  }
+  if (primary === 'Collections' && album) {
+    return '#/albums/' + encodeURIComponent(album);
+  }
+  if (primary === 'Collections') {
+    return '#/albums';
+  }
+  if (primary === 'Bin') {
+    return '#/bin';
+  }
+  return '#/photos';
+}
+
+function pushNavigationHash() {
+  const nextHash = buildNavigationHash();
+  if (window.location.hash !== nextHash) {
+    history.replaceState(null, '', nextHash);
+  }
+}
+
+function restoreNavigationFromHash() {
+  const rawHash = decodeURIComponent(window.location.hash || '').replace(/^#\/?/, '');
+  if (!rawHash) return;
+
+  const parts = rawHash.split('/');
+  const route = parts[0].toLowerCase();
+
+  switch (route) {
+    case 'photos':
+      state.primaryFilter = 'Photos';
+      state.secondaryFilter = '';
+      state.activeAlbumName = '';
+      break;
+    case 'albums':
+      state.primaryFilter = 'Collections';
+      state.secondaryFilter = '';
+      if (parts[1]) {
+        // Preserve the original album name casing from the hash
+        state.activeAlbumName = parts.slice(1).join('/');
+      } else {
+        state.activeAlbumName = '';
+      }
+      break;
+    case 'bin':
+      state.primaryFilter = 'Bin';
+      state.secondaryFilter = '';
+      state.activeAlbumName = '';
+      break;
+    case 'videos':
+      state.primaryFilter = 'Photos';
+      state.secondaryFilter = 'Videos';
+      state.activeAlbumName = '';
+      break;
+    case 'documents':
+      state.primaryFilter = 'Photos';
+      state.secondaryFilter = 'Documents';
+      state.activeAlbumName = '';
+      break;
+    case 'favourites':
+      state.primaryFilter = 'Photos';
+      state.secondaryFilter = 'Favourites';
+      state.activeAlbumName = '';
+      break;
+  }
+}
+
 function boot() {
   window.__cmlOpenPreview = openPreviewFromEvent;
   patchHistory();
+  restoreNavigationFromHash();
   syncMount();
+  window.addEventListener('hashchange', () => {
+    restoreNavigationFromHash();
+    if (refs.root) {
+      if (state.primaryFilter === 'Bin') {
+        void fetchBinItems();
+      }
+      render();
+    }
+  });
 }
 
 if (document.readyState === 'loading') {

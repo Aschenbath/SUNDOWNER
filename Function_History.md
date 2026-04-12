@@ -52,3 +52,4 @@
 26-04-12 by claude: Add document file manager actions — select files, Move to folder dialog, batch Download, batch Delete, clear selection, with action bar in header
 26-04-12 by claude: Fix timeline scrubber label offset — suppress updateActiveYear during smooth scroll to prevent badge showing previous section's label
 26-04-12 by claude: Fix album cover resetting — syncAlbumCovers no longer prunes covers for albums with no items loaded, preventing premature cover removal
+26-04-12 by claude: Add URL hash navigation persistence — current view (Photos/Albums/Files/Bin/album detail) saved to URL hash, survives page refresh and supports browser back/forward
