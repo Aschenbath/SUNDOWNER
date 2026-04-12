@@ -53,3 +53,6 @@
 26-04-12 by claude: Fix timeline scrubber label offset — suppress updateActiveYear during smooth scroll to prevent badge showing previous section's label
 26-04-12 by claude: Fix album cover resetting — syncAlbumCovers no longer prunes covers for albums with no items loaded, preventing premature cover removal
 26-04-12 by claude: Add URL hash navigation persistence — current view (Photos/Albums/Files/Bin/album detail) saved to URL hash, survives page refresh and supports browser back/forward
+26-04-12 by claude: Fix sidebar double highlight — primary nav item no longer shows is-active when a secondary filter (Videos/Documents/Favourites) is selected
+26-04-12 by claude: Fix sidebar rapid-click flickering — patchSidebarActive() surgically toggles CSS classes without innerHTML rebuild, scheduleRender() batches rapid clicks into one frame
+26-04-12 by claude: Redesign Files UI — remove table border and column header, rounded row hover, chevron breadcrumbs, 3-dot context menu per file (Download/Move to/Delete), right-click support for single-file actions

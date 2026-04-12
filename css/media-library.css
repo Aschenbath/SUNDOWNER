@@ -335,12 +335,20 @@ body.codex-media-library-active #app {
   padding: 0 16px;
   margin: 0;
   border-radius: 18px;
-  background: transparent;
-  color: #e8eaed;
-  font-size: 16px;
+  background: transparent !important;
+  color: #9aa0a6;
+  font-size: 14px;
   font-weight: 500;
   text-align: left;
   transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+#codex-media-library-root .cml-sidebar .cml-sidebar__nav-item.is-active,
+#codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item.is-active {
+  background: rgba(138, 180, 248, 0.22) !important;
+  color: #8ab4f8 !important;
+  font-weight: 600;
+  box-shadow: none !important;
 }
 
 #codex-media-library-root .cml-sidebar .cml-sidebar__nav-item {
@@ -380,16 +388,8 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item:hover,
 #codex-media-library-root .cml-sidebar .cml-sidebar__nav-item:focus-visible,
 #codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item:focus-visible {
-  background: rgba(138, 180, 248, 0.18);
-  color: #8ab4f8;
-  box-shadow: inset 0 0 0 1px rgba(138, 180, 248, 0.18);
-}
-
-#codex-media-library-root .cml-sidebar .cml-sidebar__nav-item.is-active,
-#codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item.is-active {
-  background: rgba(138, 180, 248, 0.22) !important;
-  color: #8ab4f8 !important;
-  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #e8eaed;
   box-shadow: none;
 }
 
@@ -3285,8 +3285,9 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-docs-breadcrumb__sep {
   color: #5f6368;
-  font-size: 13px;
+  font-size: 16px;
   user-select: none;
+  margin: 0 2px;
 }
 
 /* ── New Folder button ── */
@@ -3398,19 +3399,13 @@ body.codex-media-library-active #app {
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* ── Download button in row ── */
-#codex-media-library-root .cml-docs-row__download {
+/* ── Three-dot menu button in row ── */
+#codex-media-library-root .cml-docs-row__more {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-#codex-media-library-root .cml-docs-row__download button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: 0;
   border-radius: 50%;
   background: none;
@@ -3420,18 +3415,74 @@ body.codex-media-library-active #app {
   transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
 }
 
-#codex-media-library-root .cml-docs-row:hover .cml-docs-row__download button {
+#codex-media-library-root .cml-docs-row:hover .cml-docs-row__more {
   opacity: 1;
 }
 
-#codex-media-library-root .cml-docs-row__download button:hover {
+#codex-media-library-root .cml-docs-row__more:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #e8eaed;
 }
 
-#codex-media-library-root .cml-docs-row__download button .cml-icon {
+#codex-media-library-root .cml-docs-row__more .cml-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* ── Context menu dropdown ── */
+#codex-media-library-root .cml-docs-ctx {
+  position: fixed;
+  z-index: 1001;
+  min-width: 200px;
+  background: #2d2d3a;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  padding: 6px 0;
+  animation: cml-ctx-in 120ms ease;
+}
+
+@keyframes cml-ctx-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+#codex-media-library-root .cml-docs-ctx__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 0;
+  background: none;
+  color: #e8eaed;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+
+#codex-media-library-root .cml-docs-ctx__item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+#codex-media-library-root .cml-docs-ctx__item .cml-icon {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
+}
+
+#codex-media-library-root .cml-docs-ctx__item--danger {
+  color: #f28b82;
+}
+
+#codex-media-library-root .cml-docs-ctx__item--danger:hover {
+  background: rgba(242, 139, 130, 0.1);
+}
+
+#codex-media-library-root .cml-docs-ctx__divider {
+  height: 1px;
+  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* ── Action buttons (Move to / Download / Delete) ── */
@@ -3590,39 +3641,21 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-docs-table {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-#codex-media-library-root .cml-docs-table__head {
-  display: grid;
-  grid-template-columns: 32px 48px 1fr 160px 100px 40px;
-  align-items: center;
-  padding: 0 12px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.04);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 12px;
-  font-weight: 600;
-  color: #9aa0a6;
-  letter-spacing: 0.02em;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
 }
 
 #codex-media-library-root .cml-docs-row {
   display: grid;
-  grid-template-columns: 32px 48px 1fr 160px 100px 40px;
+  grid-template-columns: 32px 48px 1fr 160px 100px 44px;
   align-items: center;
   padding: 0 12px;
   height: 52px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
   cursor: pointer;
   transition: background 120ms ease;
   -webkit-tap-highlight-color: transparent;
-}
-
-#codex-media-library-root .cml-docs-row:last-child {
-  border-bottom: 0;
 }
 
 #codex-media-library-root .cml-docs-row:hover {
@@ -3633,22 +3666,28 @@ body.codex-media-library-active #app {
   background: rgba(138, 180, 248, 0.12);
 }
 
+#codex-media-library-root .cml-docs-row.is-selected:hover {
+  background: rgba(138, 180, 248, 0.18);
+}
+
 #codex-media-library-root .cml-docs-row__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--doc-color, #8ab4f8) 12%, transparent);
   color: var(--doc-color, #8ab4f8);
+  position: relative;
 }
 
 #codex-media-library-root .cml-docs-row__ext {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: var(--doc-color, #8ab4f8);
+  text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-docs-row__name {
@@ -3672,16 +3711,11 @@ body.codex-media-library-active #app {
 }
 
 @media (max-width: 640px) {
-  #codex-media-library-root .cml-docs-table__head {
-    grid-template-columns: 28px 36px 1fr 70px 36px;
-  }
-
   #codex-media-library-root .cml-docs-row {
     grid-template-columns: 28px 36px 1fr 70px 36px;
     height: 56px;
   }
 
-  #codex-media-library-root .cml-docs-table__head .cml-docs-row__date,
   #codex-media-library-root .cml-docs-row__date {
     display: none;
   }
@@ -3695,7 +3729,7 @@ body.codex-media-library-active #app {
     font-size: 13px;
   }
 
-  #codex-media-library-root .cml-docs-row__download button {
+  #codex-media-library-root .cml-docs-row__more {
     opacity: 1;
   }
 

@@ -20,7 +20,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=17';
+} from './components.js?v=18';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -298,7 +298,8 @@ const state = {
   docsCurrentDir: '',
   docsNewFolderOpen: false,
   docsFolders: new Set(),
-  docsMoveDialogOpen: false
+  docsMoveDialogOpen: false,
+  docsContextMenu: null
 };
 
 let dimensionPatchTimer = 0;
@@ -4760,6 +4761,42 @@ function syncLayoutWidth() {
   });
 }
 
+/** Surgical sidebar active-state update — avoids full innerHTML rebuild flicker */
+function patchSidebarActive() {
+  if (!refs.root) return;
+  refs.root.querySelectorAll('.cml-sidebar__nav-item').forEach((btn) => {
+    const primary = btn.dataset.primary;
+    const active = primary === state.primaryFilter && !state.secondaryFilter;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-current', active ? 'page' : 'false');
+  });
+  refs.root.querySelectorAll('.cml-sidebar__subnav-item').forEach((btn) => {
+    const secondary = btn.dataset.secondary;
+    const active = secondary === state.secondaryFilter;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-current', active ? 'page' : 'false');
+  });
+  refs.root.querySelectorAll('.cml-mobile-nav__tab').forEach((btn) => {
+    const primary = btn.dataset.primary;
+    const secondary = btn.dataset.secondary;
+    const active = primary
+      ? (state.primaryFilter === primary && !state.secondaryFilter)
+      : (state.secondaryFilter === secondary);
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-current', active ? 'page' : 'false');
+  });
+}
+
+let pendingNavRaf = 0;
+/** Batched render — collapses rapid nav clicks into one render frame */
+function scheduleRender() {
+  if (pendingNavRaf) cancelAnimationFrame(pendingNavRaf);
+  pendingNavRaf = requestAnimationFrame(() => {
+    pendingNavRaf = 0;
+    render();
+  });
+}
+
 function render() {
   if (!refs.root) {
     return;
@@ -5458,6 +5495,21 @@ function mount() {
     }, true);
     document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('resize', handleWindowResize);
+    document.addEventListener('click', (e) => {
+      if (state.docsContextMenu && !(e.target instanceof Element && e.target.closest('.cml-docs-ctx'))) {
+        state.docsContextMenu = null;
+        render();
+      }
+    });
+    refs.root.addEventListener('contextmenu', (e) => {
+      const row = e.target instanceof Element ? e.target.closest('.cml-docs-row:not(.cml-docs-row--folder):not(.cml-docs-row--new-folder)') : null;
+      if (!row) return;
+      const id = row.dataset.id;
+      if (!id) return;
+      e.preventDefault();
+      state.docsContextMenu = { id, x: e.clientX, y: e.clientY };
+      render();
+    });
     mounted = true;
   }
 }
@@ -6092,6 +6144,45 @@ function handleAction(actionTarget) {
       state.docsMoveDialogOpen = false;
       render();
       return true;
+    case 'docs-row-menu': {
+      const id = actionTarget.dataset.id;
+      if (!id) return true;
+      const rect = actionTarget.getBoundingClientRect();
+      state.docsContextMenu = { id, x: rect.right - 200, y: rect.bottom + 4 };
+      render();
+      return true;
+    }
+    case 'docs-ctx-close':
+      state.docsContextMenu = null;
+      render();
+      return true;
+    case 'docs-ctx-download': {
+      const ctxId = actionTarget.dataset.id;
+      state.docsContextMenu = null;
+      if (ctxId) downloadPreviewItem(ctxId);
+      render();
+      return true;
+    }
+    case 'docs-ctx-move': {
+      const ctxId = actionTarget.dataset.id;
+      state.docsContextMenu = null;
+      if (ctxId) {
+        state.selectedIds.clear();
+        state.selectedIds.add(ctxId);
+        openDocsMoveDialog();
+      }
+      return true;
+    }
+    case 'docs-ctx-delete': {
+      const ctxId = actionTarget.dataset.id;
+      state.docsContextMenu = null;
+      if (ctxId) {
+        state.selectedIds.clear();
+        state.selectedIds.add(ctxId);
+        requestDeleteSelection(false, { origin: 'documents' });
+      }
+      return true;
+    }
     case 'select-section': {
       const sectionId = normalizeText(actionTarget.dataset.section);
       const itemIds = sectionId
@@ -6413,7 +6504,8 @@ function handleClick(event) {
       state.binSelectedIds.clear();
       resetLoadedCount();
       pushNavigationHash();
-      render();
+      patchSidebarActive();
+      scheduleRender();
       if (state.primaryFilter === 'Bin') {
         void fetchBinItems();
       }
@@ -6431,7 +6523,8 @@ function handleClick(event) {
       state.binSelectedIds.clear();
       resetLoadedCount();
       pushNavigationHash();
-      render();
+      patchSidebarActive();
+      scheduleRender();
       return;
     }
 

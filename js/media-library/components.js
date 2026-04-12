@@ -389,11 +389,11 @@ export function Sidebar({
       <div class="cml-sidebar__nav" role="navigation" aria-label="Primary navigation">
         ${navigationModel.primary.map((label) => {
           const key = label.toLowerCase();
-          const active = state.primaryFilter === label ? 'is-active' : '';
+          const active = (state.primaryFilter === label && !state.secondaryFilter) ? 'is-active' : '';
           const iconName = key === 'photos' ? 'photos' : key === 'bin' ? 'trash' : 'albums';
           const displayLabel = label === 'Collections' ? 'Albums' : label;
           return `
-            <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}" aria-current="${state.primaryFilter === label ? 'page' : 'false'}">
+            <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}" aria-current="${(state.primaryFilter === label && !state.secondaryFilter) ? 'page' : 'false'}">
               ${icon(iconName)}
               <span class="cml-sidebar__nav-label">${escapeHtml(displayLabel)}</span>
             </button>
@@ -773,7 +773,7 @@ export function DocumentsListView({ items, state }) {
       ${pathParts.map((part, i) => {
         const path = pathParts.slice(0, i + 1).join('/');
         const isLast = i === pathParts.length - 1;
-        return `<span class="cml-docs-breadcrumb__sep">/</span>
+        return `<span class="cml-docs-breadcrumb__sep">›</span>
           <button type="button" class="cml-docs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-action="docs-navigate" data-dir="${escapeHtml(path)}">
             <span>${escapeHtml(part)}</span>
           </button>`;
@@ -830,7 +830,7 @@ export function DocumentsListView({ items, state }) {
       </div>
       <div class="cml-docs-row__date"></div>
       <div class="cml-docs-row__size"></div>
-      <div class="cml-docs-row__download"></div>
+      <div class="cml-docs-row__more"></div>
     </div>` : '';
 
   // Folder rows
@@ -841,7 +841,7 @@ export function DocumentsListView({ items, state }) {
       <div class="cml-docs-row__name">${escapeHtml(name)}</div>
       <div class="cml-docs-row__date">--</div>
       <div class="cml-docs-row__size">--</div>
-      <div class="cml-docs-row__download"></div>
+      <div class="cml-docs-row__more"></div>
     </div>`).join('');
 
   // File rows
@@ -868,8 +868,8 @@ export function DocumentsListView({ items, state }) {
         <div class="cml-docs-row__name">${name}</div>
         <div class="cml-docs-row__date">${date}</div>
         <div class="cml-docs-row__size">${size}</div>
-        <button type="button" class="cml-docs-row__download" data-action="docs-download" data-id="${escapeHtml(item.id)}" title="Download">
-          ${icon('download')}
+        <button type="button" class="cml-docs-row__more" data-action="docs-row-menu" data-id="${escapeHtml(item.id)}" title="More actions">
+          ${icon('dots')}
         </button>
       </div>`;
   }).join('');
@@ -923,17 +923,28 @@ export function DocumentsListView({ items, state }) {
     </div>
   ` : '';
 
+  // Context menu
+  const contextMenuHtml = state.docsContextMenu ? `
+    <div class="cml-docs-ctx" style="top:${state.docsContextMenu.y}px;left:${state.docsContextMenu.x}px">
+      <button type="button" class="cml-docs-ctx__item" data-action="docs-ctx-download" data-id="${escapeHtml(state.docsContextMenu.id)}">
+        ${icon('download')}
+        <span>Download</span>
+      </button>
+      <button type="button" class="cml-docs-ctx__item" data-action="docs-ctx-move" data-id="${escapeHtml(state.docsContextMenu.id)}">
+        ${icon('folder-move')}
+        <span>Move to…</span>
+      </button>
+      <div class="cml-docs-ctx__divider"></div>
+      <button type="button" class="cml-docs-ctx__item cml-docs-ctx__item--danger" data-action="docs-ctx-delete" data-id="${escapeHtml(state.docsContextMenu.id)}">
+        ${icon('trash')}
+        <span>Delete</span>
+      </button>
+    </div>
+  ` : '';
+
   return `
     ${headerHtml}
     <div class="cml-docs-table">
-      <div class="cml-docs-table__head">
-        <div class="cml-docs-row__check"></div>
-        <div class="cml-docs-row__icon"></div>
-        <div class="cml-docs-row__name">Name</div>
-        <div class="cml-docs-row__date">Modified</div>
-        <div class="cml-docs-row__size">Size</div>
-        <div class="cml-docs-row__download"></div>
-      </div>
       <div class="cml-docs-table__body">
         ${newFolderHtml}
         ${folderRowsHtml}
@@ -941,6 +952,7 @@ export function DocumentsListView({ items, state }) {
       </div>
     </div>
     ${moveDialogHtml}
+    ${contextMenuHtml}
   `;
 }
 
