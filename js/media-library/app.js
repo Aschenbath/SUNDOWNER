@@ -20,7 +20,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=16';
+} from './components.js?v=17';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -297,7 +297,8 @@ const state = {
   dimensionCache: new Map(),
   docsCurrentDir: '',
   docsNewFolderOpen: false,
-  docsFolders: new Set()
+  docsFolders: new Set(),
+  docsMoveDialogOpen: false
 };
 
 let dimensionPatchTimer = 0;
@@ -922,6 +923,7 @@ function setPreviewInfoOpen(isOpen, { allowRenderFallback = true } = {}) {
 
 let yearScrollerDragActive = false;
 let scrubberHideTimeoutId = 0;
+let scrubberClickSuppressUntil = 0;
 let previewTransitionInFlight = false;
 let lastContentViewKey = '';
 let contentTransitionTimeoutId = 0;
@@ -1040,6 +1042,7 @@ function hitYearButton(scroller, clientY) {
     state.activeSectionAnchor = hit.dataset.anchor;
     state.activeYear = hit.dataset.year || state.activeYear;
     state.activeScrubberLabel = normalizeText(hit.dataset.label || hit.dataset.year || state.activeScrubberLabel);
+    scrubberClickSuppressUntil = Date.now() + 600;
     scrollToYear(hit.dataset.anchor);
     updateScrubberThumb();
   }
@@ -2532,10 +2535,12 @@ function syncAlbumAssignments(items = getAllItems(), { pruneMissing = false } = 
 
 function syncAlbumCovers(items = getAllItems()) {
   const validKeysByAlbum = new Map();
+  const allItemKeys = new Set();
 
   safeArray(items).forEach((item) => {
     const itemKey = getPersistentItemKey(item);
     if (!itemKey) { return; }
+    allItemKeys.add(itemKey);
     resolveCollectionAlbums(item).forEach((albumName) => {
       const albumKey = normalizeAlbumKey(albumName);
       if (!albumKey) { return; }
@@ -2546,8 +2551,17 @@ function syncAlbumCovers(items = getAllItems()) {
     });
   });
 
+  // Only prune covers where the album has items loaded but the cover item is not among them.
+  // Keep covers for albums with no items loaded (they might just not be loaded yet).
   const nextAlbumCovers = Object.fromEntries(
-    Object.entries(state.albumCovers).filter(([albumKey, itemKey]) => validKeysByAlbum.get(albumKey)?.has(normalizeText(itemKey)))
+    Object.entries(state.albumCovers).filter(([albumKey, itemKey]) => {
+      const albumItemKeys = validKeysByAlbum.get(albumKey);
+      if (!albumItemKeys || albumItemKeys.size === 0) {
+        // Album has no items loaded — don't prune the cover, items may not be loaded yet
+        return true;
+      }
+      return albumItemKeys.has(normalizeText(itemKey));
+    })
   );
 
   if (isSameRecord(nextAlbumCovers, state.albumCovers)) {
@@ -4251,6 +4265,34 @@ async function moveFilesToFolder(itemIds, targetDir) {
   return moved;
 }
 
+function downloadSelectedDocs() {
+  const selectedItems = getAllItems().filter((item) => state.selectedIds.has(item.id));
+  if (!selectedItems.length) {
+    showToast('No files selected');
+    return;
+  }
+  startDownloads(selectedItems, { source: 'documents' });
+}
+
+function openDocsMoveDialog() {
+  const selectedItems = getAllItems().filter((item) => state.selectedIds.has(item.id));
+  if (!selectedItems.length) {
+    showToast('No files selected');
+    return;
+  }
+  state.docsMoveDialogOpen = true;
+  render();
+}
+
+async function moveSelectedDocsToFolder(targetDir) {
+  const selectedItemIds = [...state.selectedIds];
+  if (!selectedItemIds.length) return;
+  state.docsMoveDialogOpen = false;
+  await moveFilesToFolder(selectedItemIds, targetDir);
+  state.selectedIds.clear();
+  await performSyncLiveMedia({ forceRender: true });
+}
+
 function patchDescriptionDisplay(section, text) {
   section.textContent = '';
   section.setAttribute('data-action', 'edit-description');
@@ -5779,6 +5821,9 @@ function updateActiveYear() {
   if (!refs.scrollRegion || !refs.sectionAnchors.length) {
     return;
   }
+  if (scrubberClickSuppressUntil && Date.now() < scrubberClickSuppressUntil) {
+    return;
+  }
   const scrollTop = refs.scrollRegion.scrollTop;
   let activeSection = refs.sectionAnchors[0];
   refs.sectionAnchors.forEach((section) => {
@@ -6017,6 +6062,32 @@ function handleAction(actionTarget) {
         const input = refs.root ? refs.root.querySelector('[data-focus-key="docs-new-folder-input"]') : null;
         if (input instanceof HTMLInputElement) input.focus();
       });
+      return true;
+    case 'docs-download':
+      if (actionTarget.dataset.id) {
+        downloadPreviewItem(actionTarget.dataset.id);
+      }
+      return true;
+    case 'docs-download-selected':
+      downloadSelectedDocs();
+      return true;
+    case 'docs-delete-selected':
+      requestDeleteSelection(false, { origin: 'documents' });
+      return true;
+    case 'docs-clear-selection':
+      clearSelection();
+      return true;
+    case 'docs-move-selected':
+      openDocsMoveDialog();
+      return true;
+    case 'docs-move-confirm': {
+      const targetDir = actionTarget.dataset.dir || '';
+      void moveSelectedDocsToFolder(targetDir);
+      return true;
+    }
+    case 'docs-move-cancel':
+      state.docsMoveDialogOpen = false;
+      render();
       return true;
     case 'select-section': {
       const sectionId = normalizeText(actionTarget.dataset.section);

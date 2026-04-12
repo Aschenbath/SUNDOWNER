@@ -34,7 +34,8 @@ const icons = {
   sliders: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h4m4 0h8M4 12h10m4 0h2M4 18h2m4 0h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="11" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5.5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="18.5" r="1.5" fill="currentColor"/></svg>',
   folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
-  'folder-filled': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="#8ab4f8" stroke="#8ab4f8" stroke-width="1.6" stroke-linejoin="round"/></svg>'
+  'folder-filled': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="#8ab4f8" stroke="#8ab4f8" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+  'folder-move': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m10 14 3-3m0 0-3-3m3 3H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
 
 const secondaryIconMap = {
@@ -779,18 +780,41 @@ export function DocumentsListView({ items, state }) {
       }).join('')}
     </div>`;
 
+  // Count selected files in current directory view
+  const selectedInView = childFiles.filter((item) => state.selectedIds.has(item.id));
+  const hasSelection = selectedInView.length > 0;
+
   const headerHtml = `
     <div class="cml-docs-header">
       <div class="cml-docs-header__top">
         <h2 class="cml-docs-header__title">Files</h2>
-        <span class="cml-docs-header__meta">${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` · ${formatFileSize(totalSize)}` : ''}</span>
+        <span class="cml-docs-header__meta">${hasSelection ? `${selectedInView.length} selected` : `${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` · ${formatFileSize(totalSize)}` : ''}`}</span>
       </div>
       ${breadcrumbHtml}
       <div class="cml-docs-header__actions">
-        <button type="button" class="cml-docs-new-folder" data-action="docs-new-folder">
-          ${icon('plus')}
-          <span>New folder</span>
-        </button>
+        ${hasSelection ? `
+          <button type="button" class="cml-docs-action-btn" data-action="docs-move-selected">
+            ${icon('folder-move')}
+            <span>Move to</span>
+          </button>
+          <button type="button" class="cml-docs-action-btn" data-action="docs-download-selected">
+            ${icon('download')}
+            <span>Download</span>
+          </button>
+          <button type="button" class="cml-docs-action-btn cml-docs-action-btn--danger" data-action="docs-delete-selected">
+            ${icon('trash')}
+            <span>Delete</span>
+          </button>
+          <button type="button" class="cml-docs-action-btn" data-action="docs-clear-selection">
+            ${icon('x')}
+            <span>Cancel</span>
+          </button>
+        ` : `
+          <button type="button" class="cml-docs-new-folder" data-action="docs-new-folder">
+            ${icon('plus')}
+            <span>New folder</span>
+          </button>
+        `}
       </div>
     </div>
   `;
@@ -798,6 +822,7 @@ export function DocumentsListView({ items, state }) {
   // New folder inline input
   const newFolderHtml = state.docsNewFolderOpen ? `
     <div class="cml-docs-row cml-docs-row--new-folder">
+      <div class="cml-docs-row__check"></div>
       <div class="cml-docs-row__icon cml-docs-row__icon--folder">${icon('folder-filled')}</div>
       <div class="cml-docs-row__name">
         <input type="text" class="cml-docs-folder-input" data-focus-key="docs-new-folder-input" data-docs-folder-input
@@ -805,15 +830,18 @@ export function DocumentsListView({ items, state }) {
       </div>
       <div class="cml-docs-row__date"></div>
       <div class="cml-docs-row__size"></div>
+      <div class="cml-docs-row__download"></div>
     </div>` : '';
 
   // Folder rows
   const folderRowsHtml = sortedFolders.map((name) => `
     <div class="cml-docs-row cml-docs-row--folder" data-action="docs-navigate" data-dir="${escapeHtml(currentDir ? currentDir + '/' + name : name)}">
+      <div class="cml-docs-row__check"></div>
       <div class="cml-docs-row__icon cml-docs-row__icon--folder">${icon('folder-filled')}</div>
       <div class="cml-docs-row__name">${escapeHtml(name)}</div>
       <div class="cml-docs-row__date">--</div>
       <div class="cml-docs-row__size">--</div>
+      <div class="cml-docs-row__download"></div>
     </div>`).join('');
 
   // File rows
@@ -830,13 +858,19 @@ export function DocumentsListView({ items, state }) {
     const size = formatFileSize(item.sizeMb);
     const selected = state.selectedIds.has(item.id) ? 'is-selected' : '';
     return `
-      <div class="cml-docs-row ${selected}" data-action="open-preview" data-id="${escapeHtml(item.id)}">
+      <div class="cml-docs-row ${selected}" data-action="toggle-select" data-id="${escapeHtml(item.id)}">
+        <div class="cml-docs-row__check">
+          <span class="cml-docs-row__checkbox">${selected ? icon('check') : ''}</span>
+        </div>
         <div class="cml-docs-row__icon" style="--doc-color: ${color}">
           <span class="cml-docs-row__ext">${escapeHtml(ext)}</span>
         </div>
         <div class="cml-docs-row__name">${name}</div>
         <div class="cml-docs-row__date">${date}</div>
         <div class="cml-docs-row__size">${size}</div>
+        <button type="button" class="cml-docs-row__download" data-action="docs-download" data-id="${escapeHtml(item.id)}" title="Download">
+          ${icon('download')}
+        </button>
       </div>`;
   }).join('');
 
@@ -849,14 +883,56 @@ export function DocumentsListView({ items, state }) {
       </div>`;
   }
 
+  // Move-to-folder dialog
+  const allFolders = new Set([...childFolders]);
+  if (state.docsFolders instanceof Set) {
+    state.docsFolders.forEach((fullPath) => {
+      const topFolder = fullPath.split('/')[0];
+      if (topFolder) allFolders.add(topFolder);
+    });
+  }
+  // Also collect all unique directories from items
+  items.forEach((item) => {
+    const dir = String(item.directory || '').replace(/\/+$/, '');
+    if (dir) {
+      const topFolder = dir.split('/')[0];
+      if (topFolder) allFolders.add(topFolder);
+    }
+  });
+
+  const moveDialogHtml = state.docsMoveDialogOpen ? `
+    <div class="cml-docs-move-overlay">
+      <div class="cml-docs-move-dialog">
+        <div class="cml-docs-move-dialog__header">
+          <h3>Move to folder</h3>
+          <button type="button" class="cml-docs-move-dialog__close" data-action="docs-move-cancel">${icon('x')}</button>
+        </div>
+        <div class="cml-docs-move-dialog__list">
+          <button type="button" class="cml-docs-move-dialog__item" data-action="docs-move-confirm" data-dir="">
+            ${icon('folder')}
+            <span>Root (no folder)</span>
+          </button>
+          ${[...allFolders].sort().map((name) => `
+            <button type="button" class="cml-docs-move-dialog__item" data-action="docs-move-confirm" data-dir="${escapeHtml(name)}">
+              ${icon('folder-filled')}
+              <span>${escapeHtml(name)}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  ` : '';
+
   return `
     ${headerHtml}
     <div class="cml-docs-table">
       <div class="cml-docs-table__head">
+        <div class="cml-docs-row__check"></div>
         <div class="cml-docs-row__icon"></div>
         <div class="cml-docs-row__name">Name</div>
         <div class="cml-docs-row__date">Modified</div>
         <div class="cml-docs-row__size">Size</div>
+        <div class="cml-docs-row__download"></div>
       </div>
       <div class="cml-docs-table__body">
         ${newFolderHtml}
@@ -864,6 +940,7 @@ export function DocumentsListView({ items, state }) {
         ${fileRowsHtml}
       </div>
     </div>
+    ${moveDialogHtml}
   `;
 }
 

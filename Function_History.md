@@ -48,3 +48,7 @@
 26-04-12 by claude: Desktop sidebar pill-shaped active highlight — translucent blue capsule background matching mobile tab bar style, replacing solid dark blue
 26-04-12 by claude: Timeline scrubber active dot blue glow — active dot scales up with enhanced blue box-shadow glow, separate from hover effect
 26-04-12 by claude: Fix documents in storage panel — exclude document type from "Large photos and videos" category
+26-04-12 by claude: Fix document click behavior — clicking file row toggles selection instead of opening broken photo preview, add per-row download button
+26-04-12 by claude: Add document file manager actions — select files, Move to folder dialog, batch Download, batch Delete, clear selection, with action bar in header
+26-04-12 by claude: Fix timeline scrubber label offset — suppress updateActiveYear during smooth scroll to prevent badge showing previous section's label
+26-04-12 by claude: Fix album cover resetting — syncAlbumCovers no longer prunes covers for albums with no items loaded, preventing premature cover removal
