@@ -2,8 +2,10 @@ import {
   applyPersistedAlbumFileMutation,
   buildAlbumStatePayload,
   createPersistedAlbum,
+  deletePersistedAlbum,
   getPersistedAlbumFiles,
   getPersistedAlbumState,
+  renamePersistedAlbum,
   replacePersistedAlbumState,
 } from '../../../utils/albumsStore.js';
 
@@ -55,6 +57,40 @@ export async function onRequest(context) {
         return jsonResponse({ error: 'Album id is required' }, { status: 400 });
       } catch (error) {
         return jsonResponse({ error: error.message || 'Failed to update albums' }, { status: 400 });
+      }
+    }
+
+    if (request.method === 'PATCH') {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return jsonResponse({ error: 'Invalid JSON' }, { status: 400 });
+      }
+      const renameId = body?.id || body?.name;
+      const newName = body?.newName;
+      if (!renameId || !newName) {
+        return jsonResponse({ error: 'Album id and newName are required' }, { status: 400 });
+      }
+      try {
+        const state = await renamePersistedAlbum(env, renameId, newName);
+        return jsonResponse(state);
+      } catch (error) {
+        return jsonResponse({ error: error.message || 'Failed to rename album' }, { status: 400 });
+      }
+    }
+
+    if (request.method === 'DELETE') {
+      const url = new URL(request.url);
+      const deleteId = url.searchParams.get('id') || url.searchParams.get('name');
+      if (!deleteId) {
+        return jsonResponse({ error: 'Album id is required' }, { status: 400 });
+      }
+      try {
+        const state = await deletePersistedAlbum(env, deleteId);
+        return jsonResponse(state);
+      } catch (error) {
+        return jsonResponse({ error: error.message || 'Failed to delete album' }, { status: 400 });
       }
     }
 

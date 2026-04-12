@@ -6,10 +6,12 @@ import {
   CollectionGrid,
   CollectionSummary,
   ConfirmDialog,
+  DocumentsListView,
   EmptyState,
   LoginOverlay,
   MediaGrid,
   MediaTimelineSection,
+  MobileBottomNav,
   renderMediaRows,
   PreviewModal,
   SearchSummary,
@@ -18,7 +20,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=12';
+} from './components.js?v=16';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -292,7 +294,10 @@ const state = {
   adminPageConfigSource: [],
   adminOthersConfigSource: null,
   storagePanelOpen: false,
-  dimensionCache: new Map()
+  dimensionCache: new Map(),
+  docsCurrentDir: '',
+  docsNewFolderOpen: false,
+  docsFolders: new Set()
 };
 
 let dimensionPatchTimer = 0;
@@ -1146,7 +1151,7 @@ function buildStorageInsights() {
       title: 'Large photos and videos',
       copy: 'Items above 25 MB that are taking the most room.',
       iconName: 'photos',
-      items: allItems.filter((item) => Math.max(0, Number(item?.sizeMb) || 0) >= 25)
+      items: allItems.filter((item) => item?.type !== 'document' && Math.max(0, Number(item?.sizeMb) || 0) >= 25)
     },
     {
       title: 'Videos',
@@ -2016,7 +2021,7 @@ async function loadAdminPanelData() {
   state.adminPanelLoading = true;
   state.adminPanelError = '';
   state.adminMigrationError = '';
-  render();
+  patchAdminOverlays();
 
   try {
     const [accountResult, pageConfigResult, otherSettingsResult, migrationStatusResult, telegramStatusResult] = await Promise.allSettled([
@@ -2062,7 +2067,7 @@ async function loadAdminPanelData() {
     state.adminPanelError = error.message || 'Failed to load admin settings';
   } finally {
     state.adminPanelLoading = false;
-    render();
+    patchAdminOverlays();
   }
 }
 
@@ -2073,7 +2078,7 @@ async function refreshAdminMigrationStatus({ notify = false } = {}) {
 
   state.adminMigrationLoading = true;
   state.adminMigrationError = '';
-  render();
+  patchAdminOverlays();
 
   try {
     state.adminMigrationStatus = await fetchJson('/api/manage/migrate/status');
@@ -2084,7 +2089,7 @@ async function refreshAdminMigrationStatus({ notify = false } = {}) {
     state.adminMigrationError = error.message || 'Failed to load migration status';
   } finally {
     state.adminMigrationLoading = false;
-    render();
+    patchAdminOverlays();
   }
 }
 
@@ -2098,7 +2103,7 @@ async function runAdminOrphanScan(limit = ADMIN_ORPHAN_SCAN_LIMIT) {
 
   state.adminOrphanScanLoading = true;
   state.adminOrphanScanError = '';
-  render();
+  patchAdminOverlays();
 
   try {
     state.adminOrphanScanResult = await fetchJson(`/api/manage/migrate/scan-orphan-files?limit=${finalLimit}`);
@@ -2108,7 +2113,7 @@ async function runAdminOrphanScan(limit = ADMIN_ORPHAN_SCAN_LIMIT) {
     state.adminOrphanScanError = error.message || 'Failed to scan orphan Telegram files';
   } finally {
     state.adminOrphanScanLoading = false;
-    render();
+    patchAdminOverlays();
   }
 }
 
@@ -2118,7 +2123,7 @@ async function refreshAdminTelegram() {
   }
   state.adminTelegramLoading = true;
   state.adminTelegramError = '';
-  render();
+  patchAdminOverlays();
 
   try {
     const data = await fetchJson('/api/manage/telegram-sync/status');
@@ -2128,7 +2133,7 @@ async function refreshAdminTelegram() {
     state.adminTelegramError = error.message || 'Failed to load Telegram status';
   } finally {
     state.adminTelegramLoading = false;
-    render();
+    patchAdminOverlays();
   }
 }
 
@@ -2138,7 +2143,7 @@ async function adminTelegramAction(action, channelName) {
   }
   state.adminTelegramBusy = true;
   state.adminTelegramError = '';
-  render();
+  patchAdminOverlays();
 
   try {
     const enc = encodeURIComponent(channelName);
@@ -2158,7 +2163,7 @@ async function adminTelegramAction(action, channelName) {
     showToast(state.adminTelegramError, 'error');
   } finally {
     state.adminTelegramBusy = false;
-    render();
+    patchAdminOverlays();
   }
 }
 
@@ -2341,6 +2346,15 @@ function inferMimeTypeFromReference(fileId, fileName, rawMimeType) {
   if (/\.m4v\b/.test(reference)) return 'video/x-m4v';
   if (/\.webm\b/.test(reference)) return 'video/webm';
   if (/\.avi\b/.test(reference)) return 'video/x-msvideo';
+  if (/\.pdf\b/.test(reference)) return 'application/pdf';
+  if (/\.zip\b/.test(reference)) return 'application/zip';
+  if (/\.rar\b/.test(reference)) return 'application/x-rar-compressed';
+  if (/\.7z\b/.test(reference)) return 'application/x-7z-compressed';
+  if (/\.docx?\b/.test(reference)) return 'application/msword';
+  if (/\.xlsx?\b/.test(reference)) return 'application/vnd.ms-excel';
+  if (/\.pptx?\b/.test(reference)) return 'application/vnd.ms-powerpoint';
+  if (/\.txt\b/.test(reference)) return 'text/plain';
+  if (/\.csv\b/.test(reference)) return 'text/csv';
   return normalized;
 }
 
@@ -2367,15 +2381,17 @@ function buildIndexedMediaItem(record, domLookup, index) {
 
   const fileName = normalizeText(metadata.FileName || extractFileNameFromPath(fileId) || 'Library item');
   const mimeType = inferMimeTypeFromReference(fileId, fileName, metadata.FileType || '');
-  if (!mimeType.startsWith('image/') && !mimeType.startsWith('video/')) {
+  if (!mimeType) {
     return null;
   }
 
   const lookupKeys = buildMediaLookupKeys(fileId, fileName, fileName);
   const domMatch = lookupKeys.map((key) => domLookup.get(key)).find(Boolean) || null;
-  const type = mimeType.startsWith('video/') ? 'video' : 'photo';
-  const width = toPositiveNumber(metadata.Width, toPositiveNumber(domMatch?.width, type === 'video' ? 1280 : 1200));
-  const height = toPositiveNumber(metadata.Height, toPositiveNumber(domMatch?.height, type === 'video' ? 720 : 900));
+  const type = mimeType.startsWith('video/') ? 'video' : (mimeType.startsWith('image/') ? 'photo' : 'document');
+  const defaultW = type === 'video' ? 1280 : (type === 'document' ? 240 : 1200);
+  const defaultH = type === 'video' ? 720 : (type === 'document' ? 240 : 900);
+  const width = toPositiveNumber(metadata.Width, toPositiveNumber(domMatch?.width, defaultW));
+  const height = toPositiveNumber(metadata.Height, toPositiveNumber(domMatch?.height, defaultH));
   const exifTime = metadata.Exif?.dateTime ? new Date(metadata.Exif.dateTime).getTime() : NaN;
   const timestamp = Number.isFinite(exifTime) ? exifTime : parseTimestamp(metadata.TimeStamp, index);
   const date = new Date(timestamp);
@@ -2383,13 +2399,13 @@ function buildIndexedMediaItem(record, domLookup, index) {
   const sourceUrl = buildFileRoute(fileId);
   const tags = inferTagsFromMetadata(metadata, fileName, type);
   const label = fileName || inferAlbumFromFileId(fileId, metadata);
-  const browserPreviewSupported = type !== 'photo' || supportsBrowserImagePreview(mimeType);
+  const browserPreviewSupported = type === 'document' ? false : (type !== 'photo' || supportsBrowserImagePreview(mimeType));
   const videoThumbUrl = (type === 'video' && metadata.TgThumbnailFileId)
     ? buildFileRoute(fileId, { preview: '1' })
     : '';
   const thumbnailUrl = type === 'photo'
     ? resolvePhotoPreviewUrl(fileId, mimeType, domMatch?.thumbnailUrl || '')
-    : (domMatch?.thumbnailUrl || videoThumbUrl || sourceUrl);
+    : (type === 'document' ? '' : (domMatch?.thumbnailUrl || videoThumbUrl || sourceUrl));
   const posterUrl = type === 'video'
     ? (thumbnailUrl !== sourceUrl ? thumbnailUrl : '')
     : (thumbnailUrl !== sourceUrl ? thumbnailUrl : '');
@@ -2425,7 +2441,8 @@ function buildIndexedMediaItem(record, domLookup, index) {
     blurThumbUrl: (type === 'photo' && metadata.TgThumbnailFileId)
       ? buildFileRoute(fileId, { preview: '1' })
       : '',
-    isDocumentLike: isDocumentLikeSource(fileId, fileName, tags),
+    isDocumentLike: type === 'document' || isDocumentLikeSource(fileId, fileName, tags),
+    directory: normalizeText(metadata.Directory || ''),
     sortOrder: timestamp,
     domIndex: index
   };
@@ -2437,7 +2454,7 @@ async function fetchListPage(start) {
     start: String(start),
     count: String(API_PAGE_SIZE),
     recursive: 'true',
-    fileType: 'image,video'
+    fileType: 'image,video,other'
   });
   const response = await apiFetch(`/api/manage/list?${params.toString()}`, {
     timeoutMs: API_REQUEST_TIMEOUT_MS
@@ -2625,15 +2642,15 @@ function buildBinItem(record) {
   const metadata = record?.metadata || {};
   const fileName = normalizeText(metadata.FileName || extractFileNameFromPath(fileId) || 'Deleted item');
   const mimeType = inferMimeTypeFromReference(fileId, fileName, metadata.FileType || '');
-  if (!mimeType.startsWith('image/') && !mimeType.startsWith('video/')) {
+  if (!mimeType) {
     return null;
   }
-  const type = mimeType.startsWith('video/') ? 'video' : 'photo';
+  const type = mimeType.startsWith('video/') ? 'video' : (mimeType.startsWith('image/') ? 'photo' : 'document');
   const sourceUrl = buildFileRoute(fileId);
-  const browserPreviewSupported = type !== 'photo' || supportsBrowserImagePreview(mimeType);
+  const browserPreviewSupported = type === 'document' ? false : (type !== 'photo' || supportsBrowserImagePreview(mimeType));
   const thumbnailUrl = type === 'photo'
     ? resolvePhotoPreviewUrl(fileId, mimeType)
-    : sourceUrl;
+    : (type === 'document' ? '' : sourceUrl);
   const deletedAt = Number(record.deletedAt) || Date.now();
   const deletedDate = new Date(deletedAt);
   const deletedYear = deletedDate.getFullYear();
@@ -2644,8 +2661,8 @@ function buildBinItem(record) {
     sourceUrl,
     posterUrl: thumbnailUrl !== sourceUrl ? thumbnailUrl : '',
     type,
-    width: toPositiveNumber(metadata.Width, type === 'video' ? 1280 : 1200),
-    height: toPositiveNumber(metadata.Height, type === 'video' ? 720 : 900),
+    width: toPositiveNumber(metadata.Width, type === 'video' ? 1280 : (type === 'document' ? 240 : 1200)),
+    height: toPositiveNumber(metadata.Height, type === 'video' ? 720 : (type === 'document' ? 240 : 900)),
     sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
     mimeType,
     browserPreviewSupported,
@@ -2654,7 +2671,7 @@ function buildBinItem(record) {
     takenAt: deletedDate.toISOString(),
     year: String(deletedYear),
     timelineLabel: createTimelineLabel(deletedDate),
-    isDocumentLike: DOCUMENT_HINT_PATTERN.test(`${fileId} ${fileName}`)
+    isDocumentLike: type === 'document' || DOCUMENT_HINT_PATTERN.test(`${fileId} ${fileName}`)
   };
   return shouldDisplayMediaItem(nextItem) ? nextItem : null;
 }
@@ -2916,7 +2933,7 @@ function requestNativeUpload() {
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.multiple = true;
-  fileInput.accept = 'image/*,video/*';
+  fileInput.accept = 'image/*,video/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
   fileInput.style.display = 'none';
   document.body.appendChild(fileInput);
   fileInput.addEventListener('change', () => {
@@ -3422,13 +3439,33 @@ function dismissToast() {
   patchToastDom();
 }
 
+function patchAdminOverlays() {
+  if (!refs.root) { render(); return; }
+  const container = getFloatingLayerContainer();
+  if (!(container instanceof HTMLElement)) { render(); return; }
+
+  const adminHtml = AdminPanel({ state, storageSummary: state.storageSummary });
+  const storageHtml = StoragePanel({ state, insights: buildStorageInsights() });
+  const tpl = document.createElement('template');
+  tpl.innerHTML = (adminHtml + storageHtml).trim();
+
+  const currentAdmin = container.querySelector('.cml-admin-panel');
+  const nextAdmin = tpl.content.querySelector('.cml-admin-panel');
+  replaceFloatingLayer(currentAdmin, nextAdmin);
+
+  const currentStorage = container.querySelector('.cml-storage-panel');
+  const nextStorage = tpl.content.querySelector('.cml-storage-panel');
+  replaceFloatingLayer(currentStorage, nextStorage);
+}
+
 function openAdminPanel(tab = 'account') {
   state.avatarMenuOpen = false;
   state.storagePanelOpen = false;
   state.adminPanelOpen = true;
   state.adminPanelTab = normalizeText(tab) || 'account';
   state.adminPanelError = '';
-  render();
+  patchAvatarMenu();
+  patchAdminOverlays();
   void loadAdminPanelData();
 }
 
@@ -3439,7 +3476,7 @@ function closeAdminPanel() {
   state.adminPanelOpen = false;
   state.adminPanelError = '';
   resetAdminPasswordDraft();
-  render();
+  patchAdminOverlays();
 }
 
 function toggleStoragePanel(forceOpen = null) {
@@ -3449,7 +3486,8 @@ function toggleStoragePanel(forceOpen = null) {
     state.adminPanelOpen = false;
   }
   state.storagePanelOpen = nextOpen;
-  render();
+  patchAvatarMenu();
+  patchAdminOverlays();
 }
 
 async function triggerAdminAvatarUpload() {
@@ -3465,12 +3503,12 @@ async function handleAdminAvatarSelection(file) {
   }
   if (!file.type.startsWith('image/')) {
     state.adminPanelError = 'Please choose an image file';
-    render();
+    patchAdminOverlays();
     return;
   }
   if (file.size > 512 * 1024) {
     state.adminPanelError = 'Avatar image must be 512 KB or smaller';
-    render();
+    patchAdminOverlays();
     return;
   }
 
@@ -3480,7 +3518,7 @@ async function handleAdminAvatarSelection(file) {
   } catch (error) {
     state.adminPanelError = error.message || 'Failed to read avatar image';
   }
-  render();
+  patchAdminOverlays();
 }
 
 function updateAdminDraftField(section, field, rawValue) {
@@ -3512,23 +3550,23 @@ async function saveAdminAccount() {
   const displayName = normalizeText(state.adminProfileDraft.displayName);
   if (!username) {
     state.adminPanelError = 'Username is required';
-    render();
+    patchAdminOverlays();
     return;
   }
   if (!displayName) {
     state.adminPanelError = 'Display name is required';
-    render();
+    patchAdminOverlays();
     return;
   }
   if (state.adminProfileDraft.newPassword && state.adminProfileDraft.newPassword !== state.adminProfileDraft.confirmPassword) {
     state.adminPanelError = 'New password and confirmation do not match';
-    render();
+    patchAdminOverlays();
     return;
   }
 
   state.adminPanelBusy = true;
   state.adminPanelError = '';
-  render();
+  patchAdminOverlays();
 
   try {
     const profile = await postJson('/api/manage/account', {
@@ -3545,7 +3583,7 @@ async function saveAdminAccount() {
     state.adminPanelError = error.message || 'Failed to update account';
   } finally {
     state.adminPanelBusy = false;
-    render();
+    patchAdminOverlays();
   }
 }
 
@@ -3555,7 +3593,7 @@ async function saveAdminSiteSettings() {
   }
   state.adminPanelBusy = true;
   state.adminPanelError = '';
-  render();
+  patchAdminOverlays();
 
   try {
     const payload = applyAdminPageDraftToConfig(state.adminPageConfigSource, state.adminPageDraft);
@@ -3567,7 +3605,7 @@ async function saveAdminSiteSettings() {
     state.adminPanelError = error.message || 'Failed to update site settings';
   } finally {
     state.adminPanelBusy = false;
-    render();
+    patchAdminOverlays();
   }
 }
 
@@ -3577,7 +3615,7 @@ async function saveAdminCloudSettings() {
   }
   state.adminPanelBusy = true;
   state.adminPanelError = '';
-  render();
+  patchAdminOverlays();
 
   try {
     const payload = applyAdminCloudDraftToSettings(state.adminOthersConfigSource, state.adminCloudDraft);
@@ -3589,7 +3627,7 @@ async function saveAdminCloudSettings() {
     state.adminPanelError = error.message || 'Failed to update cloud settings';
   } finally {
     state.adminPanelBusy = false;
-    render();
+    patchAdminOverlays();
   }
 }
 
@@ -4169,6 +4207,50 @@ async function savePreviewDescription(itemId, description) {
   }
 }
 
+function createDocFolder(folderName) {
+  const currentDir = state.docsCurrentDir || '';
+  const fullPath = currentDir ? currentDir + '/' + folderName : folderName;
+  state.docsFolders.add(fullPath);
+  state.docsNewFolderOpen = false;
+  showToast(`Folder "${folderName}" created`, 'success');
+  render();
+}
+
+async function moveFilesToFolder(itemIds, targetDir) {
+  let moved = 0;
+  for (const itemId of itemIds) {
+    const item = state.mediaItems.find((entry) => entry.id === itemId);
+    if (!item || !item.sourceId) continue;
+
+    const encodedPath = String(item.sourceId)
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join(',');
+
+    try {
+      const response = await apiFetch(`/api/manage/metadata/${encodedPath}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Directory: targetDir })
+      });
+      const data = await response.json();
+      if (response.ok && data?.success) {
+        item.directory = normalizeText(targetDir);
+        moved++;
+      }
+    } catch (error) {
+      console.warn('[media-library] failed to move file', itemId, error);
+    }
+  }
+
+  if (moved) {
+    showToast(`Moved ${moved} file${moved === 1 ? '' : 's'}`, 'success');
+    render();
+  }
+  return moved;
+}
+
 function patchDescriptionDisplay(section, text) {
   section.textContent = '';
   section.setAttribute('data-action', 'edit-description');
@@ -4221,6 +4303,10 @@ function getFilteredItems(items = getAllItems()) {
         }
         break;
       default:
+        // In Photos view (no secondary filter), exclude documents
+        if (state.primaryFilter === 'Photos' && item.type === 'document') {
+          return false;
+        }
         break;
     }
 
@@ -4688,6 +4774,8 @@ function render() {
                   layoutWidth: state.layoutWidth,
                   activeSectionAnchor: state.activeSectionAnchor
                 })
+                : state.secondaryFilter === 'Documents'
+                ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : `${state.primaryFilter === 'Collections'
                   ? CollectionSummary({
                     activeAlbumName: viewModel.activeAlbumName,
@@ -4727,7 +4815,7 @@ function render() {
                     }))}`}
             </div>
           </main>
-          ${!viewModel.isCollectionRoot ? YearScroller({
+          ${!viewModel.isCollectionRoot && state.secondaryFilter !== 'Documents' ? YearScroller({
             scrubberSections: viewModel.scrubberSections,
             activeSectionAnchor: state.activeSectionAnchor,
             activeScrubberLabel: state.activeScrubberLabel
@@ -4745,6 +4833,7 @@ function render() {
           <button type="button" class="cml-toast__dismiss" data-action="dismiss-toast" aria-label="Dismiss">✕</button>
         </div>
       ` : ''}
+      ${MobileBottomNav({ navigationModel: viewModel.navigationModel, state })}
     </div>
   `;
 
@@ -5802,7 +5891,12 @@ function handleAction(actionTarget) {
   switch (actionTarget.dataset.action) {
     case 'open-preview':
       if (actionTarget.dataset.id) {
-        openPreview(actionTarget.dataset.id);
+        const targetItem = getAllItems().find((e) => e.id === actionTarget.dataset.id);
+        if (targetItem && targetItem.type === 'document') {
+          downloadPreviewItem(actionTarget.dataset.id);
+        } else {
+          openPreview(actionTarget.dataset.id);
+        }
       }
       return true;
     case 'open-upload':
@@ -5910,6 +6004,19 @@ function handleAction(actionTarget) {
       return true;
     case 'remove-from-album':
       removeSelectionFromAlbum();
+      return true;
+    case 'docs-navigate':
+      state.docsCurrentDir = actionTarget.dataset.dir || '';
+      state.docsNewFolderOpen = false;
+      render();
+      return true;
+    case 'docs-new-folder':
+      state.docsNewFolderOpen = true;
+      render();
+      window.requestAnimationFrame(() => {
+        const input = refs.root ? refs.root.querySelector('[data-focus-key="docs-new-folder-input"]') : null;
+        if (input instanceof HTMLInputElement) input.focus();
+      });
       return true;
     case 'select-section': {
       const sectionId = normalizeText(actionTarget.dataset.section);
@@ -6094,7 +6201,7 @@ function handleAction(actionTarget) {
     case 'switch-admin-tab':
       state.adminPanelTab = normalizeText(actionTarget.dataset.tab) || 'account';
       state.adminPanelError = '';
-      render();
+      patchAdminOverlays();
       return true;
     case 'trigger-admin-avatar-upload':
       void triggerAdminAvatarUpload();
@@ -6102,7 +6209,7 @@ function handleAction(actionTarget) {
     case 'remove-admin-avatar':
       state.adminProfileDraft.avatarData = '';
       state.adminPanelError = '';
-      render();
+      patchAdminOverlays();
       return true;
     case 'save-admin-account':
       void saveAdminAccount();
@@ -6341,6 +6448,9 @@ function handleInput(event) {
     }
     return;
   }
+  if (input.hasAttribute('data-docs-folder-input')) {
+    return;
+  }
   if (input.dataset.adminField && input.dataset.adminSection) {
     const value = input instanceof HTMLInputElement && input.type === 'checkbox'
       ? input.checked
@@ -6375,6 +6485,15 @@ function handleFocusOut(event) {
       closeRenameAlbumDialog();
     } else {
       void submitRenameAlbum();
+    }
+  }
+  if (state.docsNewFolderOpen && event.target instanceof HTMLInputElement && event.target.hasAttribute('data-docs-folder-input')) {
+    const folderName = normalizeText(event.target.value).replace(/[\/\\:*?"<>|]/g, '_').replace(/\s+/g, ' ');
+    if (folderName) {
+      createDocFolder(folderName);
+    } else {
+      state.docsNewFolderOpen = false;
+      render();
     }
   }
 }
@@ -6421,6 +6540,19 @@ function handleKeyDown(event) {
   if (state.confirmDialogOpen) {
     if (event.key === 'Escape') {
       closeConfirmDialog();
+    }
+    return;
+  }
+
+  if (state.docsNewFolderOpen) {
+    if (event.key === 'Escape') {
+      state.docsNewFolderOpen = false;
+      render();
+      return;
+    }
+    if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.hasAttribute('data-docs-folder-input')) {
+      event.preventDefault();
+      event.target.blur();
     }
     return;
   }

@@ -29,7 +29,12 @@ const icons = {
   download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v9.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.2 10.9 3.8 3.8 3.8-3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 18.5h13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
   expand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   collapse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 0 1 13.1-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m15.5 4 2.1 3-3.1 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M19.5 12a7.5 7.5 0 0 1-13.1 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.5 20-2.1-3 3.1-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 0 1 13.1-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m15.5 4 2.1 3-3.1 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M19.5 12a7.5 7.5 0 0 1-13.1 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.5 20-2.1-3 3.1-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v6.8A1.2 1.2 0 0 0 5.2 20h13.6a1.2 1.2 0 0 0 1.2-1.2V12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 4v10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.5 7.5 3.5-3.5 3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  sliders: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h4m4 0h8M4 12h10m4 0h2M4 18h2m4 0h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="11" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
+  dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5.5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="18.5" r="1.5" fill="currentColor"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+  'folder-filled': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="#8ab4f8" stroke="#8ab4f8" stroke-width="1.6" stroke-linejoin="round"/></svg>'
 };
 
 const secondaryIconMap = {
@@ -49,6 +54,7 @@ function escapeHtml(value) {
 }
 
 function safeDisplayLabel(item) {
+  if (item.type === 'document') return item.label || item.description || 'Document';
   return item.description || item.displayTakenAt || item.album || (item.type === 'video' ? 'Video' : 'Photo');
 }
 
@@ -291,6 +297,15 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
   const previewActionAttr = (withControls || noAction)
     ? ''
     : ` data-action="open-preview" data-id="${escapeHtml(item.id)}"`;
+  if (item.type === 'document') {
+    const ext = String(item.label || '').split('.').pop()?.toUpperCase() || 'FILE';
+    const docName = escapeHtml(item.label || 'Document');
+    return `<div class="${className} cml-doc-tile"${previewActionAttr}>
+      ${icon('documents', 'cml-doc-tile__icon')}
+      <span class="cml-doc-tile__ext">${escapeHtml(ext)}</span>
+      <span class="cml-doc-tile__name">${docName}</span>
+    </div>`;
+  }
   if (item.type === 'photo' && item.browserPreviewSupported === false) {
     // HEIC/HEIF: prefer separate thumbnail (JPEG) when available
     const fallbackUrl = item.thumbnailUrl && item.thumbnailUrl !== item.sourceUrl
@@ -401,9 +416,37 @@ export function Sidebar({
       ` : ''}
       <div class="cml-sidebar__footer">
         ${StorageCard(storageSummary, Boolean(state.storagePanelOpen))}
-        <div class="cml-sidebar__legal">privacy - terms of service</div>
       </div>
     </aside>
+  `;
+}
+
+export function MobileBottomNav({ navigationModel, state }) {
+  const isPrimary = (label) => state.primaryFilter === label && !state.secondaryFilter;
+  const isSecondary = (label) => state.secondaryFilter === label;
+
+  const tabs = [
+    { displayLabel: 'Photos', iconName: 'photos', attr: 'data-primary="Photos"', active: isPrimary('Photos') },
+    { displayLabel: 'Albums', iconName: 'albums', attr: 'data-primary="Collections"', active: isPrimary('Collections') },
+    { displayLabel: 'Files', iconName: 'documents', attr: 'data-secondary="Documents"', active: isSecondary('Documents') },
+    { displayLabel: 'Bin', iconName: 'trash', attr: 'data-primary="Bin"', active: isPrimary('Bin') }
+  ];
+
+  const tabsHtml = tabs.map(({ displayLabel, iconName, attr, active }) => `
+    <button type="button"
+      class="cml-mobile-nav__tab ${active ? 'is-active' : ''}"
+      ${attr}
+      aria-current="${active ? 'page' : 'false'}"
+      aria-label="${escapeHtml(displayLabel)}">
+      <span class="cml-mobile-nav__icon-wrap">${icon(iconName)}</span>
+      <span class="cml-mobile-nav__label">${escapeHtml(displayLabel)}</span>
+    </button>
+  `).join('');
+
+  return `
+    <nav class="cml-mobile-nav" aria-label="Primary navigation">
+      ${tabsHtml}
+    </nav>
   `;
 }
 
@@ -623,6 +666,204 @@ export function MediaTimelineSection({ section, state, layoutWidth, coverItemId 
         bottomSpacerHeight: section.bottomSpacerHeight
       })}
     </section>
+  `;
+}
+
+function formatFileSize(mb) {
+  const num = Number(mb) || 0;
+  if (num <= 0) return '--';
+  if (num < 1) return `${Math.round(num * 1024)} KB`;
+  if (num >= 1024) return `${(num / 1024).toFixed(1)} GB`;
+  return `${num.toFixed(1)} MB`;
+}
+
+function formatFileDate(dateStr) {
+  if (!dateStr) return '--';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '--';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${day} ${hh}:${mm}`;
+}
+
+function getFileExtIcon(fileName) {
+  const ext = String(fileName || '').split('.').pop()?.toLowerCase() || '';
+  const colorMap = {
+    pdf: '#ea4335', zip: '#fbbc04', rar: '#fbbc04', '7z': '#fbbc04',
+    doc: '#4285f4', docx: '#4285f4', txt: '#9aa0a6', csv: '#34a853',
+    xls: '#34a853', xlsx: '#34a853', ppt: '#ea4335', pptx: '#ea4335',
+  };
+  const color = colorMap[ext] || '#8ab4f8';
+  return { ext: ext.toUpperCase() || 'FILE', color };
+}
+
+export function DocumentsListView({ items, state }) {
+  const currentDir = state.docsCurrentDir || '';
+  const dirPrefix = currentDir ? currentDir + '/' : '';
+
+  // Find subfolders and files in current directory
+  const childFolders = new Set();
+  const childFiles = [];
+  items.forEach((item) => {
+    const itemDir = String(item.directory || '').replace(/\/+$/, '');
+    if (currentDir) {
+      // Inside a folder — only show items whose directory starts with currentDir
+      if (itemDir === currentDir) {
+        childFiles.push(item);
+      } else if (itemDir.startsWith(dirPrefix)) {
+        const rest = itemDir.slice(dirPrefix.length);
+        const nextFolder = rest.split('/')[0];
+        if (nextFolder) childFolders.add(nextFolder);
+      }
+    } else {
+      // Root level
+      if (!itemDir) {
+        childFiles.push(item);
+      } else {
+        const topFolder = itemDir.split('/')[0];
+        if (topFolder) childFolders.add(topFolder);
+      }
+    }
+  });
+
+  // Also check file IDs for implicit directories (files stored as dir/file.ext without Directory metadata)
+  items.forEach((item) => {
+    const itemDir = String(item.directory || '').replace(/\/+$/, '');
+    if (itemDir) return; // already handled via directory metadata
+    const fileId = String(item.id || '');
+    const parts = fileId.split('/');
+    if (parts.length <= 1) return;
+    const topFolder = currentDir ? (fileId.startsWith(dirPrefix) ? fileId.slice(dirPrefix.length).split('/')[0] : '') : parts[0];
+    if (topFolder && parts.length > (currentDir ? currentDir.split('/').length + 1 : 1)) {
+      childFolders.add(topFolder);
+    }
+  });
+
+  // Include user-created empty folders from state
+  if (state.docsFolders instanceof Set) {
+    state.docsFolders.forEach((fullPath) => {
+      if (currentDir) {
+        if (fullPath.startsWith(dirPrefix)) {
+          const rest = fullPath.slice(dirPrefix.length);
+          const nextFolder = rest.split('/')[0];
+          if (nextFolder) childFolders.add(nextFolder);
+        }
+      } else {
+        const topFolder = fullPath.split('/')[0];
+        if (topFolder) childFolders.add(topFolder);
+      }
+    });
+  }
+
+  const sortedFolders = [...childFolders].sort((a, b) => a.localeCompare(b));
+  const totalSize = childFiles.reduce((sum, item) => sum + (Number(item.sizeMb) || 0), 0);
+
+  // Breadcrumb
+  const pathParts = currentDir ? currentDir.split('/') : [];
+  const breadcrumbHtml = `
+    <div class="cml-docs-breadcrumb">
+      <button type="button" class="cml-docs-breadcrumb__item ${currentDir ? '' : 'is-active'}" data-action="docs-navigate" data-dir="">
+        ${icon('folder')}
+        <span>Files</span>
+      </button>
+      ${pathParts.map((part, i) => {
+        const path = pathParts.slice(0, i + 1).join('/');
+        const isLast = i === pathParts.length - 1;
+        return `<span class="cml-docs-breadcrumb__sep">/</span>
+          <button type="button" class="cml-docs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-action="docs-navigate" data-dir="${escapeHtml(path)}">
+            <span>${escapeHtml(part)}</span>
+          </button>`;
+      }).join('')}
+    </div>`;
+
+  const headerHtml = `
+    <div class="cml-docs-header">
+      <div class="cml-docs-header__top">
+        <h2 class="cml-docs-header__title">Files</h2>
+        <span class="cml-docs-header__meta">${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` · ${formatFileSize(totalSize)}` : ''}</span>
+      </div>
+      ${breadcrumbHtml}
+      <div class="cml-docs-header__actions">
+        <button type="button" class="cml-docs-new-folder" data-action="docs-new-folder">
+          ${icon('plus')}
+          <span>New folder</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  // New folder inline input
+  const newFolderHtml = state.docsNewFolderOpen ? `
+    <div class="cml-docs-row cml-docs-row--new-folder">
+      <div class="cml-docs-row__icon cml-docs-row__icon--folder">${icon('folder-filled')}</div>
+      <div class="cml-docs-row__name">
+        <input type="text" class="cml-docs-folder-input" data-focus-key="docs-new-folder-input" data-docs-folder-input
+          placeholder="Folder name" maxlength="64" autocomplete="off" />
+      </div>
+      <div class="cml-docs-row__date"></div>
+      <div class="cml-docs-row__size"></div>
+    </div>` : '';
+
+  // Folder rows
+  const folderRowsHtml = sortedFolders.map((name) => `
+    <div class="cml-docs-row cml-docs-row--folder" data-action="docs-navigate" data-dir="${escapeHtml(currentDir ? currentDir + '/' + name : name)}">
+      <div class="cml-docs-row__icon cml-docs-row__icon--folder">${icon('folder-filled')}</div>
+      <div class="cml-docs-row__name">${escapeHtml(name)}</div>
+      <div class="cml-docs-row__date">--</div>
+      <div class="cml-docs-row__size">--</div>
+    </div>`).join('');
+
+  // File rows
+  const sortedFiles = [...childFiles].sort((a, b) => {
+    const da = new Date(a.takenAt || 0).getTime();
+    const db = new Date(b.takenAt || 0).getTime();
+    return db - da;
+  });
+
+  const fileRowsHtml = sortedFiles.map((item) => {
+    const { ext, color } = getFileExtIcon(item.label);
+    const name = escapeHtml(item.label || item.description || 'Unnamed file');
+    const date = formatFileDate(item.takenAt);
+    const size = formatFileSize(item.sizeMb);
+    const selected = state.selectedIds.has(item.id) ? 'is-selected' : '';
+    return `
+      <div class="cml-docs-row ${selected}" data-action="open-preview" data-id="${escapeHtml(item.id)}">
+        <div class="cml-docs-row__icon" style="--doc-color: ${color}">
+          <span class="cml-docs-row__ext">${escapeHtml(ext)}</span>
+        </div>
+        <div class="cml-docs-row__name">${name}</div>
+        <div class="cml-docs-row__date">${date}</div>
+        <div class="cml-docs-row__size">${size}</div>
+      </div>`;
+  }).join('');
+
+  if (!sortedFolders.length && !childFiles.length && !state.docsNewFolderOpen) {
+    return `${headerHtml}
+      <div class="cml-docs-empty">
+        ${icon('documents', 'cml-docs-empty__icon')}
+        <p class="cml-docs-empty__text">${currentDir ? 'This folder is empty' : 'No files yet'}</p>
+        <p class="cml-docs-empty__hint">Upload files or create a folder to get started</p>
+      </div>`;
+  }
+
+  return `
+    ${headerHtml}
+    <div class="cml-docs-table">
+      <div class="cml-docs-table__head">
+        <div class="cml-docs-row__icon"></div>
+        <div class="cml-docs-row__name">Name</div>
+        <div class="cml-docs-row__date">Modified</div>
+        <div class="cml-docs-row__size">Size</div>
+      </div>
+      <div class="cml-docs-table__body">
+        ${newFolderHtml}
+        ${folderRowsHtml}
+        ${fileRowsHtml}
+      </div>
+    </div>
   `;
 }
 
@@ -895,7 +1136,7 @@ export function PreviewModal({
     }),
     renderPreviewInfoItem({
       iconName: 'image',
-      title: item.type === 'video' ? 'Video' : 'Photo',
+      title: item.type === 'video' ? 'Video' : (item.type === 'document' ? 'Document' : 'Photo'),
       meta: fileMeta
     }),
     renderPreviewInfoItem({
@@ -1036,12 +1277,15 @@ export function PreviewModal({
     </div>
   `;
 
+  const mobileDate = formatTakenAt(item);
+  const mobileLocation = item.location || '';
+
   return `
     <div class="cml-preview ${infoOpen ? 'has-info' : ''} ${albumDrawerOpen ? 'has-album' : ''} ${immersive ? 'is-immersive' : ''}" role="dialog" aria-modal="true" data-preview-id="${escapeHtml(item.id)}">
       <div class="cml-preview__backdrop" data-action="close-preview"></div>
       <div class="cml-preview__panel">
         <div class="cml-preview__main">
-          <header class="cml-preview__header">
+          <header class="cml-preview__header cml-preview__header--desktop">
             <div class="cml-preview__header-actions">
               <button type="button" class="cml-preview__icon-action ${albumDrawerOpen ? 'is-selected' : ''}" data-action="open-preview-add-to-album" data-id="${escapeHtml(item.id)}" aria-label="Add to album" aria-pressed="${albumDrawerOpen ? 'true' : 'false'}">${icon('plus')}</button>
               <button type="button" class="cml-preview__icon-action ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="${favorited ? 'Remove from favourites' : 'Add to favourites'}" aria-pressed="${favorited ? 'true' : 'false'}">${icon('star')}</button>
@@ -1052,6 +1296,15 @@ export function PreviewModal({
               <button type="button" class="cml-preview__close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
             </div>
           </header>
+          <header class="cml-preview__header cml-preview__header--mobile">
+            <button type="button" class="cml-preview__mobile-back" data-action="close-preview" aria-label="Back">${icon('previous')}</button>
+            <div class="cml-preview__mobile-center">
+              <span class="cml-preview__mobile-date">${escapeHtml(mobileDate)}</span>
+              ${mobileLocation ? `<span class="cml-preview__mobile-location">${escapeHtml(mobileLocation)}</span>` : ''}
+            </div>
+            <button type="button" class="cml-preview__icon-action ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="${favorited ? 'Remove from favourites' : 'Add to favourites'}">${icon('star')}</button>
+            <button type="button" class="cml-preview__icon-action" data-action="toggle-info" aria-label="More options">${icon('dots')}</button>
+          </header>
           <div class="cml-preview__body">
             <button type="button" class="cml-preview__nav is-prev" data-action="preview-previous" aria-label="Previous item" ${canGoPrevious ? '' : 'disabled aria-disabled="true"'}>${icon('previous')}</button>
             <figure class="cml-preview__figure">
@@ -1061,7 +1314,7 @@ export function PreviewModal({
             </figure>
             <button type="button" class="cml-preview__nav is-next" data-action="preview-next" aria-label="Next item" ${canGoNext ? '' : 'disabled aria-disabled="true"'}>${icon('next')}</button>
           </div>
-          <footer class="cml-preview__footer">
+          <footer class="cml-preview__footer cml-preview__footer--desktop">
             <div class="cml-preview__footer-meta">
               <span class="cml-preview__footer-primary">${currentIndex + 1} / ${totalCount}</span>
               <span class="cml-preview__footer-secondary">${escapeHtml(item.description || item.location || safeDisplayLabel(item))}</span>
@@ -1070,6 +1323,24 @@ export function PreviewModal({
               <button type="button" class="cml-preview__footer-action" data-action="download-preview" data-id="${escapeHtml(item.id)}" ${canDownload ? '' : 'disabled'}>${icon('download')}<span>Download original</span></button>
             </div>
           </footer>
+          <div class="cml-preview__mobile-bar">
+            <button type="button" class="cml-preview__mobile-action" data-action="download-preview" data-id="${escapeHtml(item.id)}">
+              ${icon('share')}
+              <span>Share</span>
+            </button>
+            <button type="button" class="cml-preview__mobile-action" data-action="rotate-preview">
+              ${icon('sliders')}
+              <span>Edit</span>
+            </button>
+            <button type="button" class="cml-preview__mobile-action" data-action="open-preview-add-to-album" data-id="${escapeHtml(item.id)}">
+              ${icon('plus')}
+              <span>Add to</span>
+            </button>
+            <button type="button" class="cml-preview__mobile-action is-destructive" data-action="request-delete-preview" data-id="${escapeHtml(item.id)}">
+              ${icon('trash')}
+              <span>Bin</span>
+            </button>
+          </div>
         </div>
         ${infoPanel}
         ${albumPanel}
