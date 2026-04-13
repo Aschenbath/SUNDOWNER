@@ -35,7 +35,7 @@ function normalizeChatId(value) {
 }
 
 function getChannelImportRoot(channelName, importDirectory) {
-    const fallback = typeof importDirectory === 'string' ? importDirectory : `telegram-import/${channelName}`
+    const fallback = typeof importDirectory === 'string' ? importDirectory : ''
     return sanitizeUploadFolder(fallback)
 }
 

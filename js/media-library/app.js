@@ -20,7 +20,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=18';
+} from './components.js?v=19';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -299,6 +299,7 @@ const state = {
   docsNewFolderOpen: false,
   docsFolders: new Set(),
   docsMoveDialogOpen: false,
+  docsMoveDialogDir: '',
   docsContextMenu: null
 };
 
@@ -4285,6 +4286,7 @@ function openDocsMoveDialog() {
     return;
   }
   state.docsMoveDialogOpen = true;
+  state.docsMoveDialogDir = '';
   render();
 }
 
@@ -6135,8 +6137,12 @@ function handleAction(actionTarget) {
     case 'docs-move-selected':
       openDocsMoveDialog();
       return true;
+    case 'docs-move-nav':
+      state.docsMoveDialogDir = actionTarget.dataset.dir || '';
+      render();
+      return true;
     case 'docs-move-confirm': {
-      const targetDir = actionTarget.dataset.dir || '';
+      const targetDir = state.docsMoveDialogDir || '';
       void moveSelectedDocsToFolder(targetDir);
       return true;
     }

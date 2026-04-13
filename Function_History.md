@@ -56,3 +56,5 @@
 26-04-12 by claude: Fix sidebar double highlight — primary nav item no longer shows is-active when a secondary filter (Videos/Documents/Favourites) is selected
 26-04-12 by claude: Fix sidebar rapid-click flickering — patchSidebarActive() surgically toggles CSS classes without innerHTML rebuild, scheduleRender() batches rapid clicks into one frame
 26-04-12 by claude: Redesign Files UI — remove table border and column header, rounded row hover, chevron breadcrumbs, 3-dot context menu per file (Download/Move to/Delete), right-click support for single-file actions
+26-04-12 by claude: Telegram files default to root directory — no more auto-nesting into telegram-import/channelName, files land at root for easy categorization
+26-04-12 by claude: Redesign move-to-folder dialog — navigable folder tree with breadcrumb, drill into subfolders before confirming, "Move here" button at bottom, replaces flat one-click-to-move list

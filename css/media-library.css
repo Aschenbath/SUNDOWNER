@@ -3534,12 +3534,14 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-docs-move-dialog {
-  width: 340px;
-  max-height: 420px;
+  width: 380px;
+  max-height: 480px;
   background: #2d2d3a;
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
 }
 
 #codex-media-library-root .cml-docs-move-dialog__header {
@@ -3610,6 +3612,91 @@ body.codex-media-library-active #app {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__item .cml-icon:last-child {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  color: #5f6368;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 16px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#codex-media-library-root .cml-docs-move-dialog__crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: #8ab4f8;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__crumb:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+#codex-media-library-root .cml-docs-move-dialog__crumb.is-active {
+  color: #e8eaed;
+  cursor: default;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__crumb.is-active:hover {
+  background: none;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__crumb .cml-icon {
+  width: 16px;
+  height: 16px;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__crumb-sep {
+  color: #5f6368;
+  font-size: 14px;
+  user-select: none;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: #5f6368;
+  font-size: 13px;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__footer {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#codex-media-library-root .cml-docs-move-dialog__confirm {
+  width: 100%;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #8ab4f8;
+  color: #1a1a2e;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__confirm:hover {
+  background: #aecbfa;
 }
 
 #codex-media-library-root .cml-docs-empty {

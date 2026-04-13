@@ -93,7 +93,7 @@ function normalizeTelegramSyncChannel(channel = {}) {
         normalized.syncEnabled = false
     }
     if (typeof normalized.importDirectory !== 'string') {
-        normalized.importDirectory = `telegram-import/${buildSafeDirectorySegment(normalized.name || 'channel')}`
+        normalized.importDirectory = ''
     } else if (normalized.importDirectory.trim() !== normalized.importDirectory) {
         normalized.importDirectory = normalized.importDirectory.trim()
     }

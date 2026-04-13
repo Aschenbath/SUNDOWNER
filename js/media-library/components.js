@@ -883,45 +883,94 @@ export function DocumentsListView({ items, state }) {
       </div>`;
   }
 
-  // Move-to-folder dialog
-  const allFolders = new Set([...childFolders]);
-  if (state.docsFolders instanceof Set) {
-    state.docsFolders.forEach((fullPath) => {
-      const topFolder = fullPath.split('/')[0];
-      if (topFolder) allFolders.add(topFolder);
-    });
-  }
-  // Also collect all unique directories from items
+  // Move-to-folder dialog — collect ALL directory paths
+  const allDirPaths = new Set();
   items.forEach((item) => {
     const dir = String(item.directory || '').replace(/\/+$/, '');
     if (dir) {
-      const topFolder = dir.split('/')[0];
-      if (topFolder) allFolders.add(topFolder);
+      // Add this dir and all parent dirs
+      const parts = dir.split('/');
+      for (let i = 1; i <= parts.length; i++) {
+        allDirPaths.add(parts.slice(0, i).join('/'));
+      }
     }
   });
+  if (state.docsFolders instanceof Set) {
+    state.docsFolders.forEach((fullPath) => {
+      const parts = fullPath.split('/');
+      for (let i = 1; i <= parts.length; i++) {
+        allDirPaths.add(parts.slice(0, i).join('/'));
+      }
+    });
+  }
 
-  const moveDialogHtml = state.docsMoveDialogOpen ? `
-    <div class="cml-docs-move-overlay">
-      <div class="cml-docs-move-dialog">
-        <div class="cml-docs-move-dialog__header">
-          <h3>Move to folder</h3>
-          <button type="button" class="cml-docs-move-dialog__close" data-action="docs-move-cancel">${icon('x')}</button>
-        </div>
-        <div class="cml-docs-move-dialog__list">
-          <button type="button" class="cml-docs-move-dialog__item" data-action="docs-move-confirm" data-dir="">
-            ${icon('folder')}
-            <span>Root (no folder)</span>
-          </button>
-          ${[...allFolders].sort().map((name) => `
-            <button type="button" class="cml-docs-move-dialog__item" data-action="docs-move-confirm" data-dir="${escapeHtml(name)}">
-              ${icon('folder-filled')}
-              <span>${escapeHtml(name)}</span>
+  let moveDialogHtml = '';
+  if (state.docsMoveDialogOpen) {
+    const moveDir = state.docsMoveDialogDir || '';
+    const moveDirPrefix = moveDir ? moveDir + '/' : '';
+
+    // Find subfolders at current move dialog level
+    const moveSubfolders = new Set();
+    allDirPaths.forEach((p) => {
+      if (moveDir) {
+        if (p.startsWith(moveDirPrefix) && p !== moveDir) {
+          const rest = p.slice(moveDirPrefix.length);
+          const next = rest.split('/')[0];
+          if (next) moveSubfolders.add(next);
+        }
+      } else {
+        const top = p.split('/')[0];
+        if (top) moveSubfolders.add(top);
+      }
+    });
+
+    // Breadcrumb for move dialog
+    const moveParts = moveDir ? moveDir.split('/') : [];
+    const moveBreadcrumb = `
+      <div class="cml-docs-move-dialog__breadcrumb">
+        <button type="button" class="cml-docs-move-dialog__crumb ${!moveDir ? 'is-active' : ''}" data-action="docs-move-nav" data-dir="">
+          ${icon('folder')} Root
+        </button>
+        ${moveParts.map((part, i) => {
+          const path = moveParts.slice(0, i + 1).join('/');
+          const isLast = i === moveParts.length - 1;
+          return `<span class="cml-docs-move-dialog__crumb-sep">›</span>
+            <button type="button" class="cml-docs-move-dialog__crumb ${isLast ? 'is-active' : ''}" data-action="docs-move-nav" data-dir="${escapeHtml(path)}">
+              ${escapeHtml(part)}
+            </button>`;
+        }).join('')}
+      </div>`;
+
+    const sortedMoveFolders = [...moveSubfolders].sort((a, b) => a.localeCompare(b));
+
+    moveDialogHtml = `
+      <div class="cml-docs-move-overlay">
+        <div class="cml-docs-move-dialog">
+          <div class="cml-docs-move-dialog__header">
+            <h3>Move to</h3>
+            <button type="button" class="cml-docs-move-dialog__close" data-action="docs-move-cancel">${icon('x')}</button>
+          </div>
+          ${moveBreadcrumb}
+          <div class="cml-docs-move-dialog__list">
+            ${sortedMoveFolders.length ? sortedMoveFolders.map((name) => `
+              <button type="button" class="cml-docs-move-dialog__item" data-action="docs-move-nav" data-dir="${escapeHtml(moveDir ? moveDir + '/' + name : name)}">
+                ${icon('folder-filled')}
+                <span>${escapeHtml(name)}</span>
+                ${icon('next')}
+              </button>
+            `).join('') : `
+              <div class="cml-docs-move-dialog__empty">No subfolders</div>
+            `}
+          </div>
+          <div class="cml-docs-move-dialog__footer">
+            <button type="button" class="cml-docs-move-dialog__confirm" data-action="docs-move-confirm">
+              Move here${moveDir ? ` — ${escapeHtml(moveParts[moveParts.length - 1] || 'Root')}` : ' — Root'}
             </button>
-          `).join('')}
+          </div>
         </div>
       </div>
-    </div>
-  ` : '';
+    `;
+  }
 
   // Context menu
   const contextMenuHtml = state.docsContextMenu ? `
