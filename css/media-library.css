@@ -288,7 +288,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-sidebar__section-label {
   padding: 16px 16px 4px;
-  color: #9aa0a6;
+  color: #b0b7c6;
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -335,8 +335,8 @@ body.codex-media-library-active #app {
   padding: 0 16px;
   margin: 0;
   border-radius: 18px;
-  background: transparent !important;
-  color: #9aa0a6;
+  background: rgba(255, 255, 255, 0.02) !important;
+  color: #cfd5df;
   font-size: 14px;
   font-weight: 500;
   text-align: left;
@@ -345,10 +345,10 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-sidebar .cml-sidebar__nav-item.is-active,
 #codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item.is-active {
-  background: rgba(138, 180, 248, 0.22) !important;
-  color: #8ab4f8 !important;
+  background: rgba(96, 144, 226, 0.28) !important;
+  color: #f3f7ff !important;
   font-weight: 600;
-  box-shadow: none !important;
+  box-shadow: inset 0 0 0 1px rgba(168, 199, 250, 0.22) !important;
 }
 
 #codex-media-library-root .cml-sidebar .cml-sidebar__nav-item {
@@ -371,7 +371,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-sidebar__subnav-arrow {
   font-size: 9px;
-  color: #9aa0a6;
+  color: #aeb7c4;
   flex-shrink: 0;
   justify-self: center;
 }
@@ -388,9 +388,9 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item:hover,
 #codex-media-library-root .cml-sidebar .cml-sidebar__nav-item:focus-visible,
 #codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item:focus-visible {
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: #e8eaed;
-  box-shadow: none;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f1f3f4;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 #codex-media-library-root .cml-sidebar .cml-sidebar__nav-item:hover .cml-icon,
@@ -409,9 +409,9 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item.is-active:hover,
 #codex-media-library-root .cml-sidebar .cml-sidebar__nav-item.is-active:focus-visible,
 #codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item.is-active:focus-visible {
-  background: rgba(138, 180, 248, 0.3);
-  color: #8ab4f8;
-  box-shadow: none;
+  background: rgba(110, 159, 243, 0.34);
+  color: #f7faff;
+  box-shadow: inset 0 0 0 1px rgba(168, 199, 250, 0.3);
 }
 
 #codex-media-library-root .cml-sidebar__footer {
@@ -432,20 +432,22 @@ body.codex-media-library-active #app {
   border: 0;
   background: transparent;
   text-decoration: none;
-  color: #9aa0a6;
+  color: #c7cfdb;
   font-size: 15px;
   text-align: left;
   cursor: pointer;
-  transition: background-color 160ms ease;
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 
 #codex-media-library-root .cml-sidebar__admin-link:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f3f4;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 #codex-media-library-root .cml-sidebar__legal {
   padding: 8px 16px 0;
-  color: #5f6368;
+  color: #8f97a6;
   font-size: 12px;
   line-height: 1.5;
 }
@@ -459,28 +461,29 @@ body.codex-media-library-active #app {
   padding: 10px 16px 12px;
   border: 0;
   border-radius: 18px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   text-align: left;
   cursor: pointer;
   transition: background-color 160ms ease, color 160ms ease;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 #codex-media-library-root .cml-sidebar .cml-storage-strip:hover,
 #codex-media-library-root .cml-sidebar .cml-storage-strip:focus-visible {
-  background: rgba(138, 180, 248, 0.18);
+  background: rgba(138, 180, 248, 0.16);
   box-shadow: inset 0 0 0 1px rgba(138, 180, 248, 0.18);
 }
 
 #codex-media-library-root .cml-sidebar .cml-storage-strip.is-active {
-  background: #0b57d0;
-  box-shadow: inset 0 0 0 1px rgba(168, 199, 250, 0.22);
+  background: rgba(96, 144, 226, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(168, 199, 250, 0.24);
 }
 
 #codex-media-library-root .cml-storage-strip__heading {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  color: #e8eaed;
+  color: #eef3fb;
   font-size: 15px;
   font-weight: 600;
 }
@@ -502,14 +505,14 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-storage-strip__text {
   margin: 0;
-  color: #9aa0a6;
+  color: #c7cfdb;
   font-size: 13px;
   line-height: 1.4;
 }
 
 #codex-media-library-root .cml-storage-strip__meta {
   margin: 0;
-  color: #7f8796;
+  color: #a1abba;
   font-size: 12px;
   line-height: 1.4;
 }
@@ -534,8 +537,8 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-sidebar .cml-storage-strip.is-active:hover,
 #codex-media-library-root .cml-sidebar .cml-storage-strip.is-active:focus-visible {
-  background: #1a63d7;
-  box-shadow: inset 0 0 0 1px rgba(168, 199, 250, 0.28);
+  background: rgba(110, 159, 243, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(168, 199, 250, 0.3);
 }
 
 #codex-media-library-root .cml-main-shell {
