@@ -1,0 +1,104 @@
+import assert from 'node:assert/strict';
+
+import { onRequest } from '../functions/dav/[[path]].js';
+
+class MemoryKV {
+  constructor(initialEntries = {}) {
+    this.store = new Map(Object.entries(initialEntries));
+  }
+
+  async get(key) {
+    return this.store.has(key) ? this.store.get(key) : null;
+  }
+}
+
+function createEnv({
+  kvEntries = {},
+  BASIC_USER = '',
+  BASIC_PASS = '',
+  AUTH_CODE = '',
+} = {}) {
+  return {
+    img_url: new MemoryKV(kvEntries),
+    BASIC_USER,
+    BASIC_PASS,
+    AUTH_CODE,
+  };
+}
+
+function createWebDavRequest(pathname, { method = 'GET', headers = {} } = {}) {
+  return new Request(`http://localhost${pathname}`, {
+    method,
+    headers,
+  });
+}
+
+describe('WebDAV route', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('fails closed when WebDAV is enabled without credentials', async () => {
+    let fetchCalled = false;
+    global.fetch = async () => {
+      fetchCalled = true;
+      throw new Error('fetch should not be called');
+    };
+
+    const response = await onRequest({
+      env: createEnv({
+        kvEntries: {
+          'manage@sysConfig@others': JSON.stringify({
+            webDAV: { enabled: true, username: '', password: '' }
+          })
+        }
+      }),
+      request: createWebDavRequest('/dav/private.txt'),
+    });
+
+    assert.equal(response.status, 503);
+    assert.equal(await response.text(), 'WebDAV credentials are not configured');
+    assert.equal(fetchCalled, false);
+  });
+
+  it('uses internal auth headers when proxying file downloads', async () => {
+    const calls = [];
+    global.fetch = async (url, options = {}) => {
+      calls.push({ url, options });
+      return new Response('file-data', {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain',
+        }
+      });
+    };
+
+    const response = await onRequest({
+      env: createEnv({
+        BASIC_USER: 'admin',
+        BASIC_PASS: 'secret',
+        AUTH_CODE: 'user-code',
+        kvEntries: {
+          'manage@sysConfig@others': JSON.stringify({
+            webDAV: { enabled: true, username: 'dav', password: 'dav-pass' }
+          })
+        }
+      }),
+      request: createWebDavRequest('/dav/docs/readme.txt', {
+        headers: {
+          Authorization: `Basic ${Buffer.from('dav:dav-pass').toString('base64')}`
+        }
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), 'file-data');
+    assert.equal(response.headers.get('Access-Control-Allow-Origin'), '*');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'http://localhost/file/docs/readme.txt');
+    assert.equal(calls[0].options.headers.Authorization, `Basic ${Buffer.from('admin:secret').toString('base64')}`);
+    assert.equal(calls[0].options.headers.authCode, 'user-code');
+  });
+});

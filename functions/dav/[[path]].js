@@ -52,7 +52,9 @@ async function checkAuth(request, env) {
 
     const davUser = othersConfig.webDAV.username;
     const davPass = othersConfig.webDAV.password;
-    if (!davUser || !davPass) return null; // No auth required
+    if (!davUser || !davPass) {
+        return new Response('WebDAV credentials are not configured', { status: 503 });
+    }
 
     const authHeader = request.headers.get('Authorization');
     if (!authHeader) {
@@ -105,7 +107,9 @@ async function handleGet(request, env) {
         try {
             const fileUrl = new URL(`/file${path}`, request.url);
 
-            const fileResponse = await fetch(fileUrl.toString());
+            const fileResponse = await fetch(fileUrl.toString(), {
+                headers: await getApiHeaders(env)
+            });
 
             if (!fileResponse.ok) {
                  return new Response('File not found', { status: fileResponse.status, statusText: fileResponse.statusText });
