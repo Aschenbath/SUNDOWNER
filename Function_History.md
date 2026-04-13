@@ -58,3 +58,4 @@
 26-04-12 by claude: Redesign Files UI — remove table border and column header, rounded row hover, chevron breadcrumbs, 3-dot context menu per file (Download/Move to/Delete), right-click support for single-file actions
 26-04-12 by claude: Telegram files default to root directory — no more auto-nesting into telegram-import/channelName, files land at root for easy categorization
 26-04-12 by claude: Redesign move-to-folder dialog — navigable folder tree with breadcrumb, drill into subfolders before confirming, "Move here" button at bottom, replaces flat one-click-to-move list
+26-04-13 by codex: Make Files upload picker truly allow arbitrary file types by removing the `accept` filter in Documents view while keeping the media-focused picker for photo-centric views

@@ -56,6 +56,7 @@ const API_PAGE_SIZE = 400;
 const API_MAX_ITEMS = 1600;
 const API_REQUEST_TIMEOUT_MS = 8000;
 const STORAGE_REQUEST_TIMEOUT_MS = 5000;
+const MEDIA_LIBRARY_UPLOAD_ACCEPT = 'image/*,video/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
 const COLLECTION_PAGE_SIZE = 24;
 const TIMELINE_ROW_GAP = 2;
 const TIMELINE_SECTION_CHROME_ESTIMATE = 92;
@@ -2945,11 +2946,18 @@ function consumePendingUploadRequest() {
   window.setTimeout(tryOpen, 120);
 }
 
+function getUploadPickerAccept() {
+  return state.secondaryFilter === 'Documents' ? '' : MEDIA_LIBRARY_UPLOAD_ACCEPT;
+}
+
 function requestNativeUpload() {
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.multiple = true;
-  fileInput.accept = 'image/*,video/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
+  const accept = getUploadPickerAccept();
+  if (accept) {
+    fileInput.accept = accept;
+  }
   fileInput.style.display = 'none';
   document.body.appendChild(fileInput);
   fileInput.addEventListener('change', () => {
