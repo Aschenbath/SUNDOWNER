@@ -1886,6 +1886,11 @@ function resetSearchQuery() {
 function applySearchQuery(nextQuery) {
   state.searchQuery = normalizeText(nextQuery);
   state.searchDraft = nextQuery;
+  // When searching inside Documents view, reset directory so results
+  // from all folders are visible instead of only the current subfolder.
+  if (state.secondaryFilter === 'Documents' && state.searchQuery) {
+    state.docsCurrentDir = '';
+  }
   clearSelection({ shouldRender: false });
   resetLoadedCount();
   render();
@@ -4280,6 +4285,35 @@ async function moveFilesToFolder(itemIds, targetDir) {
   return moved;
 }
 
+async function deleteDocFolder(dirPath) {
+  if (!dirPath) return;
+  // Move all files in this folder (and subfolders) to root
+  const allItems = getAllItems();
+  const dirPrefix = dirPath + '/';
+  const itemsInFolder = allItems.filter((item) => {
+    const itemDir = String(item.directory || '').replace(/\/+$/, '');
+    return itemDir === dirPath || itemDir.startsWith(dirPrefix);
+  });
+  if (itemsInFolder.length) {
+    const ids = itemsInFolder.map((item) => item.id);
+    await moveFilesToFolder(ids, '');
+  }
+  // Remove the folder and any subfolders from docsFolders
+  if (state.docsFolders instanceof Set) {
+    const toDelete = [];
+    state.docsFolders.forEach((p) => {
+      if (p === dirPath || p.startsWith(dirPrefix)) toDelete.push(p);
+    });
+    toDelete.forEach((p) => state.docsFolders.delete(p));
+  }
+  // If currently inside the deleted folder, navigate up
+  if (state.docsCurrentDir === dirPath || state.docsCurrentDir.startsWith(dirPrefix)) {
+    state.docsCurrentDir = '';
+  }
+  showToast(`Folder "${dirPath.split('/').pop()}" deleted`, 'success');
+  render();
+}
+
 function downloadSelectedDocs() {
   const selectedItems = getAllItems().filter((item) => state.selectedIds.has(item.id));
   if (!selectedItems.length) {
@@ -4366,10 +4400,9 @@ function getFilteredItems(items = getAllItems()) {
         break;
       default:
         // In Photos view (no secondary filter), exclude documents
-        // — unless the user is actively searching (so documents can
-        //   appear in search results) or the type: filter targets them.
+        // — unless user explicitly typed type:document in search.
         if (state.primaryFilter === 'Photos' && item.type === 'document'
-            && !query && searchFilters.type === 'all') {
+            && searchFilters.type !== 'document') {
           return false;
         }
         break;
@@ -4943,25 +4976,24 @@ function render() {
   `;
 
   // ── Incremental patch: keep sidebar alive across live-sync re-renders ──
-  // When the sidebar already exists in the DOM we avoid replacing it so its
-  // active-state highlight, scroll position and focus stay stable during
-  // live-media syncs that rebuild the main content area.
+  // Replace only non-sidebar siblings inside .cml-app-shell so the sidebar
+  // DOM is never detached — no layout thrash, no flicker.
   if (existingSidebar && existingShell) {
     const tpl = document.createElement('template');
     tpl.innerHTML = fullHtml;
     const newShell = tpl.content.querySelector('.cml-app-shell');
     if (newShell) {
-      // Detach old sidebar before replacing children — then reinsert it
-      existingSidebar.remove();
-      // Replace all children of the shell (main-shell + overlays + mobile-nav)
-      while (existingShell.firstChild) existingShell.removeChild(existingShell.firstChild);
-      // Re-insert the preserved sidebar first
-      existingShell.appendChild(existingSidebar);
-      // Append everything except the new sidebar from the template
+      // Remove every child of the existing shell EXCEPT the sidebar
+      const toRemove = [];
+      for (let c = existingShell.firstChild; c; c = c.nextSibling) {
+        if (c !== existingSidebar) toRemove.push(c);
+      }
+      toRemove.forEach((c) => c.remove());
+      // Append everything from the new shell EXCEPT its sidebar
       while (newShell.firstChild) {
         const child = newShell.firstChild;
         if (child instanceof Element && child.classList.contains('cml-sidebar')) {
-          newShell.removeChild(child); // skip — we kept the old one
+          newShell.removeChild(child);
         } else {
           existingShell.appendChild(child);
         }
@@ -6164,6 +6196,11 @@ function handleAction(actionTarget) {
       state.docsCurrentDir = actionTarget.dataset.dir || '';
       state.docsNewFolderOpen = false;
       render();
+      return true;
+    case 'docs-delete-folder':
+      if (actionTarget.dataset.dir) {
+        void deleteDocFolder(actionTarget.dataset.dir);
+      }
       return true;
     case 'docs-new-folder':
       state.docsNewFolderOpen = true;

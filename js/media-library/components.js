@@ -834,15 +834,20 @@ export function DocumentsListView({ items, state }) {
     </div>` : '';
 
   // Folder rows
-  const folderRowsHtml = sortedFolders.map((name) => `
-    <div class="cml-docs-row cml-docs-row--folder" data-action="docs-navigate" data-dir="${escapeHtml(currentDir ? currentDir + '/' + name : name)}">
+  const folderRowsHtml = sortedFolders.map((name) => {
+    const fullDir = currentDir ? currentDir + '/' + name : name;
+    return `
+    <div class="cml-docs-row cml-docs-row--folder" data-action="docs-navigate" data-dir="${escapeHtml(fullDir)}">
       <div class="cml-docs-row__check"></div>
       <div class="cml-docs-row__icon cml-docs-row__icon--folder">${icon('folder-filled')}</div>
       <div class="cml-docs-row__name">${escapeHtml(name)}</div>
       <div class="cml-docs-row__date">--</div>
       <div class="cml-docs-row__size">--</div>
-      <div class="cml-docs-row__more"></div>
-    </div>`).join('');
+      <div class="cml-docs-row__more">
+        <button type="button" class="cml-docs-row__delete-folder" data-action="docs-delete-folder" data-dir="${escapeHtml(fullDir)}" title="Delete folder">${icon('trash')}</button>
+      </div>
+    </div>`;
+  }).join('');
 
   // File rows
   const sortedFiles = [...childFiles].sort((a, b) => {
