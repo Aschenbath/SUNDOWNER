@@ -31,6 +31,7 @@ import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
 import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js';
+import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -2405,8 +2406,8 @@ function buildIndexedMediaItem(record, domLookup, index) {
   const defaultH = type === 'video' ? 720 : (type === 'document' ? 240 : 900);
   const width = toPositiveNumber(metadata.Width, toPositiveNumber(domMatch?.width, defaultW));
   const height = toPositiveNumber(metadata.Height, toPositiveNumber(domMatch?.height, defaultH));
-  const exifTime = metadata.Exif?.dateTime ? new Date(metadata.Exif.dateTime).getTime() : NaN;
-  const timestamp = Number.isFinite(exifTime) ? exifTime : parseTimestamp(metadata.TimeStamp, index);
+  const captureTime = resolveMediaCaptureTimestamp(metadata, fileName || fileId);
+  const timestamp = Number.isFinite(captureTime) ? captureTime : parseTimestamp(metadata.TimeStamp, index);
   const date = new Date(timestamp);
   const dateParts = createDatePartsFromDate(date);
   const sourceUrl = buildFileRoute(fileId);
