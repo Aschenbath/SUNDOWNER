@@ -13,7 +13,7 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
 };
-const MAX_D1_PAGE_SIZE = 200;
+const MAX_D1_PAGE_SIZE = 500;
 const DEFAULT_D1_PAGE_SIZE = 50;
 const ALLOWED_SORT_BY = new Set(['created_at', 'file_name', 'file_type']);
 

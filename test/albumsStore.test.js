@@ -9,6 +9,7 @@ import {
   getPersistedAlbumState,
   replacePersistedAlbumState,
 } from '../functions/utils/albumsStore.js';
+import { SqliteD1 } from '../server/sqliteD1.js';
 
 class MemoryKV {
   constructor() {
@@ -42,6 +43,13 @@ class MemoryKV {
 
 function createFallbackEnv() {
   return { img_url: new MemoryKV() };
+}
+
+function createHybridEnv() {
+  return {
+    img_url: new MemoryKV(),
+    img_d1: new SqliteD1(':memory:'),
+  };
 }
 
 describe('albumsStore fallback persistence', () => {
@@ -168,5 +176,32 @@ describe('albumsStore fallback persistence', () => {
     assert.deepEqual(state.albumCovers, {});
     assert.deepEqual(state.favorites, ['fileZ']);
     assert.equal(deletedAlbum, null);
+  });
+
+  it('auto-migrates persisted album state from KV into D1 when album tables are empty', async () => {
+    const env = createHybridEnv();
+
+    await env.img_url.put('manage@sysConfig@mediaLibraryAlbums', JSON.stringify({
+      albumNames: ['Trips'],
+      albumAssignments: {
+        fileA: ['Trips'],
+      },
+      albumCovers: {
+        trips: 'fileA',
+      },
+      favorites: ['fileB'],
+    }));
+
+    const firstRead = await getPersistedAlbumState(env);
+    const secondRead = await getPersistedAlbumState(env);
+
+    assert.deepEqual(firstRead.albumNames, ['Trips']);
+    assert.deepEqual(firstRead.albumAssignments, { fileA: ['Trips'] });
+    assert.deepEqual(firstRead.albumCovers, { trips: 'fileA' });
+    assert.deepEqual(firstRead.favorites, ['fileB']);
+    assert.deepEqual(secondRead.albumNames, ['Trips']);
+    assert.deepEqual(secondRead.albumAssignments, { fileA: ['Trips'] });
+    assert.deepEqual(secondRead.albumCovers, { trips: 'fileA' });
+    assert.deepEqual(secondRead.favorites, ['fileB']);
   });
 });

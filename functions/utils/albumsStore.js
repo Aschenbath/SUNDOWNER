@@ -312,6 +312,21 @@ async function loadAlbumStateFromFallback(env) {
   }
 }
 
+async function loadAlbumStateFromKVFallback(env) {
+  if (!env?.img_url || typeof env.img_url.get !== 'function') {
+    return createEmptyAlbumState();
+  }
+  const rawValue = await env.img_url.get(FALLBACK_STORAGE_KEY);
+  if (!rawValue) {
+    return createEmptyAlbumState();
+  }
+  try {
+    return normalizeAlbumStatePayload(JSON.parse(rawValue));
+  } catch {
+    return createEmptyAlbumState();
+  }
+}
+
 async function replaceAlbumStateInFallback(env, nextState) {
   const db = getDatabase(env);
   const normalizedState = normalizeAlbumStatePayload(nextState);
@@ -324,9 +339,25 @@ async function replaceAlbumStateInFallback(env, nextState) {
   return normalizedState;
 }
 
+function hasKVBinding(env) {
+  return Boolean(env?.img_url && typeof env.img_url.get === 'function');
+}
+
 export async function getPersistedAlbumState(env) {
   if (isD1Configured(env)) {
-    return loadAlbumStateFromD1(env);
+    const d1State = await loadAlbumStateFromD1(env);
+    if (d1State.albumNames.length > 0 || d1State.favorites.length > 0) {
+      return d1State;
+    }
+    // D1 album tables are empty; check KV fallback and auto-migrate.
+    if (hasKVBinding(env)) {
+      const kvState = await loadAlbumStateFromKVFallback(env);
+      if (kvState.albumNames.length > 0 || kvState.favorites.length > 0) {
+        await replaceAlbumStateInD1(env, kvState);
+        return loadAlbumStateFromD1(env);
+      }
+    }
+    return d1State;
   }
   return loadAlbumStateFromFallback(env);
 }
