@@ -5,6 +5,59 @@ import { getOthersConfig } from '../api/manage/sysConfig/others.js';
 import { getDatabase } from './databaseAdapter.js';
 import { getIndexMeta } from './indexManager.js';
 
+function defineHiddenProperty(target, key, value) {
+    Object.defineProperty(target, key, {
+        value,
+        enumerable: false,
+        configurable: true,
+        writable: false,
+    });
+    return target;
+}
+
+function buildSecurityConfigFallback(error = null) {
+    const fallback = {
+        auth: {
+            user: { authCode: "" },
+            admin: { adminUsername: "", adminPassword: "" }
+        },
+        upload: {
+            moderate: { enabled: false, channel: "default", moderateContentApiKey: "", nsfwApiPath: "" }
+        },
+        access: { allowedDomains: "", whiteListMode: false },
+        apiTokens: { tokens: {} },
+    };
+    return defineHiddenProperty(fallback, '__securityConfigLoadError', error || true);
+}
+
+function normalizeConfigValue(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+export function hasSecurityConfigLoadError(securityConfig) {
+    return Boolean(securityConfig?.__securityConfigLoadError);
+}
+
+export function getConfiguredAdminCredentials(securityConfig = {}) {
+    return {
+        username: normalizeConfigValue(securityConfig?.auth?.admin?.adminUsername),
+        password: normalizeConfigValue(securityConfig?.auth?.admin?.adminPassword),
+    };
+}
+
+export function hasConfiguredAdminCredentials(securityConfig = {}) {
+    const { username, password } = getConfiguredAdminCredentials(securityConfig);
+    return username !== '' && password !== '';
+}
+
+export function getConfiguredUserAuthCode(securityConfig = {}) {
+    return normalizeConfigValue(securityConfig?.auth?.user?.authCode);
+}
+
+export function hasConfiguredUserAuthCode(securityConfig = {}) {
+    return getConfiguredUserAuthCode(securityConfig) !== '';
+}
+
 /**
  * 根据容量限制过滤渠道
  * @param {Object} context - 上下文对象（包含 env）
@@ -92,17 +145,7 @@ export async function fetchSecurityConfig(env) {
         return settings;
     } catch (error) {
         console.error('Failed to fetch security config:', error);
-        // 返回默认配置
-        return {
-            auth: {
-                user: { authCode: "" },
-                admin: { adminUsername: "", adminPassword: "" }
-            },
-            upload: {
-                moderate: { enabled: false, channel: "default", moderateContentApiKey: "", nsfwApiPath: "" }
-            },
-            access: { allowedDomains: "", whiteListMode: false }
-        };
+        return buildSecurityConfigFallback(error);
     }
 }
 

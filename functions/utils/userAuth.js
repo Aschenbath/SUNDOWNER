@@ -1,15 +1,28 @@
-import { fetchSecurityConfig } from './sysConfig.js';
+import {
+    fetchSecurityConfig,
+    getConfiguredUserAuthCode,
+    hasConfiguredUserAuthCode,
+    hasSecurityConfigLoadError,
+} from './sysConfig.js';
 import { validateApiToken } from './tokenValidator.js';
 import { getDatabase } from './databaseAdapter.js';
 
 export async function userAuthCheck(env, url, request, requiredPermission = null) {
+    const securityConfig = await fetchSecurityConfig(env);
+    if (hasSecurityConfigLoadError(securityConfig)) {
+        return false;
+    }
+
     const tokenValidation = await validateApiToken(request, getDatabase(env), requiredPermission);
     if (tokenValidation.valid) {
         return true;
     }
 
-    const securityConfig = await fetchSecurityConfig(env);
-    const rightAuthCode = securityConfig.auth.user.authCode;
+    if (!hasConfiguredUserAuthCode(securityConfig)) {
+        return false;
+    }
+
+    const rightAuthCode = getConfiguredUserAuthCode(securityConfig);
 
     let authCode = request.headers.get('authCode');
     if (!authCode) {
@@ -19,7 +32,7 @@ export async function userAuthCheck(env, url, request, requiredPermission = null
         }
     }
 
-    if (isAuthCodeDefined(rightAuthCode) && !isValidAuthCode(rightAuthCode, authCode)) {
+    if (!isValidAuthCode(rightAuthCode, authCode)) {
         return false;
     }
 
@@ -43,10 +56,6 @@ export function UnauthorizedResponse(reason) {
 
 function isValidAuthCode(rightAuthCode, authCode) {
     return authCode === rightAuthCode;
-}
-
-function isAuthCodeDefined(authCode) {
-    return authCode !== undefined && authCode !== null && authCode.trim() !== '';
 }
 
 function getCookieValue(cookies, name) {

@@ -60,3 +60,4 @@
 26-04-12 by claude: Redesign move-to-folder dialog — navigable folder tree with breadcrumb, drill into subfolders before confirming, "Move here" button at bottom, replaces flat one-click-to-move list
 26-04-13 by codex: Make Files upload picker truly allow arbitrary file types by removing the `accept` filter in Documents view while keeping the media-focused picker for photo-centric views
 26-04-13 by codex: Harden WebDAV auth so enabled WebDAV now fails closed when username/password are missing, and file GET proxying carries internal auth headers for future private file-route compatibility
+26-04-13 by codex: Harden auth fail-closed behavior so broken or missing security config no longer opens manage/user routes; admin middleware and both login flows now return 503 when credentials are unavailable, and user/dual auth helpers reject blank auth config

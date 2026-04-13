@@ -45,6 +45,29 @@ async function runManageMiddleware({
 }
 
 describe('manage middleware', () => {
+  it('fails closed when admin credentials are not configured', async () => {
+    const response = await runManageMiddleware({
+      request: new Request('http://localhost/api/manage/list'),
+    });
+
+    assert.equal(response.status, 503);
+    assert.equal(await response.text(), 'Admin credentials are not configured.');
+  });
+
+  it('fails closed when the security config payload cannot be parsed', async () => {
+    const response = await runManageMiddleware({
+      env: createEnv({
+        img_url: new MemoryKV({
+          'manage@sysConfig@security': '{'
+        }),
+      }),
+      request: new Request('http://localhost/api/manage/list'),
+    });
+
+    assert.equal(response.status, 503);
+    assert.equal(await response.text(), 'Security configuration is unavailable.');
+  });
+
   it('returns 400 for malformed Basic auth values instead of collapsing to 401', async () => {
     const response = await runManageMiddleware({
       env: createEnv({

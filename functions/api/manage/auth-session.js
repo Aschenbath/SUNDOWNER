@@ -1,4 +1,9 @@
-import { fetchSecurityConfig } from '../../utils/sysConfig.js';
+import {
+  fetchSecurityConfig,
+  getConfiguredAdminCredentials,
+  hasConfiguredAdminCredentials,
+  hasSecurityConfigLoadError,
+} from '../../utils/sysConfig.js';
 import {
   ADMIN_SESSION_MAX_AGE,
   createAdminSessionToken,
@@ -28,8 +33,21 @@ export async function onRequestPost(context) {
   }
 
   const securityConfig = await fetchSecurityConfig(env);
-  const rightUser = securityConfig.auth.admin.adminUsername;
-  const rightPass = securityConfig.auth.admin.adminPassword;
+  if (hasSecurityConfigLoadError(securityConfig)) {
+    return new Response(JSON.stringify({ error: 'Security configuration is unavailable' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    });
+  }
+
+  if (!hasConfiguredAdminCredentials(securityConfig)) {
+    return new Response(JSON.stringify({ error: 'Admin credentials are not configured' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    });
+  }
+
+  const { username: rightUser, password: rightPass } = getConfiguredAdminCredentials(securityConfig);
 
   if (!rightUser || username !== rightUser || password !== rightPass) {
     return new Response(JSON.stringify({ error: 'Invalid username or password' }), {

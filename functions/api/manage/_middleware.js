@@ -1,12 +1,13 @@
-import { fetchSecurityConfig } from '../../utils/sysConfig.js';
+import {
+  fetchSecurityConfig,
+  getConfiguredAdminCredentials,
+  hasConfiguredAdminCredentials,
+  hasSecurityConfigLoadError,
+} from '../../utils/sysConfig.js';
 import { checkDatabaseConfig } from '../../utils/middleware.js';
 import { validateApiToken } from '../../utils/tokenValidator.js';
 import { getDatabase } from '../../utils/databaseAdapter.js';
 import { getAdminSessionTokenFromRequest, verifyAdminSessionToken } from '../../utils/adminSession.js';
-
-let securityConfig = {}
-let basicUser = ''
-let basicPass = ''
 
 function buildLoginRedirect(request) {
   const url = new URL(request.url);
@@ -92,6 +93,19 @@ function BadRequestException(reason) {
   })
 }
 
+function ServiceUnavailableException(reason) {
+  return new Response(reason, {
+    status: 503,
+    statusText: 'Service Unavailable',
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'text/plain;charset=UTF-8',
+      'Cache-Control': 'no-store',
+      'Content-Length': reason.length,
+    },
+  })
+}
+
 function extractRequiredPermission(pathname) {
   const pathParts = pathname.toLowerCase().split('/')
 
@@ -135,13 +149,16 @@ async function authentication(context) {
     return context.next()
   }
 
-  securityConfig = await fetchSecurityConfig(context.env)
-  basicUser = securityConfig.auth.admin.adminUsername
-  basicPass = securityConfig.auth.admin.adminPassword
-
-  if (typeof basicUser == 'undefined' || basicUser == null || basicUser == '') {
-    return context.next()
+  const securityConfig = await fetchSecurityConfig(context.env)
+  if (hasSecurityConfigLoadError(securityConfig)) {
+    return ServiceUnavailableException('Security configuration is unavailable.')
   }
+
+  if (!hasConfiguredAdminCredentials(securityConfig)) {
+    return ServiceUnavailableException('Admin credentials are not configured.')
+  }
+
+  const { username: basicUser, password: basicPass } = getConfiguredAdminCredentials(securityConfig)
 
   // 1. API token (Bearer / custom header)
   if (context.request.headers.has('Authorization')) {
