@@ -866,7 +866,7 @@
     }
     ROUTE_CLASSES.forEach((name) => body.classList.remove(name));
     const path = window.location.pathname || '/';
-    if (path.startsWith('/login')) {
+    if (path.startsWith('/login') || path.startsWith('/adminLogin')) {
       body.classList.add('codex-route-login');
     } else if (path.startsWith('/dashboard')) {
       body.classList.add('codex-route-dashboard');
