@@ -16,6 +16,7 @@ import {
   PreviewModal,
   SearchSummary,
   Sidebar,
+  StorageCard,
   StoragePanel,
   TopSearchBar,
   YearScroller,
@@ -2268,13 +2269,23 @@ async function performStorageSummarySync({ forceRender = false } = {}) {
   if (!sameStorageSummary(state.storageSummary, nextSummary)) {
     state.storageSummary = nextSummary;
     if (refs.root) {
-      render();
+      const sidebarPatched = patchSidebarStorageCard();
+      if (state.adminPanelOpen || state.storagePanelOpen) {
+        patchAdminOverlays();
+      } else if (!sidebarPatched) {
+        render();
+      }
     }
     return;
   }
 
   if (forceRender && refs.root) {
-    render();
+    const sidebarPatched = patchSidebarStorageCard();
+    if (state.adminPanelOpen || state.storagePanelOpen) {
+      patchAdminOverlays();
+    } else if (!sidebarPatched) {
+      render();
+    }
   }
 }
 
@@ -5007,6 +5018,24 @@ function patchSidebarActive() {
   });
 }
 
+function patchSidebarStorageCard() {
+  if (!refs.root) return false;
+  const currentCard = refs.root.querySelector('.cml-sidebar .cml-storage-strip');
+  if (!(currentCard instanceof HTMLElement)) {
+    return false;
+  }
+
+  const template = document.createElement('template');
+  template.innerHTML = StorageCard(state.storageSummary, Boolean(state.storagePanelOpen)).trim();
+  const nextCard = template.content.firstElementChild;
+  if (!(nextCard instanceof HTMLElement)) {
+    return false;
+  }
+
+  currentCard.replaceWith(nextCard);
+  return true;
+}
+
 let pendingNavRaf = 0;
 /** Batched render — collapses rapid nav clicks into one render frame */
 function scheduleRender() {
@@ -5170,6 +5199,7 @@ function render() {
       refs.root.innerHTML = fullHtml;
     }
     patchSidebarActive();
+    patchSidebarStorageCard();
   } else {
     refs.root.innerHTML = fullHtml;
   }
@@ -5705,7 +5735,10 @@ function startLiveObserver() {
 
   [0, 180, 700, 1800].forEach((delay) => {
     window.setTimeout(() => {
-      syncLiveMedia({ forceRender: true });
+      const shouldRetrySync = delay === 0 || state.isLibraryLoading || !state.liveMediaSignature || state.mediaItems.length === 0;
+      if (shouldRetrySync) {
+        syncLiveMedia({ forceRender: delay === 0 });
+      }
       consumePendingUploadRequest();
     }, delay);
   });

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, PreviewModal, Sidebar, TopSearchBar } from '../js/media-library/components.js';
+import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, PreviewModal, Sidebar, StorageCard, TopSearchBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('renders a selection download action without replacing delete/add-to-album controls', () => {
@@ -458,5 +458,18 @@ describe('media library download actions', () => {
     assert.match(html, /data-secondary="Videos"/);
     assert.match(html, /data-secondary="Favourites"/);
     assert.doesNotMatch(html, /logo-sundowner\.svg/);
+  });
+
+  it('renders storage usage numbers once the summary has loaded', () => {
+    const html = StorageCard({
+      usedMb: 1536,
+      totalQuotaGb: 0,
+      totalCount: 27,
+      isLoading: false
+    });
+
+    assert.match(html, /1\.50 GB \/ INFINITE/);
+    assert.match(html, />27 items</);
+    assert.doesNotMatch(html, /Calculating\.\.\./);
   });
 });
