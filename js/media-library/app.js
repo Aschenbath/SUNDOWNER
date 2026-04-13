@@ -19,15 +19,16 @@ import {
   StorageCard,
   StoragePanel,
   TopSearchBar,
+  VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=20';
+} from './components.js?v=22';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
   parseMediaSearchQuery,
   summarizeMediaSearch,
-} from './search-filters.js';
+} from './search-filters.js?v=2';
 import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
@@ -68,6 +69,8 @@ const TIMELINE_VIRTUAL_OVERSCAN = 960;
 const TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD = 120;
 const TILE_SELECTION_CHECK_MARKUP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 12.8 3.7 3.7 7.5-8.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
 const TILE_SELECTION_RING_MARKUP = '<span class="cml-media-tile__select-ring"></span>';
+const VIDEO_CATEGORY_MAX_LENGTH = 48;
+const DEFAULT_VIDEO_CATEGORY_SUGGESTIONS = ['Travel', 'Scenery', 'Daily life', 'Pets', 'Food', 'Performance', 'Tutorial', 'Screen recording'];
 
 function createEmptyAdminProfileDraft() {
   return {
@@ -205,6 +208,7 @@ const legacyAlbumState = readLegacyAlbumState();
 const state = {
   primaryFilter: 'Photos',
   secondaryFilter: '',
+  videoCategoryFilter: '',
   activeAlbumName: '',
   albumSelectionTarget: '',
   searchQuery: '',
@@ -1905,6 +1909,7 @@ function matchesSearchQuery(item, query) {
 
   const haystack = [
     item.type,
+    item.videoCategory,
     item.album,
     item.label,
     item.location,
@@ -2348,6 +2353,54 @@ function inferTagsFromMetadata(metadata, fileLabel, type) {
   return [...new Set([...tags, ...fallbackTags])].slice(0, 8);
 }
 
+function normalizeVideoCategory(value) {
+  return normalizeText(value).slice(0, VIDEO_CATEGORY_MAX_LENGTH);
+}
+
+function inferVideoCategory(metadata, type) {
+  if (type !== 'video' || !metadata || typeof metadata !== 'object') {
+    return '';
+  }
+  return normalizeVideoCategory(metadata.VideoCategory || metadata.Category || '');
+}
+
+function buildVideoCategoryOptions(items = [], activeCategory = '') {
+  const counts = new Map();
+  items.forEach((item) => {
+    if (item?.type !== 'video') {
+      return;
+    }
+    const label = normalizeVideoCategory(item.videoCategory);
+    if (!label) {
+      return;
+    }
+    counts.set(label, (counts.get(label) || 0) + 1);
+  });
+
+  const normalizedActive = normalizeVideoCategory(activeCategory);
+  if (normalizedActive && !counts.has(normalizedActive)) {
+    counts.set(normalizedActive, 0);
+  }
+
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+      return left.label.localeCompare(right.label);
+    });
+}
+
+function getVideoCategorySuggestions(items = getAllItems(), currentCategory = '') {
+  const dynamic = buildVideoCategoryOptions(items, currentCategory).map((entry) => entry.label);
+  return [...new Set([
+    normalizeVideoCategory(currentCategory),
+    ...dynamic,
+    ...DEFAULT_VIDEO_CATEGORY_SUGGESTIONS
+  ].filter(Boolean))].slice(0, 16);
+}
+
 function isDocumentLikeSource(fileId, fileLabel, tags) {
   return DOCUMENT_HINT_PATTERN.test(`${fileId} ${fileLabel} ${tags.join(' ')}`);
 }
@@ -2423,6 +2476,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
   const dateParts = createDatePartsFromDate(date);
   const sourceUrl = buildFileRoute(fileId);
   const tags = inferTagsFromMetadata(metadata, fileName, type);
+  const videoCategory = inferVideoCategory(metadata, type);
   const label = fileName || inferAlbumFromFileId(fileId, metadata);
   const browserPreviewSupported = type === 'document' ? false : (type !== 'photo' || supportsBrowserImagePreview(mimeType));
   const videoThumbUrl = (type === 'video' && metadata.TgThumbnailFileId)
@@ -2455,6 +2509,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     album: inferAlbumFromFileId(fileId, metadata),
     collectionAlbum: normalizeText(metadata.TgAlbumPath || metadata.Album || ''),
     tags,
+    videoCategory,
     location: inferLocationFromMetadata(metadata, domMatch),
     favorite: false,
     personLabels: safeArray(metadata.PersonLabels).map(normalizeText).filter(Boolean),
@@ -2700,6 +2755,7 @@ function buildBinItem(record) {
     width: toPositiveNumber(metadata.Width, type === 'video' ? 1280 : (type === 'document' ? 240 : 1200)),
     height: toPositiveNumber(metadata.Height, type === 'video' ? 720 : (type === 'document' ? 240 : 900)),
     sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
+    videoCategory: inferVideoCategory(metadata, type),
     mimeType,
     browserPreviewSupported,
     daysLeft: Math.max(0, Number(record.daysLeft) || 0),
@@ -4318,6 +4374,25 @@ function patchCaptureTimeDisplay(section, item) {
   section.append(heading, wrapper);
 }
 
+function patchVideoCategoryDisplay(section, category) {
+  const normalizedCategory = normalizeVideoCategory(category);
+  section.textContent = '';
+  section.setAttribute('data-action', 'edit-video-category');
+  const heading = document.createElement('h5');
+  heading.className = 'cml-preview__info-heading';
+  heading.textContent = 'Video category';
+  const wrapper = document.createElement('div');
+  wrapper.className = 'cml-preview__info-category';
+  const value = document.createElement('p');
+  value.className = 'cml-preview__info-category-value';
+  value.textContent = normalizedCategory || 'Set video category';
+  const meta = document.createElement('p');
+  meta.className = 'cml-preview__info-category-meta';
+  meta.textContent = normalizedCategory ? 'Used for filtering in Videos view' : 'Click to group this video';
+  wrapper.append(value, meta);
+  section.append(heading, wrapper);
+}
+
 function applyPatchedCaptureTime(mediaItem, metadata) {
   if (!mediaItem || !metadata || typeof metadata !== 'object') {
     return;
@@ -4333,6 +4408,13 @@ function applyPatchedCaptureTime(mediaItem, metadata) {
   mediaItem.day = dateParts.day;
   mediaItem.monthLabel = dateParts.monthLabel;
   mediaItem.exif = metadata.Exif || mediaItem.exif || null;
+}
+
+function applyPatchedVideoCategory(mediaItem, metadata) {
+  if (!mediaItem || !metadata || typeof metadata !== 'object') {
+    return;
+  }
+  mediaItem.videoCategory = normalizeVideoCategory(metadata.VideoCategory || '');
 }
 
 function sortMediaItemsInPlace(items) {
@@ -4421,6 +4503,43 @@ async function savePreviewCaptureTime(itemId, captureTimeInput, previousItem = n
       patchCaptureTimeDisplay(captureSection, previousItem);
     }
     showToast(error.message || 'Failed to save date & time');
+  }
+}
+
+async function savePreviewVideoCategory(itemId, categoryInput, previousItem = null) {
+  const item = getAllItems().find((entry) => entry.id === itemId);
+  if (!item || !item.sourceId) {
+    showToast('Cannot save video category for this item');
+    return;
+  }
+
+  const nextCategory = normalizeVideoCategory(categoryInput);
+  const encodedPath = encodeMetadataPath(item.sourceId);
+
+  try {
+    const response = await apiFetch(`/api/manage/metadata/${encodedPath}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ VideoCategory: nextCategory })
+    });
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || 'Failed to save video category');
+    }
+
+    const mediaItem = state.mediaItems.find((entry) => entry.id === itemId);
+    if (mediaItem) {
+      applyPatchedVideoCategory(mediaItem, data.metadata || {});
+    }
+
+    render();
+    showToast(nextCategory ? 'Video category saved' : 'Video category cleared', 'success');
+  } catch (error) {
+    const categorySection = refs.root?.querySelector('.cml-preview__info-section--video-category');
+    if (categorySection && previousItem) {
+      patchVideoCategoryDisplay(categorySection, previousItem.videoCategory);
+    }
+    showToast(error.message || 'Failed to save video category');
   }
 }
 
@@ -4539,7 +4658,7 @@ function getVisibleSecondaryFilters(items) {
   return [...navigationModel.secondary];
 }
 
-function getFilteredItems(items = getAllItems()) {
+function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = false } = {}) {
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const query = parsedSearch.textQuery.toLowerCase();
   const activeAlbumName = getActiveAlbumName();
@@ -4565,6 +4684,12 @@ function getFilteredItems(items = getAllItems()) {
       case 'Videos':
         if (item.type !== 'video') {
           return false;
+        }
+        if (!ignoreVideoCategoryFilter && state.videoCategoryFilter) {
+          const activeVideoCategory = normalizeVideoCategory(state.videoCategoryFilter).toLowerCase();
+          if (normalizeVideoCategory(item.videoCategory).toLowerCase() !== activeVideoCategory) {
+            return false;
+          }
         }
         break;
       case 'Documents':
@@ -4863,6 +4988,12 @@ function getViewModel() {
   const activeAlbumName = getActiveAlbumName();
   const albumSelectionTarget = getAlbumSelectionTarget();
   const filteredItems = getFilteredItems();
+  const videoCategoryScopeItems = state.secondaryFilter === 'Videos'
+    ? getFilteredItems(getAllItems(), { ignoreVideoCategoryFilter: true })
+    : [];
+  const videoCategoryOptions = state.secondaryFilter === 'Videos'
+    ? buildVideoCategoryOptions(videoCategoryScopeItems, state.videoCategoryFilter)
+    : [];
   const selectedItems = getSelectedItems();
   const activeAlbumItems = activeAlbumName
     ? getAllItems().filter((item) => itemBelongsToAlbum(item, activeAlbumName))
@@ -4956,6 +5087,8 @@ function getViewModel() {
     collectionCards,
     totalCollectionCount: allCollections.length,
     filteredItems,
+    videoCategoryOptions,
+    videoCategoryScopeCount: videoCategoryScopeItems.length,
     sections,
     timelineLayoutSections: laidOutSections,
     timelineVirtualSignature: virtualWindow.signature,
@@ -5075,8 +5208,17 @@ function render() {
   lastContentViewKey = contentViewKey;
   const storageInsights = buildStorageInsights();
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
-  const activeSearchFilterCount = countActiveMediaSearchFilters(parsedSearch.filters);
+  const hasSeparateVideoCategoryChip = (
+    state.secondaryFilter === 'Videos'
+    && state.videoCategoryFilter
+    && normalizeVideoCategory(parsedSearch.filters.categoryQuery).toLowerCase() !== normalizeVideoCategory(state.videoCategoryFilter).toLowerCase()
+  );
+  const activeSearchFilterCount = countActiveMediaSearchFilters(parsedSearch.filters)
+    + (hasSeparateVideoCategoryChip ? 1 : 0);
   const activeSearchFilterParts = summarizeMediaSearch(parsedSearch.filters);
+  if (hasSeparateVideoCategoryChip) {
+    activeSearchFilterParts.push(`Category: ${state.videoCategoryFilter}`);
+  }
 
   // ── Incremental render: preserve the sidebar DOM to avoid flicker ──
   const existingSidebar = refs.root.querySelector('.cml-sidebar');
@@ -5130,6 +5272,13 @@ function render() {
                   filterParts: activeSearchFilterParts,
                   hasActiveFilters: activeSearchFilterCount > 0
                 })}
+                ${state.secondaryFilter === 'Videos'
+                  ? VideoCategoryBar({
+                      categories: viewModel.videoCategoryOptions,
+                      activeCategory: state.videoCategoryFilter,
+                      totalCount: viewModel.videoCategoryScopeCount
+                    })
+                  : ''}
                 ${viewModel.isCollectionRoot
                   ? (viewModel.collectionCards.length
                      ? CollectionGrid({ collections: viewModel.collectionCards })
@@ -6648,6 +6797,67 @@ function handleAction(actionTarget) {
       textarea.setSelectionRange(textarea.value.length, textarea.value.length);
       return true;
     }
+    case 'edit-video-category': {
+      const categorySection = refs.root.querySelector('.cml-preview__info-section--video-category');
+      if (!categorySection) { return true; }
+      const currentItem = getAllItems().find((entry) => entry.id === state.previewId);
+      if (!currentItem || currentItem.type !== 'video') { return true; }
+      const currentCategory = normalizeVideoCategory(currentItem.videoCategory);
+      categorySection.textContent = '';
+      categorySection.removeAttribute('data-action');
+      const heading = document.createElement('h5');
+      heading.className = 'cml-preview__info-heading';
+      heading.textContent = 'Video category';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'cml-preview__info-category-input';
+      input.setAttribute('data-focus-key', 'video-category-edit');
+      input.placeholder = 'Travel, Scenery, Tutorial...';
+      input.maxLength = VIDEO_CATEGORY_MAX_LENGTH;
+      input.value = currentCategory;
+      const datalistId = 'cml-video-category-suggestions';
+      input.setAttribute('list', datalistId);
+      const suggestions = getVideoCategorySuggestions(getAllItems(), currentCategory);
+      const datalist = document.createElement('datalist');
+      datalist.id = datalistId;
+      suggestions.forEach((suggestion) => {
+        const option = document.createElement('option');
+        option.value = suggestion;
+        datalist.appendChild(option);
+      });
+      const hint = document.createElement('p');
+      hint.className = 'cml-preview__info-category-hint';
+      hint.textContent = 'Press Enter to save. Leave blank to clear the category.';
+      let cancelled = false;
+      const previousItem = { ...currentItem };
+      const commitEdit = () => {
+        if (cancelled) {
+          patchVideoCategoryDisplay(categorySection, previousItem.videoCategory);
+          return;
+        }
+        const nextCategory = normalizeVideoCategory(input.value);
+        patchVideoCategoryDisplay(categorySection, nextCategory);
+        void savePreviewVideoCategory(state.previewId, input.value, previousItem);
+      };
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          input.blur();
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          cancelled = true;
+          input.blur();
+        }
+      });
+      input.addEventListener('blur', () => {
+        commitEdit();
+      });
+      categorySection.append(heading, input, datalist, hint);
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      return true;
+    }
     case 'edit-capture-time': {
       const captureSection = refs.root.querySelector('.cml-preview__info-section--capture-time');
       if (!captureSection) { return true; }
@@ -6721,8 +6931,12 @@ function handleAction(actionTarget) {
     }
     case 'clear-search-filters':
       resetSearchQuery();
+      if (state.secondaryFilter === 'Videos') {
+        state.videoCategoryFilter = '';
+      }
       clearSelection({ shouldRender: false });
       resetLoadedCount();
+      pushNavigationHash();
       render();
       return true;
     case 'toggle-avatar':
@@ -6874,6 +7088,7 @@ function handleClick(event) {
       state.primaryFilter = actionTarget.dataset.primary;
       state.storagePanelOpen = false;
       state.secondaryFilter = '';
+      state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       state.albumSelectionTarget = '';
       resetSearchQuery();
@@ -6893,6 +7108,9 @@ function handleClick(event) {
     if (actionTarget.dataset.secondary) {
       state.primaryFilter = 'Photos';
       state.secondaryFilter = actionTarget.dataset.secondary === state.secondaryFilter ? '' : actionTarget.dataset.secondary;
+      if (state.secondaryFilter !== 'Videos') {
+        state.videoCategoryFilter = '';
+      }
       state.storagePanelOpen = false;
       state.activeAlbumName = '';
       state.albumSelectionTarget = '';
@@ -6904,6 +7122,17 @@ function handleClick(event) {
       patchSidebarActive();
       scheduleRender();
       return;
+    }
+
+    if (actionTarget.dataset.action === 'filter-video-category') {
+      const nextCategory = normalizeVideoCategory(actionTarget.dataset.category || '');
+      state.videoCategoryFilter = nextCategory === normalizeVideoCategory(state.videoCategoryFilter) ? '' : nextCategory;
+      state.previewId = null;
+      state.selectedIds.clear();
+      resetLoadedCount();
+      pushNavigationHash();
+      render();
+      return true;
     }
 
     if (actionTarget.dataset.anchor) {
@@ -7297,6 +7526,9 @@ function buildNavigationHash() {
   const secondary = state.secondaryFilter || '';
   const album = state.activeAlbumName || '';
   if (secondary) {
+    if (secondary === 'Videos' && state.videoCategoryFilter) {
+      return '#/videos/' + encodeURIComponent(state.videoCategoryFilter);
+    }
     return '#/' + secondary.toLowerCase();
   }
   if (primary === 'Collections' && album) {
@@ -7320,7 +7552,13 @@ function pushNavigationHash() {
 
 function restoreNavigationFromHash() {
   const rawHash = decodeURIComponent(window.location.hash || '').replace(/^#\/?/, '');
-  if (!rawHash) return;
+  if (!rawHash) {
+    state.primaryFilter = 'Photos';
+    state.secondaryFilter = '';
+    state.videoCategoryFilter = '';
+    state.activeAlbumName = '';
+    return;
+  }
 
   const parts = rawHash.split('/');
   const route = parts[0].toLowerCase();
@@ -7329,11 +7567,13 @@ function restoreNavigationFromHash() {
     case 'photos':
       state.primaryFilter = 'Photos';
       state.secondaryFilter = '';
+      state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       break;
     case 'albums':
       state.primaryFilter = 'Collections';
       state.secondaryFilter = '';
+      state.videoCategoryFilter = '';
       if (parts[1]) {
         // Preserve the original album name casing from the hash
         state.activeAlbumName = parts.slice(1).join('/');
@@ -7344,21 +7584,25 @@ function restoreNavigationFromHash() {
     case 'bin':
       state.primaryFilter = 'Bin';
       state.secondaryFilter = '';
+      state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       break;
     case 'videos':
       state.primaryFilter = 'Photos';
       state.secondaryFilter = 'Videos';
+      state.videoCategoryFilter = normalizeVideoCategory(parts.slice(1).join('/'));
       state.activeAlbumName = '';
       break;
     case 'documents':
       state.primaryFilter = 'Photos';
       state.secondaryFilter = 'Documents';
+      state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       break;
     case 'favourites':
       state.primaryFilter = 'Photos';
       state.secondaryFilter = 'Favourites';
+      state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       break;
   }

@@ -22,6 +22,7 @@ describe('media search filters', () => {
     assert.deepEqual(parsed.filters, {
       type: 'video',
       locationQuery: 'guangzhou riverside',
+      categoryQuery: '',
     });
   });
 
@@ -75,5 +76,40 @@ describe('media search filters', () => {
       'Location: park',
     ]);
     assert.equal(countActiveMediaSearchFilters(filters), 2);
+  });
+
+  it('supports category tokens for video classification search', () => {
+    const parsed = parseMediaSearchQuery('type:video category:"travel vlog"');
+
+    assert.equal(parsed.textQuery, '');
+    assert.deepEqual(parsed.filters, {
+      type: 'video',
+      locationQuery: '',
+      categoryQuery: 'travel vlog',
+    });
+
+    assert.equal(matchesMediaSearchFilters({
+      type: 'video',
+      videoCategory: 'Travel vlog',
+      isDocumentLike: false,
+      tags: [],
+      personLabels: [],
+      location: '',
+    }, parsed.filters), true);
+
+    assert.equal(matchesMediaSearchFilters({
+      type: 'video',
+      videoCategory: '',
+      isDocumentLike: false,
+      tags: ['travel vlog'],
+      personLabels: [],
+      location: '',
+    }, parsed.filters), false);
+
+    assert.deepEqual(summarizeMediaSearch(parsed.filters), [
+      'Videos',
+      'Category: travel vlog',
+    ]);
+    assert.equal(countActiveMediaSearchFilters(parsed.filters), 2);
   });
 });

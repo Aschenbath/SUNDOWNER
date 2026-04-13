@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, PreviewModal, Sidebar, StorageCard, TopSearchBar } from '../js/media-library/components.js';
+import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, PreviewModal, Sidebar, StorageCard, TopSearchBar, VideoCategoryBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('renders a selection download action without replacing delete/add-to-album controls', () => {
@@ -87,6 +87,39 @@ describe('media library download actions', () => {
     assert.match(html, /cml-preview__icon-action is-favorited/);
     assert.match(html, /aria-label="Remove from favourites"/);
     assert.match(html, /aria-pressed="true"/);
+  });
+
+  it('renders a dedicated editable category section for video previews', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'managed-video-1',
+        type: 'video',
+        label: 'travel.mp4',
+        sourceId: 'videos/travel.mp4',
+        sourceUrl: '/file/videos/travel.mp4',
+        thumbnailUrl: '/file/videos/travel.mp4?preview=1',
+        posterUrl: '/file/videos/travel.mp4?preview=1',
+        width: 1920,
+        height: 1080,
+        displayTakenAt: 'April 13, 2026 21:00',
+        takenAt: '2026-04-13T13:00:00.000Z',
+        mimeType: 'video/mp4',
+        videoCategory: 'Travel vlog',
+        sizeMb: 12.3,
+        exif: null,
+      },
+      selected: false,
+      favorited: false,
+      currentIndex: 0,
+      totalCount: 1,
+      infoOpen: true,
+      immersive: false,
+    });
+
+    assert.match(html, /Video category/);
+    assert.match(html, /Travel vlog/);
+    assert.match(html, /data-action="edit-video-category"/);
+    assert.match(html, /Used for filtering in Videos view/);
   });
 
   it('hides default source albums and library path from preview details', () => {
@@ -248,7 +281,7 @@ describe('media library download actions', () => {
         displayTakenAt: 'April 8, 2026 21:10',
         mimeType: 'image/heic',
         sizeMb: 3.8,
-        location: '23.1291°N, 113.2644°E',
+        location: '23.1291掳N, 113.2644掳E',
         exif: {
           gps: {
             latitude: 23.1291,
@@ -268,7 +301,7 @@ describe('media library download actions', () => {
     assert.match(html, /<img class="cml-preview__media"/);
     assert.match(html, /HEIC original/);
     assert.match(html, /onerror=/);
-    assert.match(html, /23\.1291°N, 113\.2644°E/);
+    assert.match(html, /23\.1291掳N, 113\.2644掳E/);
     assert.match(html, /Download original/);
   });
 
@@ -471,5 +504,32 @@ describe('media library download actions', () => {
     assert.match(html, /1\.50 GB \/ INFINITE/);
     assert.match(html, />27 items</);
     assert.doesNotMatch(html, /Calculating\.\.\./);
+  });
+
+  it('renders a video category filter rail with active chips and counts', () => {
+    const html = VideoCategoryBar({
+      categories: [
+        { label: 'Travel vlog', count: 5 },
+        { label: 'Screen recording', count: 2 }
+      ],
+      activeCategory: 'Travel vlog',
+      totalCount: 7
+    });
+
+    assert.match(html, /All videos/);
+    assert.match(html, /7 items/);
+    assert.match(html, /data-action="filter-video-category"/);
+    assert.match(html, /Travel vlog/);
+    assert.match(html, /5 videos/);
+    assert.match(html, /is-active/);
+  });
+
+  it('keeps video category filter state wired through route persistence and media filtering', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /videoCategoryFilter/);
+    assert.match(appSource, /#\/videos\/' \+ encodeURIComponent\(state\.videoCategoryFilter\)/);
+    assert.match(appSource, /state\.videoCategoryFilter = normalizeVideoCategory\(parts\.slice\(1\)\.join\('\/'\)\)/);
+    assert.match(appSource, /if \(!ignoreVideoCategoryFilter && state\.videoCategoryFilter\)/);
   });
 });

@@ -1,4 +1,4 @@
-import { shouldDisplayMediaItem } from './media-support.js';
+﻿import { shouldDisplayMediaItem } from './media-support.js';
 
 const icons = {
   photos: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5a2.5 2.5 0 0 1 2.5-2.5h11A2.5 2.5 0 0 1 20 6.5v11A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m7 15 3.2-3.6 2.6 2.8 2.4-2.2L18 15.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="8.3" r="1.4" fill="currentColor"/></svg>',
@@ -314,7 +314,7 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       : (item.posterUrl || '');
     const imgSrc = escapeHtml(fallbackUrl || (item.sourceUrl || ''));
     if (imgSrc) {
-      // Try rendering — Safari supports HEIC natively; on failure, onerror
+      // Try rendering 鈥?Safari supports HEIC natively; on failure, onerror
       // hides the broken img and reveals a CSS fallback label on the tile.
       const w = item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
       const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
@@ -549,7 +549,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
     <header class="cml-topbar">
       <label class="cml-topbar__search" aria-label="Search">
         ${icon('search', 'cml-topbar__search-icon')}
-        <input type="search" class="cml-topbar__search-input" placeholder="Search photos, descriptions, type:video" value="${searchValue}" />
+        <input type="search" class="cml-topbar__search-input" placeholder="Search photos, descriptions, type:video, category:travel" value="${searchValue}" />
       </label>
       <div class="cml-topbar__actions">
         ${isAlbumPickerMode ? `
@@ -711,7 +711,7 @@ export function DocumentsListView({ items, state }) {
   items.forEach((item) => {
     const itemDir = String(item.directory || '').replace(/\/+$/, '');
     if (currentDir) {
-      // Inside a folder — only show items whose directory starts with currentDir
+      // Inside a folder 鈥?only show items whose directory starts with currentDir
       if (itemDir === currentDir) {
         childFiles.push(item);
       } else if (itemDir.startsWith(dirPrefix)) {
@@ -773,7 +773,7 @@ export function DocumentsListView({ items, state }) {
       ${pathParts.map((part, i) => {
         const path = pathParts.slice(0, i + 1).join('/');
         const isLast = i === pathParts.length - 1;
-        return `<span class="cml-docs-breadcrumb__sep">›</span>
+        return `<span class="cml-docs-breadcrumb__sep">鈥?/span>
           <button type="button" class="cml-docs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-action="docs-navigate" data-dir="${escapeHtml(path)}">
             <span>${escapeHtml(part)}</span>
           </button>`;
@@ -788,7 +788,7 @@ export function DocumentsListView({ items, state }) {
     <div class="cml-docs-header">
       <div class="cml-docs-header__top">
         <h2 class="cml-docs-header__title">Files</h2>
-        <span class="cml-docs-header__meta">${hasSelection ? `${selectedInView.length} selected` : `${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` · ${formatFileSize(totalSize)}` : ''}`}</span>
+        <span class="cml-docs-header__meta">${hasSelection ? `${selectedInView.length} selected` : `${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` 路 ${formatFileSize(totalSize)}` : ''}`}</span>
       </div>
       ${breadcrumbHtml}
       <div class="cml-docs-header__actions">
@@ -888,7 +888,7 @@ export function DocumentsListView({ items, state }) {
       </div>`;
   }
 
-  // Move-to-folder dialog — collect ALL directory paths
+  // Move-to-folder dialog 鈥?collect ALL directory paths
   const allDirPaths = new Set();
   items.forEach((item) => {
     const dir = String(item.directory || '').replace(/\/+$/, '');
@@ -939,7 +939,7 @@ export function DocumentsListView({ items, state }) {
         ${moveParts.map((part, i) => {
           const path = moveParts.slice(0, i + 1).join('/');
           const isLast = i === moveParts.length - 1;
-          return `<span class="cml-docs-move-dialog__crumb-sep">›</span>
+          return `<span class="cml-docs-move-dialog__crumb-sep">鈥?/span>
             <button type="button" class="cml-docs-move-dialog__crumb ${isLast ? 'is-active' : ''}" data-action="docs-move-nav" data-dir="${escapeHtml(path)}">
               ${escapeHtml(part)}
             </button>`;
@@ -984,7 +984,7 @@ export function DocumentsListView({ items, state }) {
           </div>
           <div class="cml-docs-move-dialog__footer">
             <button type="button" class="cml-docs-move-dialog__confirm" data-action="docs-move-confirm">
-              Move here${moveDir ? ` — ${escapeHtml(moveParts[moveParts.length - 1] || 'Root')}` : ' — Root'}
+              Move here${moveDir ? ` 鈥?${escapeHtml(moveParts[moveParts.length - 1] || 'Root')}` : ' 鈥?Root'}
             </button>
           </div>
         </div>
@@ -1001,7 +1001,7 @@ export function DocumentsListView({ items, state }) {
       </button>
       <button type="button" class="cml-docs-ctx__item" data-action="docs-ctx-move" data-id="${escapeHtml(state.docsContextMenu.id)}">
         ${icon('folder-move')}
-        <span>Move to…</span>
+        <span>Move to鈥?/span>
       </button>
       <div class="cml-docs-ctx__divider"></div>
       <button type="button" class="cml-docs-ctx__item cml-docs-ctx__item--danger" data-action="docs-ctx-delete" data-id="${escapeHtml(state.docsContextMenu.id)}">
@@ -1230,6 +1230,23 @@ function renderPreviewCaptureTimeSection(item) {
   `;
 }
 
+function renderPreviewVideoCategorySection(item) {
+  if (item?.type !== 'video') {
+    return '';
+  }
+  const title = normalizePreviewMetaText(item?.videoCategory) || 'Set video category';
+  const meta = item?.videoCategory ? 'Used for filtering in Videos view' : 'Click to group this video';
+  return `
+    <section class="cml-preview__info-section cml-preview__info-section--video-category" data-action="edit-video-category">
+      <h5 class="cml-preview__info-heading">Video category</h5>
+      <div class="cml-preview__info-category">
+        <p class="cml-preview__info-category-value">${escapeHtml(title)}</p>
+        <p class="cml-preview__info-category-meta">${escapeHtml(meta)}</p>
+      </div>
+    </section>
+  `;
+}
+
 function getMeaningfulPreviewTags(item) {
   const genericTags = new Set(['photo', 'video', 'image', 'jpeg', 'jpg', 'png']);
   return (item?.tags || [])
@@ -1321,13 +1338,14 @@ export function PreviewModal({
   ].filter(Boolean).join('');
 
   const infoPanel = `
-    <aside class="cml-preview__info ${infoOpen ? 'is-open' : ''}" aria-label="Photo details" aria-hidden="${infoOpen ? 'false' : 'true'}">
+    <aside class="cml-preview__info ${infoOpen ? 'is-open' : ''}" aria-label="Media details" aria-hidden="${infoOpen ? 'false' : 'true'}">
       <div class="cml-preview__info-inner">
         <div class="cml-preview__info-toolbar">
           <button type="button" class="cml-preview__info-close" data-action="toggle-info" aria-label="Close details">${icon('close')}</button>
           <h4 class="cml-preview__info-toolbar-title">Info</h4>
         </div>
         ${renderPreviewCaptureTimeSection(item)}
+        ${renderPreviewVideoCategorySection(item)}
         <section class="cml-preview__info-section cml-preview__info-section--description" data-action="edit-description">
           <p class="cml-preview__info-description ${item.description ? 'has-content' : ''}">${item.description ? escapeHtml(item.description) : 'Add a description'}</p>
         </section>
@@ -1652,6 +1670,47 @@ export function SearchSummary({ query, resultCount, filterParts = [], hasActiveF
           ${filterParts.map((part) => `<span class="cml-search-summary__tag">${escapeHtml(part)}</span>`).join('')}
         </div>
       ` : ''}
+    </section>
+  `;
+}
+
+export function VideoCategoryBar({ categories = [], activeCategory = '', totalCount = 0 }) {
+  if (!categories.length && !activeCategory) {
+    return '';
+  }
+
+  const normalizedActiveCategory = normalizePreviewMetaText(activeCategory);
+  const allLabel = totalCount === 1 ? 'All videos - 1 item' : `All videos - ${Math.max(0, Number(totalCount) || 0)} items`;
+
+  return `
+    <section class="cml-video-category-bar" aria-label="Video categories">
+      <div class="cml-video-category-bar__scroller">
+        <button
+          type="button"
+          class="cml-video-category-bar__chip ${normalizedActiveCategory ? '' : 'is-active'}"
+          data-action="filter-video-category"
+          data-category=""
+          aria-pressed="${normalizedActiveCategory ? 'false' : 'true'}"
+        >${escapeHtml(allLabel)}</button>
+        ${categories.map((entry) => {
+          const label = normalizePreviewMetaText(entry?.label);
+          const count = Math.max(0, Number(entry?.count) || 0);
+          const active = label.toLowerCase() === normalizedActiveCategory.toLowerCase();
+          const countLabel = count === 1 ? '1 video' : `${count} videos`;
+          return `
+            <button
+              type="button"
+              class="cml-video-category-bar__chip ${active ? 'is-active' : ''}"
+              data-action="filter-video-category"
+              data-category="${escapeHtml(label)}"
+              aria-pressed="${active ? 'true' : 'false'}"
+            >
+              <span>${escapeHtml(label)}</span>
+              <span class="cml-video-category-bar__count">${escapeHtml(countLabel)}</span>
+            </button>
+          `;
+        }).join('')}
+      </div>
     </section>
   `;
 }
@@ -1994,7 +2053,7 @@ export function AdminPanel({ state, storageSummary }) {
             <article class="cml-admin-panel__migration-card">
               <span class="cml-admin-panel__migration-label">Database mode</span>
               <strong class="cml-admin-panel__migration-value">${escapeHtml(getDatabaseModeLabel(migrationDatabase))}</strong>
-              <span class="cml-admin-panel__migration-meta">Bindings: KV ${migrationDatabase?.hasKV ? 'on' : 'off'} · D1 ${migrationDatabase?.hasD1 ? 'on' : 'off'}</span>
+              <span class="cml-admin-panel__migration-meta">Bindings: KV ${migrationDatabase?.hasKV ? 'on' : 'off'} 路 D1 ${migrationDatabase?.hasD1 ? 'on' : 'off'}</span>
             </article>
             <article class="cml-admin-panel__migration-card">
               <span class="cml-admin-panel__migration-label">Next cursor</span>
@@ -2025,7 +2084,7 @@ export function AdminPanel({ state, storageSummary }) {
                 ${orphanFiles.map((file) => `
                   <article class="cml-admin-panel__scan-item">
                     <strong class="cml-admin-panel__scan-id">${escapeHtml(file.id || '')}</strong>
-                    <span class="cml-admin-panel__scan-meta">${escapeHtml(file.channelName || file.channel || 'Telegram')} · ${escapeHtml(file.directory || '/')}</span>
+                    <span class="cml-admin-panel__scan-meta">${escapeHtml(file.channelName || file.channel || 'Telegram')} 路 ${escapeHtml(file.directory || '/')}</span>
                     <span class="cml-admin-panel__scan-meta">${escapeHtml(file.reason || 'Missing Telegram recovery metadata')}</span>
                   </article>
                 `).join('')}

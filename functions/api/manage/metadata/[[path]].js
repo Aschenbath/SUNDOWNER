@@ -3,7 +3,6 @@ import { getDatabase } from '../../../utils/databaseAdapter.js';
 import { sanitizeExposedMetadata } from '../../../utils/mediaSecurity.js';
 import { parseLooseCaptureTimestamp } from '../../../../js/media-library/time-resolution.js';
 
-// CORS 跨域响应头
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, PUT, PATCH, OPTIONS',
@@ -11,10 +10,26 @@ const corsHeaders = {
     'Access-Control-Max-Age': '86400',
 };
 
+const VIDEO_CATEGORY_MAX_LENGTH = 48;
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi', '.3gp', '.mpeg', '.mpg'];
+
+function normalizeVideoCategory(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function isVideoMetadata(fileId, metadata = {}) {
+    const mimeType = String(metadata?.FileType || metadata?.MimeType || '').toLowerCase();
+    if (mimeType.startsWith('video/')) {
+        return true;
+    }
+
+    const nameHaystack = String(metadata?.FileName || fileId || '').toLowerCase();
+    return VIDEO_EXTENSIONS.some((extension) => nameHaystack.endsWith(extension));
+}
+
 export async function onRequest(context) {
     const { request, env, params, waitUntil } = context;
 
-    // OPTIONS 预检请求
     if (request.method === 'OPTIONS') {
         return new Response(null, {
             status: 204,
@@ -22,7 +37,6 @@ export async function onRequest(context) {
         });
     }
 
-    // 仅允许 PATCH 方法
     if (request.method !== 'PATCH') {
         return new Response(JSON.stringify({
             success: false,
@@ -34,7 +48,6 @@ export async function onRequest(context) {
     }
 
     try {
-        // 从 params.path 解析 fileId（需要 decodeURIComponent 处理中文等特殊字符）
         const fileId = decodeURIComponent(params.path).split(',').join('/');
 
         if (!fileId) {
@@ -47,11 +60,10 @@ export async function onRequest(context) {
             });
         }
 
-        // 解析请求体
         let body;
         try {
             body = await request.json();
-        } catch (e) {
+        } catch {
             return new Response(JSON.stringify({
                 success: false,
                 message: 'Invalid request body. Expected JSON.',
@@ -61,17 +73,19 @@ export async function onRequest(context) {
             });
         }
 
-        // 验证请求体中包含可更新的字段
-        if (!body || (
-            typeof body.FileName !== 'string'
-            && typeof body.FileType !== 'string'
-            && typeof body.Description !== 'string'
-            && typeof body.Directory !== 'string'
-            && typeof body.DateTaken !== 'string'
-        )) {
+        const hasSupportedField = body && (
+            typeof body.FileName === 'string'
+            || typeof body.FileType === 'string'
+            || typeof body.Description === 'string'
+            || typeof body.Directory === 'string'
+            || typeof body.DateTaken === 'string'
+            || typeof body.VideoCategory === 'string'
+        );
+
+        if (!hasSupportedField) {
             return new Response(JSON.stringify({
                 success: false,
-                message: 'At least one of FileName, FileType, Description, Directory, or DateTaken is required.',
+                message: 'At least one of FileName, FileType, Description, Directory, DateTaken, or VideoCategory is required.',
             }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -91,9 +105,20 @@ export async function onRequest(context) {
             }
         }
 
-        const db = getDatabase(env);
+        if (typeof body.VideoCategory === 'string') {
+            const normalizedVideoCategory = normalizeVideoCategory(body.VideoCategory);
+            if (normalizedVideoCategory.length > VIDEO_CATEGORY_MAX_LENGTH) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: `VideoCategory must be ${VIDEO_CATEGORY_MAX_LENGTH} characters or fewer.`,
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json', ...corsHeaders },
+                });
+            }
+        }
 
-        // 获取当前文件数据
+        const db = getDatabase(env);
         const fileData = await db.getWithMetadata(fileId);
 
         if (!fileData || !fileData.metadata) {
@@ -106,8 +131,16 @@ export async function onRequest(context) {
             });
         }
 
-        // 合并允许更新的字段到现有 metadata
         const updatedMetadata = { ...fileData.metadata };
+        if (typeof body.VideoCategory === 'string' && !isVideoMetadata(fileId, updatedMetadata)) {
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'VideoCategory can only be set on video files.',
+            }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+        }
         if (typeof body.FileName === 'string') {
             updatedMetadata.FileName = body.FileName;
         }
@@ -123,11 +156,17 @@ export async function onRequest(context) {
         if (typeof body.DateTaken === 'string') {
             updatedMetadata.DateTaken = body.DateTaken.trim();
         }
+        if (typeof body.VideoCategory === 'string') {
+            const normalizedVideoCategory = normalizeVideoCategory(body.VideoCategory);
+            delete updatedMetadata.Category;
+            if (normalizedVideoCategory) {
+                updatedMetadata.VideoCategory = normalizedVideoCategory;
+            } else {
+                delete updatedMetadata.VideoCategory;
+            }
+        }
 
-        // 保存更新后的 metadata
         await db.put(fileId, fileData.value, { metadata: updatedMetadata });
-
-        // 更新索引
         waitUntil(addFileToIndex(context, fileId, updatedMetadata));
 
         return new Response(JSON.stringify({
@@ -137,7 +176,6 @@ export async function onRequest(context) {
             status: 200,
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
-
     } catch (error) {
         console.error('Error updating metadata:', error);
         return new Response(JSON.stringify({

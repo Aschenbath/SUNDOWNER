@@ -1,6 +1,7 @@
 const MEDIA_TYPE_FACETS = new Set(['all', 'photo', 'video', 'document']);
-const TYPE_PREFIXES = new Set(['type', 't', '类型']);
-const LOCATION_PREFIXES = new Set(['loc', 'location', 'place', '地点', '位置']);
+const TYPE_PREFIXES = new Set(['type', 't', '\u7c7b\u578b']);
+const LOCATION_PREFIXES = new Set(['loc', 'location', 'place', '\u5730\u70b9', '\u4f4d\u7f6e']);
+const CATEGORY_PREFIXES = new Set(['category', 'cat', '\u5206\u7c7b', '\u89c6\u9891\u5206\u7c7b']);
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -28,13 +29,13 @@ function stripWrappingQuotes(value) {
 
 function normalizeTypeFacet(value) {
   const normalized = normalizeLowerText(value);
-  if (['photo', 'photos', 'image', 'images', 'pic', 'pics', '照片', '图片'].includes(normalized)) {
+  if (['photo', 'photos', 'image', 'images', 'pic', 'pics', '\u7167\u7247', '\u56fe\u7247'].includes(normalized)) {
     return 'photo';
   }
-  if (['video', 'videos', 'movie', 'movies', '视频', '录像'].includes(normalized)) {
+  if (['video', 'videos', 'movie', 'movies', '\u89c6\u9891', '\u5f55\u50cf'].includes(normalized)) {
     return 'video';
   }
-  if (['document', 'documents', 'doc', 'docs', 'scan', 'scans', '文档', '文件', '扫描'].includes(normalized)) {
+  if (['document', 'documents', 'doc', 'docs', 'scan', 'scans', '\u6587\u6863', '\u6587\u4ef6', '\u626b\u63cf'].includes(normalized)) {
     return 'document';
   }
   return MEDIA_TYPE_FACETS.has(normalized) ? normalized : '';
@@ -44,6 +45,7 @@ export function createEmptyMediaSearchFilters() {
   return {
     type: 'all',
     locationQuery: '',
+    categoryQuery: '',
   };
 }
 
@@ -51,6 +53,7 @@ export function normalizeMediaSearchFilters(input = {}) {
   return {
     type: normalizeTypeFacet(input.type) || 'all',
     locationQuery: normalizeText(input.locationQuery),
+    categoryQuery: normalizeText(input.categoryQuery),
   };
 }
 
@@ -89,6 +92,13 @@ export function parseMediaSearchQuery(input = '') {
       return;
     }
 
+    if (CATEGORY_PREFIXES.has(prefix)) {
+      filters.categoryQuery = filters.categoryQuery
+        ? `${filters.categoryQuery} ${value}`
+        : value;
+      return;
+    }
+
     plainTerms.push(stripWrappingQuotes(token));
   });
 
@@ -106,6 +116,9 @@ export function countActiveMediaSearchFilters(input = {}) {
     count += 1;
   }
   if (filters.locationQuery) {
+    count += 1;
+  }
+  if (filters.categoryQuery) {
     count += 1;
   }
   return count;
@@ -136,6 +149,14 @@ export function matchesMediaSearchFilters(item, input = {}) {
     }
   }
 
+  if (filters.categoryQuery) {
+    const categoryNeedle = filters.categoryQuery.toLowerCase();
+    const categoryHaystack = String(item?.videoCategory || '').toLowerCase();
+    if (!categoryHaystack.includes(categoryNeedle)) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -147,6 +168,9 @@ export function summarizeMediaSearch(filtersInput = {}) {
   }
   if (filters.locationQuery) {
     parts.push(`Location: ${filters.locationQuery}`);
+  }
+  if (filters.categoryQuery) {
+    parts.push(`Category: ${filters.categoryQuery}`);
   }
   return parts;
 }
