@@ -12,10 +12,52 @@ import { SqliteD1 } from '../server/sqliteD1.js';
 class MemoryKV {
   constructor(entries = {}) {
     this.store = new Map(Object.entries(entries));
+    this.metadata = new Map();
   }
 
   async get(key) {
     return this.store.has(key) ? this.store.get(key) : null;
+  }
+
+  async put(key, value, options = {}) {
+    this.store.set(key, value);
+    this.metadata.set(key, options.metadata || null);
+  }
+
+  async getWithMetadata(key) {
+    if (!this.store.has(key)) {
+      return null;
+    }
+
+    return {
+      value: this.store.get(key),
+      metadata: this.metadata.get(key) || {},
+    };
+  }
+
+  async list(options = {}) {
+    const prefix = options.prefix || '';
+    const limit = options.limit || 1000;
+    const cursor = options.cursor || null;
+    const keys = [...this.store.keys()]
+      .filter((key) => key.startsWith(prefix))
+      .sort()
+      .filter((key) => !cursor || key > cursor);
+
+    const page = keys.slice(0, limit + 1);
+    const hasMore = page.length > limit;
+    if (hasMore) {
+      page.pop();
+    }
+
+    return {
+      keys: page.map((name) => ({
+        name,
+        metadata: this.metadata.get(name) || {},
+      })),
+      cursor: hasMore && page.length > 0 ? page[page.length - 1] : null,
+      list_complete: !hasMore,
+    };
   }
 }
 
@@ -131,6 +173,58 @@ describe('recover capture times route', () => {
 
     const updated = await db.getWithMetadata('photos/no-exif.jpg');
     assert.equal(updated.metadata.Exif.dateTime, '2025-03-14T08:09:10.000Z');
+  });
+
+  it('repairs D1 image records from legacy KV index metadata before falling back to source scraping', async () => {
+    const env = {
+      img_url: new MemoryKV({
+        'manage@index@meta': JSON.stringify({ chunkCount: 1 }),
+        'manage@index_0': createIndexChunk([
+          {
+            id: 'photos/from-legacy-index.jpg',
+            metadata: {
+              Channel: 'TelegramNew',
+              FileName: 'from-legacy-index.jpg',
+              FileType: 'image/jpeg',
+              TimeStamp: 1775628424666,
+              Exif: {
+                dateTime: '2024-01-05T06:07:08.000Z',
+              },
+            },
+          },
+        ]),
+      }),
+      img_d1: new SqliteD1(':memory:'),
+    };
+    const db = new D1Database(env.img_d1);
+    await db.put('photos/from-legacy-index.jpg', '', {
+      metadata: {
+        Channel: 'TelegramNew',
+        FileName: 'from-legacy-index.jpg',
+        FileType: 'image/jpeg',
+        TimeStamp: 1775628424666,
+      },
+    });
+
+    const response = await onRequest({
+      env,
+      request: new Request('https://example.com/api/manage/migrate/recover-capture-times', {
+        method: 'POST',
+        body: JSON.stringify({ keys: ['photos/from-legacy-index.jpg'] }),
+      }),
+      waitUntil(promise) {
+        return promise;
+      },
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.success, true);
+    assert.equal(payload.recovered, 1);
+
+    const updated = await db.getWithMetadata('photos/from-legacy-index.jpg');
+    assert.equal(updated.metadata.DateTaken, '2024-01-05T06:07:08.000Z');
+    assert.equal(updated.metadata.Exif.dateTime, '2024-01-05T06:07:08.000Z');
   });
 
   it('returns CORS headers for OPTIONS', async () => {

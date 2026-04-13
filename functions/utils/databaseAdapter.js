@@ -1,5 +1,6 @@
 import { D1Database } from './d1Database.js';
 import { stripSensitiveMetadata } from './mediaSecurity.js';
+import { ensurePersistedCaptureTime } from './captureTimeMetadata.js';
 
 export const KV_TO_D1_MIGRATION_STATE_KEY = 'manage@sysConfig@kvToD1Migration';
 
@@ -35,14 +36,15 @@ const KV_METADATA_CORE_KEYS = [
     'FileName', 'FileType', 'FileSize', 'TimeStamp', 'Label', 'Directory',
     'Channel', 'ChannelName', 'ListType', 'Width', 'Height',
     'TgFileId', 'TgChatId', 'TgMessageId', 'TgFileUniqueId',
-    'Album', 'TgAlbumPath', 'Description',
+    'Album', 'TgAlbumPath', 'Description', 'DateTaken',
 ];
 
 function trimMetadataForKV(metadata) {
+    const source = ensurePersistedCaptureTime(metadata, metadata?.FileName || '');
     const trimmed = {};
     for (const key of KV_METADATA_CORE_KEYS) {
-        if (metadata[key] !== undefined && metadata[key] !== null) {
-            trimmed[key] = metadata[key];
+        if (source[key] !== undefined && source[key] !== null) {
+            trimmed[key] = source[key];
         }
     }
     return trimmed;

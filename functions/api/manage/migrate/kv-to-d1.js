@@ -1,6 +1,7 @@
 import { rebuildIndex } from '../../../utils/indexManager.js';
 import { D1Database } from '../../../utils/d1Database.js';
 import { KV_TO_D1_MIGRATION_STATE_KEY } from '../../../utils/databaseAdapter.js';
+import { loadLegacyKvIndexMetadataMap, mergeCaptureMetadata } from '../../../utils/captureTimeMetadata.js';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -94,6 +95,10 @@ async function onRequestPost(context) {
     let migratedSettings = 0;
     let skipped = 0;
     const skippedKeys = [];
+    const targetFileKeys = (response.keys || [])
+        .map((item) => item?.name)
+        .filter((key) => key && !shouldSkipKey(key) && !key.startsWith('manage@'));
+    const legacyIndexMetadataMap = await loadLegacyKvIndexMetadataMap(env, targetFileKeys);
 
     function recordSkippedKey(key, reason) {
         skipped += 1;
@@ -137,7 +142,11 @@ async function onRequestPost(context) {
         }
 
         await d1.put(key, '', {
-            metadata: item.metadata,
+            metadata: mergeCaptureMetadata(
+                item.metadata,
+                legacyIndexMetadataMap.get(key) || {},
+                item.metadata?.FileName || key,
+            ),
         });
         migratedFiles += 1;
     }

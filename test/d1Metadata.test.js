@@ -88,6 +88,13 @@ function createContext(env, request = new Request('https://example.com/api/manag
     };
 }
 
+function createIndexChunk(files) {
+    return JSON.stringify(files.map((file) => ({
+        id: file.id,
+        metadata: file.metadata,
+    })));
+}
+
 async function seedD1File(d1, id, metadata = {}) {
     await d1.put(id, '', {
         metadata: {
@@ -171,6 +178,28 @@ describe('D1 metadata migration path', () => {
         assert.equal(operationWrite.options.expirationTtl, 3600);
     });
 
+    it('keeps a flattened DateTaken in KV metadata when full capture metadata is present', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+        };
+        const db = getDatabase(env);
+
+        await db.put('photos/capture.jpg', 'kv-value', {
+            metadata: {
+                FileName: 'capture.jpg',
+                FileType: 'image/jpeg',
+                TimeStamp: 300,
+                Exif: {
+                    dateTime: '2025-03-14T08:09:10.000Z',
+                },
+            },
+        });
+
+        const stored = await env.img_url.getWithMetadata('photos/capture.jpg');
+        assert.equal(stored.metadata.DateTaken, '2025-03-14T08:09:10.000Z');
+        assert.equal(stored.metadata.Exif, undefined);
+    });
+
     it('migrates existing KV metadata into D1', async () => {
         const env = {
             img_url: new MemoryKV(),
@@ -219,6 +248,51 @@ describe('D1 metadata migration path', () => {
         const d1 = new D1Database(env.img_d1);
         const migrationStatus = JSON.parse(await d1.get(KV_TO_D1_MIGRATION_STATE_KEY));
         assert.equal(migrationStatus.complete, true);
+    });
+
+    it('enriches migrated D1 metadata with capture time from legacy index chunks', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+
+        await env.img_url.put('manage@index@meta', JSON.stringify({ chunkCount: 1 }));
+        await env.img_url.put('manage@index_0', createIndexChunk([
+            {
+                id: 'photos/imported.jpg',
+                metadata: {
+                    FileName: 'imported.jpg',
+                    FileType: 'image/jpeg',
+                    TimeStamp: 300,
+                    Exif: {
+                        dateTime: '2024-07-12T10:30:00.000Z',
+                    },
+                },
+            },
+        ]));
+        await env.img_url.put('photos/imported.jpg', 'kv-value', {
+            metadata: {
+                FileName: 'imported.jpg',
+                FileType: 'image/jpeg',
+                TimeStamp: 300,
+                Directory: 'photos/',
+                ChannelName: 'Telegram_env',
+            },
+        });
+
+        const response = await migrateKvToD1(createContext(
+            env,
+            new Request('https://example.com/api/manage/migrate/kv-to-d1', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ limit: 100, rebuild: false }),
+            }),
+        ));
+
+        assert.equal(response.status, 200);
+        const migratedRecord = await getDatabase(env).getWithMetadata('photos/imported.jpg');
+        assert.equal(migratedRecord.metadata.DateTaken, '2024-07-12T10:30:00.000Z');
+        assert.equal(migratedRecord.metadata.Exif.dateTime, '2024-07-12T10:30:00.000Z');
     });
 
     it('rolls back D1 metadata when the KV write fails in hybrid mode', async () => {

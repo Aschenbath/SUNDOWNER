@@ -12,6 +12,7 @@ import {
 } from '../../../utils/mediaSecurity.js';
 import { resolveStoredTelegramReadTarget } from '../../../utils/telegramFileId.js';
 import { resolveMediaCaptureTimestamp } from '../../../../js/media-library/time-resolution.js';
+import { loadLegacyKvIndexMetadataMap, mergeCaptureMetadata } from '../../../utils/captureTimeMetadata.js';
 
 const INDEX_META_KEY = 'manage@index@meta';
 const INDEX_KEY = 'manage@index';
@@ -404,10 +405,30 @@ export async function onRequestPost(context) {
         return jsonResponse(results);
     }
 
+    const legacyIndexMetadataMap = await loadLegacyKvIndexMetadataMap(
+        env,
+        toProcess.map((candidate) => candidate.id),
+    );
+
     for (const candidate of toProcess) {
         results.processed += 1;
 
         try {
+            const record = await db.getWithMetadata(candidate.id);
+            const currentMetadata = record?.metadata || candidate.metadata || {};
+            const legacyMetadata = legacyIndexMetadataMap.get(candidate.id) || {};
+            const legacyPatchedMetadata = mergeCaptureMetadata(
+                currentMetadata,
+                legacyMetadata,
+                currentMetadata.FileName || candidate.id,
+            );
+            if (Number.isFinite(resolveMediaCaptureTimestamp(legacyPatchedMetadata, legacyPatchedMetadata.FileName || candidate.id))) {
+                await db.put(candidate.id, record?.value ?? '', { metadata: legacyPatchedMetadata });
+                await addFileToIndex(context, candidate.id, legacyPatchedMetadata);
+                results.recovered += 1;
+                continue;
+            }
+
             const fileType = resolveImageFileType(candidate.metadata || {}, candidate.id);
             const headerBuffer = await fetchSourceHeaderBuffer(env, candidate);
             if (!headerBuffer?.byteLength) {
@@ -424,12 +445,10 @@ export async function onRequestPost(context) {
                 continue;
             }
 
-            const record = await db.getWithMetadata(candidate.id);
-            const currentMetadata = record?.metadata || candidate.metadata || {};
             const patchedMetadata = {
-                ...currentMetadata,
+                ...legacyPatchedMetadata,
                 Exif: {
-                    ...(currentMetadata.Exif && typeof currentMetadata.Exif === 'object' ? currentMetadata.Exif : {}),
+                    ...(legacyPatchedMetadata.Exif && typeof legacyPatchedMetadata.Exif === 'object' ? legacyPatchedMetadata.Exif : {}),
                     ...exifData,
                 },
             };
