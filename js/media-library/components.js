@@ -945,6 +945,7 @@ export function DocumentsListView({ items, state }) {
 
     moveDialogHtml = `
       <div class="cml-docs-move-overlay">
+        <div class="cml-docs-move-overlay__backdrop" data-action="docs-move-cancel"></div>
         <div class="cml-docs-move-dialog">
           <div class="cml-docs-move-dialog__header">
             <h3>Move to</h3>
@@ -958,9 +959,23 @@ export function DocumentsListView({ items, state }) {
                 <span>${escapeHtml(name)}</span>
                 ${icon('next')}
               </button>
-            `).join('') : `
-              <div class="cml-docs-move-dialog__empty">No subfolders</div>
+            `).join('') : ''}
+            ${state.docsMoveCreateOpen ? `
+              <div class="cml-docs-move-dialog__create-row">
+                <input type="text" class="cml-docs-move-dialog__create-input" data-focus-key="docs-move-create" data-docs-move-create-input
+                  value="${escapeHtml(state.docsMoveCreateName || '')}" placeholder="New folder name" maxlength="64" autocomplete="off" />
+                <button type="button" class="cml-docs-move-dialog__create-ok" data-action="docs-move-create-confirm">OK</button>
+                <button type="button" class="cml-docs-move-dialog__create-cancel" data-action="docs-move-create-cancel">${icon('x')}</button>
+              </div>
+            ` : `
+              <button type="button" class="cml-docs-move-dialog__item cml-docs-move-dialog__item--new" data-action="docs-move-create-open">
+                ${icon('plus')}
+                <span>New folder</span>
+              </button>
             `}
+            ${!sortedMoveFolders.length && !state.docsMoveCreateOpen ? `
+              <div class="cml-docs-move-dialog__empty">No subfolders</div>
+            ` : ''}
           </div>
           <div class="cml-docs-move-dialog__footer">
             <button type="button" class="cml-docs-move-dialog__confirm" data-action="docs-move-confirm">

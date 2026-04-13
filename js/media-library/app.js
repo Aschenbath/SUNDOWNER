@@ -301,6 +301,8 @@ const state = {
   docsFolders: new Set(),
   docsMoveDialogOpen: false,
   docsMoveDialogDir: '',
+  docsMoveCreateOpen: false,
+  docsMoveCreateName: '',
   docsContextMenu: null
 };
 
@@ -4295,6 +4297,8 @@ function openDocsMoveDialog() {
   }
   state.docsMoveDialogOpen = true;
   state.docsMoveDialogDir = '';
+  state.docsMoveCreateOpen = false;
+  state.docsMoveCreateName = '';
   render();
 }
 
@@ -4302,6 +4306,8 @@ async function moveSelectedDocsToFolder(targetDir) {
   const selectedItemIds = [...state.selectedIds];
   if (!selectedItemIds.length) return;
   state.docsMoveDialogOpen = false;
+  state.docsMoveCreateOpen = false;
+  state.docsMoveCreateName = '';
   await moveFilesToFolder(selectedItemIds, targetDir);
   state.selectedIds.clear();
   await performSyncLiveMedia({ forceRender: true });
@@ -4360,7 +4366,10 @@ function getFilteredItems(items = getAllItems()) {
         break;
       default:
         // In Photos view (no secondary filter), exclude documents
-        if (state.primaryFilter === 'Photos' && item.type === 'document') {
+        // — unless the user is actively searching (so documents can
+        //   appear in search results) or the type: filter targets them.
+        if (state.primaryFilter === 'Photos' && item.type === 'document'
+            && !query && searchFilters.type === 'all') {
           return false;
         }
         break;
@@ -4839,7 +4848,11 @@ function render() {
   const activeSearchFilterCount = countActiveMediaSearchFilters(parsedSearch.filters);
   const activeSearchFilterParts = summarizeMediaSearch(parsedSearch.filters);
 
-  refs.root.innerHTML = `
+  // ── Incremental render: preserve the sidebar DOM to avoid flicker ──
+  const existingSidebar = refs.root.querySelector('.cml-sidebar');
+  const existingShell = refs.root.querySelector('.cml-app-shell');
+
+  const fullHtml = `
     <div class="cml-app-shell">
       ${Sidebar({
         navigationModel: viewModel.navigationModel,
@@ -4928,6 +4941,38 @@ function render() {
       ${MobileBottomNav({ navigationModel: viewModel.navigationModel, state })}
     </div>
   `;
+
+  // ── Incremental patch: keep sidebar alive across live-sync re-renders ──
+  // When the sidebar already exists in the DOM we avoid replacing it so its
+  // active-state highlight, scroll position and focus stay stable during
+  // live-media syncs that rebuild the main content area.
+  if (existingSidebar && existingShell) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = fullHtml;
+    const newShell = tpl.content.querySelector('.cml-app-shell');
+    if (newShell) {
+      // Detach old sidebar before replacing children — then reinsert it
+      existingSidebar.remove();
+      // Replace all children of the shell (main-shell + overlays + mobile-nav)
+      while (existingShell.firstChild) existingShell.removeChild(existingShell.firstChild);
+      // Re-insert the preserved sidebar first
+      existingShell.appendChild(existingSidebar);
+      // Append everything except the new sidebar from the template
+      while (newShell.firstChild) {
+        const child = newShell.firstChild;
+        if (child instanceof Element && child.classList.contains('cml-sidebar')) {
+          newShell.removeChild(child); // skip — we kept the old one
+        } else {
+          existingShell.appendChild(child);
+        }
+      }
+    } else {
+      refs.root.innerHTML = fullHtml;
+    }
+    patchSidebarActive();
+  } else {
+    refs.root.innerHTML = fullHtml;
+  }
 
   if (state.renameAlbumDialogOpen) {
     focusInlineRenameInput({ select: true });
@@ -6156,8 +6201,36 @@ function handleAction(actionTarget) {
     }
     case 'docs-move-cancel':
       state.docsMoveDialogOpen = false;
+      state.docsMoveCreateOpen = false;
+      state.docsMoveCreateName = '';
       render();
       return true;
+    case 'docs-move-create-open':
+      state.docsMoveCreateOpen = true;
+      state.docsMoveCreateName = '';
+      render();
+      requestAnimationFrame(() => {
+        const inp = refs.root?.querySelector('[data-docs-move-create-input]');
+        if (inp) inp.focus();
+      });
+      return true;
+    case 'docs-move-create-cancel':
+      state.docsMoveCreateOpen = false;
+      state.docsMoveCreateName = '';
+      render();
+      return true;
+    case 'docs-move-create-confirm': {
+      const folderName = normalizeText(state.docsMoveCreateName);
+      if (!folderName) return true;
+      const newDir = state.docsMoveDialogDir ? state.docsMoveDialogDir + '/' + folderName : folderName;
+      if (!(state.docsFolders instanceof Set)) state.docsFolders = new Set();
+      state.docsFolders.add(newDir);
+      state.docsMoveCreateOpen = false;
+      state.docsMoveCreateName = '';
+      state.docsMoveDialogDir = newDir;
+      render();
+      return true;
+    }
     case 'docs-row-menu': {
       const id = actionTarget.dataset.id;
       if (!id) return true;
@@ -6634,6 +6707,10 @@ function handleInput(event) {
   if (input.hasAttribute('data-docs-folder-input')) {
     return;
   }
+  if (input.hasAttribute('data-docs-move-create-input')) {
+    state.docsMoveCreateName = input.value;
+    return;
+  }
   if (input.dataset.adminField && input.dataset.adminSection) {
     const value = input instanceof HTMLInputElement && input.type === 'checkbox'
       ? input.checked
@@ -6727,6 +6804,39 @@ function handleKeyDown(event) {
     return;
   }
 
+  if (state.docsMoveDialogOpen && !state.docsMoveCreateOpen) {
+    if (event.key === 'Escape') {
+      state.docsMoveDialogOpen = false;
+      render();
+      return;
+    }
+    // Let other keys fall through to folder navigation
+  }
+
+  if (state.docsMoveCreateOpen) {
+    if (event.key === 'Escape') {
+      state.docsMoveCreateOpen = false;
+      state.docsMoveCreateName = '';
+      render();
+      return;
+    }
+    if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.hasAttribute('data-docs-move-create-input')) {
+      event.preventDefault();
+      const folderName = normalizeText(state.docsMoveCreateName);
+      if (folderName) {
+        const newDir = state.docsMoveDialogDir ? state.docsMoveDialogDir + '/' + folderName : folderName;
+        if (!(state.docsFolders instanceof Set)) state.docsFolders = new Set();
+        state.docsFolders.add(newDir);
+        state.docsMoveCreateOpen = false;
+        state.docsMoveCreateName = '';
+        state.docsMoveDialogDir = newDir;
+        render();
+      }
+      return;
+    }
+    return;
+  }
+
   if (state.docsNewFolderOpen) {
     if (event.key === 'Escape') {
       state.docsNewFolderOpen = false;
@@ -6761,6 +6871,12 @@ function handleKeyDown(event) {
       event.preventDefault();
       submitAlbumDialog();
     }
+    return;
+  }
+
+  // Escape cancels album-selection (picker) mode
+  if (state.albumSelectionTarget && event.key === 'Escape') {
+    closeAlbumSelection();
     return;
   }
 

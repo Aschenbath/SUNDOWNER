@@ -3533,10 +3533,18 @@ body.codex-media-library-active #app {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+#codex-media-library-root .cml-docs-move-overlay__backdrop {
+  position: absolute;
+  inset: 0;
   background: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
 }
 
 #codex-media-library-root .cml-docs-move-dialog {
+  position: relative;
+  z-index: 1;
   width: 380px;
   max-height: 480px;
   background: #2d2d3a;
@@ -3700,6 +3708,66 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-docs-move-dialog__confirm:hover {
   background: #aecbfa;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__item--new {
+  color: #8ab4f8;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0 0 10px 10px;
+  margin-top: 4px;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__create-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__create-input {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e8eaed;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__create-input:focus {
+  border-color: rgba(138, 180, 248, 0.48);
+}
+
+#codex-media-library-root .cml-docs-move-dialog__create-ok {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #8ab4f8;
+  color: #1a1a2e;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__create-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: #9aa0a6;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-docs-move-dialog__create-cancel:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 #codex-media-library-root .cml-docs-empty {
