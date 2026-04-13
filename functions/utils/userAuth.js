@@ -55,7 +55,17 @@ export function UnauthorizedResponse(reason) {
 }
 
 function isValidAuthCode(rightAuthCode, authCode) {
-    return authCode === rightAuthCode;
+    if (typeof authCode !== 'string' || typeof rightAuthCode !== 'string') {
+        return false;
+    }
+    if (authCode.length !== rightAuthCode.length) {
+        return false;
+    }
+    let mismatch = 0;
+    for (let i = 0; i < authCode.length; i++) {
+        mismatch |= authCode.charCodeAt(i) ^ rightAuthCode.charCodeAt(i);
+    }
+    return mismatch === 0;
 }
 
 function getCookieValue(cookies, name) {

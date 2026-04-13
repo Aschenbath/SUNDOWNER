@@ -223,19 +223,17 @@ async function updateApiToken(db, tokenId, permissions, expiresAt = null, autoDe
     }
 }
 
-// 生成随机Token
+// 生成随机Token（使用密码学安全随机源）
 function generateApiToken() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    let result = 'imgbed_'
-    for (let i = 0; i < 32; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    return result
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    return 'imgbed_' + hex.slice(0, 32);
 }
 
-// 生成Token ID
+// 生成Token ID（使用密码学安全随机源）
 function generateTokenId() {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2)
+    return crypto.randomUUID();
 }
 
 // 根据Token获取权限（供其他API使用）

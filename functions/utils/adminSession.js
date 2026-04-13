@@ -67,7 +67,15 @@ export async function verifyAdminSessionToken(token, username, password) {
 
   try {
     const expectedSignature = await signData(encodedPayload, password);
-    if (expectedSignature !== signature) {
+    // 常量时间比较，防止 timing attack
+    if (expectedSignature.length !== signature.length) {
+      return false;
+    }
+    let mismatch = 0;
+    for (let i = 0; i < expectedSignature.length; i++) {
+      mismatch |= expectedSignature.charCodeAt(i) ^ signature.charCodeAt(i);
+    }
+    if (mismatch !== 0) {
       return false;
     }
 

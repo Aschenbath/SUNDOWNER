@@ -314,7 +314,8 @@ export async function onRequest(context) {  // Contents of context object
 
         return newRes;
     } catch (error) {
-        return new Response('Error: ' + error, { status: 500 });
+        console.error('File serving error:', error);
+        return new Response('Internal server error', { status: 500 });
     }
 }
 
@@ -472,7 +473,8 @@ async function handleTelegramChunkedFile(context, imgRecord, encodedFileName, fi
         }
 
     } catch (error) {
-        return new Response(`Error: Failed to reconstruct chunked file - ${error.message}`, { status: 500 });
+        console.error('Chunked file reconstruction error:', error);
+        return new Response('Error: Failed to reconstruct chunked file', { status: 500 });
     }
 }
 
@@ -667,7 +669,8 @@ async function handleDiscordChunkedFile(context, imgRecord, encodedFileName, fil
         }
 
     } catch (error) {
-        return new Response(`Error: Failed to reconstruct Discord chunked file - ${error.message}`, { status: 500 });
+        console.error('Discord chunked file reconstruction error:', error);
+        return new Response('Error: Failed to reconstruct chunked file', { status: 500 });
     }
 }
 
@@ -790,7 +793,8 @@ async function handleR2File(context, fileId, encodedFileName, fileType) {
             headers,
         });
     } catch (error) {
-        return new Response(`Error: Failed to fetch from R2 - ${error.message}`, { status: 500 });
+        console.error('R2 fetch error:', error);
+        return new Response('Error: Failed to fetch file', { status: 500 });
     }
 }
 
@@ -924,7 +928,8 @@ async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType) 
         });
 
     } catch (error) {
-        return new Response(`Error: Failed to fetch from S3 - ${error.message}`, { status: 500 });
+        console.error('S3 fetch error:', error);
+        return new Response('Error: Failed to fetch file', { status: 500 });
     }
 }
 
@@ -992,7 +997,8 @@ async function handleDiscordFile(context, metadata, encodedFileName, fileType) {
         });
 
     } catch (error) {
-        return new Response(`Error: Failed to fetch from Discord - ${error.message}`, { status: 500 });
+        console.error('Discord fetch error:', error);
+        return new Response('Error: Failed to fetch file', { status: 500 });
     }
 }
 
@@ -1063,6 +1069,7 @@ async function handleHuggingFaceFile(context, metadata, encodedFileName, fileTyp
         });
 
     } catch (error) {
-        return new Response(`Error: Failed to fetch from HuggingFace - ${error.message}`, { status: 500 });
+        console.error('HuggingFace fetch error:', error);
+        return new Response('Error: Failed to fetch file', { status: 500 });
     }
 }

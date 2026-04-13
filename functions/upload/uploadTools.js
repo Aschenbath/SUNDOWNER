@@ -21,12 +21,14 @@ export function createResponse(body, options = {}) {
     });
 }
 
-// 生成短链接
+// 生成短链接（使用密码学安全随机源）
 export function generateShortId(length = 8) {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
     for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        result += chars.charAt(bytes[i] % chars.length);
     }
     return result;
 }
@@ -35,19 +37,21 @@ export function generateShortId(length = 8) {
 export async function getIPAddress(ip) {
     let address = '未知';
     try {
-        const ipInfo = await fetch(`https://apimobile.meituan.com/locate/v2/ip/loc?rgeo=true&ip=${ip}`);
+        const ipInfo = await fetch(`https://apimobile.meituan.com/locate/v2/ip/loc?rgeo=true&ip=${ip}`, {
+            signal: AbortSignal.timeout(3000),
+        });
         const ipData = await ipInfo.json();
 
         if (ipInfo.ok && ipData.data) {
             const lng = ipData.data?.lng || 0;
             const lat = ipData.data?.lat || 0;
 
-            // 读取具体地址
-            const addressInfo = await fetch(`https://apimobile.meituan.com/group/v1/city/latlng/${lat},${lng}?tag=0`);
+            const addressInfo = await fetch(`https://apimobile.meituan.com/group/v1/city/latlng/${lat},${lng}?tag=0`, {
+                signal: AbortSignal.timeout(3000),
+            });
             const addressData = await addressInfo.json();
 
             if (addressInfo.ok && addressData.data) {
-                // 根据各字段是否存在，拼接地址
                 address = [
                     addressData.data.detail,
                     addressData.data.city,
@@ -125,13 +129,20 @@ export function sanitizeUploadFolder(folder) {
 }
 
 // 检查文件扩展名是否有效
+const VALID_EXTENSIONS = new Set([
+    'jpeg', 'jpg', 'png', 'gif', 'webp', 'ico', 'svg', 'eps', 'psd', 'ai', 'sketch', 'fig',
+    'mp4', 'mp3', 'ogg', 'wav', 'flac', 'aac', 'opus',
+    'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'pdf',
+    'txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'ts', 'go', 'java', 'php', 'py', 'rb', 'sh', 'bat', 'cmd', 'ps1', 'psm1',
+    'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz',
+    'apk', 'exe', 'msi', 'dmg', 'iso', 'torrent', 'crx', 'xpi', 'deb', 'rpm', 'jar', 'war', 'ear',
+    'ttf', 'otf', 'woff', 'woff2', 'eot',
+    'img', 'vdi', 'ova', 'ovf', 'qcow2', 'vmdk', 'vhd', 'vhdx', 'pvm', 'dsk', 'hdd',
+    'bin', 'cue', 'mds', 'mdf', 'nrg', 'ccd', 'cif', 'c2d', 'daa', 'b6t', 'b5t', 'bwt', 'isz', 'cdi', 'flp', 'uif', 'xdi', 'sdi',
+]);
+
 export function isExtValid(fileExt) {
-    return ['jpeg', 'jpg', 'png', 'gif', 'webp',
-        'mp4', 'mp3', 'ogg',
-        'mp3', 'wav', 'flac', 'aac', 'opus',
-        'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'pdf',
-        'txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'ts', 'go', 'java', 'php', 'py', 'rb', 'sh', 'bat', 'cmd', 'ps1', 'psm1', 'psd', 'ai', 'sketch', 'fig', 'svg', 'eps', 'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'apk', 'exe', 'msi', 'dmg', 'iso', 'torrent', 'webp', 'ico', 'svg', 'ttf', 'otf', 'woff', 'woff2', 'eot', 'apk', 'crx', 'xpi', 'deb', 'rpm', 'jar', 'war', 'ear', 'img', 'iso', 'vdi', 'ova', 'ovf', 'qcow2', 'vmdk', 'vhd', 'vhdx', 'pvm', 'dsk', 'hdd', 'bin', 'cue', 'mds', 'mdf', 'nrg', 'ccd', 'cif', 'c2d', 'daa', 'b6t', 'b5t', 'bwt', 'isz', 'isz', 'cdi', 'flp', 'uif', 'xdi', 'sdi'
-    ].includes(fileExt);
+    return VALID_EXTENSIONS.has(fileExt);
 }
 /**
  * 从文件名和文件类型中解析出有效的文件扩展名
