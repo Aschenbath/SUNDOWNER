@@ -69,7 +69,7 @@ functions/
 
 ---
 
-## Pending Issues (as of 2026-04-09)
+## Pending Issues (as of 2026-04-13)
 
 1. **时间戳格式文件 500**：`1775628424666_市政厅前的吻.jpg` 等，非 `tg_` 格式，无法从 key 提取 messageId，需手动查原始消息。Codex 已新增 `GET /api/manage/migrate/scan-orphan-files` 用于定位这类候选记录，但还没有自动恢复能力
-2. **D1 迁移**：代码层面的 D1 / hybrid / queryFiles 和 `GET /api/manage/migrate/status` 已完成，但生产还需要 Cloudflare Pages 绑定 `img_d1` 并调用 `POST /api/manage/migrate/kv-to-d1` 完成真正切换
+2. ~~**D1 迁移**~~：**已完成 (2026-04-13)**。生产已绑定 `img_d1`，KV→D1 迁移已执行（38 files, 2 settings），当前运行 Hybrid 模式，list 查询走 D1 SQL 不再消耗 KV list 配额
