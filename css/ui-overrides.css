@@ -1529,3 +1529,44 @@ body.codex-route-dashboard .container[data-v-ad54b28c] .pagination-container {
     grid-auto-rows: 110px;
   }
 }
+
+/* ── Media-library isolation ──
+   ui-overrides generic selectors (button, input, span…) carry
+   !important and stomp the dark-theme colours inside the
+   media-library overlay.  We counteract them here so that
+   media-library.css values take effect. */
+
+#codex-media-library-root button,
+#codex-media-library-root [role='button'] {
+  background: none !important;
+  border-color: transparent !important;
+  color: inherit !important;
+  box-shadow: none !important;
+}
+
+#codex-media-library-root input,
+#codex-media-library-root textarea,
+#codex-media-library-root select {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+  color: #e8eaed !important;
+}
+
+#codex-media-library-root span,
+#codex-media-library-root p,
+#codex-media-library-root small,
+#codex-media-library-root strong,
+#codex-media-library-root h1,
+#codex-media-library-root h2,
+#codex-media-library-root h3,
+#codex-media-library-root h4,
+#codex-media-library-root h5,
+#codex-media-library-root h6,
+#codex-media-library-root label,
+#codex-media-library-root li,
+#codex-media-library-root td,
+#codex-media-library-root th,
+#codex-media-library-root a {
+  color: inherit !important;
+}
