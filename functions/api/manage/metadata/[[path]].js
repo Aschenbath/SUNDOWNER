@@ -1,6 +1,7 @@
 import { addFileToIndex } from '../../../utils/indexManager.js';
 import { getDatabase } from '../../../utils/databaseAdapter.js';
 import { sanitizeExposedMetadata } from '../../../utils/mediaSecurity.js';
+import { parseLooseCaptureTimestamp } from '../../../../js/media-library/time-resolution.js';
 
 // CORS 跨域响应头
 const corsHeaders = {
@@ -61,14 +62,33 @@ export async function onRequest(context) {
         }
 
         // 验证请求体中包含可更新的字段
-        if (!body || (typeof body.FileName !== 'string' && typeof body.FileType !== 'string' && typeof body.Description !== 'string' && typeof body.Directory !== 'string')) {
+        if (!body || (
+            typeof body.FileName !== 'string'
+            && typeof body.FileType !== 'string'
+            && typeof body.Description !== 'string'
+            && typeof body.Directory !== 'string'
+            && typeof body.DateTaken !== 'string'
+        )) {
             return new Response(JSON.stringify({
                 success: false,
-                message: 'At least one of FileName, FileType, Description, or Directory is required.',
+                message: 'At least one of FileName, FileType, Description, Directory, or DateTaken is required.',
             }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json', ...corsHeaders },
             });
+        }
+
+        if (typeof body.DateTaken === 'string') {
+            const normalizedDateTaken = body.DateTaken.trim();
+            if (!normalizedDateTaken || !Number.isFinite(parseLooseCaptureTimestamp(normalizedDateTaken))) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'DateTaken must be a valid date-time string.',
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json', ...corsHeaders },
+                });
+            }
         }
 
         const db = getDatabase(env);
@@ -99,6 +119,9 @@ export async function onRequest(context) {
         }
         if (typeof body.Directory === 'string') {
             updatedMetadata.Directory = body.Directory;
+        }
+        if (typeof body.DateTaken === 'string') {
+            updatedMetadata.DateTaken = body.DateTaken.trim();
         }
 
         // 保存更新后的 metadata

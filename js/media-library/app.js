@@ -20,7 +20,7 @@ import {
   TopSearchBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=19';
+} from './components.js?v=20';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -4207,6 +4207,134 @@ function requestDeletePreview(itemId) {
   requestDeleteSelection(false, { origin: 'preview' });
 }
 
+function encodeMetadataPath(sourceId) {
+  return String(sourceId || '')
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join(',');
+}
+
+function formatCaptureTimeMeta(value) {
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) {
+    return 'Click to change';
+  }
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()] || '';
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absMinutes = Math.abs(offsetMinutes);
+  const offsetHours = String(Math.floor(absMinutes / 60)).padStart(2, '0');
+  const offsetMins = String(absMinutes % 60).padStart(2, '0');
+  return [weekday, `${hh}:${mm}`, `GMT${sign}${offsetHours}:${offsetMins}`].filter(Boolean).join('  ');
+}
+
+function formatCaptureTimeInputValue(value) {
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hh}:${mm}`;
+}
+
+function parseCaptureTimeInputValue(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return '';
+  }
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) {
+    return '';
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const date = new Date(year, month - 1, day, hour, minute, 0, 0);
+  if (
+    date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+    || date.getHours() !== hour
+    || date.getMinutes() !== minute
+  ) {
+    return '';
+  }
+  return date.toISOString();
+}
+
+function buildPreviewCaptureTimeState(item, captureIso) {
+  const date = new Date(captureIso);
+  if (Number.isNaN(date.getTime())) {
+    return item;
+  }
+  const dateParts = createDatePartsFromDate(date);
+  return {
+    ...item,
+    takenAt: dateParts.takenAt,
+    displayTakenAt: dateParts.displayTakenAt,
+    timelineLabel: dateParts.timelineLabel,
+    year: dateParts.year,
+    month: dateParts.month,
+    day: dateParts.day,
+    monthLabel: dateParts.monthLabel,
+  };
+}
+
+function patchCaptureTimeDisplay(section, item) {
+  section.textContent = '';
+  section.setAttribute('data-action', 'edit-capture-time');
+  const heading = document.createElement('h5');
+  heading.className = 'cml-preview__info-heading';
+  heading.textContent = 'Date & time';
+  const wrapper = document.createElement('div');
+  wrapper.className = 'cml-preview__info-time';
+  const value = document.createElement('p');
+  value.className = 'cml-preview__info-time-value';
+  value.textContent = item?.displayTakenAt || 'Set date & time';
+  const meta = document.createElement('p');
+  meta.className = 'cml-preview__info-time-meta';
+  meta.textContent = formatCaptureTimeMeta(item?.takenAt);
+  wrapper.append(value, meta);
+  section.append(heading, wrapper);
+}
+
+function applyPatchedCaptureTime(mediaItem, metadata) {
+  if (!mediaItem || !metadata || typeof metadata !== 'object') {
+    return;
+  }
+  const captureTime = resolveMediaCaptureTimestamp(metadata, metadata.FileName || mediaItem.label || mediaItem.sourceId || '');
+  const timestamp = Number.isFinite(captureTime) ? captureTime : parseTimestamp(metadata.TimeStamp, 0);
+  const dateParts = createDatePartsFromDate(new Date(timestamp));
+  mediaItem.takenAt = dateParts.takenAt;
+  mediaItem.displayTakenAt = dateParts.displayTakenAt;
+  mediaItem.timelineLabel = dateParts.timelineLabel;
+  mediaItem.year = dateParts.year;
+  mediaItem.month = dateParts.month;
+  mediaItem.day = dateParts.day;
+  mediaItem.monthLabel = dateParts.monthLabel;
+  mediaItem.exif = metadata.Exif || mediaItem.exif || null;
+}
+
+function sortMediaItemsInPlace(items) {
+  return items.sort((left, right) => {
+    const leftTime = Date.parse(left?.takenAt || '') || 0;
+    const rightTime = Date.parse(right?.takenAt || '') || 0;
+    if (rightTime !== leftTime) {
+      return rightTime - leftTime;
+    }
+    return String(left?.label || '').localeCompare(String(right?.label || ''));
+  });
+}
+
 async function savePreviewDescription(itemId, description) {
   const item = getAllItems().find((entry) => entry.id === itemId);
   if (!item || !item.sourceId) {
@@ -4214,11 +4342,7 @@ async function savePreviewDescription(itemId, description) {
     return;
   }
 
-  const encodedPath = String(item.sourceId)
-    .split('/')
-    .filter(Boolean)
-    .map((segment) => encodeURIComponent(segment))
-    .join(',');
+  const encodedPath = encodeMetadataPath(item.sourceId);
 
   try {
     const response = await apiFetch(`/api/manage/metadata/${encodedPath}`, {
@@ -4242,6 +4366,53 @@ async function savePreviewDescription(itemId, description) {
   }
 }
 
+async function savePreviewCaptureTime(itemId, captureTimeInput, previousItem = null) {
+  const item = getAllItems().find((entry) => entry.id === itemId);
+  if (!item || !item.sourceId) {
+    showToast('Cannot save date & time for this item');
+    return;
+  }
+
+  const nextDateTaken = parseCaptureTimeInputValue(captureTimeInput);
+  if (!nextDateTaken) {
+    const captureSection = refs.root?.querySelector('.cml-preview__info-section--capture-time');
+    if (captureSection && previousItem) {
+      patchCaptureTimeDisplay(captureSection, previousItem);
+    }
+    showToast('Please choose a valid date & time');
+    return;
+  }
+
+  const encodedPath = encodeMetadataPath(item.sourceId);
+
+  try {
+    const response = await apiFetch(`/api/manage/metadata/${encodedPath}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ DateTaken: nextDateTaken })
+    });
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || 'Failed to save date & time');
+    }
+
+    const mediaItem = state.mediaItems.find((entry) => entry.id === itemId);
+    if (mediaItem) {
+      applyPatchedCaptureTime(mediaItem, data.metadata || {});
+      sortMediaItemsInPlace(state.mediaItems);
+    }
+
+    render();
+    showToast('Date & time saved', 'success');
+  } catch (error) {
+    const captureSection = refs.root?.querySelector('.cml-preview__info-section--capture-time');
+    if (captureSection && previousItem) {
+      patchCaptureTimeDisplay(captureSection, previousItem);
+    }
+    showToast(error.message || 'Failed to save date & time');
+  }
+}
+
 function createDocFolder(folderName) {
   const currentDir = state.docsCurrentDir || '';
   const fullPath = currentDir ? currentDir + '/' + folderName : folderName;
@@ -4257,11 +4428,7 @@ async function moveFilesToFolder(itemIds, targetDir) {
     const item = state.mediaItems.find((entry) => entry.id === itemId);
     if (!item || !item.sourceId) continue;
 
-    const encodedPath = String(item.sourceId)
-      .split('/')
-      .filter(Boolean)
-      .map((segment) => encodeURIComponent(segment))
-      .join(',');
+    const encodedPath = encodeMetadataPath(item.sourceId);
 
     try {
       const response = await apiFetch(`/api/manage/metadata/${encodedPath}`, {
@@ -6448,6 +6615,59 @@ function handleAction(actionTarget) {
       textarea.setSelectionRange(textarea.value.length, textarea.value.length);
       return true;
     }
+    case 'edit-capture-time': {
+      const captureSection = refs.root.querySelector('.cml-preview__info-section--capture-time');
+      if (!captureSection) { return true; }
+      const currentItem = getAllItems().find((entry) => entry.id === state.previewId);
+      if (!currentItem) { return true; }
+      captureSection.textContent = '';
+      captureSection.removeAttribute('data-action');
+      const heading = document.createElement('h5');
+      heading.className = 'cml-preview__info-heading';
+      heading.textContent = 'Date & time';
+      const input = document.createElement('input');
+      input.type = 'datetime-local';
+      input.className = 'cml-preview__info-time-input';
+      input.setAttribute('data-focus-key', 'capture-time-edit');
+      input.step = '60';
+      input.value = formatCaptureTimeInputValue(currentItem.takenAt);
+      const hint = document.createElement('p');
+      hint.className = 'cml-preview__info-time-hint';
+      hint.textContent = 'Local time. Press Enter to save or Esc to cancel.';
+      let cancelled = false;
+      const previousItem = { ...currentItem };
+      const commitEdit = () => {
+        if (cancelled) {
+          patchCaptureTimeDisplay(captureSection, previousItem);
+          return;
+        }
+        if (!input.value) {
+          patchCaptureTimeDisplay(captureSection, previousItem);
+          showToast('Please choose a date & time');
+          return;
+        }
+        const previewState = buildPreviewCaptureTimeState(previousItem, parseCaptureTimeInputValue(input.value));
+        patchCaptureTimeDisplay(captureSection, previewState);
+        void savePreviewCaptureTime(state.previewId, input.value, previousItem);
+      };
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          input.blur();
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          cancelled = true;
+          input.blur();
+        }
+      });
+      input.addEventListener('blur', () => {
+        commitEdit();
+      });
+      captureSection.append(heading, input, hint);
+      input.focus();
+      return true;
+    }
     case 'save-description': {
       const textarea = refs.root.querySelector('.cml-preview__info-description-input');
       const value = textarea ? textarea.value.trim() : '';
@@ -6940,6 +7160,21 @@ function handleKeyDown(event) {
         const currentItem = getAllItems().find((entry) => entry.id === state.previewId);
         patchDescriptionDisplay(descSection, currentItem?.description || '');
       }
+    }
+    return;
+  }
+
+  if (event.target instanceof HTMLInputElement && event.target.classList.contains('cml-preview__info-time-input')) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      const captureSection = refs.root.querySelector('.cml-preview__info-section--capture-time');
+      if (captureSection) {
+        const currentItem = getAllItems().find((entry) => entry.id === state.previewId);
+        patchCaptureTimeDisplay(captureSection, currentItem || null);
+      }
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      event.target.blur();
     }
     return;
   }

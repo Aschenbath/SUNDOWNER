@@ -1216,6 +1216,20 @@ function formatPreviewDateMeta(item) {
   return [weekday, `${hh}:${mm}`, `GMT${sign}${offsetHours}:${offsetMins}`].filter(Boolean).join('  ');
 }
 
+function renderPreviewCaptureTimeSection(item) {
+  const title = item?.displayTakenAt || formatTakenAt(item) || 'Set date & time';
+  const meta = formatPreviewDateMeta(item) || 'Click to change';
+  return `
+    <section class="cml-preview__info-section cml-preview__info-section--capture-time" data-action="edit-capture-time">
+      <h5 class="cml-preview__info-heading">Date &amp; time</h5>
+      <div class="cml-preview__info-time">
+        <p class="cml-preview__info-time-value">${escapeHtml(title)}</p>
+        <p class="cml-preview__info-time-meta">${escapeHtml(meta)}</p>
+      </div>
+    </section>
+  `;
+}
+
 function getMeaningfulPreviewTags(item) {
   const genericTags = new Set(['photo', 'video', 'image', 'jpeg', 'jpg', 'png']);
   return (item?.tags || [])
@@ -1287,12 +1301,6 @@ export function PreviewModal({
   const backupMeta = item.sizeMb ? `Original quality - ${formatPreviewSize(item.sizeMb)}` : 'Original quality';
   const detailItems = [
     renderPreviewInfoItem({
-      iconName: 'calendar',
-      title: item.displayTakenAt || formatTakenAt(item),
-      meta: formatPreviewDateMeta(item),
-      titleClass: 'is-prominent'
-    }),
-    renderPreviewInfoItem({
       iconName: 'image',
       title: item.type === 'video' ? 'Video' : (item.type === 'document' ? 'Document' : 'Photo'),
       meta: fileMeta
@@ -1319,6 +1327,7 @@ export function PreviewModal({
           <button type="button" class="cml-preview__info-close" data-action="toggle-info" aria-label="Close details">${icon('close')}</button>
           <h4 class="cml-preview__info-toolbar-title">Info</h4>
         </div>
+        ${renderPreviewCaptureTimeSection(item)}
         <section class="cml-preview__info-section cml-preview__info-section--description" data-action="edit-description">
           <p class="cml-preview__info-description ${item.description ? 'has-content' : ''}">${item.description ? escapeHtml(item.description) : 'Add a description'}</p>
         </section>

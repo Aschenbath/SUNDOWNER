@@ -34,6 +34,7 @@ describe('media library download actions', () => {
         thumbnailUrl: '/file/photos/2026/photo_27.jpg',
         width: 1080,
         height: 1440,
+        takenAt: '2026-04-05T00:25:00.000Z',
         displayTakenAt: 'April 5, 2026 08:25',
         mimeType: 'image/jpeg',
         location: 'Guangzhou',
@@ -55,6 +56,8 @@ describe('media library download actions', () => {
     assert.match(html, /class="cml-preview__main"/);
     assert.match(html, /class="cml-preview__info /);
     assert.match(html, /Add a description/);
+    assert.match(html, /Date &amp; time/);
+    assert.match(html, /data-action="edit-capture-time"/);
     assert.match(html, /Details/);
     assert.doesNotMatch(html, /cml-preview__caption/);
   });
