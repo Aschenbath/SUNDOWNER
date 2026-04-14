@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, PreviewModal, Sidebar, StorageCard, TopSearchBar, VideoCategoryBar } from '../js/media-library/components.js';
+import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, PreviewModal, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('renders a selection download action without replacing delete/add-to-album controls', () => {
@@ -524,12 +524,55 @@ describe('media library download actions', () => {
     assert.match(html, /is-active/);
   });
 
+  it('renders a video album wall and active album summary for visual grouping', () => {
+    const gridHtml = VideoAlbumGrid({
+      albums: [
+        {
+          name: 'Travel vlog',
+          itemCount: 5,
+          createdAt: '2026-04-13T12:00:00.000Z',
+          lastModifiedAt: 1776072000000,
+          coverItem: {
+            id: 'managed-video-7',
+            type: 'video',
+            label: 'travel.mp4',
+            sourceId: 'videos/travel.mp4',
+            sourceUrl: '/file/videos/travel.mp4',
+            thumbnailUrl: '/file/videos/travel.mp4?preview=1',
+            posterUrl: '/file/videos/travel.mp4?preview=1',
+            width: 1920,
+            height: 1080,
+            mimeType: 'video/mp4'
+          }
+        }
+      ]
+    });
+    const summaryHtml = VideoAlbumSummary({
+      activeCategory: 'Travel vlog',
+      albumCount: 3,
+      groupedVideoCount: 9,
+      totalVideoCount: 5
+    });
+
+    assert.match(gridHtml, /data-action="open-video-album"/);
+    assert.match(gridHtml, /Travel vlog/);
+    assert.match(gridHtml, /Video album/);
+    assert.match(summaryHtml, /All video albums/);
+    assert.match(summaryHtml, /5 videos in this album/);
+  });
+
   it('keeps video category filter state wired through route persistence and media filtering', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const componentsSource = fs.readFileSync(new URL('../js/media-library/components.js', import.meta.url), 'utf8');
 
     assert.match(appSource, /videoCategoryFilter/);
     assert.match(appSource, /#\/videos\/' \+ encodeURIComponent\(state\.videoCategoryFilter\)/);
     assert.match(appSource, /state\.videoCategoryFilter = normalizeVideoCategory\(parts\.slice\(1\)\.join\('\/'\)\)/);
     assert.match(appSource, /if \(!ignoreVideoCategoryFilter && state\.videoCategoryFilter\)/);
+    assert.match(appSource, /function buildVideoAlbumSummaries/);
+    assert.match(appSource, /function isVideoAlbumRootView/);
+    assert.match(appSource, /function openVideoAlbum/);
+    assert.match(appSource, /function closeVideoAlbum/);
+    assert.match(componentsSource, /data-action="open-video-album"/);
   });
 });

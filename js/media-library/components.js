@@ -1103,6 +1103,73 @@ export function CollectionGrid({ collections }) {
   `;
 }
 
+export function VideoAlbumSummary({ activeCategory = '', albumCount = 0, groupedVideoCount = 0, totalVideoCount = 0 }) {
+  const hasActiveCategory = Boolean(activeCategory);
+  const safeAlbumCount = Math.max(0, Number(albumCount) || 0);
+  const safeGroupedVideoCount = Math.max(0, Number(groupedVideoCount) || 0);
+  const safeTotalVideoCount = Math.max(0, Number(totalVideoCount) || 0);
+  const ungroupedVideoCount = Math.max(0, safeTotalVideoCount - safeGroupedVideoCount);
+  const title = hasActiveCategory ? activeCategory : 'Video albums';
+  let copy = '';
+
+  if (hasActiveCategory) {
+    copy = `${safeTotalVideoCount} video${safeTotalVideoCount === 1 ? '' : 's'} in this album`;
+  } else if (safeAlbumCount > 0) {
+    copy = `${safeAlbumCount} album${safeAlbumCount === 1 ? '' : 's'} grouping ${safeGroupedVideoCount} video${safeGroupedVideoCount === 1 ? '' : 's'}${ungroupedVideoCount ? ` - ${ungroupedVideoCount} ungrouped` : ''}`;
+  } else if (safeTotalVideoCount > 0) {
+    copy = `${safeTotalVideoCount} video${safeTotalVideoCount === 1 ? '' : 's'} not grouped yet. Add a Video category in Info to build albums.`;
+  } else {
+    copy = '0 video albums';
+  }
+
+  return `
+    <section class="cml-view-summary" aria-label="Video album summary">
+      ${hasActiveCategory ? `
+        <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-video-album">
+          ${icon('previous')}
+          <span>All video albums</span>
+        </button>
+      ` : ''}
+      ${hasActiveCategory ? '' : `<p class="cml-view-summary__eyebrow">Videos</p>`}
+      <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
+      ${copy ? `<p class="cml-view-summary__copy cml-view-summary__copy--albums">${escapeHtml(copy)}</p>` : ''}
+    </section>
+  `;
+}
+
+export function VideoAlbumGrid({ albums = [] }) {
+  if (!albums.length) {
+    return '';
+  }
+
+  return `
+    <section class="cml-collection-grid cml-video-album-grid" aria-label="Video albums">
+      ${albums.map((album) => `
+        <button
+          type="button"
+          class="cml-collection-card cml-video-album-card ${album.coverItem ? '' : 'is-empty'}"
+          data-action="open-video-album"
+          data-category="${escapeHtml(album.name)}"
+          aria-label="Open video album ${escapeHtml(album.name)}"
+        >
+          <span class="cml-collection-card__cover ${album.coverItem ? '' : 'is-empty'}">
+            ${album.coverItem
+              ? renderMediaAsset(album.coverItem, 'cml-collection-card__image', false, { noAction: true })
+              : `<span class="cml-collection-card__placeholder">${icon('play')}</span>`}
+            <span class="cml-collection-card__badge">${icon('play')}</span>
+          </span>
+          <span class="cml-collection-card__body">
+            <span class="cml-collection-card__eyebrow">Video album</span>
+            <strong class="cml-collection-card__title">${escapeHtml(album.name)}</strong>
+            <span class="cml-collection-card__meta">${formatItemCount(album.itemCount)}</span>
+            <span class="cml-collection-card__copy">${escapeHtml(formatAlbumDate(album.createdAt || album.lastModifiedAt) || 'Recently grouped')}</span>
+          </span>
+        </button>
+      `).join('')}
+    </section>
+  `;
+}
+
 export function YearScroller({ scrubberSections, activeSectionAnchor, activeScrubberLabel }) {
   if (scrubberSections.length < 2) {
     return '';

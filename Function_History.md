@@ -70,3 +70,4 @@
 26-04-13 by codex: Add preview-side photo date/time editing so admins can manually override DateTaken, persist it through PATCH metadata, and immediately re-sort the timeline
 2026-04-13 by codex: Fix media-library startup stability by patching the preserved sidebar Storage card in place so quota text no longer sticks on 'Calculating...', and by downgrading delayed live-sync retries to conditional/non-forced refreshes so the photo timeline stops flashing through multiple full renders before settling
 26-04-13 by codex: Add end-to-end video categories with preview-side editing, Videos-view category chips, category: search support, route persistence, backend VideoCategory validation, and regression coverage
+26-04-14 by codex: Add a visual video-album wall in Videos view that groups items by VideoCategory into clickable widescreen album cards, keeps category routes/back navigation coherent, and preserves the existing timeline beneath the new visual summary

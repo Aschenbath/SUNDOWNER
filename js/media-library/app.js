@@ -19,10 +19,12 @@ import {
   StorageCard,
   StoragePanel,
   TopSearchBar,
+  VideoAlbumGrid,
+  VideoAlbumSummary,
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=22';
+} from './components.js?v=23';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -2392,6 +2394,57 @@ function buildVideoCategoryOptions(items = [], activeCategory = '') {
     });
 }
 
+function buildVideoAlbumSummaries(items = []) {
+  const groups = new Map();
+  items.forEach((item) => {
+    if (item?.type !== 'video') {
+      return;
+    }
+    const name = normalizeVideoCategory(item.videoCategory);
+    if (!name) {
+      return;
+    }
+    const key = name.toLowerCase();
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        name,
+        items: []
+      });
+    }
+    groups.get(key).items.push(item);
+  });
+
+  return [...groups.values()]
+    .map((group) => {
+      const sortedItems = [...group.items].sort((left, right) => getAlbumSortTimestamp(right) - getAlbumSortTimestamp(left));
+      const coverItem = sortedItems[0] || null;
+      const lastModifiedAt = Math.max(0, ...sortedItems.map((item) => getAlbumSortTimestamp(item)));
+      return {
+        ...group,
+        items: sortedItems,
+        coverItem,
+        itemCount: sortedItems.length,
+        createdAt: coverItem?.takenAt || coverItem?.createdAt || coverItem?.updatedAt || '',
+        lastModifiedAt
+      };
+    })
+    .sort((left, right) => {
+      const rightTime = Number.isFinite(right.lastModifiedAt) ? right.lastModifiedAt : -Infinity;
+      const leftTime = Number.isFinite(left.lastModifiedAt) ? left.lastModifiedAt : -Infinity;
+      if (rightTime !== leftTime) {
+        return rightTime - leftTime;
+      }
+      return left.name.localeCompare(right.name);
+    });
+}
+
+function isVideoAlbumRootView(parsedSearch = parseMediaSearchQuery(state.searchQuery)) {
+  return state.secondaryFilter === 'Videos'
+    && !state.videoCategoryFilter
+    && !normalizeText(parsedSearch?.rawQuery);
+}
+
 function getVideoCategorySuggestions(items = getAllItems(), currentCategory = '') {
   const dynamic = buildVideoCategoryOptions(items, currentCategory).map((entry) => entry.label);
   return [...new Set([
@@ -3750,12 +3803,49 @@ function openCollection(albumName) {
   }
 }
 
+function openVideoAlbum(categoryName) {
+  const normalizedCategory = normalizeVideoCategory(categoryName);
+  if (!normalizedCategory) {
+    return;
+  }
+  state.primaryFilter = 'Photos';
+  state.secondaryFilter = 'Videos';
+  state.videoCategoryFilter = normalizedCategory;
+  state.activeAlbumName = '';
+  state.albumSelectionTarget = '';
+  resetSearchQuery();
+  state.previewId = null;
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  pushNavigationHash();
+  render();
+  if (refs.scrollRegion) {
+    refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
+  }
+}
+
 function closeCollection() {
   if (!state.activeAlbumName) {
     return;
   }
   state.activeAlbumName = '';
   state.albumSelectionTarget = '';
+  resetSearchQuery();
+  state.previewId = null;
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  pushNavigationHash();
+  render();
+  if (refs.scrollRegion) {
+    refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
+  }
+}
+
+function closeVideoAlbum() {
+  if (state.secondaryFilter !== 'Videos' || !state.videoCategoryFilter) {
+    return;
+  }
+  state.videoCategoryFilter = '';
   resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
@@ -3948,7 +4038,9 @@ function buildContentViewKey(viewModel) {
   return [
     state.primaryFilter,
     viewModel.activeAlbumName || '',
-    state.secondaryFilter || ''
+    state.secondaryFilter || '',
+    state.videoCategoryFilter || '',
+    viewModel.isVideoAlbumRoot ? 'video-album-root' : ''
   ].join('|');
 }
 
@@ -4985,12 +5077,22 @@ function getViewModel() {
     state.secondaryFilter = '';
   }
 
+  const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const activeAlbumName = getActiveAlbumName();
   const albumSelectionTarget = getAlbumSelectionTarget();
   const filteredItems = getFilteredItems();
   const videoCategoryScopeItems = state.secondaryFilter === 'Videos'
     ? getFilteredItems(getAllItems(), { ignoreVideoCategoryFilter: true })
     : [];
+  const activeVideoAlbumItemCount = state.secondaryFilter === 'Videos' && state.videoCategoryFilter
+    ? getAllItems().filter((item) => item?.type === 'video'
+      && normalizeVideoCategory(item.videoCategory).toLowerCase() === normalizeVideoCategory(state.videoCategoryFilter).toLowerCase()).length
+    : 0;
+  const videoAlbumCards = state.secondaryFilter === 'Videos'
+    ? buildVideoAlbumSummaries(videoCategoryScopeItems)
+    : [];
+  const videoAlbumGroupedItemCount = videoAlbumCards.reduce((sum, group) => sum + group.itemCount, 0);
+  const isVideoAlbumRoot = isVideoAlbumRootView(parsedSearch);
   const videoCategoryOptions = state.secondaryFilter === 'Videos'
     ? buildVideoCategoryOptions(videoCategoryScopeItems, state.videoCategoryFilter)
     : [];
@@ -5087,6 +5189,12 @@ function getViewModel() {
     collectionCards,
     totalCollectionCount: allCollections.length,
     filteredItems,
+    isVideoAlbumRoot,
+    videoAlbumCards,
+    videoAlbumCount: videoAlbumCards.length,
+    videoAlbumGroupedItemCount,
+    videoAlbumUngroupedCount: Math.max(0, videoCategoryScopeItems.length - videoAlbumGroupedItemCount),
+    activeVideoAlbumItemCount,
     videoCategoryOptions,
     videoCategoryScopeCount: videoCategoryScopeItems.length,
     sections,
@@ -5272,12 +5380,23 @@ function render() {
                   filterParts: activeSearchFilterParts,
                   hasActiveFilters: activeSearchFilterCount > 0
                 })}
-                ${state.secondaryFilter === 'Videos'
+                ${state.secondaryFilter === 'Videos' && (viewModel.isVideoAlbumRoot || state.videoCategoryFilter)
+                  ? VideoAlbumSummary({
+                      activeCategory: state.videoCategoryFilter,
+                      albumCount: viewModel.videoAlbumCount,
+                      groupedVideoCount: viewModel.videoAlbumGroupedItemCount,
+                      totalVideoCount: state.videoCategoryFilter ? viewModel.activeVideoAlbumItemCount : viewModel.videoCategoryScopeCount
+                    })
+                  : ''}
+                ${state.secondaryFilter === 'Videos' && !viewModel.isVideoAlbumRoot
                   ? VideoCategoryBar({
                       categories: viewModel.videoCategoryOptions,
                       activeCategory: state.videoCategoryFilter,
                       totalCount: viewModel.videoCategoryScopeCount
                     })
+                  : ''}
+                ${viewModel.isVideoAlbumRoot
+                  ? VideoAlbumGrid({ albums: viewModel.videoAlbumCards })
                   : ''}
                 ${viewModel.isCollectionRoot
                   ? (viewModel.collectionCards.length
@@ -6492,6 +6611,14 @@ function handleAction(actionTarget) {
     case 'close-collection':
       closeCollection();
       return true;
+    case 'open-video-album':
+      if (actionTarget.dataset.category) {
+        openVideoAlbum(actionTarget.dataset.category);
+      }
+      return true;
+    case 'close-video-album':
+      closeVideoAlbum();
+      return true;
     case 'close-album-dialog':
       closeAlbumDialog();
       return true;
@@ -7132,6 +7259,9 @@ function handleClick(event) {
       resetLoadedCount();
       pushNavigationHash();
       render();
+      if (refs.scrollRegion) {
+        refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
+      }
       return true;
     }
 

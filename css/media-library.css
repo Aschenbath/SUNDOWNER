@@ -1111,6 +1111,23 @@ body.codex-media-library-active #app {
   opacity: 0.96;
 }
 
+#codex-media-library-root .cml-video-album-grid {
+  gap: 24px 28px;
+}
+
+#codex-media-library-root .cml-video-album-card .cml-collection-card__cover {
+  aspect-ratio: 16 / 10;
+  border-radius: 22px;
+}
+
+#codex-media-library-root .cml-video-album-card .cml-collection-card__image {
+  border-radius: 22px;
+}
+
+#codex-media-library-root .cml-video-album-card .cml-collection-card__eyebrow {
+  color: #8ab4f8;
+}
+
 #codex-media-library-root .cml-collection-card__cover {
   position: relative;
   display: block;
