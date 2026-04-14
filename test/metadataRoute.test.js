@@ -143,4 +143,65 @@ describe('metadata route', () => {
     assert.equal(payload.success, false);
     assert.equal(payload.message, 'VideoCategory can only be set on video files.');
   });
+
+  it('accepts PrivateAlbum updates on photo files and clears them when false', async () => {
+    const env = {
+      img_d1: new SqliteD1(':memory:'),
+    };
+    const db = new D1Database(env.img_d1);
+    await db.put('photos/test.jpg', 'file-value', {
+      metadata: {
+        FileName: 'test.jpg',
+        FileType: 'image/jpeg',
+        TimeStamp: 1775628424666,
+      },
+    });
+
+    const saveResponse = await onRequest(createContext(env, {
+      PrivateAlbum: true,
+    }, 'photos/test.jpg'));
+
+    assert.equal(saveResponse.status, 200);
+    const savePayload = await saveResponse.json();
+    assert.equal(savePayload.success, true);
+    assert.equal(savePayload.metadata.PrivateAlbum, true);
+
+    const storedAfterSave = await db.getWithMetadata('photos/test.jpg');
+    assert.equal(storedAfterSave.metadata.PrivateAlbum, true);
+
+    const clearResponse = await onRequest(createContext(env, {
+      PrivateAlbum: false,
+    }, 'photos/test.jpg'));
+
+    assert.equal(clearResponse.status, 200);
+    const clearPayload = await clearResponse.json();
+    assert.equal(clearPayload.success, true);
+    assert.equal(clearPayload.metadata.PrivateAlbum, undefined);
+
+    const storedAfterClear = await db.getWithMetadata('photos/test.jpg');
+    assert.equal(storedAfterClear.metadata.PrivateAlbum, undefined);
+  });
+
+  it('rejects PrivateAlbum updates on non-photo files', async () => {
+    const env = {
+      img_d1: new SqliteD1(':memory:'),
+    };
+    const db = new D1Database(env.img_d1);
+    await db.put('docs/test.pdf', 'file-value', {
+      metadata: {
+        FileName: 'test.pdf',
+        FileType: 'application/pdf',
+        TimeStamp: 1775628424666,
+      },
+    });
+
+    const response = await onRequest(createContext(env, {
+      PrivateAlbum: true,
+    }, 'docs/test.pdf'));
+
+    assert.equal(response.status, 400);
+    const payload = await response.json();
+    assert.equal(payload.success, false);
+    assert.equal(payload.message, 'PrivateAlbum can only be set on photo files.');
+  });
 });

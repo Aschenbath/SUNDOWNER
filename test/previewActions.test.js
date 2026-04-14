@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, PreviewModal, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
+import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('renders a selection download action without replacing delete/add-to-album controls', () => {
@@ -19,6 +19,7 @@ describe('media library download actions', () => {
     });
 
     assert.match(html, /data-action="open-add-to-album"/);
+    assert.match(html, /data-action="toggle-private-selection"/);
     assert.match(html, /data-action="download-selected"/);
     assert.match(html, /data-action="delete-selected"/);
   });
@@ -58,6 +59,8 @@ describe('media library download actions', () => {
     assert.match(html, /Add a description/);
     assert.match(html, /Date &amp; time/);
     assert.match(html, /data-action="edit-capture-time"/);
+    assert.match(html, /Hidden album/);
+    assert.match(html, /data-action="toggle-private-photo"/);
     assert.match(html, /Details/);
     assert.doesNotMatch(html, /cml-preview__caption/);
   });
@@ -116,10 +119,10 @@ describe('media library download actions', () => {
       immersive: false,
     });
 
-    assert.match(html, /Video category/);
+    assert.match(html, /Video album/);
     assert.match(html, /Travel vlog/);
     assert.match(html, /data-action="edit-video-category"/);
-    assert.match(html, /Used for filtering in Videos view/);
+    assert.match(html, /Click to switch video album/);
   });
 
   it('hides default source albums and library path from preview details', () => {
@@ -529,6 +532,7 @@ describe('media library download actions', () => {
       albums: [
         {
           name: 'Travel vlog',
+          routeValue: 'Travel vlog',
           itemCount: 5,
           createdAt: '2026-04-13T12:00:00.000Z',
           lastModifiedAt: 1776072000000,
@@ -544,6 +548,15 @@ describe('media library download actions', () => {
             height: 1080,
             mimeType: 'video/mp4'
           }
+        },
+        {
+          name: 'Ungrouped',
+          routeValue: '__ungrouped__',
+          itemCount: 2,
+          isUngrouped: true,
+          createdAt: '',
+          lastModifiedAt: 1776072000000,
+          coverItem: null
         }
       ]
     });
@@ -557,6 +570,8 @@ describe('media library download actions', () => {
     assert.match(gridHtml, /data-action="open-video-album"/);
     assert.match(gridHtml, /Travel vlog/);
     assert.match(gridHtml, /Video album/);
+    assert.match(gridHtml, /data-category="__ungrouped__"/);
+    assert.match(gridHtml, /Needs grouping/);
     assert.match(summaryHtml, /All video albums/);
     assert.match(summaryHtml, /5 videos in this album/);
   });
@@ -566,13 +581,33 @@ describe('media library download actions', () => {
     const componentsSource = fs.readFileSync(new URL('../js/media-library/components.js', import.meta.url), 'utf8');
 
     assert.match(appSource, /videoCategoryFilter/);
-    assert.match(appSource, /#\/videos\/' \+ encodeURIComponent\(state\.videoCategoryFilter\)/);
-    assert.match(appSource, /state\.videoCategoryFilter = normalizeVideoCategory\(parts\.slice\(1\)\.join\('\/'\)\)/);
+    assert.match(appSource, /UNGROUPED_VIDEO_ALBUM_KEY/);
+    assert.match(appSource, /UNGROUPED_VIDEO_ROUTE_SEGMENT/);
+    assert.match(appSource, /#\/videos\/' \+ encodeURIComponent\(routeValue\)/);
+    assert.match(appSource, /state\.videoCategoryFilter = normalizeVideoAlbumRouteValue\(parts\.slice\(1\)\.join\('\/'\)\)/);
     assert.match(appSource, /if \(!ignoreVideoCategoryFilter && state\.videoCategoryFilter\)/);
     assert.match(appSource, /function buildVideoAlbumSummaries/);
     assert.match(appSource, /function isVideoAlbumRootView/);
     assert.match(appSource, /function openVideoAlbum/);
     assert.match(appSource, /function closeVideoAlbum/);
     assert.match(componentsSource, /data-action="open-video-album"/);
+  });
+
+  it('renders a hidden-album password gate and summary without adding a visible sidebar entry', () => {
+    const gateHtml = PrivateAlbumGate({ error: 'Wrong password.' });
+    const summaryHtml = PrivateAlbumSummary({ itemCount: 3, locked: false });
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(gateHtml, /data-form="private-access"/);
+    assert.match(gateHtml, /data-private-access="password"/);
+    assert.match(gateHtml, /Open hidden album/);
+    assert.match(gateHtml, /Wrong password\./);
+    assert.match(summaryHtml, /Hidden album/);
+    assert.match(summaryHtml, /3 photos hidden from the main library/);
+    assert.match(appSource, /PRIVATE_ROUTE_SEGMENT = 'private'/);
+    assert.match(appSource, /PRIVATE_ALBUM_PASSWORD = '210217'/);
+    assert.match(appSource, /#\/photos\/\$\{PRIVATE_ROUTE_SEGMENT\}/);
+    assert.match(appSource, /toggle-private-photo/);
+    assert.match(appSource, /toggle-private-selection/);
   });
 });

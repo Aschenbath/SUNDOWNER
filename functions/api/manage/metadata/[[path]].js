@@ -12,6 +12,7 @@ const corsHeaders = {
 
 const VIDEO_CATEGORY_MAX_LENGTH = 48;
 const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi', '.3gp', '.mpeg', '.mpg'];
+const PHOTO_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.heic', '.heif', '.avif'];
 
 function normalizeVideoCategory(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
@@ -25,6 +26,16 @@ function isVideoMetadata(fileId, metadata = {}) {
 
     const nameHaystack = String(metadata?.FileName || fileId || '').toLowerCase();
     return VIDEO_EXTENSIONS.some((extension) => nameHaystack.endsWith(extension));
+}
+
+function isPhotoMetadata(fileId, metadata = {}) {
+    const mimeType = String(metadata?.FileType || metadata?.MimeType || '').toLowerCase();
+    if (mimeType.startsWith('image/')) {
+        return true;
+    }
+
+    const nameHaystack = String(metadata?.FileName || fileId || '').toLowerCase();
+    return PHOTO_EXTENSIONS.some((extension) => nameHaystack.endsWith(extension));
 }
 
 export async function onRequest(context) {
@@ -80,12 +91,13 @@ export async function onRequest(context) {
             || typeof body.Directory === 'string'
             || typeof body.DateTaken === 'string'
             || typeof body.VideoCategory === 'string'
+            || typeof body.PrivateAlbum === 'boolean'
         );
 
         if (!hasSupportedField) {
             return new Response(JSON.stringify({
                 success: false,
-                message: 'At least one of FileName, FileType, Description, Directory, DateTaken, or VideoCategory is required.',
+                message: 'At least one of FileName, FileType, Description, Directory, DateTaken, VideoCategory, or PrivateAlbum is required.',
             }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -141,6 +153,15 @@ export async function onRequest(context) {
                 headers: { 'Content-Type': 'application/json', ...corsHeaders },
             });
         }
+        if (typeof body.PrivateAlbum === 'boolean' && !isPhotoMetadata(fileId, updatedMetadata)) {
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'PrivateAlbum can only be set on photo files.',
+            }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+        }
         if (typeof body.FileName === 'string') {
             updatedMetadata.FileName = body.FileName;
         }
@@ -163,6 +184,13 @@ export async function onRequest(context) {
                 updatedMetadata.VideoCategory = normalizedVideoCategory;
             } else {
                 delete updatedMetadata.VideoCategory;
+            }
+        }
+        if (typeof body.PrivateAlbum === 'boolean') {
+            if (body.PrivateAlbum) {
+                updatedMetadata.PrivateAlbum = true;
+            } else {
+                delete updatedMetadata.PrivateAlbum;
             }
         }
 

@@ -35,7 +35,8 @@ const icons = {
   dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5.5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="18.5" r="1.5" fill="currentColor"/></svg>',
   folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   'folder-filled': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="#8ab4f8" stroke="#8ab4f8" stroke-width="1.6" stroke-linejoin="round"/></svg>',
-  'folder-move': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m10 14 3-3m0 0-3-3m3 3H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  'folder-move': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m10 14 3-3m0 0-3-3m3 3H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5.5" y="10.2" width="13" height="9.3" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.5 10.2V8.1a3.5 3.5 0 1 1 7 0v2.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
 };
 
 const secondaryIconMap = {
@@ -506,6 +507,8 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   const albumSelectionTarget = String(state.albumSelectionTarget || '');
   const isAlbumPickerMode = Boolean(albumSelectionTarget);
   const canCreateAlbum = state.primaryFilter === 'Collections' && !activeAlbumName;
+  const canToggleHiddenAlbum = state.primaryFilter === 'Photos' && !state.secondaryFilter;
+  const hiddenActionLabel = state.privateViewOpen ? 'Remove from hidden album' : 'Move to hidden album';
   if (selectedCount) {
     if (isAlbumPickerMode) {
       return `
@@ -530,9 +533,12 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
             <button type="button" class="cml-topbar__clear-button" data-action="clear-selection" aria-label="Clear selection">${icon('close')}</button>
             <strong>${selectedCount} selected</strong>
           </div>
-          <div class="cml-topbar__selection-actions">
-            <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-album">Add to album</button>
-            <button type="button" class="cml-topbar__secondary-button" data-action="download-selected" ${canDownloadSelection ? '' : 'disabled'}>${icon('download')}<span>Download</span></button>
+            <div class="cml-topbar__selection-actions">
+              <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-album">Add to album</button>
+              ${canToggleHiddenAlbum ? `
+                <button type="button" class="cml-topbar__secondary-button" data-action="toggle-private-selection">${escapeHtml(hiddenActionLabel)}</button>
+              ` : ''}
+              <button type="button" class="cml-topbar__secondary-button" data-action="download-selected" ${canDownloadSelection ? '' : 'disabled'}>${icon('download')}<span>Download</span></button>
             ${activeAlbumName && canSetAlbumCover ? `
               <button type="button" class="cml-topbar__secondary-button" data-action="set-album-cover">Set as cover</button>
             ` : ''}
@@ -1117,7 +1123,7 @@ export function VideoAlbumSummary({ activeCategory = '', albumCount = 0, grouped
   } else if (safeAlbumCount > 0) {
     copy = `${safeAlbumCount} album${safeAlbumCount === 1 ? '' : 's'} grouping ${safeGroupedVideoCount} video${safeGroupedVideoCount === 1 ? '' : 's'}${ungroupedVideoCount ? ` - ${ungroupedVideoCount} ungrouped` : ''}`;
   } else if (safeTotalVideoCount > 0) {
-    copy = `${safeTotalVideoCount} video${safeTotalVideoCount === 1 ? '' : 's'} not grouped yet. Add a Video category in Info to build albums.`;
+    copy = `${safeTotalVideoCount} video${safeTotalVideoCount === 1 ? '' : 's'} not grouped yet. Choose or create a video album in Info.`;
   } else {
     copy = '0 video albums';
   }
@@ -1137,6 +1143,21 @@ export function VideoAlbumSummary({ activeCategory = '', albumCount = 0, grouped
   `;
 }
 
+export function PrivateAlbumSummary({ itemCount = 0, locked = false }) {
+  const safeItemCount = Math.max(0, Number(itemCount) || 0);
+  return `
+    <section class="cml-view-summary cml-view-summary--private" aria-label="Hidden album summary">
+      <p class="cml-view-summary__eyebrow">Private</p>
+      <h2 class="cml-view-summary__title">Hidden album</h2>
+      <p class="cml-view-summary__copy cml-view-summary__copy--albums">
+        ${escapeHtml(locked
+          ? 'Enter the password to view hidden photos.'
+          : `${safeItemCount} photo${safeItemCount === 1 ? '' : 's'} hidden from the main library.`)}
+      </p>
+    </section>
+  `;
+}
+
 export function VideoAlbumGrid({ albums = [] }) {
   if (!albums.length) {
     return '';
@@ -1149,7 +1170,7 @@ export function VideoAlbumGrid({ albums = [] }) {
           type="button"
           class="cml-collection-card cml-video-album-card ${album.coverItem ? '' : 'is-empty'}"
           data-action="open-video-album"
-          data-category="${escapeHtml(album.name)}"
+          data-category="${escapeHtml(album.routeValue || album.name)}"
           aria-label="Open video album ${escapeHtml(album.name)}"
         >
           <span class="cml-collection-card__cover ${album.coverItem ? '' : 'is-empty'}">
@@ -1162,7 +1183,7 @@ export function VideoAlbumGrid({ albums = [] }) {
             <span class="cml-collection-card__eyebrow">Video album</span>
             <strong class="cml-collection-card__title">${escapeHtml(album.name)}</strong>
             <span class="cml-collection-card__meta">${formatItemCount(album.itemCount)}</span>
-            <span class="cml-collection-card__copy">${escapeHtml(formatAlbumDate(album.createdAt || album.lastModifiedAt) || 'Recently grouped')}</span>
+            <span class="cml-collection-card__copy">${escapeHtml(album.isUngrouped ? 'Needs grouping' : (formatAlbumDate(album.createdAt || album.lastModifiedAt) || 'Recently grouped'))}</span>
           </span>
         </button>
       `).join('')}
@@ -1297,15 +1318,35 @@ function renderPreviewCaptureTimeSection(item) {
   `;
 }
 
+function renderPreviewPrivateAlbumSection(item) {
+  if (item?.type !== 'photo') {
+    return '';
+  }
+  const isPrivate = Boolean(item?.isPrivateAlbum);
+  const title = isPrivate ? 'Inside hidden album' : 'Visible in library';
+  const meta = isPrivate
+    ? 'Click to remove this photo from the hidden album'
+    : 'Click to move this photo into the hidden album';
+  return `
+    <section class="cml-preview__info-section cml-preview__info-section--private-album" data-action="toggle-private-photo">
+      <h5 class="cml-preview__info-heading">Hidden album</h5>
+      <div class="cml-preview__info-category">
+        <p class="cml-preview__info-category-value">${escapeHtml(title)}</p>
+        <p class="cml-preview__info-category-meta">${escapeHtml(meta)}</p>
+      </div>
+    </section>
+  `;
+}
+
 function renderPreviewVideoCategorySection(item) {
   if (item?.type !== 'video') {
     return '';
   }
-  const title = normalizePreviewMetaText(item?.videoCategory) || 'Set video category';
-  const meta = item?.videoCategory ? 'Used for filtering in Videos view' : 'Click to group this video';
+  const title = normalizePreviewMetaText(item?.videoCategory) || 'Choose video album';
+  const meta = item?.videoCategory ? 'Click to switch video album' : 'Choose or create a video album';
   return `
     <section class="cml-preview__info-section cml-preview__info-section--video-category" data-action="edit-video-category">
-      <h5 class="cml-preview__info-heading">Video category</h5>
+      <h5 class="cml-preview__info-heading">Video album</h5>
       <div class="cml-preview__info-category">
         <p class="cml-preview__info-category-value">${escapeHtml(title)}</p>
         <p class="cml-preview__info-category-meta">${escapeHtml(meta)}</p>
@@ -1412,6 +1453,7 @@ export function PreviewModal({
           <h4 class="cml-preview__info-toolbar-title">Info</h4>
         </div>
         ${renderPreviewCaptureTimeSection(item)}
+        ${renderPreviewPrivateAlbumSection(item)}
         ${renderPreviewVideoCategorySection(item)}
         <section class="cml-preview__info-section cml-preview__info-section--description" data-action="edit-description">
           <p class="cml-preview__info-description ${item.description ? 'has-content' : ''}">${item.description ? escapeHtml(item.description) : 'Add a description'}</p>
@@ -1598,6 +1640,28 @@ export function PreviewModal({
         ${albumPanel}
       </div>
     </div>
+  `;
+}
+
+export function PrivateAlbumGate({ error = '', value = '' }) {
+  return `
+    <section class="cml-private-access" aria-label="Hidden album access">
+      <div class="cml-private-access__icon" aria-hidden="true">${icon('lock')}</div>
+      <h3 class="cml-private-access__title">Enter hidden album</h3>
+      <p class="cml-private-access__copy">This route has no visible entry in the library. Enter the password to open the hidden photo album.</p>
+      <form class="cml-private-access__form" data-form="private-access">
+        <input
+          type="password"
+          class="cml-private-access__input"
+          data-private-access="password"
+          placeholder="Password"
+          autocomplete="current-password"
+          value="${escapeHtml(value)}"
+        />
+        <button type="submit" class="cml-topbar__upload-button">Open hidden album</button>
+      </form>
+      ${error ? `<p class="cml-private-access__error">${escapeHtml(error)}</p>` : ''}
+    </section>
   `;
 }
 export function AlbumDialog({ state, albums }) {

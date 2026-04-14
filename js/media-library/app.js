@@ -12,6 +12,8 @@ import {
   MediaGrid,
   MediaTimelineSection,
   MobileBottomNav,
+  PrivateAlbumGate,
+  PrivateAlbumSummary,
   renderMediaRows,
   PreviewModal,
   SearchSummary,
@@ -24,7 +26,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=23';
+} from './components.js?v=24';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -73,6 +75,31 @@ const TILE_SELECTION_CHECK_MARKUP = '<svg viewBox="0 0 24 24" aria-hidden="true"
 const TILE_SELECTION_RING_MARKUP = '<span class="cml-media-tile__select-ring"></span>';
 const VIDEO_CATEGORY_MAX_LENGTH = 48;
 const DEFAULT_VIDEO_CATEGORY_SUGGESTIONS = ['Travel', 'Scenery', 'Daily life', 'Pets', 'Food', 'Performance', 'Tutorial', 'Screen recording'];
+const UNGROUPED_VIDEO_ALBUM_KEY = '__ungrouped__';
+const UNGROUPED_VIDEO_ROUTE_SEGMENT = '_ungrouped';
+const PRIVATE_ROUTE_SEGMENT = 'private';
+const PRIVATE_ALBUM_PASSWORD = '210217';
+const PRIVATE_ALBUM_SESSION_KEY = 'codex-media-library-private-album';
+
+function readSessionFlag(key) {
+  try {
+    return window.sessionStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeSessionFlag(key, enabled) {
+  try {
+    if (enabled) {
+      window.sessionStorage.setItem(key, '1');
+    } else {
+      window.sessionStorage.removeItem(key);
+    }
+  } catch {
+    // Ignore sessionStorage failures and keep the UI functional.
+  }
+}
 
 function createEmptyAdminProfileDraft() {
   return {
@@ -211,6 +238,10 @@ const state = {
   primaryFilter: 'Photos',
   secondaryFilter: '',
   videoCategoryFilter: '',
+  privateViewOpen: false,
+  privateRouteUnlocked: readSessionFlag(PRIVATE_ALBUM_SESSION_KEY),
+  privatePasswordDraft: '',
+  privatePasswordError: '',
   activeAlbumName: '',
   albumSelectionTarget: '',
   searchQuery: '',
@@ -1410,7 +1441,7 @@ function applyAlbumOverride(item) {
   return item;
 }
 
-function getAvailableAlbumNames(items = state.mediaItems) {
+function getAvailableAlbumNames(items = getAccessibleItems(state.mediaItems)) {
   const names = [];
   const seen = new Set();
   const pushAlbum = (value) => {
@@ -1437,7 +1468,7 @@ function getAlbumSortTimestamp(item) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function buildPreviewAlbumEntries(items = getAllItems()) {
+function buildPreviewAlbumEntries(items = getAccessibleItems()) {
   const groups = new Map();
   const ensureGroup = (value) => {
     const albumName = normalizeText(value);
@@ -1833,6 +1864,7 @@ function extractLiveMediaItems() {
       sizeMb: 0,
       mimeType,
       browserPreviewSupported,
+      isPrivateAlbum: false,
       isDocumentLike: DOCUMENT_HINT_PATTERN.test(`${src} ${fileLabel}`),
       sortOrder: Date.parse(dateParts.takenAt),
       domIndex
@@ -2235,6 +2267,9 @@ async function performLogout() {
   try {
     await fetch('/api/manage/logout', { method: 'GET', credentials: 'same-origin' });
   } catch { /* ignore */ }
+  writeSessionFlag(PRIVATE_ALBUM_SESSION_KEY, false);
+  state.privateRouteUnlocked = false;
+  clearPrivateViewState();
   state.needsLogin = true;
   state.adminUsername = '';
   state.adminDisplayName = '';
@@ -2359,11 +2394,73 @@ function normalizeVideoCategory(value) {
   return normalizeText(value).slice(0, VIDEO_CATEGORY_MAX_LENGTH);
 }
 
+function isUngroupedVideoAlbum(value) {
+  return normalizeText(value).toLowerCase() === UNGROUPED_VIDEO_ALBUM_KEY;
+}
+
+function normalizeVideoAlbumRouteValue(value) {
+  const normalized = normalizeText(value);
+  if (normalized.toLowerCase() === UNGROUPED_VIDEO_ROUTE_SEGMENT || isUngroupedVideoAlbum(normalized)) {
+    return UNGROUPED_VIDEO_ALBUM_KEY;
+  }
+  return normalizeVideoCategory(normalized);
+}
+
+function getVideoAlbumDisplayName(value) {
+  return isUngroupedVideoAlbum(value) ? 'Ungrouped' : normalizeVideoCategory(value);
+}
+
+function inferPrivateAlbum(metadata, type) {
+  if (type !== 'photo' || !metadata || typeof metadata !== 'object') {
+    return false;
+  }
+  const rawValue = metadata.PrivateAlbum;
+  if (rawValue === true) {
+    return true;
+  }
+  const normalized = normalizeText(rawValue).toLowerCase();
+  return ['1', 'true', 'yes', 'private'].includes(normalized);
+}
+
+function isPrivatePhoto(item) {
+  return item?.type === 'photo' && Boolean(item?.isPrivateAlbum);
+}
+
+function isPrivateRouteActive() {
+  return state.primaryFilter === 'Photos'
+    && !state.secondaryFilter
+    && !state.activeAlbumName
+    && state.privateViewOpen;
+}
+
+function hasPrivateRouteAccess() {
+  return !isPrivateRouteActive() || state.privateRouteUnlocked;
+}
+
+function getAccessibleItems(items = getAllItems()) {
+  return safeArray(items).filter((item) => {
+    if (isPrivateRouteActive()) {
+      return hasPrivateRouteAccess() && isPrivatePhoto(item);
+    }
+    return !item?.isPrivateAlbum;
+  });
+}
+
 function inferVideoCategory(metadata, type) {
   if (type !== 'video' || !metadata || typeof metadata !== 'object') {
     return '';
   }
   return normalizeVideoCategory(metadata.VideoCategory || metadata.Category || '');
+}
+
+function itemMatchesVideoAlbum(item, albumValue) {
+  if (item?.type !== 'video') {
+    return false;
+  }
+  if (isUngroupedVideoAlbum(albumValue)) {
+    return !normalizeVideoCategory(item.videoCategory);
+  }
+  return normalizeVideoCategory(item.videoCategory).toLowerCase() === normalizeVideoCategory(albumValue).toLowerCase();
 }
 
 function buildVideoCategoryOptions(items = [], activeCategory = '') {
@@ -2379,7 +2476,7 @@ function buildVideoCategoryOptions(items = [], activeCategory = '') {
     counts.set(label, (counts.get(label) || 0) + 1);
   });
 
-  const normalizedActive = normalizeVideoCategory(activeCategory);
+  const normalizedActive = isUngroupedVideoAlbum(activeCategory) ? '' : normalizeVideoCategory(activeCategory);
   if (normalizedActive && !counts.has(normalizedActive)) {
     counts.set(normalizedActive, 0);
   }
@@ -2396,12 +2493,14 @@ function buildVideoCategoryOptions(items = [], activeCategory = '') {
 
 function buildVideoAlbumSummaries(items = []) {
   const groups = new Map();
+  const ungroupedItems = [];
   items.forEach((item) => {
     if (item?.type !== 'video') {
       return;
     }
     const name = normalizeVideoCategory(item.videoCategory);
     if (!name) {
+      ungroupedItems.push(item);
       return;
     }
     const key = name.toLowerCase();
@@ -2422,6 +2521,8 @@ function buildVideoAlbumSummaries(items = []) {
       const lastModifiedAt = Math.max(0, ...sortedItems.map((item) => getAlbumSortTimestamp(item)));
       return {
         ...group,
+        routeValue: group.name,
+        isUngrouped: false,
         items: sortedItems,
         coverItem,
         itemCount: sortedItems.length,
@@ -2429,7 +2530,26 @@ function buildVideoAlbumSummaries(items = []) {
         lastModifiedAt
       };
     })
+    .concat(ungroupedItems.length ? [(() => {
+      const sortedItems = [...ungroupedItems].sort((left, right) => getAlbumSortTimestamp(right) - getAlbumSortTimestamp(left));
+      const coverItem = sortedItems[0] || null;
+      const lastModifiedAt = Math.max(0, ...sortedItems.map((item) => getAlbumSortTimestamp(item)));
+      return {
+        key: UNGROUPED_VIDEO_ALBUM_KEY,
+        name: 'Ungrouped',
+        routeValue: UNGROUPED_VIDEO_ALBUM_KEY,
+        isUngrouped: true,
+        items: sortedItems,
+        coverItem,
+        itemCount: sortedItems.length,
+        createdAt: coverItem?.takenAt || coverItem?.createdAt || coverItem?.updatedAt || '',
+        lastModifiedAt
+      };
+    })()] : [])
     .sort((left, right) => {
+      if (left.isUngrouped !== right.isUngrouped) {
+        return left.isUngrouped ? 1 : -1;
+      }
       const rightTime = Number.isFinite(right.lastModifiedAt) ? right.lastModifiedAt : -Infinity;
       const leftTime = Number.isFinite(left.lastModifiedAt) ? left.lastModifiedAt : -Infinity;
       if (rightTime !== leftTime) {
@@ -2445,10 +2565,10 @@ function isVideoAlbumRootView(parsedSearch = parseMediaSearchQuery(state.searchQ
     && !normalizeText(parsedSearch?.rawQuery);
 }
 
-function getVideoCategorySuggestions(items = getAllItems(), currentCategory = '') {
+function getVideoCategorySuggestions(items = getAccessibleItems(), currentCategory = '') {
   const dynamic = buildVideoCategoryOptions(items, currentCategory).map((entry) => entry.label);
   return [...new Set([
-    normalizeVideoCategory(currentCategory),
+    isUngroupedVideoAlbum(currentCategory) ? '' : normalizeVideoCategory(currentCategory),
     ...dynamic,
     ...DEFAULT_VIDEO_CATEGORY_SUGGESTIONS
   ].filter(Boolean))].slice(0, 16);
@@ -2530,6 +2650,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
   const sourceUrl = buildFileRoute(fileId);
   const tags = inferTagsFromMetadata(metadata, fileName, type);
   const videoCategory = inferVideoCategory(metadata, type);
+  const isPrivateAlbum = inferPrivateAlbum(metadata, type);
   const label = fileName || inferAlbumFromFileId(fileId, metadata);
   const browserPreviewSupported = type === 'document' ? false : (type !== 'photo' || supportsBrowserImagePreview(mimeType));
   const videoThumbUrl = (type === 'video' && metadata.TgThumbnailFileId)
@@ -2563,6 +2684,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     collectionAlbum: normalizeText(metadata.TgAlbumPath || metadata.Album || ''),
     tags,
     videoCategory,
+    isPrivateAlbum,
     location: inferLocationFromMetadata(metadata, domMatch),
     favorite: false,
     personLabels: safeArray(metadata.PersonLabels).map(normalizeText).filter(Boolean),
@@ -2703,8 +2825,8 @@ function syncAlbumCovers(items = getAllItems()) {
   return true;
 }
 
-function getSelectedItems() {
-  const lookup = new Map(getAllItems().map((item) => [item.id, item]));
+function getSelectedItems(items = getAccessibleItems()) {
+  const lookup = new Map(items.map((item) => [item.id, item]));
   return [...state.selectedIds].map((id) => lookup.get(id)).filter(Boolean);
 }
 
@@ -2809,6 +2931,7 @@ function buildBinItem(record) {
     height: toPositiveNumber(metadata.Height, type === 'video' ? 720 : (type === 'document' ? 240 : 900)),
     sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
     videoCategory: inferVideoCategory(metadata, type),
+    isPrivateAlbum: inferPrivateAlbum(metadata, type),
     mimeType,
     browserPreviewSupported,
     daysLeft: Math.max(0, Number(record.daysLeft) || 0),
@@ -3804,7 +3927,7 @@ function openCollection(albumName) {
 }
 
 function openVideoAlbum(categoryName) {
-  const normalizedCategory = normalizeVideoCategory(categoryName);
+  const normalizedCategory = normalizeVideoAlbumRouteValue(categoryName);
   if (!normalizedCategory) {
     return;
   }
@@ -3855,6 +3978,40 @@ function closeVideoAlbum() {
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
   }
+}
+
+function clearPrivateViewState() {
+  state.privateViewOpen = false;
+  state.privatePasswordDraft = '';
+  state.privatePasswordError = '';
+}
+
+function resetPrivateRouteUnlockError() {
+  state.privatePasswordError = '';
+}
+
+function unlockPrivateRoute(passwordInput = state.privatePasswordDraft) {
+  const password = normalizeText(passwordInput);
+  state.privatePasswordDraft = passwordInput;
+  if (!password) {
+    state.privatePasswordError = 'Password is required.';
+    render();
+    return false;
+  }
+  if (password !== PRIVATE_ALBUM_PASSWORD) {
+    state.privatePasswordError = 'Wrong password.';
+    render();
+    return false;
+  }
+  state.privateRouteUnlocked = true;
+  state.privatePasswordDraft = '';
+  state.privatePasswordError = '';
+  writeSessionFlag(PRIVATE_ALBUM_SESSION_KEY, true);
+  render();
+  if (refs.scrollRegion) {
+    refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
+  }
+  return true;
 }
 
 function openAlbumSelection(albumName = getActiveAlbumName()) {
@@ -4040,6 +4197,7 @@ function buildContentViewKey(viewModel) {
     viewModel.activeAlbumName || '',
     state.secondaryFilter || '',
     state.videoCategoryFilter || '',
+    state.privateViewOpen ? 'private-view' : '',
     viewModel.isVideoAlbumRoot ? 'video-album-root' : ''
   ].join('|');
 }
@@ -4477,10 +4635,31 @@ function patchVideoCategoryDisplay(section, category) {
   wrapper.className = 'cml-preview__info-category';
   const value = document.createElement('p');
   value.className = 'cml-preview__info-category-value';
-  value.textContent = normalizedCategory || 'Set video category';
+  value.textContent = normalizedCategory || 'Choose video album';
   const meta = document.createElement('p');
   meta.className = 'cml-preview__info-category-meta';
-  meta.textContent = normalizedCategory ? 'Used for filtering in Videos view' : 'Click to group this video';
+  meta.textContent = normalizedCategory ? 'Click to switch video album' : 'Choose or create a video album';
+  wrapper.append(value, meta);
+  section.append(heading, wrapper);
+}
+
+function patchPrivateAlbumDisplay(section, item) {
+  const isPrivate = isPrivatePhoto(item);
+  section.textContent = '';
+  section.setAttribute('data-action', 'toggle-private-photo');
+  const heading = document.createElement('h5');
+  heading.className = 'cml-preview__info-heading';
+  heading.textContent = 'Hidden album';
+  const wrapper = document.createElement('div');
+  wrapper.className = 'cml-preview__info-category';
+  const value = document.createElement('p');
+  value.className = 'cml-preview__info-category-value';
+  value.textContent = isPrivate ? 'Inside hidden album' : 'Visible in library';
+  const meta = document.createElement('p');
+  meta.className = 'cml-preview__info-category-meta';
+  meta.textContent = isPrivate
+    ? 'Click to remove this photo from the hidden album'
+    : 'Click to move this photo into the hidden album';
   wrapper.append(value, meta);
   section.append(heading, wrapper);
 }
@@ -4507,6 +4686,13 @@ function applyPatchedVideoCategory(mediaItem, metadata) {
     return;
   }
   mediaItem.videoCategory = normalizeVideoCategory(metadata.VideoCategory || '');
+}
+
+function applyPatchedPrivateAlbum(mediaItem, metadata) {
+  if (!mediaItem || !metadata || typeof metadata !== 'object') {
+    return;
+  }
+  mediaItem.isPrivateAlbum = inferPrivateAlbum(metadata, mediaItem.type);
 }
 
 function sortMediaItemsInPlace(items) {
@@ -4635,6 +4821,87 @@ async function savePreviewVideoCategory(itemId, categoryInput, previousItem = nu
   }
 }
 
+async function savePreviewPrivateAlbum(itemId, nextPrivate, previousItem = null) {
+  const item = getAllItems().find((entry) => entry.id === itemId);
+  if (!item || !item.sourceId || item.type !== 'photo') {
+    showToast('Only photos can be moved into the hidden album');
+    return;
+  }
+
+  const encodedPath = encodeMetadataPath(item.sourceId);
+
+  try {
+    const response = await apiFetch(`/api/manage/metadata/${encodedPath}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ PrivateAlbum: Boolean(nextPrivate) })
+    });
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || 'Failed to update hidden album');
+    }
+
+    const mediaItem = state.mediaItems.find((entry) => entry.id === itemId);
+    if (mediaItem) {
+      applyPatchedPrivateAlbum(mediaItem, data.metadata || {});
+    }
+    state.selectedIds.delete(itemId);
+    render();
+    showToast(nextPrivate ? 'Moved to hidden album' : 'Removed from hidden album', 'success');
+  } catch (error) {
+    const privateSection = refs.root?.querySelector('.cml-preview__info-section--private-album');
+    if (privateSection && previousItem) {
+      patchPrivateAlbumDisplay(privateSection, previousItem);
+    }
+    showToast(error.message || 'Failed to update hidden album');
+  }
+}
+
+async function setSelectionPrivateAlbum(nextPrivate) {
+  const selectedPhotos = getSelectedItems().filter((item) => item?.type === 'photo' && item?.sourceId);
+  if (!selectedPhotos.length) {
+    showToast('Select one or more photos first');
+    return;
+  }
+
+  let updated = 0;
+  for (const item of selectedPhotos) {
+    const encodedPath = encodeMetadataPath(item.sourceId);
+    try {
+      const response = await apiFetch(`/api/manage/metadata/${encodedPath}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ PrivateAlbum: Boolean(nextPrivate) })
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || 'Failed to update hidden album');
+      }
+      const mediaItem = state.mediaItems.find((entry) => entry.id === item.id);
+      if (mediaItem) {
+        applyPatchedPrivateAlbum(mediaItem, data.metadata || {});
+      }
+      updated += 1;
+    } catch (error) {
+      console.warn('[media-library] failed to update hidden album flag', item.sourceId, error);
+    }
+  }
+
+  if (!updated) {
+    showToast('No selected photos were updated');
+    return;
+  }
+
+  state.selectedIds.clear();
+  if (!nextPrivate && isPrivateRouteActive()) {
+    state.previewId = null;
+  }
+  render();
+  showToast(nextPrivate
+    ? `Moved ${updated} photo${updated === 1 ? '' : 's'} to hidden album`
+    : `Removed ${updated} photo${updated === 1 ? '' : 's'} from hidden album`, 'success');
+}
+
 function createDocFolder(folderName) {
   const currentDir = state.docsCurrentDir || '';
   const fullPath = currentDir ? currentDir + '/' + folderName : folderName;
@@ -4760,6 +5027,14 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
   return items.filter((item) => {
     const albumName = resolveCollectionAlbum(item);
 
+    if (isPrivateRouteActive()) {
+      if (!hasPrivateRouteAccess() || !isPrivatePhoto(item)) {
+        return false;
+      }
+    } else if (item?.isPrivateAlbum) {
+      return false;
+    }
+
     if (activeAlbumName && albumName.toLowerCase() !== activeAlbumName.toLowerCase()) {
       return false;
     }
@@ -4778,8 +5053,7 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
           return false;
         }
         if (!ignoreVideoCategoryFilter && state.videoCategoryFilter) {
-          const activeVideoCategory = normalizeVideoCategory(state.videoCategoryFilter).toLowerCase();
-          if (normalizeVideoCategory(item.videoCategory).toLowerCase() !== activeVideoCategory) {
+          if (!itemMatchesVideoAlbum(item, state.videoCategoryFilter)) {
             return false;
           }
         }
@@ -5072,7 +5346,8 @@ function buildCollectionSummaries(items) {
 }
 
 function getViewModel() {
-  const visibleSecondaryFilters = getVisibleSecondaryFilters(getAllItems());
+  const accessibleItems = getAccessibleItems();
+  const visibleSecondaryFilters = getVisibleSecondaryFilters(accessibleItems);
   if (state.secondaryFilter && !visibleSecondaryFilters.includes(state.secondaryFilter)) {
     state.secondaryFilter = '';
   }
@@ -5080,13 +5355,12 @@ function getViewModel() {
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const activeAlbumName = getActiveAlbumName();
   const albumSelectionTarget = getAlbumSelectionTarget();
-  const filteredItems = getFilteredItems();
+  const filteredItems = getFilteredItems(accessibleItems);
   const videoCategoryScopeItems = state.secondaryFilter === 'Videos'
-    ? getFilteredItems(getAllItems(), { ignoreVideoCategoryFilter: true })
+    ? getFilteredItems(accessibleItems, { ignoreVideoCategoryFilter: true })
     : [];
   const activeVideoAlbumItemCount = state.secondaryFilter === 'Videos' && state.videoCategoryFilter
-    ? getAllItems().filter((item) => item?.type === 'video'
-      && normalizeVideoCategory(item.videoCategory).toLowerCase() === normalizeVideoCategory(state.videoCategoryFilter).toLowerCase()).length
+    ? accessibleItems.filter((item) => itemMatchesVideoAlbum(item, state.videoCategoryFilter)).length
     : 0;
   const videoAlbumCards = state.secondaryFilter === 'Videos'
     ? buildVideoAlbumSummaries(videoCategoryScopeItems)
@@ -5096,15 +5370,15 @@ function getViewModel() {
   const videoCategoryOptions = state.secondaryFilter === 'Videos'
     ? buildVideoCategoryOptions(videoCategoryScopeItems, state.videoCategoryFilter)
     : [];
-  const selectedItems = getSelectedItems();
+  const selectedItems = getSelectedItems(accessibleItems);
   const activeAlbumItems = activeAlbumName
-    ? getAllItems().filter((item) => itemBelongsToAlbum(item, activeAlbumName))
+    ? accessibleItems.filter((item) => itemBelongsToAlbum(item, activeAlbumName))
     : [];
   const activeAlbumCover = activeAlbumName
     ? findAlbumCoverItem(activeAlbumName, activeAlbumItems)
     : { item: null, isCustom: false };
   const allCollections = state.primaryFilter === 'Collections' && !activeAlbumName
-    ? buildCollectionSummaries(getAllItems())
+    ? buildCollectionSummaries(accessibleItems)
     : [];
   const collectionCards = allCollections.slice(0, state.loadedCount);
   const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName;
@@ -5206,8 +5480,8 @@ function getViewModel() {
     previewItems,
     previewIndex,
     previewItem,
-    availableAlbums: getAvailableAlbumNames(),
-    previewAlbumEntries: buildPreviewAlbumEntries(getAllItems()),
+    availableAlbums: getAvailableAlbumNames(accessibleItems),
+    previewAlbumEntries: buildPreviewAlbumEntries(accessibleItems),
     canSetAlbumCover,
     canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
     canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item)),
@@ -5324,8 +5598,9 @@ function render() {
   const activeSearchFilterCount = countActiveMediaSearchFilters(parsedSearch.filters)
     + (hasSeparateVideoCategoryChip ? 1 : 0);
   const activeSearchFilterParts = summarizeMediaSearch(parsedSearch.filters);
+  const activeVideoAlbumLabel = getVideoAlbumDisplayName(state.videoCategoryFilter);
   if (hasSeparateVideoCategoryChip) {
-    activeSearchFilterParts.push(`Category: ${state.videoCategoryFilter}`);
+    activeSearchFilterParts.push(`Category: ${activeVideoAlbumLabel}`);
   }
 
   // ── Incremental render: preserve the sidebar DOM to avoid flicker ──
@@ -5361,6 +5636,9 @@ function render() {
                 })
                 : state.secondaryFilter === 'Documents'
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
+                : state.privateViewOpen && !state.privateRouteUnlocked
+                ? `${PrivateAlbumSummary({ itemCount: 0, locked: true })}
+                   ${PrivateAlbumGate({ error: state.privatePasswordError, value: state.privatePasswordDraft })}`
                 : `${state.primaryFilter === 'Collections'
                   ? CollectionSummary({
                     activeAlbumName: viewModel.activeAlbumName,
@@ -5374,15 +5652,20 @@ function render() {
                     renameAlbumBusy: state.renameAlbumBusy
                   })
                   : ''}
+                ${state.privateViewOpen
+                  ? PrivateAlbumSummary({ itemCount: viewModel.filteredItems.length, locked: false })
+                  : ''}
                 ${SearchSummary({
                   query: parsedSearch.textQuery,
-                  resultCount: viewModel.isCollectionRoot ? viewModel.totalCollectionCount : viewModel.filteredItems.length,
+                  resultCount: viewModel.isCollectionRoot
+                    ? viewModel.totalCollectionCount
+                    : (viewModel.isVideoAlbumRoot ? viewModel.videoAlbumCount : viewModel.filteredItems.length),
                   filterParts: activeSearchFilterParts,
                   hasActiveFilters: activeSearchFilterCount > 0
                 })}
                 ${state.secondaryFilter === 'Videos' && (viewModel.isVideoAlbumRoot || state.videoCategoryFilter)
                   ? VideoAlbumSummary({
-                      activeCategory: state.videoCategoryFilter,
+                      activeCategory: activeVideoAlbumLabel,
                       albumCount: viewModel.videoAlbumCount,
                       groupedVideoCount: viewModel.videoAlbumGroupedItemCount,
                       totalVideoCount: state.videoCategoryFilter ? viewModel.activeVideoAlbumItemCount : viewModel.videoCategoryScopeCount
@@ -5395,14 +5678,15 @@ function render() {
                       totalCount: viewModel.videoCategoryScopeCount
                     })
                   : ''}
-                ${viewModel.isVideoAlbumRoot
-                  ? VideoAlbumGrid({ albums: viewModel.videoAlbumCards })
-                  : ''}
                 ${viewModel.isCollectionRoot
                   ? (viewModel.collectionCards.length
                      ? CollectionGrid({ collections: viewModel.collectionCards })
                      : EmptyState({ query: parsedSearch.textQuery, isLoading: state.isLibraryLoading, mode: 'collections' }))
-                  : (viewModel.sections.length
+                  : viewModel.isVideoAlbumRoot
+                    ? (viewModel.videoAlbumCards.length
+                        ? VideoAlbumGrid({ albums: viewModel.videoAlbumCards })
+                        : EmptyState({ query: parsedSearch.textQuery, isLoading: state.isLibraryLoading, mode: 'media' }))
+                    : (viewModel.sections.length
                      ? viewModel.sections.map((section) => MediaTimelineSection({
                       section,
                       state,
@@ -5677,7 +5961,7 @@ function animatePreviewSwap(direction = 0) {
   });
 }
 
-function getPreviewItems(items = getAllItems()) {
+function getPreviewItems(items = getAccessibleItems()) {
   return state.primaryFilter === 'Bin' ? [] : getFilteredItems(items);
 }
 
@@ -6047,6 +6331,11 @@ function mount() {
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'login') {
         e.preventDefault();
         void submitLogin();
+        return;
+      }
+      if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'private-access') {
+        e.preventDefault();
+        unlockPrivateRoute();
       }
     }, true);
     document.addEventListener('keydown', handleKeyDown);
@@ -6313,7 +6602,7 @@ function patchTimelineContent() {
 
   const activeAlbumName = getActiveAlbumName();
   const activeAlbumItems = activeAlbumName
-    ? getAllItems().filter((item) => itemBelongsToAlbum(item, activeAlbumName))
+    ? getAccessibleItems().filter((item) => itemBelongsToAlbum(item, activeAlbumName))
     : [];
   const coverItemId = activeAlbumName
     ? (findAlbumCoverItem(activeAlbumName, activeAlbumItems).item?.id || '')
@@ -6618,6 +6907,12 @@ function handleAction(actionTarget) {
       return true;
     case 'close-video-album':
       closeVideoAlbum();
+      return true;
+    case 'toggle-private-selection':
+      void setSelectionPrivateAlbum(!isPrivateRouteActive());
+      return true;
+    case 'unlock-private-route':
+      unlockPrivateRoute();
       return true;
     case 'close-album-dialog':
       closeAlbumDialog();
@@ -6934,7 +7229,9 @@ function handleAction(actionTarget) {
       categorySection.removeAttribute('data-action');
       const heading = document.createElement('h5');
       heading.className = 'cml-preview__info-heading';
-      heading.textContent = 'Video category';
+      heading.textContent = 'Video album';
+      const picker = document.createElement('div');
+      picker.className = 'cml-preview__info-choice-chips';
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'cml-preview__info-category-input';
@@ -6942,23 +7239,38 @@ function handleAction(actionTarget) {
       input.placeholder = 'Travel, Scenery, Tutorial...';
       input.maxLength = VIDEO_CATEGORY_MAX_LENGTH;
       input.value = currentCategory;
-      const datalistId = 'cml-video-category-suggestions';
-      input.setAttribute('list', datalistId);
-      const suggestions = getVideoCategorySuggestions(getAllItems(), currentCategory);
-      const datalist = document.createElement('datalist');
-      datalist.id = datalistId;
+      const suggestions = getVideoCategorySuggestions(getAccessibleItems(), currentCategory);
       suggestions.forEach((suggestion) => {
-        const option = document.createElement('option');
-        option.value = suggestion;
-        datalist.appendChild(option);
+        const optionButton = document.createElement('button');
+        optionButton.type = 'button';
+        optionButton.className = `cml-preview__info-choice-chip ${suggestion === currentCategory ? 'is-active' : ''}`;
+        optionButton.textContent = suggestion;
+        optionButton.addEventListener('click', () => {
+          patchVideoCategoryDisplay(categorySection, suggestion);
+          void savePreviewVideoCategory(state.previewId, suggestion, currentItem);
+        });
+        picker.appendChild(optionButton);
       });
       const hint = document.createElement('p');
       hint.className = 'cml-preview__info-category-hint';
-      hint.textContent = 'Press Enter to save. Leave blank to clear the category.';
-      let cancelled = false;
+      hint.textContent = 'Choose an existing video album or type a new one.';
+      const actions = document.createElement('div');
+      actions.className = 'cml-preview__info-editor-actions';
+      const cancelButton = document.createElement('button');
+      cancelButton.type = 'button';
+      cancelButton.className = 'cml-topbar__secondary-button';
+      cancelButton.textContent = 'Cancel';
+      const saveButton = document.createElement('button');
+      saveButton.type = 'button';
+      saveButton.className = 'cml-topbar__secondary-button';
+      saveButton.textContent = 'Save';
+      const clearButton = document.createElement('button');
+      clearButton.type = 'button';
+      clearButton.className = 'cml-topbar__secondary-button';
+      clearButton.textContent = 'Clear';
       const previousItem = { ...currentItem };
-      const commitEdit = () => {
-        if (cancelled) {
+      const commitEdit = (shouldRestore = false) => {
+        if (shouldRestore) {
           patchVideoCategoryDisplay(categorySection, previousItem.videoCategory);
           return;
         }
@@ -6969,20 +7281,36 @@ function handleAction(actionTarget) {
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          input.blur();
+          commitEdit(false);
         }
         if (e.key === 'Escape') {
           e.preventDefault();
-          cancelled = true;
-          input.blur();
+          commitEdit(true);
         }
       });
-      input.addEventListener('blur', () => {
-        commitEdit();
+      cancelButton.addEventListener('click', () => commitEdit(true));
+      saveButton.addEventListener('click', () => commitEdit(false));
+      clearButton.addEventListener('click', () => {
+        patchVideoCategoryDisplay(categorySection, '');
+        void savePreviewVideoCategory(state.previewId, '', previousItem);
       });
-      categorySection.append(heading, input, datalist, hint);
+      if (currentCategory) {
+        actions.appendChild(clearButton);
+      }
+      actions.append(cancelButton, saveButton);
+      categorySection.append(heading, picker, input, hint, actions);
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
+      return true;
+    }
+    case 'toggle-private-photo': {
+      const privateSection = refs.root.querySelector('.cml-preview__info-section--private-album');
+      const currentItem = getAllItems().find((entry) => entry.id === state.previewId);
+      if (!privateSection || !currentItem || currentItem.type !== 'photo') {
+        return true;
+      }
+      patchPrivateAlbumDisplay(privateSection, { ...currentItem, isPrivateAlbum: !currentItem.isPrivateAlbum });
+      void savePreviewPrivateAlbum(state.previewId, !currentItem.isPrivateAlbum, currentItem);
       return true;
     }
     case 'edit-capture-time': {
@@ -7216,6 +7544,7 @@ function handleClick(event) {
       state.storagePanelOpen = false;
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
+      clearPrivateViewState();
       state.activeAlbumName = '';
       state.albumSelectionTarget = '';
       resetSearchQuery();
@@ -7238,6 +7567,7 @@ function handleClick(event) {
       if (state.secondaryFilter !== 'Videos') {
         state.videoCategoryFilter = '';
       }
+      clearPrivateViewState();
       state.storagePanelOpen = false;
       state.activeAlbumName = '';
       state.albumSelectionTarget = '';
@@ -7252,8 +7582,10 @@ function handleClick(event) {
     }
 
     if (actionTarget.dataset.action === 'filter-video-category') {
-      const nextCategory = normalizeVideoCategory(actionTarget.dataset.category || '');
-      state.videoCategoryFilter = nextCategory === normalizeVideoCategory(state.videoCategoryFilter) ? '' : nextCategory;
+      const nextCategory = normalizeVideoAlbumRouteValue(actionTarget.dataset.category || '');
+      const currentCategory = normalizeVideoAlbumRouteValue(state.videoCategoryFilter);
+      state.videoCategoryFilter = nextCategory === currentCategory ? '' : nextCategory;
+      clearPrivateViewState();
       state.previewId = null;
       state.selectedIds.clear();
       resetLoadedCount();
@@ -7314,6 +7646,13 @@ function handleInput(event) {
   }
   if (input.dataset.login === 'password') {
     state.loginPassword = input.value;
+    return;
+  }
+  if (input.dataset.privateAccess === 'password') {
+    state.privatePasswordDraft = input.value;
+    if (state.privatePasswordError) {
+      resetPrivateRouteUnlockError();
+    }
     return;
   }
   if (input.classList.contains('cml-topbar__search-input') || input.classList.contains('cml-sidebar__search-input')) {
@@ -7655,9 +7994,15 @@ function buildNavigationHash() {
   const primary = state.primaryFilter || 'Photos';
   const secondary = state.secondaryFilter || '';
   const album = state.activeAlbumName || '';
+  if (isPrivateRouteActive()) {
+    return `#/photos/${PRIVATE_ROUTE_SEGMENT}`;
+  }
   if (secondary) {
     if (secondary === 'Videos' && state.videoCategoryFilter) {
-      return '#/videos/' + encodeURIComponent(state.videoCategoryFilter);
+      const routeValue = isUngroupedVideoAlbum(state.videoCategoryFilter)
+        ? UNGROUPED_VIDEO_ROUTE_SEGMENT
+        : state.videoCategoryFilter;
+      return '#/videos/' + encodeURIComponent(routeValue);
     }
     return '#/' + secondary.toLowerCase();
   }
@@ -7687,6 +8032,7 @@ function restoreNavigationFromHash() {
     state.secondaryFilter = '';
     state.videoCategoryFilter = '';
     state.activeAlbumName = '';
+    clearPrivateViewState();
     return;
   }
 
@@ -7699,11 +8045,19 @@ function restoreNavigationFromHash() {
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      if (parts[1] && parts[1].toLowerCase() === PRIVATE_ROUTE_SEGMENT) {
+        state.privateViewOpen = true;
+        state.privatePasswordDraft = '';
+        state.privatePasswordError = '';
+      } else {
+        clearPrivateViewState();
+      }
       break;
     case 'albums':
       state.primaryFilter = 'Collections';
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
+      clearPrivateViewState();
       if (parts[1]) {
         // Preserve the original album name casing from the hash
         state.activeAlbumName = parts.slice(1).join('/');
@@ -7716,24 +8070,35 @@ function restoreNavigationFromHash() {
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      clearPrivateViewState();
       break;
     case 'videos':
       state.primaryFilter = 'Photos';
       state.secondaryFilter = 'Videos';
-      state.videoCategoryFilter = normalizeVideoCategory(parts.slice(1).join('/'));
+      state.videoCategoryFilter = normalizeVideoAlbumRouteValue(parts.slice(1).join('/'));
       state.activeAlbumName = '';
+      clearPrivateViewState();
       break;
     case 'documents':
       state.primaryFilter = 'Photos';
       state.secondaryFilter = 'Documents';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      clearPrivateViewState();
       break;
     case 'favourites':
       state.primaryFilter = 'Photos';
       state.secondaryFilter = 'Favourites';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      clearPrivateViewState();
+      break;
+    default:
+      state.primaryFilter = 'Photos';
+      state.secondaryFilter = '';
+      state.videoCategoryFilter = '';
+      state.activeAlbumName = '';
+      clearPrivateViewState();
       break;
   }
 }
