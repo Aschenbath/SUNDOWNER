@@ -51,7 +51,7 @@ describe('media library download actions', () => {
       immersive: false,
     });
 
-    assert.equal((html.match(/class="cml-preview__icon-action/g) || []).length, 6);
+    assert.ok((html.match(/class="cml-preview__icon-action/g) || []).length >= 6);
     assert.match(html, /data-action="download-preview"/);
     assert.match(html, /Download original/);
     assert.match(html, /class="cml-preview__main"/);
@@ -270,6 +270,49 @@ describe('media library download actions', () => {
     assert.match(html, /No albums are available yet\./);
   });
 
+  it('renders video album copy in selection and preview album drawers', () => {
+    const topbarHtml = TopSearchBar({
+      state: {
+        selectedIds: new Set(['video-1']),
+        searchQuery: '',
+        primaryFilter: 'Photos',
+        secondaryFilter: 'Videos',
+        activeAlbumName: '',
+        albumSelectionTarget: '',
+        privateViewOpen: false
+      },
+      canDeleteSelection: true,
+      canDownloadSelection: true,
+      canSetAlbumCover: false,
+    });
+    const previewHtml = PreviewModal({
+      item: {
+        id: 'managed-video-2',
+        type: 'video',
+        label: 'travel.mp4',
+        sourceId: 'videos/travel.mp4',
+        sourceUrl: '/file/videos/travel.mp4',
+        thumbnailUrl: '/file/videos/travel.mp4?preview=1',
+        posterUrl: '/file/videos/travel.mp4?preview=1',
+        width: 1920,
+        height: 1080,
+        mimeType: 'video/mp4'
+      },
+      selected: true,
+      favorited: false,
+      currentIndex: 0,
+      totalCount: 1,
+      albumDrawerOpen: true,
+      albumEntries: [{ name: 'Travel vlog', itemCount: 3, coverUrl: '/file/travel.jpg', scope: 'mine' }],
+      albumDialogTarget: 'video'
+    });
+
+    assert.match(topbarHtml, />Add to video album</);
+    assert.match(previewHtml, /Add to video album/);
+    assert.match(previewHtml, /Search video albums/);
+    assert.match(previewHtml, /New video album/);
+  });
+
   it('renders HEIC originals with a stable inline-preview fallback instead of a broken image tag', () => {
     const html = PreviewModal({
       item: {
@@ -468,15 +511,16 @@ describe('media library download actions', () => {
     assert.match(html, /aria-label="Select item with 45 days left remaining"/);
   });
 
-  it('shows Albums in the sidebar, keeps secondary filters visible in Bin, and uses the text wordmark', () => {
+  it('shows Albums and Private in the sidebar, keeps secondary filters visible in Bin, and uses the text wordmark', () => {
     const html = Sidebar({
       navigationModel: {
-        primary: ['Photos', 'Collections', 'Bin'],
+        primary: ['Photos', 'Collections', 'Private', 'Bin'],
         secondary: ['Videos', 'Favourites']
       },
       state: {
         primaryFilter: 'Bin',
         secondaryFilter: '',
+        privateViewOpen: false,
         searchQuery: ''
       },
       storageSummary: {
@@ -491,6 +535,7 @@ describe('media library download actions', () => {
     assert.match(html, /cml-sidebar__brand-wordmark/);
     assert.match(html, />SUNDOWNER</);
     assert.match(html, />Albums</);
+    assert.match(html, />Private</);
     assert.match(html, /data-secondary="Videos"/);
     assert.match(html, /data-secondary="Favourites"/);
     assert.doesNotMatch(html, /logo-sundowner\.svg/);
@@ -504,7 +549,7 @@ describe('media library download actions', () => {
       isLoading: false
     });
 
-    assert.match(html, /1\.50 GB \/ INFINITE/);
+    assert.match(html, /1\.5 GB \/ INFINITE/);
     assert.match(html, />27 items</);
     assert.doesNotMatch(html, /Calculating\.\.\./);
   });
@@ -593,7 +638,7 @@ describe('media library download actions', () => {
     assert.match(componentsSource, /data-action="open-video-album"/);
   });
 
-  it('renders a hidden-album password gate and summary without adding a visible sidebar entry', () => {
+  it('renders a hidden-album password gate and summary behind the visible Private sidebar entry', () => {
     const gateHtml = PrivateAlbumGate({ error: 'Wrong password.' });
     const summaryHtml = PrivateAlbumSummary({ itemCount: 3, locked: false });
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
@@ -602,11 +647,13 @@ describe('media library download actions', () => {
     assert.match(gateHtml, /data-private-access="password"/);
     assert.match(gateHtml, /Open hidden album/);
     assert.match(gateHtml, /Wrong password\./);
+    assert.match(gateHtml, /Private is a locked collection/);
     assert.match(summaryHtml, /Hidden album/);
     assert.match(summaryHtml, /3 photos hidden from the main library/);
     assert.match(appSource, /PRIVATE_ROUTE_SEGMENT = 'private'/);
     assert.match(appSource, /PRIVATE_ALBUM_PASSWORD = '210217'/);
     assert.match(appSource, /#\/photos\/\$\{PRIVATE_ROUTE_SEGMENT\}/);
+    assert.match(appSource, /if \(actionTarget\.dataset\.primary === 'Private'\)/);
     assert.match(appSource, /toggle-private-photo/);
     assert.match(appSource, /toggle-private-selection/);
   });

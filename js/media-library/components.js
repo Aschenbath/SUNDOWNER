@@ -380,6 +380,12 @@ export function Sidebar({
   storageSummary,
   searchQuery = '',
 }) {
+  const isPrimaryActive = (label) => {
+    if (label === 'Private') {
+      return state.privateViewOpen && !state.secondaryFilter;
+    }
+    return state.primaryFilter === label && !state.secondaryFilter;
+  };
   return `
     <aside class="cml-sidebar">
       <div class="cml-sidebar__brand">
@@ -390,11 +396,17 @@ export function Sidebar({
       <div class="cml-sidebar__nav" role="navigation" aria-label="Primary navigation">
         ${navigationModel.primary.map((label) => {
           const key = label.toLowerCase();
-          const active = (state.primaryFilter === label && !state.secondaryFilter) ? 'is-active' : '';
-          const iconName = key === 'photos' ? 'photos' : key === 'bin' ? 'trash' : 'albums';
+          const active = isPrimaryActive(label) ? 'is-active' : '';
+          const iconName = key === 'photos'
+            ? 'photos'
+            : key === 'bin'
+              ? 'trash'
+              : key === 'private'
+                ? 'lock'
+                : 'albums';
           const displayLabel = label === 'Collections' ? 'Albums' : label;
           return `
-            <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}" aria-current="${(state.primaryFilter === label && !state.secondaryFilter) ? 'page' : 'false'}">
+            <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}" aria-current="${isPrimaryActive(label) ? 'page' : 'false'}">
               ${icon(iconName)}
               <span class="cml-sidebar__nav-label">${escapeHtml(displayLabel)}</span>
             </button>
@@ -509,6 +521,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   const canCreateAlbum = state.primaryFilter === 'Collections' && !activeAlbumName;
   const canToggleHiddenAlbum = state.primaryFilter === 'Photos' && !state.secondaryFilter;
   const hiddenActionLabel = state.privateViewOpen ? 'Remove from hidden album' : 'Move to hidden album';
+  const addToAlbumLabel = state.secondaryFilter === 'Videos' ? 'Add to video album' : 'Add to album';
   if (selectedCount) {
     if (isAlbumPickerMode) {
       return `
@@ -534,7 +547,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
             <strong>${selectedCount} selected</strong>
           </div>
             <div class="cml-topbar__selection-actions">
-              <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-album">Add to album</button>
+              <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-album">${escapeHtml(addToAlbumLabel)}</button>
               ${canToggleHiddenAlbum ? `
                 <button type="button" class="cml-topbar__secondary-button" data-action="toggle-private-selection">${escapeHtml(hiddenActionLabel)}</button>
               ` : ''}
@@ -1408,7 +1421,8 @@ export function PreviewModal({
   albumDraftName = '',
   albumDialogError = '',
   albumDrawerSearch = '',
-  albumDrawerCreateMode = false
+  albumDrawerCreateMode = false,
+  albumDialogTarget = 'photo'
 }) {
   if (!item) {
     return '';
@@ -1497,16 +1511,18 @@ export function PreviewModal({
     </aside>
   `;
 
+  const targetLabel = albumDialogTarget === 'video' ? 'video album' : 'album';
+  const targetLabelPlural = albumDialogTarget === 'video' ? 'video albums' : 'albums';
   const normalizedAlbumSearch = String(albumDrawerSearch || '').trim().toLowerCase();
   const visibleAlbumEntries = albumEntries
     .filter((entry) => !normalizedAlbumSearch || String(entry.name || '').toLowerCase().includes(normalizedAlbumSearch));
 
   const albumPanel = `
-    <div class="cml-preview__album-panel ${albumDrawerOpen ? 'is-open' : ''}" aria-label="Add to album" aria-hidden="${albumDrawerOpen ? 'false' : 'true'}">
+    <div class="cml-preview__album-panel ${albumDrawerOpen ? 'is-open' : ''}" aria-label="Add to ${escapeHtml(targetLabel)}" aria-hidden="${albumDrawerOpen ? 'false' : 'true'}">
       <div class="cml-preview__album-backdrop" data-action="close-album-dialog"></div>
       <section class="cml-preview__album-sheet">
         <div class="cml-preview__album-toolbar">
-          <h4 class="cml-preview__album-title">Add to album</h4>
+          <h4 class="cml-preview__album-title">Add to ${escapeHtml(targetLabel)}</h4>
           <button type="button" class="cml-preview__info-close" data-action="close-album-dialog" aria-label="Close album picker">${icon('close')}</button>
         </div>
         <div class="cml-preview__album-search">
@@ -1516,7 +1532,7 @@ export function PreviewModal({
             class="cml-preview__album-search-input"
             data-focus-key="album-search"
             value="${escapeHtml(albumDrawerSearch || '')}"
-            placeholder="Search albums"
+            placeholder="Search ${escapeHtml(targetLabelPlural)}"
             autocomplete="off"
           />
         </div>
@@ -1528,13 +1544,13 @@ export function PreviewModal({
           ${albumDrawerCreateMode ? `
             <section class="cml-preview__album-create-card">
               <label class="cml-album-dialog__field">
-                <span class="cml-album-dialog__label">New album name</span>
+                <span class="cml-album-dialog__label">New ${escapeHtml(targetLabel)} name</span>
                 <input
                   type="text"
                   class="cml-album-dialog__input cml-preview__album-create-input"
                   data-focus-key="album-create"
                   value="${escapeHtml(albumDraftName || '')}"
-                  placeholder="Weekend in Guangzhou"
+                  placeholder="${escapeHtml(albumDialogTarget === 'video' ? 'Travel vlog' : 'Weekend in Guangzhou')}"
                   maxlength="64"
                   autocomplete="off"
                 />
@@ -1549,7 +1565,7 @@ export function PreviewModal({
             <button type="button" class="cml-preview__album-entry cml-preview__album-entry--create" data-action="toggle-album-create">
               ${renderAlbumDrawerCover(null, { create: true })}
               <span class="cml-preview__album-entry-copy">
-                <span class="cml-preview__album-entry-title">New album</span>
+                <span class="cml-preview__album-entry-title">New ${escapeHtml(targetLabel)}</span>
               </span>
             </button>
           `}
@@ -1563,7 +1579,7 @@ export function PreviewModal({
             </button>
           `).join('') : `
             <div class="cml-preview__album-empty">
-              ${normalizedAlbumSearch ? 'No albums match this search.' : 'No albums are available yet.'}
+              ${normalizedAlbumSearch ? `No ${targetLabelPlural} match this search.` : `No ${targetLabelPlural} are available yet.`}
             </div>
           `}
         </div>
@@ -1648,7 +1664,7 @@ export function PrivateAlbumGate({ error = '', value = '' }) {
     <section class="cml-private-access" aria-label="Hidden album access">
       <div class="cml-private-access__icon" aria-hidden="true">${icon('lock')}</div>
       <h3 class="cml-private-access__title">Enter hidden album</h3>
-      <p class="cml-private-access__copy">This route has no visible entry in the library. Enter the password to open the hidden photo album.</p>
+      <p class="cml-private-access__copy">Private is a locked collection. Enter the password to open the hidden photo album.</p>
       <form class="cml-private-access__form" data-form="private-access">
         <input
           type="password"
@@ -1664,16 +1680,17 @@ export function PrivateAlbumGate({ error = '', value = '' }) {
     </section>
   `;
 }
-export function AlbumDialog({ state, albums }) {
+export function AlbumDialog({ state, albums, target = 'photo' }) {
   if (!state.albumDialogOpen || state.albumDialogOrigin === 'preview') {
     return '';
   }
   const selectedCount = state.selectedIds.size;
   const isAssignMode = state.albumDialogMode === 'assign';
-  const title = isAssignMode ? 'Add to album' : 'Create album';
+  const targetLabel = target === 'video' ? 'video album' : 'album';
+  const title = isAssignMode ? `Add to ${targetLabel}` : `Create ${targetLabel}`;
   const description = isAssignMode
-    ? `Add ${selectedCount} selected item${selectedCount === 1 ? '' : 's'} to an existing album or create a new one.`
-    : 'Create a new album shell now and fill it later from the library.';
+    ? `Add ${selectedCount} selected item${selectedCount === 1 ? '' : 's'} to an existing ${targetLabel} or create a new one.`
+    : `Create a new ${targetLabel} now and fill it later from the library.`;
   return `
     <div class="cml-dialog" role="dialog" aria-modal="true" aria-label="${title}">
       <div class="cml-dialog__backdrop" data-action="close-album-dialog"></div>
@@ -1687,7 +1704,7 @@ export function AlbumDialog({ state, albums }) {
         </header>
         ${isAssignMode && albums.length ? `
           <div class="cml-album-dialog__section">
-            <p class="cml-album-dialog__label">Existing albums</p>
+            <p class="cml-album-dialog__label">Existing ${target === 'video' ? 'video albums' : 'albums'}</p>
             <div class="cml-album-dialog__list">
               ${albums.map((album) => `
                 <button type="button" class="cml-album-dialog__album-chip" data-action="assign-album" data-album-name="${escapeHtml(album)}">${escapeHtml(album)}</button>
@@ -1697,8 +1714,8 @@ export function AlbumDialog({ state, albums }) {
         ` : ''}
         <div class="cml-album-dialog__section">
           <label class="cml-album-dialog__field">
-            <span class="cml-album-dialog__label">New album name</span>
-            <input type="text" class="cml-album-dialog__input" value="${escapeHtml(state.albumDraftName || '')}" placeholder="Weekend in Guangzhou" maxlength="64" />
+            <span class="cml-album-dialog__label">New ${targetLabel} name</span>
+            <input type="text" class="cml-album-dialog__input" value="${escapeHtml(state.albumDraftName || '')}" placeholder="${target === 'video' ? 'Travel vlog' : 'Weekend in Guangzhou'}" maxlength="64" />
           </label>
           ${state.albumDialogError ? `<p class="cml-album-dialog__error">${escapeHtml(state.albumDialogError)}</p>` : ''}
         </div>

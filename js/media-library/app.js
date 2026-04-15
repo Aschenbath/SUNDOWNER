@@ -254,6 +254,7 @@ const state = {
   albumDialogOpen: false,
   albumDialogMode: 'create',
   albumDialogOrigin: '',
+  albumDialogTarget: 'photo',
   albumDraftName: '',
   albumDialogError: '',
   albumDrawerSearch: '',
@@ -1462,6 +1463,12 @@ function getAvailableAlbumNames(items = getAccessibleItems(state.mediaItems)) {
   return names;
 }
 
+function getAvailableVideoAlbumNames(items = getAccessibleItems()) {
+  return buildVideoAlbumSummaries(items)
+    .filter((entry) => !entry.isUngrouped)
+    .map((entry) => entry.name);
+}
+
 function getAlbumSortTimestamp(item) {
   const value = item?.takenAt || item?.createdAt || item?.updatedAt || '';
   const parsed = Date.parse(value);
@@ -2559,6 +2566,18 @@ function buildVideoAlbumSummaries(items = []) {
     });
 }
 
+function buildPreviewVideoAlbumEntries(items = getAccessibleItems()) {
+  return buildVideoAlbumSummaries(items)
+    .filter((entry) => !entry.isUngrouped)
+    .map((entry) => ({
+      name: entry.name,
+      itemCount: entry.itemCount,
+      coverUrl: normalizeText(entry.coverItem?.thumbnailUrl || entry.coverItem?.posterUrl || entry.coverItem?.sourceUrl || ''),
+      lastModifiedAt: entry.lastModifiedAt,
+      scope: 'mine'
+    }));
+}
+
 function isVideoAlbumRootView(parsedSearch = parseMediaSearchQuery(state.searchQuery)) {
   return state.secondaryFilter === 'Videos'
     && !state.videoCategoryFilter
@@ -3519,10 +3538,33 @@ function clearSelection({ shouldRender = true } = {}) {
   }
 }
 
+function inferAlbumDialogTarget(selectedItems = getSelectedItems()) {
+  if (selectedItems.length && selectedItems.every((item) => item?.type === 'video')) {
+    return 'video';
+  }
+  if (state.secondaryFilter === 'Videos') {
+    return 'video';
+  }
+  return 'photo';
+}
+
+function getDialogAlbumNames(items = getAccessibleItems()) {
+  return state.albumDialogTarget === 'video'
+    ? getAvailableVideoAlbumNames(items)
+    : getAvailableAlbumNames(items);
+}
+
+function getDialogAlbumEntries(items = getAccessibleItems()) {
+  return state.albumDialogTarget === 'video'
+    ? buildPreviewVideoAlbumEntries(items)
+    : buildPreviewAlbumEntries(items);
+}
+
 function openAlbumDialog(mode = 'create', { origin = '', preferPreviewRender = false } = {}) {
   state.albumDialogOpen = true;
   state.albumDialogMode = mode;
   state.albumDialogOrigin = normalizeText(origin || '');
+  state.albumDialogTarget = inferAlbumDialogTarget();
   state.albumDraftName = '';
   state.albumDialogError = '';
   state.albumDrawerSearch = '';
@@ -3544,6 +3586,7 @@ function closeAlbumDialog() {
   const previewAlbumFlow = state.albumDialogOrigin === 'preview';
   state.albumDialogOpen = false;
   state.albumDialogOrigin = '';
+  state.albumDialogTarget = 'photo';
   state.albumDialogError = '';
   state.albumDraftName = '';
   state.albumDrawerSearch = '';
@@ -4062,6 +4105,9 @@ function confirmAlbumSelection() {
 }
 
 function commitSelectionToAlbum(albumName) {
+  if (state.albumDialogTarget === 'video') {
+    return setSelectionVideoAlbum(albumName);
+  }
   const selectedItems = getSelectedItems();
   if (!selectedItems.length) {
     return false;
@@ -4092,6 +4138,7 @@ function commitSelectionToAlbum(albumName) {
   persistAlbumAssignments();
   state.albumDialogOpen = false;
   state.albumDialogOrigin = '';
+  state.albumDialogTarget = 'photo';
   state.albumDialogError = '';
   state.albumDraftName = '';
   state.albumSelectionTarget = '';
@@ -4116,6 +4163,9 @@ function submitAlbumDialog() {
   if (state.albumDialogMode === 'assign') {
     return commitSelectionToAlbum(draftName);
   }
+  if (state.albumDialogTarget === 'video') {
+    return setSelectionVideoAlbum(draftName, { createOnly: true });
+  }
   const canonicalAlbumName = ensureAlbumName(draftName);
   if (!canonicalAlbumName) {
     state.albumDialogError = 'Album name is required.';
@@ -4128,6 +4178,7 @@ function submitAlbumDialog() {
   }
   state.albumDialogOpen = false;
   state.albumDialogError = '';
+  state.albumDialogTarget = 'photo';
   state.albumDraftName = '';
   state.albumSelectionTarget = '';
   state.albumDrawerSearch = '';
@@ -4480,10 +4531,12 @@ function openPreviewAddToAlbum(itemId) {
   }
   state.selectedIds.clear();
   state.selectedIds.add(itemId);
+  const targetItem = getAllItems().find((entry) => entry.id === itemId);
   state.infoOpen = false;
   state.albumDialogOpen = true;
   state.albumDialogMode = 'assign';
   state.albumDialogOrigin = 'preview';
+  state.albumDialogTarget = targetItem?.type === 'video' ? 'video' : 'photo';
   state.albumDraftName = '';
   state.albumDialogError = '';
   state.albumDrawerSearch = '';
@@ -4900,6 +4953,77 @@ async function setSelectionPrivateAlbum(nextPrivate) {
   showToast(nextPrivate
     ? `Moved ${updated} photo${updated === 1 ? '' : 's'} to hidden album`
     : `Removed ${updated} photo${updated === 1 ? '' : 's'} from hidden album`, 'success');
+}
+
+async function setSelectionVideoAlbum(albumName, { createOnly = false } = {}) {
+  const canonicalAlbumName = normalizeVideoCategory(albumName);
+  if (!canonicalAlbumName) {
+    state.albumDialogError = 'Video album name is required.';
+    renderAlbumDialogState({
+      preferPreviewRender: state.albumDialogOrigin === 'preview',
+      focusKey: 'create',
+      select: true
+    });
+    return false;
+  }
+
+  const selectedVideos = getSelectedItems().filter((item) => item?.type === 'video' && item?.sourceId);
+  if (!selectedVideos.length) {
+    showToast('Select one or more videos first');
+    return false;
+  }
+
+  let updated = 0;
+  for (const item of selectedVideos) {
+    const encodedPath = encodeMetadataPath(item.sourceId);
+    try {
+      const response = await apiFetch(`/api/manage/metadata/${encodedPath}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ VideoCategory: canonicalAlbumName })
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || 'Failed to update video album');
+      }
+      const mediaItem = state.mediaItems.find((entry) => entry.id === item.id);
+      if (mediaItem) {
+        applyPatchedVideoCategory(mediaItem, data.metadata || {});
+      }
+      updated += 1;
+    } catch (error) {
+      console.warn('[media-library] failed to update video album', item.sourceId, error);
+    }
+  }
+
+  if (!updated) {
+    showToast('No selected videos were updated');
+    return false;
+  }
+
+  state.albumDialogOpen = false;
+  state.albumDialogOrigin = '';
+  state.albumDialogTarget = 'photo';
+  state.albumDialogError = '';
+  state.albumDraftName = '';
+  state.albumSelectionTarget = '';
+  state.albumDrawerSearch = '';
+  state.albumDrawerScope = 'all';
+  state.albumDrawerCreateMode = false;
+  clearSelection({ shouldRender: false });
+  state.primaryFilter = 'Photos';
+  state.secondaryFilter = 'Videos';
+  state.videoCategoryFilter = canonicalAlbumName;
+  resetLoadedCount();
+  pushNavigationHash();
+  render();
+  showToast(
+    createOnly
+      ? `Created video album "${canonicalAlbumName}" and added ${updated} video${updated === 1 ? '' : 's'}`
+      : `Added ${updated} video${updated === 1 ? '' : 's'} to "${canonicalAlbumName}"`,
+    'success'
+  );
+  return true;
 }
 
 function createDocFolder(folderName) {
@@ -5712,7 +5836,7 @@ function render() {
       ${PreviewModal(getPreviewOverlayModel())}
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
       ${StoragePanel({ state, insights: storageInsights })}
-      ${AlbumDialog({ state, albums: viewModel.availableAlbums })}
+      ${AlbumDialog({ state, albums: getDialogAlbumNames(getAccessibleItems()), target: state.albumDialogTarget })}
       ${ConfirmDialog({ state })}
       ${state.toastMessage ? `
         <div class="cml-toast cml-toast--${state.toastType}" role="alert" aria-live="polite">
@@ -5924,11 +6048,12 @@ function getPreviewOverlayModel({
     infoOpen: state.infoOpen,
     immersive: state.previewImmersive,
     albumDrawerOpen: state.albumDialogOpen && state.albumDialogOrigin === 'preview',
-    albumEntries: Array.isArray(albumEntries) ? albumEntries : buildPreviewAlbumEntries(),
+    albumEntries: Array.isArray(albumEntries) ? albumEntries : getDialogAlbumEntries(),
     albumDraftName: state.albumDraftName,
     albumDialogError: state.albumDialogError,
     albumDrawerSearch: state.albumDrawerSearch,
-    albumDrawerCreateMode: state.albumDrawerCreateMode
+    albumDrawerCreateMode: state.albumDrawerCreateMode,
+    albumDialogTarget: state.albumDialogTarget
   };
 }
 
@@ -6927,11 +7052,11 @@ function handleAction(actionTarget) {
       setPreviewAlbumCreateMode(false);
       return true;
     case 'submit-album-dialog':
-      submitAlbumDialog();
+      void submitAlbumDialog();
       return true;
     case 'assign-album':
       if (actionTarget.dataset.albumName) {
-        assignSelectionToAlbum(actionTarget.dataset.albumName);
+        void assignSelectionToAlbum(actionTarget.dataset.albumName);
       }
       return true;
     case 'set-album-cover':
@@ -7540,11 +7665,18 @@ function handleClick(event) {
     }
 
     if (actionTarget.dataset.primary) {
-      state.primaryFilter = actionTarget.dataset.primary;
+      if (actionTarget.dataset.primary === 'Private') {
+        state.primaryFilter = 'Photos';
+        state.privateViewOpen = true;
+        state.privatePasswordDraft = '';
+        state.privatePasswordError = '';
+      } else {
+        state.primaryFilter = actionTarget.dataset.primary;
+        clearPrivateViewState();
+      }
       state.storagePanelOpen = false;
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
-      clearPrivateViewState();
       state.activeAlbumName = '';
       state.albumSelectionTarget = '';
       resetSearchQuery();
@@ -7858,7 +7990,7 @@ function handleKeyDown(event) {
     }
     if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.classList.contains('cml-album-dialog__input')) {
       event.preventDefault();
-      submitAlbumDialog();
+      void submitAlbumDialog();
     }
     return;
   }

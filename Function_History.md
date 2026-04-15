@@ -72,3 +72,4 @@
 26-04-13 by codex: Add end-to-end video categories with preview-side editing, Videos-view category chips, category: search support, route persistence, backend VideoCategory validation, and regression coverage
 26-04-14 by codex: Add a visual video-album wall in Videos view that groups items by VideoCategory into clickable widescreen album cards, keeps category routes/back navigation coherent, and preserves the existing timeline beneath the new visual summary
 26-04-14 by codex: Finish the Videos visual-grouping closure by making the Videos root a wall-only video-album view with an ungrouped pseudo album route, and add a hidden photo album flow (#/photos/private) backed by PrivateAlbum metadata, preview/selection move actions, and a password gate
+26-04-15 by codex: Promote Private into the primary media-library sidebar with the existing password gate, and wire Videos selection/preview Add to album into VideoCategory-backed video albums
