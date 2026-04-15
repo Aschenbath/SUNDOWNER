@@ -26,7 +26,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=25';
+} from './components.js?v=26';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -6182,12 +6182,13 @@ function getPreviewOverlayModel({
   const finalPreviewIndex = resolvedPreviewIndex >= 0 && resolvedPreviewItem
     ? resolvedPreviewIndex
     : resolvedPreviewItems.findIndex((item) => item.id === resolvedPreviewItem?.id);
+  const displayTotalCount = resolvedPreviewItems.length || (resolvedPreviewItem ? 1 : 0);
   return {
     item: resolvedPreviewItem,
     selected: resolvedPreviewItem ? state.selectedIds.has(resolvedPreviewItem.id) : false,
     favorited: resolvedPreviewItem ? state.favoriteIds.has(resolvedPreviewItem.id) : false,
     currentIndex: Math.max(finalPreviewIndex, 0),
-    totalCount: resolvedPreviewItems.length,
+    totalCount: displayTotalCount,
     infoOpen: state.infoOpen,
     immersive: state.previewImmersive,
     albumDrawerOpen: state.albumDialogOpen && state.albumDialogOrigin === 'preview',
@@ -6837,10 +6838,11 @@ function toggleFavorite(itemId) {
     state.favoriteIds.add(itemId);
   }
   persistFavorites();
-  const preferPreviewRender = state.previewId && normalizeText(itemId) === normalizeText(state.previewId) && state.secondaryFilter !== 'Favourites';
-  if (preferPreviewRender && syncPreviewFavoriteButton(itemId)) {
+  const isCurrentPreviewItem = Boolean(state.previewId) && normalizeText(itemId) === normalizeText(state.previewId);
+  if (isCurrentPreviewItem && syncPreviewFavoriteButton(itemId)) {
     return;
   }
+  const preferPreviewRender = isCurrentPreviewItem && state.secondaryFilter !== 'Favourites';
   if (!(preferPreviewRender && renderPreviewTransientLayers())) {
     render();
   }
@@ -7575,16 +7577,6 @@ function handleAction(actionTarget) {
       categorySection.append(heading, picker, input, hint, actions);
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
-      return true;
-    }
-    case 'toggle-private-photo': {
-      const privateSection = refs.root.querySelector('.cml-preview__info-section--private-album');
-      const currentItem = getAllItems().find((entry) => entry.id === state.previewId);
-      if (!privateSection || !currentItem || currentItem.type !== 'photo') {
-        return true;
-      }
-      patchPrivateAlbumDisplay(privateSection, { ...currentItem, isPrivateAlbum: !currentItem.isPrivateAlbum });
-      void savePreviewPrivateAlbum(state.previewId, !currentItem.isPrivateAlbum, currentItem);
       return true;
     }
     case 'edit-capture-time': {

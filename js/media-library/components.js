@@ -525,8 +525,8 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   const canCreateVideoAlbum = state.secondaryFilter === 'Videos' && !state.videoCategoryFilter && !isAlbumPickerMode;
   const canAddToCurrentVideoAlbum = state.secondaryFilter === 'Videos' && Boolean(state.videoCategoryFilter) && !isAlbumPickerMode;
   const canAddToPrivate = state.privateViewOpen && state.privateRouteUnlocked && !isAlbumPickerMode;
-  const canToggleHiddenAlbum = state.primaryFilter === 'Photos' && !state.secondaryFilter;
-  const hiddenActionLabel = state.privateViewOpen ? 'Remove from hidden album' : 'Move to hidden album';
+  const canToggleHiddenAlbum = state.privateViewOpen && state.privateRouteUnlocked && !state.secondaryFilter;
+  const hiddenActionLabel = 'Remove from Private';
   const addToAlbumLabel = state.secondaryFilter === 'Videos' ? 'Add to video album' : 'Add to album';
   if (selectedCount) {
     if (isAlbumPickerMode) {
@@ -1352,26 +1352,6 @@ function renderPreviewCaptureTimeSection(item) {
   `;
 }
 
-function renderPreviewPrivateAlbumSection(item) {
-  if (item?.type !== 'photo') {
-    return '';
-  }
-  const isPrivate = Boolean(item?.isPrivateAlbum);
-  const title = isPrivate ? 'Inside hidden album' : 'Visible in library';
-  const meta = isPrivate
-    ? 'Click to remove this item from the hidden album'
-    : 'Click to move this item into the hidden album';
-  return `
-    <section class="cml-preview__info-section cml-preview__info-section--private-album" data-action="toggle-private-photo">
-      <h5 class="cml-preview__info-heading">Hidden album</h5>
-      <div class="cml-preview__info-category">
-        <p class="cml-preview__info-category-value">${escapeHtml(title)}</p>
-        <p class="cml-preview__info-category-meta">${escapeHtml(meta)}</p>
-      </div>
-    </section>
-  `;
-}
-
 function renderPreviewVideoCategorySection(item) {
   if (item?.type !== 'video') {
     return '';
@@ -1488,7 +1468,6 @@ export function PreviewModal({
           <h4 class="cml-preview__info-toolbar-title">Info</h4>
         </div>
         ${renderPreviewCaptureTimeSection(item)}
-        ${renderPreviewPrivateAlbumSection(item)}
         ${renderPreviewVideoCategorySection(item)}
         <section class="cml-preview__info-section cml-preview__info-section--description" data-action="edit-description">
           <p class="cml-preview__info-description ${item.description ? 'has-content' : ''}">${item.description ? escapeHtml(item.description) : 'Add a description'}</p>

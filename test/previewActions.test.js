@@ -19,9 +19,30 @@ describe('media library download actions', () => {
     });
 
     assert.match(html, /data-action="open-add-to-album"/);
-    assert.match(html, /data-action="toggle-private-selection"/);
+    assert.doesNotMatch(html, /data-action="toggle-private-selection"/);
     assert.match(html, /data-action="download-selected"/);
     assert.match(html, /data-action="delete-selected"/);
+  });
+
+  it('only exposes remove-from-Private on the unlocked Private page', () => {
+    const html = TopSearchBar({
+      state: {
+        selectedIds: new Set(['private-1']),
+        searchQuery: '',
+        primaryFilter: 'Photos',
+        secondaryFilter: '',
+        activeAlbumName: '',
+        albumSelectionTarget: '',
+        privateViewOpen: true,
+        privateRouteUnlocked: true,
+      },
+      canDeleteSelection: true,
+      canDownloadSelection: true,
+      canSetAlbumCover: false,
+    });
+
+    assert.match(html, /data-action="toggle-private-selection"/);
+    assert.match(html, /Remove from Private/);
   });
 
   it('keeps preview header limited to four primary actions and exposes download in the footer', () => {
@@ -59,8 +80,8 @@ describe('media library download actions', () => {
     assert.match(html, /Add a description/);
     assert.match(html, /Date &amp; time/);
     assert.match(html, /data-action="edit-capture-time"/);
-    assert.match(html, /Hidden album/);
-    assert.match(html, /data-action="toggle-private-photo"/);
+    assert.doesNotMatch(html, /Hidden album/);
+    assert.doesNotMatch(html, /data-action="toggle-private-photo"/);
     assert.match(html, /Details/);
     assert.doesNotMatch(html, /cml-preview__caption/);
   });
@@ -654,9 +675,16 @@ describe('media library download actions', () => {
     assert.match(appSource, /PRIVATE_ALBUM_PASSWORD = '210217'/);
     assert.match(appSource, /#\/photos\/\$\{PRIVATE_ROUTE_SEGMENT\}/);
     assert.match(appSource, /nextPrimary === 'Private'/);
-    assert.match(appSource, /toggle-private-photo/);
     assert.match(appSource, /toggle-private-selection/);
     assert.match(appSource, /privateRouteUnlocked = false/);
+  });
+
+  it('keeps favourite toggles in preview on the local button path without a full render', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /const isCurrentPreviewItem = Boolean\(state\.previewId\)/);
+    assert.match(appSource, /if \(isCurrentPreviewItem && syncPreviewFavoriteButton\(itemId\)\) \{\s*return;\s*\}/);
+    assert.match(appSource, /const displayTotalCount = resolvedPreviewItems\.length \|\| \(resolvedPreviewItem \? 1 : 0\)/);
   });
 
   it('exposes picker actions for video albums and Private media', () => {
