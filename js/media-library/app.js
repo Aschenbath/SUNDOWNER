@@ -26,7 +26,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=26';
+} from './components.js?v=27';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -5908,8 +5908,7 @@ function render() {
                 : state.secondaryFilter === 'Documents'
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : state.privateViewOpen && !state.privateRouteUnlocked
-                ? `${PrivateAlbumSummary({ itemCount: 0, locked: true })}
-                   ${PrivateAlbumGate({ error: state.privatePasswordError, value: state.privatePasswordDraft })}`
+                ? PrivateAlbumGate({ error: state.privatePasswordError, value: state.privatePasswordDraft })
                 : `${state.primaryFilter === 'Collections'
                   ? CollectionSummary({
                     activeAlbumName: viewModel.activeAlbumName,

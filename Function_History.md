@@ -76,3 +76,4 @@
 26-04-15 by codex: Complete Private/video album add flows: Private now accepts photos and videos, re-locks on every entry, exposes Add photos/videos after unlock, Videos root can create a video album then pick videos into it, video album detail exposes Add videos, album cover filtering supports multi-album assignments, and selection/nav clicks avoid unnecessary full renders
 26-04-15 by codex: Stop preview favourite toggles from full-rendering the Favourites page, remove the preview Info hidden-album shortcut, and keep Private add/remove flows scoped to the Private page
 26-04-15 by codex: Fix Private password Enter handling so the password field unlocks Private without falling through to stale focused-tile preview shortcuts
+26-04-15 by codex: Simplify the locked Private entry page into a single polished unlock panel, removing duplicate summary copy and restyling the password form

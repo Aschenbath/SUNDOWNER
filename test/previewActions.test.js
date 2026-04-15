@@ -666,9 +666,11 @@ describe('media library download actions', () => {
 
     assert.match(gateHtml, /data-form="private-access"/);
     assert.match(gateHtml, /data-private-access="password"/);
-    assert.match(gateHtml, /Open hidden album/);
+    assert.match(gateHtml, /Unlock private album/);
+    assert.match(gateHtml, />Unlock</);
     assert.match(gateHtml, /Wrong password\./);
-    assert.match(gateHtml, /Private is a locked collection/);
+    assert.match(gateHtml, /Enter your password to view private photos and videos/);
+    assert.doesNotMatch(gateHtml, /Enter hidden album/);
     assert.match(summaryHtml, /Hidden album/);
     assert.match(summaryHtml, /3 items hidden from the main library/);
     assert.match(appSource, /PRIVATE_ROUTE_SEGMENT = 'private'/);
@@ -677,6 +679,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /nextPrimary === 'Private'/);
     assert.match(appSource, /toggle-private-selection/);
     assert.match(appSource, /privateRouteUnlocked = false/);
+    assert.doesNotMatch(appSource, /PrivateAlbumSummary\(\{ itemCount: 0, locked: true \}\)/);
   });
 
   it('keeps Private password Enter isolated from tile preview shortcuts', () => {

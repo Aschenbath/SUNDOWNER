@@ -263,3 +263,9 @@ pm; git diff --check passed.
 - Fixed the Private password Enter regression. Root cause: the document-level keyboard shortcut handler still saw Enter from the password input and used a stale `state.focusedTileId`, which could open the previously focused photo while submitting the Private gate.
 - The Private password input now consumes Enter/Escape before global tile shortcuts, the private-access form stops submit propagation, and Private entry/unlock paths clear `focusedTileId` so stale tile focus cannot leak into the gate.
 - Cache bust moved to `app.js?v=89`. **Validation**: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, targeted Mocha `test\previewActions.test.js` (`27 passing`), and `git diff --check` passed.
+
+### 2026-04-15 21:36 Asia/Shanghai
+
+- Polished the locked Private entry page. The locked route now renders only `PrivateAlbumGate` instead of stacking `PrivateAlbumSummary` above the form, removing the repeated `PRIVATE / Hidden album / password` copy that made the screen feel redundant.
+- Restyled the unlock panel into a lighter single card: compact header, round lock mark, shorter copy, pill password field, dedicated `Unlock` button, and mobile stacking. Cache busts moved to `app.js?v=90`, `components.js?v=27`, and `media-library.css?v=75`.
+- **Validation**: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, `--check js/media-library/components.js`, targeted Mocha `test\previewActions.test.js` (`27 passing`), and `git diff --check` passed.

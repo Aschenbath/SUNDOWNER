@@ -1661,10 +1661,15 @@ export function PreviewModal({
 
 export function PrivateAlbumGate({ error = '', value = '' }) {
   return `
-    <section class="cml-private-access" aria-label="Hidden album access">
-      <div class="cml-private-access__icon" aria-hidden="true">${icon('lock')}</div>
-      <h3 class="cml-private-access__title">Enter hidden album</h3>
-      <p class="cml-private-access__copy">Private is a locked collection. Enter the password to open hidden photos and videos.</p>
+    <section class="cml-private-access" aria-label="Private access">
+      <div class="cml-private-access__header">
+        <div class="cml-private-access__icon" aria-hidden="true">${icon('lock')}</div>
+        <div>
+          <p class="cml-private-access__eyebrow">Private</p>
+          <h2 class="cml-private-access__title">Unlock private album</h2>
+        </div>
+      </div>
+      <p class="cml-private-access__copy">Enter your password to view private photos and videos.</p>
       <form class="cml-private-access__form" data-form="private-access">
         <input
           type="password"
@@ -1674,7 +1679,7 @@ export function PrivateAlbumGate({ error = '', value = '' }) {
           autocomplete="current-password"
           value="${escapeHtml(value)}"
         />
-        <button type="submit" class="cml-topbar__upload-button">Open hidden album</button>
+        <button type="submit" class="cml-private-access__submit">Unlock</button>
       </form>
       ${error ? `<p class="cml-private-access__error">${escapeHtml(error)}</p>` : ''}
     </section>

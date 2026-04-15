@@ -4824,72 +4824,142 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-private-access {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-width: 520px;
-  padding: 24px;
-  margin: 20px 0 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 22px;
+  gap: 18px;
+  width: min(560px, 100%);
+  padding: 28px;
+  margin: 18vh 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 28px;
   background:
-    radial-gradient(circle at top left, rgba(138, 180, 248, 0.14), transparent 42%),
-    rgba(15, 18, 23, 0.82);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(16, 18, 21, 0.76);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
+}
+
+#codex-media-library-root .cml-private-access__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 #codex-media-library-root .cml-private-access__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: rgba(138, 180, 248, 0.14);
-  color: #8ab4f8;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+#codex-media-library-root .cml-private-access__eyebrow {
+  margin: 0 0 4px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-private-access__title {
   margin: 0;
-  color: #f4f7fb;
-  font-size: 26px;
+  color: #f2f4f8;
+  font-size: clamp(26px, 3vw, 34px);
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 #codex-media-library-root .cml-private-access__copy {
   margin: 0;
-  color: #b2bccb;
-  font-size: 14px;
-  line-height: 1.6;
+  max-width: 420px;
+  color: rgba(232, 234, 237, 0.68);
+  font-size: 15px;
+  line-height: 1.55;
 }
 
 #codex-media-library-root .cml-private-access__form {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
+  width: 100%;
 }
 
 #codex-media-library-root .cml-private-access__input {
-  flex: 1 1 220px;
-  min-height: 46px;
-  padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.05);
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
   color: #f4f7fb;
   font: inherit;
   outline: none;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
 #codex-media-library-root .cml-private-access__input:focus {
-  border-color: rgba(138, 180, 248, 0.65);
-  box-shadow: 0 0 0 3px rgba(138, 180, 248, 0.14);
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 4px rgba(138, 180, 248, 0.11);
+}
+
+#codex-media-library-root .cml-private-access__submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 999px;
+  background: #f2f4f8;
+  color: #181a1f;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+#codex-media-library-root .cml-private-access__submit:hover,
+#codex-media-library-root .cml-private-access__submit:focus-visible {
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  transform: translateY(-1px);
 }
 
 #codex-media-library-root .cml-private-access__error {
-  margin: 0;
+  margin: -4px 0 0;
   color: #f28b82;
   font-size: 13px;
   line-height: 1.4;
+}
+
+@media (max-width: 720px) {
+  #codex-media-library-root .cml-private-access {
+    margin-top: 10vh;
+    padding: 22px;
+    border-radius: 24px;
+  }
+
+  #codex-media-library-root .cml-private-access__form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #codex-media-library-root .cml-private-access__submit {
+    width: 100%;
+  }
 }
 
 #codex-media-library-root .cml-preview__info-description {
