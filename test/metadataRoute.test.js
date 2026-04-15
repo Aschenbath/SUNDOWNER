@@ -144,7 +144,7 @@ describe('metadata route', () => {
     assert.equal(payload.message, 'VideoCategory can only be set on video files.');
   });
 
-  it('accepts PrivateAlbum updates on photo files and clears them when false', async () => {
+  it('accepts PrivateAlbum updates on photo/video files and clears them when false', async () => {
     const env = {
       img_d1: new SqliteD1(':memory:'),
     };
@@ -180,9 +180,28 @@ describe('metadata route', () => {
 
     const storedAfterClear = await db.getWithMetadata('photos/test.jpg');
     assert.equal(storedAfterClear.metadata.PrivateAlbum, undefined);
+
+    await db.put('videos/test.mp4', 'video-data', {
+      metadata: {
+        FileName: 'test.mp4',
+        FileType: 'video/mp4',
+        TimeStamp: 1775628424666,
+      },
+    });
+
+    const videoResponse = await onRequest(createContext(env, {
+      PrivateAlbum: true,
+    }, 'videos/test.mp4'));
+
+    assert.equal(videoResponse.status, 200);
+    const videoPayload = await videoResponse.json();
+    assert.equal(videoPayload.metadata.PrivateAlbum, true);
+
+    const storedVideo = await db.getWithMetadata('videos/test.mp4');
+    assert.equal(storedVideo.metadata.PrivateAlbum, true);
   });
 
-  it('rejects PrivateAlbum updates on non-photo files', async () => {
+  it('rejects PrivateAlbum updates on non-media files', async () => {
     const env = {
       img_d1: new SqliteD1(':memory:'),
     };
@@ -202,6 +221,6 @@ describe('metadata route', () => {
     assert.equal(response.status, 400);
     const payload = await response.json();
     assert.equal(payload.success, false);
-    assert.equal(payload.message, 'PrivateAlbum can only be set on photo files.');
+    assert.equal(payload.message, 'PrivateAlbum can only be set on photo or video files.');
   });
 });

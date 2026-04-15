@@ -26,7 +26,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=24';
+} from './components.js?v=25';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -239,11 +239,13 @@ const state = {
   secondaryFilter: '',
   videoCategoryFilter: '',
   privateViewOpen: false,
-  privateRouteUnlocked: readSessionFlag(PRIVATE_ALBUM_SESSION_KEY),
+  privateRouteUnlocked: false,
   privatePasswordDraft: '',
   privatePasswordError: '',
   activeAlbumName: '',
   albumSelectionTarget: '',
+  videoAlbumSelectionTarget: '',
+  privateSelectionMode: false,
   searchQuery: '',
   searchDraft: '',
   selectedIds: new Set(),
@@ -1925,6 +1927,10 @@ function getAlbumSelectionTarget() {
   return normalizeText(state.albumSelectionTarget);
 }
 
+function getVideoAlbumSelectionTarget() {
+  return normalizeVideoCategory(state.videoAlbumSelectionTarget);
+}
+
 function resetSearchQuery() {
   state.searchQuery = '';
   state.searchDraft = '';
@@ -2418,7 +2424,7 @@ function getVideoAlbumDisplayName(value) {
 }
 
 function inferPrivateAlbum(metadata, type) {
-  if (type !== 'photo' || !metadata || typeof metadata !== 'object') {
+  if (!['photo', 'video'].includes(type) || !metadata || typeof metadata !== 'object') {
     return false;
   }
   const rawValue = metadata.PrivateAlbum;
@@ -2429,8 +2435,8 @@ function inferPrivateAlbum(metadata, type) {
   return ['1', 'true', 'yes', 'private'].includes(normalized);
 }
 
-function isPrivatePhoto(item) {
-  return item?.type === 'photo' && Boolean(item?.isPrivateAlbum);
+function isPrivateMedia(item) {
+  return ['photo', 'video'].includes(item?.type) && Boolean(item?.isPrivateAlbum);
 }
 
 function isPrivateRouteActive() {
@@ -2447,7 +2453,7 @@ function hasPrivateRouteAccess() {
 function getAccessibleItems(items = getAllItems()) {
   return safeArray(items).filter((item) => {
     if (isPrivateRouteActive()) {
-      return hasPrivateRouteAccess() && isPrivatePhoto(item);
+      return hasPrivateRouteAccess() && isPrivateMedia(item);
     }
     return !item?.isPrivateAlbum;
   });
@@ -3956,7 +3962,7 @@ function openCollection(albumName) {
   }
   state.primaryFilter = 'Collections';
   state.activeAlbumName = normalizedName;
-  state.albumSelectionTarget = '';
+  resetAddToTargetModes();
   state.secondaryFilter = '';
   resetSearchQuery();
   state.previewId = null;
@@ -3974,11 +3980,22 @@ function openVideoAlbum(categoryName) {
   if (!normalizedCategory) {
     return;
   }
+  if (
+    state.primaryFilter === 'Photos'
+    && state.secondaryFilter === 'Videos'
+    && normalizeVideoAlbumRouteValue(state.videoCategoryFilter) === normalizedCategory
+    && !state.activeAlbumName
+    && !state.albumSelectionTarget
+    && !state.videoAlbumSelectionTarget
+    && !state.privateSelectionMode
+  ) {
+    return;
+  }
   state.primaryFilter = 'Photos';
   state.secondaryFilter = 'Videos';
   state.videoCategoryFilter = normalizedCategory;
   state.activeAlbumName = '';
-  state.albumSelectionTarget = '';
+  resetAddToTargetModes();
   resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
@@ -3995,7 +4012,7 @@ function closeCollection() {
     return;
   }
   state.activeAlbumName = '';
-  state.albumSelectionTarget = '';
+  resetAddToTargetModes();
   resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
@@ -4025,8 +4042,15 @@ function closeVideoAlbum() {
 
 function clearPrivateViewState() {
   state.privateViewOpen = false;
+  state.privateRouteUnlocked = false;
   state.privatePasswordDraft = '';
   state.privatePasswordError = '';
+}
+
+function resetAddToTargetModes() {
+  state.albumSelectionTarget = '';
+  state.videoAlbumSelectionTarget = '';
+  state.privateSelectionMode = false;
 }
 
 function resetPrivateRouteUnlockError() {
@@ -4049,7 +4073,6 @@ function unlockPrivateRoute(passwordInput = state.privatePasswordDraft) {
   state.privateRouteUnlocked = true;
   state.privatePasswordDraft = '';
   state.privatePasswordError = '';
-  writeSessionFlag(PRIVATE_ALBUM_SESSION_KEY, true);
   render();
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
@@ -4063,6 +4086,8 @@ function openAlbumSelection(albumName = getActiveAlbumName()) {
     return;
   }
   state.albumSelectionTarget = normalizedName;
+  state.videoAlbumSelectionTarget = '';
+  state.privateSelectionMode = false;
   state.primaryFilter = 'Photos';
   state.activeAlbumName = '';
   state.secondaryFilter = '';
@@ -4077,19 +4102,85 @@ function openAlbumSelection(albumName = getActiveAlbumName()) {
   }
 }
 
-function closeAlbumSelection() {
-  const targetAlbum = getAlbumSelectionTarget();
-  if (!targetAlbum) {
+function openVideoAlbumSelection(albumName = state.videoCategoryFilter) {
+  const normalizedName = normalizeVideoCategory(albumName);
+  if (!normalizedName) {
     return;
   }
+  state.videoAlbumSelectionTarget = normalizedName;
   state.albumSelectionTarget = '';
-  state.primaryFilter = 'Collections';
-  state.activeAlbumName = targetAlbum;
-  state.secondaryFilter = '';
+  state.privateSelectionMode = false;
+  state.primaryFilter = 'Photos';
+  state.activeAlbumName = '';
+  state.secondaryFilter = 'Videos';
+  state.videoCategoryFilter = '';
+  clearPrivateViewState();
   resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
   resetLoadedCount();
+  pushNavigationHash();
+  render();
+  if (refs.scrollRegion) {
+    refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
+  }
+}
+
+function openPrivateSelection() {
+  state.privateSelectionMode = true;
+  state.albumSelectionTarget = '';
+  state.videoAlbumSelectionTarget = '';
+  state.primaryFilter = 'Photos';
+  state.activeAlbumName = '';
+  state.secondaryFilter = '';
+  state.videoCategoryFilter = '';
+  clearPrivateViewState();
+  resetSearchQuery();
+  state.previewId = null;
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  pushNavigationHash();
+  render();
+  if (refs.scrollRegion) {
+    refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
+  }
+}
+
+function closeAlbumSelection() {
+  const targetAlbum = getAlbumSelectionTarget();
+  const targetVideoAlbum = getVideoAlbumSelectionTarget();
+  const wasPrivateSelection = state.privateSelectionMode;
+  if (!targetAlbum && !targetVideoAlbum && !wasPrivateSelection) {
+    return;
+  }
+  resetAddToTargetModes();
+  if (targetVideoAlbum) {
+    state.primaryFilter = 'Photos';
+    state.activeAlbumName = '';
+    state.secondaryFilter = 'Videos';
+    state.videoCategoryFilter = targetVideoAlbum;
+    clearPrivateViewState();
+  } else if (wasPrivateSelection) {
+    state.primaryFilter = 'Photos';
+    state.activeAlbumName = '';
+    state.secondaryFilter = '';
+    state.videoCategoryFilter = '';
+    state.privateViewOpen = true;
+    state.privateRouteUnlocked = false;
+    state.privatePasswordDraft = '';
+    state.privatePasswordError = '';
+  } else {
+    state.primaryFilter = 'Collections';
+    state.activeAlbumName = targetAlbum;
+    state.secondaryFilter = '';
+    state.videoCategoryFilter = '';
+    clearPrivateViewState();
+  }
+  resetSearchQuery();
+  state.previewId = null;
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  pushNavigationHash();
   render();
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
@@ -4098,6 +4189,13 @@ function closeAlbumSelection() {
 
 function confirmAlbumSelection() {
   const targetAlbum = getAlbumSelectionTarget();
+  const targetVideoAlbum = getVideoAlbumSelectionTarget();
+  if (state.privateSelectionMode) {
+    return setSelectionPrivateAlbum(true);
+  }
+  if (targetVideoAlbum) {
+    return setSelectionVideoAlbum(targetVideoAlbum);
+  }
   if (!targetAlbum || !state.selectedIds.size) {
     return false;
   }
@@ -4141,7 +4239,7 @@ function commitSelectionToAlbum(albumName) {
   state.albumDialogTarget = 'photo';
   state.albumDialogError = '';
   state.albumDraftName = '';
-  state.albumSelectionTarget = '';
+  resetAddToTargetModes();
   state.albumDrawerSearch = '';
   state.albumDrawerScope = 'all';
   state.albumDrawerCreateMode = false;
@@ -4164,7 +4262,21 @@ function submitAlbumDialog() {
     return commitSelectionToAlbum(draftName);
   }
   if (state.albumDialogTarget === 'video') {
-    return setSelectionVideoAlbum(draftName, { createOnly: true });
+    if (state.selectedIds.size) {
+      return setSelectionVideoAlbum(draftName, { createOnly: true });
+    }
+    const canonicalVideoAlbumName = normalizeVideoCategory(draftName);
+    if (!canonicalVideoAlbumName) {
+      state.albumDialogError = 'Video album name is required.';
+      renderAlbumDialogState({ focusKey: 'create', select: true });
+      return false;
+    }
+    state.albumDialogOpen = false;
+    state.albumDialogTarget = 'photo';
+    state.albumDialogError = '';
+    state.albumDraftName = '';
+    openVideoAlbumSelection(canonicalVideoAlbumName);
+    return true;
   }
   const canonicalAlbumName = ensureAlbumName(draftName);
   if (!canonicalAlbumName) {
@@ -4180,7 +4292,7 @@ function submitAlbumDialog() {
   state.albumDialogError = '';
   state.albumDialogTarget = 'photo';
   state.albumDraftName = '';
-  state.albumSelectionTarget = '';
+  resetAddToTargetModes();
   state.albumDrawerSearch = '';
   state.albumDrawerScope = 'all';
   state.albumDrawerCreateMode = false;
@@ -4200,17 +4312,20 @@ function setSelectedItemAsAlbumCover() {
   const activeAlbumName = getActiveAlbumName();
   const selectedItems = getSelectedItems();
   if (!activeAlbumName || selectedItems.length !== 1) {
+    showToast('Select one album item to set as cover.', 'error');
     return false;
   }
 
   const [selectedItem] = selectedItems;
   if (!itemBelongsToAlbum(selectedItem, activeAlbumName)) {
+    showToast('Choose an item already inside this album.', 'error');
     return false;
   }
 
   const albumKey = normalizeAlbumKey(activeAlbumName);
   const itemKey = getPersistentItemKey(selectedItem);
   if (!albumKey || !itemKey) {
+    showToast('This item cannot be used as an album cover yet.', 'error');
     return false;
   }
 
@@ -4221,6 +4336,7 @@ function setSelectedItemAsAlbumCover() {
   persistAlbumCovers();
   clearSelection({ shouldRender: false });
   render();
+  showToast('Album cover updated.', 'success');
   return true;
 }
 
@@ -4697,7 +4813,7 @@ function patchVideoCategoryDisplay(section, category) {
 }
 
 function patchPrivateAlbumDisplay(section, item) {
-  const isPrivate = isPrivatePhoto(item);
+  const isPrivate = isPrivateMedia(item);
   section.textContent = '';
   section.setAttribute('data-action', 'toggle-private-photo');
   const heading = document.createElement('h5');
@@ -4876,8 +4992,8 @@ async function savePreviewVideoCategory(itemId, categoryInput, previousItem = nu
 
 async function savePreviewPrivateAlbum(itemId, nextPrivate, previousItem = null) {
   const item = getAllItems().find((entry) => entry.id === itemId);
-  if (!item || !item.sourceId || item.type !== 'photo') {
-    showToast('Only photos can be moved into the hidden album');
+  if (!item || !item.sourceId || !['photo', 'video'].includes(item.type)) {
+    showToast('Only photos and videos can be moved into Private');
     return;
   }
 
@@ -4911,14 +5027,14 @@ async function savePreviewPrivateAlbum(itemId, nextPrivate, previousItem = null)
 }
 
 async function setSelectionPrivateAlbum(nextPrivate) {
-  const selectedPhotos = getSelectedItems().filter((item) => item?.type === 'photo' && item?.sourceId);
-  if (!selectedPhotos.length) {
-    showToast('Select one or more photos first');
+  const selectedMedia = getSelectedItems().filter((item) => ['photo', 'video'].includes(item?.type) && item?.sourceId);
+  if (!selectedMedia.length) {
+    showToast('Select one or more photos or videos first');
     return;
   }
 
   let updated = 0;
-  for (const item of selectedPhotos) {
+  for (const item of selectedMedia) {
     const encodedPath = encodeMetadataPath(item.sourceId);
     try {
       const response = await apiFetch(`/api/manage/metadata/${encodedPath}`, {
@@ -4941,18 +5057,21 @@ async function setSelectionPrivateAlbum(nextPrivate) {
   }
 
   if (!updated) {
-    showToast('No selected photos were updated');
+    showToast('No selected photos or videos were updated');
     return;
   }
 
   state.selectedIds.clear();
+  if (nextPrivate) {
+    resetAddToTargetModes();
+  }
   if (!nextPrivate && isPrivateRouteActive()) {
     state.previewId = null;
   }
   render();
   showToast(nextPrivate
-    ? `Moved ${updated} photo${updated === 1 ? '' : 's'} to hidden album`
-    : `Removed ${updated} photo${updated === 1 ? '' : 's'} from hidden album`, 'success');
+    ? `Moved ${updated} item${updated === 1 ? '' : 's'} to Private`
+    : `Removed ${updated} item${updated === 1 ? '' : 's'} from Private`, 'success');
 }
 
 async function setSelectionVideoAlbum(albumName, { createOnly = false } = {}) {
@@ -5006,7 +5125,7 @@ async function setSelectionVideoAlbum(albumName, { createOnly = false } = {}) {
   state.albumDialogTarget = 'photo';
   state.albumDialogError = '';
   state.albumDraftName = '';
-  state.albumSelectionTarget = '';
+  resetAddToTargetModes();
   state.albumDrawerSearch = '';
   state.albumDrawerScope = 'all';
   state.albumDrawerCreateMode = false;
@@ -5146,24 +5265,31 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
   const query = parsedSearch.textQuery.toLowerCase();
   const activeAlbumName = getActiveAlbumName();
   const albumSelectionTarget = getAlbumSelectionTarget();
+  const videoAlbumSelectionTarget = getVideoAlbumSelectionTarget();
   const searchFilters = parsedSearch.filters;
 
   return items.filter((item) => {
-    const albumName = resolveCollectionAlbum(item);
-
     if (isPrivateRouteActive()) {
-      if (!hasPrivateRouteAccess() || !isPrivatePhoto(item)) {
+      if (!hasPrivateRouteAccess() || !isPrivateMedia(item)) {
         return false;
       }
     } else if (item?.isPrivateAlbum) {
       return false;
     }
 
-    if (activeAlbumName && albumName.toLowerCase() !== activeAlbumName.toLowerCase()) {
+    if (activeAlbumName && !itemBelongsToAlbum(item, activeAlbumName)) {
       return false;
     }
 
-    if (albumSelectionTarget && albumName.toLowerCase() === albumSelectionTarget.toLowerCase()) {
+    if (albumSelectionTarget && itemBelongsToAlbum(item, albumSelectionTarget)) {
+      return false;
+    }
+
+    if (state.privateSelectionMode && !['photo', 'video'].includes(item.type)) {
+      return false;
+    }
+
+    if (videoAlbumSelectionTarget && (item.type !== 'video' || itemMatchesVideoAlbum(item, videoAlbumSelectionTarget))) {
       return false;
     }
 
@@ -5479,6 +5605,7 @@ function getViewModel() {
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const activeAlbumName = getActiveAlbumName();
   const albumSelectionTarget = getAlbumSelectionTarget();
+  const videoAlbumSelectionTarget = getVideoAlbumSelectionTarget();
   const filteredItems = getFilteredItems(accessibleItems);
   const videoCategoryScopeItems = state.secondaryFilter === 'Videos'
     ? getFilteredItems(accessibleItems, { ignoreVideoCategoryFilter: true })
@@ -5506,7 +5633,7 @@ function getViewModel() {
     : [];
   const collectionCards = allCollections.slice(0, state.loadedCount);
   const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName;
-  const isAlbumPickerMode = Boolean(albumSelectionTarget);
+  const isAlbumPickerMode = Boolean(albumSelectionTarget || videoAlbumSelectionTarget || state.privateSelectionMode);
   const timelineItems = state.primaryFilter === 'Bin'
     ? state.binItems
     : filteredItems;
@@ -5582,6 +5709,7 @@ function getViewModel() {
     activeAlbumCoverLabel: activeAlbumCover.item?.label || activeAlbumCover.item?.displayTakenAt || '',
     hasCustomAlbumCover: activeAlbumCover.isCustom,
     albumSelectionTarget,
+    videoAlbumSelectionTarget,
     isAlbumPickerMode,
     isCollectionRoot,
     collectionCards,
@@ -5636,7 +5764,9 @@ function patchSidebarActive() {
   if (!refs.root) return;
   refs.root.querySelectorAll('.cml-sidebar__nav-item').forEach((btn) => {
     const primary = btn.dataset.primary;
-    const active = primary === state.primaryFilter && !state.secondaryFilter;
+    const active = primary === 'Private'
+      ? isPrivateRouteActive()
+      : primary === state.primaryFilter && !state.secondaryFilter && !state.privateViewOpen;
     btn.classList.toggle('is-active', active);
     btn.setAttribute('aria-current', active ? 'page' : 'false');
   });
@@ -5650,7 +5780,9 @@ function patchSidebarActive() {
     const primary = btn.dataset.primary;
     const secondary = btn.dataset.secondary;
     const active = primary
-      ? (state.primaryFilter === primary && !state.secondaryFilter)
+      ? (primary === 'Private'
+        ? isPrivateRouteActive()
+        : state.primaryFilter === primary && !state.secondaryFilter && !state.privateViewOpen)
       : (state.secondaryFilter === secondary);
     btn.classList.toggle('is-active', active);
     btn.setAttribute('aria-current', active ? 'page' : 'false');
@@ -5676,12 +5808,24 @@ function patchSidebarStorageCard() {
 }
 
 let pendingNavRaf = 0;
+let pendingSelectionChromeRaf = 0;
 /** Batched render — collapses rapid nav clicks into one render frame */
 function scheduleRender() {
   if (pendingNavRaf) cancelAnimationFrame(pendingNavRaf);
   pendingNavRaf = requestAnimationFrame(() => {
     pendingNavRaf = 0;
     render();
+  });
+}
+
+function scheduleSelectionChromeSync() {
+  if (pendingSelectionChromeRaf) {
+    return;
+  }
+  pendingSelectionChromeRaf = requestAnimationFrame(() => {
+    pendingSelectionChromeRaf = 0;
+    syncTopbarSelectionState();
+    syncTimelineSelectionControls();
   });
 }
 
@@ -5999,8 +6143,7 @@ function syncSelectionUi(changedItemIds = []) {
     return false;
   }
   refs.root.classList.toggle('has-selection', state.selectedIds.size > 0);
-  syncTopbarSelectionState();
-  syncTimelineSelectionControls();
+  scheduleSelectionChromeSync();
   return true;
 }
 
@@ -7008,6 +7151,12 @@ function handleAction(actionTarget) {
     case 'open-add-to-current-album':
       openAlbumSelection();
       return true;
+    case 'open-add-to-current-video-album':
+      openVideoAlbumSelection(state.videoCategoryFilter);
+      return true;
+    case 'open-add-to-private':
+      openPrivateSelection();
+      return true;
     case 'cancel-add-to-current-album':
       closeAlbumSelection();
       return true;
@@ -7623,7 +7772,8 @@ function handleClick(event) {
   const isSelectClick = event.target instanceof Element && event.target.closest('[data-action="toggle-select"]');
 
   // In selection mode, clicking anywhere on a tile toggles selection instead of opening preview
-  const inSelectionMode = state.selectedIds.size > 0 || Boolean(state.albumSelectionTarget);
+  const inSelectionMode = state.selectedIds.size > 0
+    || Boolean(state.albumSelectionTarget || state.videoAlbumSelectionTarget || state.privateSelectionMode);
 
   if (!isSelectClick && actionTarget instanceof HTMLElement && actionTarget.dataset.action === 'open-preview' && actionTarget.dataset.id) {
     event.preventDefault();
@@ -7665,20 +7815,37 @@ function handleClick(event) {
     }
 
     if (actionTarget.dataset.primary) {
-      if (actionTarget.dataset.primary === 'Private') {
+      const nextPrimary = actionTarget.dataset.primary;
+      const alreadyOnPrimary = nextPrimary !== 'Private'
+        && state.primaryFilter === nextPrimary
+        && !state.secondaryFilter
+        && !state.activeAlbumName
+        && !state.privateViewOpen
+        && !state.albumSelectionTarget
+        && !state.videoAlbumSelectionTarget
+        && !state.privateSelectionMode
+        && !state.previewId
+        && state.selectedIds.size === 0
+        && state.binSelectedIds.size === 0;
+      if (alreadyOnPrimary) {
+        patchSidebarActive();
+        return;
+      }
+      if (nextPrimary === 'Private') {
         state.primaryFilter = 'Photos';
         state.privateViewOpen = true;
+        state.privateRouteUnlocked = false;
         state.privatePasswordDraft = '';
         state.privatePasswordError = '';
       } else {
-        state.primaryFilter = actionTarget.dataset.primary;
+        state.primaryFilter = nextPrimary;
         clearPrivateViewState();
       }
       state.storagePanelOpen = false;
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
-      state.albumSelectionTarget = '';
+      resetAddToTargetModes();
       resetSearchQuery();
       state.previewId = null;
       state.selectedIds.clear();
@@ -7694,15 +7861,30 @@ function handleClick(event) {
     }
 
     if (actionTarget.dataset.secondary) {
+      const nextSecondary = actionTarget.dataset.secondary === state.secondaryFilter ? '' : actionTarget.dataset.secondary;
+      const alreadyOnSecondary = state.primaryFilter === 'Photos'
+        && state.secondaryFilter === nextSecondary
+        && !state.activeAlbumName
+        && !state.privateViewOpen
+        && !state.albumSelectionTarget
+        && !state.videoAlbumSelectionTarget
+        && !state.privateSelectionMode
+        && !state.previewId
+        && state.selectedIds.size === 0
+        && state.binSelectedIds.size === 0;
+      if (alreadyOnSecondary) {
+        patchSidebarActive();
+        return;
+      }
       state.primaryFilter = 'Photos';
-      state.secondaryFilter = actionTarget.dataset.secondary === state.secondaryFilter ? '' : actionTarget.dataset.secondary;
+      state.secondaryFilter = nextSecondary;
       if (state.secondaryFilter !== 'Videos') {
         state.videoCategoryFilter = '';
       }
       clearPrivateViewState();
       state.storagePanelOpen = false;
       state.activeAlbumName = '';
-      state.albumSelectionTarget = '';
+      resetAddToTargetModes();
       state.previewId = null;
       state.selectedIds.clear();
       state.binSelectedIds.clear();
@@ -7996,7 +8178,7 @@ function handleKeyDown(event) {
   }
 
   // Escape cancels album-selection (picker) mode
-  if (state.albumSelectionTarget && event.key === 'Escape') {
+  if ((state.albumSelectionTarget || state.videoAlbumSelectionTarget || state.privateSelectionMode) && event.key === 'Escape') {
     closeAlbumSelection();
     return;
   }
@@ -8159,6 +8341,7 @@ function pushNavigationHash() {
 
 function restoreNavigationFromHash() {
   const rawHash = decodeURIComponent(window.location.hash || '').replace(/^#\/?/, '');
+  resetAddToTargetModes();
   if (!rawHash) {
     state.primaryFilter = 'Photos';
     state.secondaryFilter = '';
@@ -8178,7 +8361,9 @@ function restoreNavigationFromHash() {
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       if (parts[1] && parts[1].toLowerCase() === PRIVATE_ROUTE_SEGMENT) {
+        resetAddToTargetModes();
         state.privateViewOpen = true;
+        state.privateRouteUnlocked = false;
         state.privatePasswordDraft = '';
         state.privatePasswordError = '';
       } else {

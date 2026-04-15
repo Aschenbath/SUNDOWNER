@@ -461,7 +461,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /function openAlbumDialog\(mode = 'create', \{ origin = '', preferPreviewRender = false \} = \{\}\)/);
     assert.doesNotMatch(appSource, /preferTransientRender/);
     assert.match(appSource, /function animateContentViewTransition\(\)/);
-    assert.match(appSource, /if \(actionTarget\.dataset\.secondary\) \{\s*state\.primaryFilter = 'Photos';/);
+    assert.match(appSource, /if \(actionTarget\.dataset\.secondary\) \{[\s\S]*state\.primaryFilter = 'Photos';/);
     assert.match(appSource, /function syncSelectionUi\(changedItemIds = \[\]\)/);
     assert.match(appSource, /if \(!syncSelectionUi\(\[itemId\]\)\) \{\s*render\(\);/);
     assert.match(appSource, /function syncAlbumAssignments\(items = getAllItems\(\), \{ pruneMissing = false \} = \{\}\)/);
@@ -649,12 +649,87 @@ describe('media library download actions', () => {
     assert.match(gateHtml, /Wrong password\./);
     assert.match(gateHtml, /Private is a locked collection/);
     assert.match(summaryHtml, /Hidden album/);
-    assert.match(summaryHtml, /3 photos hidden from the main library/);
+    assert.match(summaryHtml, /3 items hidden from the main library/);
     assert.match(appSource, /PRIVATE_ROUTE_SEGMENT = 'private'/);
     assert.match(appSource, /PRIVATE_ALBUM_PASSWORD = '210217'/);
     assert.match(appSource, /#\/photos\/\$\{PRIVATE_ROUTE_SEGMENT\}/);
-    assert.match(appSource, /if \(actionTarget\.dataset\.primary === 'Private'\)/);
+    assert.match(appSource, /nextPrimary === 'Private'/);
     assert.match(appSource, /toggle-private-photo/);
     assert.match(appSource, /toggle-private-selection/);
+    assert.match(appSource, /privateRouteUnlocked = false/);
+  });
+
+  it('exposes picker actions for video albums and Private media', () => {
+    const videoRootHtml = TopSearchBar({
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: 'Videos',
+        videoCategoryFilter: '',
+        activeAlbumName: '',
+        albumSelectionTarget: '',
+        videoAlbumSelectionTarget: '',
+        privateSelectionMode: false,
+        privateViewOpen: false,
+        privateRouteUnlocked: false,
+        selectedIds: new Set(),
+        searchDraft: '',
+        searchQuery: '',
+      },
+    });
+    const videoDetailHtml = TopSearchBar({
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: 'Videos',
+        videoCategoryFilter: 'little doggy',
+        activeAlbumName: '',
+        albumSelectionTarget: '',
+        videoAlbumSelectionTarget: '',
+        privateSelectionMode: false,
+        privateViewOpen: false,
+        privateRouteUnlocked: false,
+        selectedIds: new Set(),
+        searchDraft: '',
+        searchQuery: '',
+      },
+    });
+    const privateHtml = TopSearchBar({
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: '',
+        videoCategoryFilter: '',
+        activeAlbumName: '',
+        albumSelectionTarget: '',
+        videoAlbumSelectionTarget: '',
+        privateSelectionMode: false,
+        privateViewOpen: true,
+        privateRouteUnlocked: true,
+        selectedIds: new Set(),
+        searchDraft: '',
+        searchQuery: '',
+      },
+    });
+    const pickerHtml = TopSearchBar({
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: 'Videos',
+        videoCategoryFilter: '',
+        activeAlbumName: '',
+        albumSelectionTarget: '',
+        videoAlbumSelectionTarget: 'little doggy',
+        privateSelectionMode: false,
+        privateViewOpen: false,
+        privateRouteUnlocked: false,
+        selectedIds: new Set(['video-1']),
+        searchDraft: '',
+        searchQuery: '',
+      },
+    });
+
+    assert.match(videoRootHtml, /New video album/);
+    assert.match(videoDetailHtml, /data-action="open-add-to-current-video-album"/);
+    assert.match(videoDetailHtml, /Add videos/);
+    assert.match(privateHtml, /data-action="open-add-to-private"/);
+    assert.match(privateHtml, /Add photos\/videos/);
+    assert.match(pickerHtml, /Add to little doggy/);
   });
 });

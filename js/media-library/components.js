@@ -517,8 +517,14 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   const searchValue = escapeHtml(state.searchDraft ?? state.searchQuery);
   const activeAlbumName = String(state.activeAlbumName || '');
   const albumSelectionTarget = String(state.albumSelectionTarget || '');
-  const isAlbumPickerMode = Boolean(albumSelectionTarget);
+  const videoAlbumSelectionTarget = String(state.videoAlbumSelectionTarget || '');
+  const isPrivatePickerMode = Boolean(state.privateSelectionMode);
+  const pickerTargetLabel = isPrivatePickerMode ? 'Private' : (videoAlbumSelectionTarget || albumSelectionTarget);
+  const isAlbumPickerMode = Boolean(albumSelectionTarget || videoAlbumSelectionTarget || isPrivatePickerMode);
   const canCreateAlbum = state.primaryFilter === 'Collections' && !activeAlbumName;
+  const canCreateVideoAlbum = state.secondaryFilter === 'Videos' && !state.videoCategoryFilter && !isAlbumPickerMode;
+  const canAddToCurrentVideoAlbum = state.secondaryFilter === 'Videos' && Boolean(state.videoCategoryFilter) && !isAlbumPickerMode;
+  const canAddToPrivate = state.privateViewOpen && state.privateRouteUnlocked && !isAlbumPickerMode;
   const canToggleHiddenAlbum = state.primaryFilter === 'Photos' && !state.secondaryFilter;
   const hiddenActionLabel = state.privateViewOpen ? 'Remove from hidden album' : 'Move to hidden album';
   const addToAlbumLabel = state.secondaryFilter === 'Videos' ? 'Add to video album' : 'Add to album';
@@ -533,7 +539,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
             </div>
             <div class="cml-topbar__selection-actions">
               <button type="button" class="cml-topbar__secondary-button" data-action="cancel-add-to-current-album">Cancel</button>
-              <button type="button" class="cml-topbar__upload-button" data-action="confirm-add-to-current-album">Add to ${escapeHtml(albumSelectionTarget)}</button>
+              <button type="button" class="cml-topbar__upload-button" data-action="confirm-add-to-current-album">Add to ${escapeHtml(pickerTargetLabel)}</button>
             </div>
           </div>
         </header>
@@ -574,12 +580,27 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
         ${isAlbumPickerMode ? `
           <button type="button" class="cml-topbar__secondary-button" data-action="cancel-add-to-current-album">
             ${icon('previous')}
-            <span>Back to album</span>
+            <span>Back to ${escapeHtml(pickerTargetLabel || 'album')}</span>
           </button>
         ` : activeAlbumName ? `
           <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-current-album">
             ${icon('plus')}
             <span>Add photos</span>
+          </button>
+        ` : canAddToCurrentVideoAlbum ? `
+          <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-current-video-album">
+            ${icon('plus')}
+            <span>Add videos</span>
+          </button>
+        ` : canAddToPrivate ? `
+          <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-private">
+            ${icon('plus')}
+            <span>Add photos/videos</span>
+          </button>
+        ` : canCreateVideoAlbum ? `
+          <button type="button" class="cml-topbar__secondary-button" data-action="open-create-album">
+            ${icon('plus')}
+            <span>New video album</span>
           </button>
         ` : canCreateAlbum ? `
 
@@ -1164,8 +1185,8 @@ export function PrivateAlbumSummary({ itemCount = 0, locked = false }) {
       <h2 class="cml-view-summary__title">Hidden album</h2>
       <p class="cml-view-summary__copy cml-view-summary__copy--albums">
         ${escapeHtml(locked
-          ? 'Enter the password to view hidden photos.'
-          : `${safeItemCount} photo${safeItemCount === 1 ? '' : 's'} hidden from the main library.`)}
+          ? 'Enter the password to view hidden photos and videos.'
+          : `${safeItemCount} item${safeItemCount === 1 ? '' : 's'} hidden from the main library.`)}
       </p>
     </section>
   `;
@@ -1338,8 +1359,8 @@ function renderPreviewPrivateAlbumSection(item) {
   const isPrivate = Boolean(item?.isPrivateAlbum);
   const title = isPrivate ? 'Inside hidden album' : 'Visible in library';
   const meta = isPrivate
-    ? 'Click to remove this photo from the hidden album'
-    : 'Click to move this photo into the hidden album';
+    ? 'Click to remove this item from the hidden album'
+    : 'Click to move this item into the hidden album';
   return `
     <section class="cml-preview__info-section cml-preview__info-section--private-album" data-action="toggle-private-photo">
       <h5 class="cml-preview__info-heading">Hidden album</h5>
@@ -1664,7 +1685,7 @@ export function PrivateAlbumGate({ error = '', value = '' }) {
     <section class="cml-private-access" aria-label="Hidden album access">
       <div class="cml-private-access__icon" aria-hidden="true">${icon('lock')}</div>
       <h3 class="cml-private-access__title">Enter hidden album</h3>
-      <p class="cml-private-access__copy">Private is a locked collection. Enter the password to open the hidden photo album.</p>
+      <p class="cml-private-access__copy">Private is a locked collection. Enter the password to open hidden photos and videos.</p>
       <form class="cml-private-access__form" data-form="private-access">
         <input
           type="password"

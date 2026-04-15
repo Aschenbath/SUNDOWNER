@@ -153,10 +153,10 @@ export async function onRequest(context) {
                 headers: { 'Content-Type': 'application/json', ...corsHeaders },
             });
         }
-        if (typeof body.PrivateAlbum === 'boolean' && !isPhotoMetadata(fileId, updatedMetadata)) {
+        if (typeof body.PrivateAlbum === 'boolean' && !isPhotoMetadata(fileId, updatedMetadata) && !isVideoMetadata(fileId, updatedMetadata)) {
             return new Response(JSON.stringify({
                 success: false,
-                message: 'PrivateAlbum can only be set on photo files.',
+                message: 'PrivateAlbum can only be set on photo or video files.',
             }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json', ...corsHeaders },
