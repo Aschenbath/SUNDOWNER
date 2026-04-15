@@ -4045,6 +4045,7 @@ function clearPrivateViewState() {
   state.privateRouteUnlocked = false;
   state.privatePasswordDraft = '';
   state.privatePasswordError = '';
+  state.focusedTileId = null;
 }
 
 function resetAddToTargetModes() {
@@ -4073,6 +4074,7 @@ function unlockPrivateRoute(passwordInput = state.privatePasswordDraft) {
   state.privateRouteUnlocked = true;
   state.privatePasswordDraft = '';
   state.privatePasswordError = '';
+  state.focusedTileId = null;
   render();
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
@@ -4169,6 +4171,7 @@ function closeAlbumSelection() {
     state.privateRouteUnlocked = false;
     state.privatePasswordDraft = '';
     state.privatePasswordError = '';
+    state.focusedTileId = null;
   } else {
     state.primaryFilter = 'Collections';
     state.activeAlbumName = targetAlbum;
@@ -6604,6 +6607,7 @@ function mount() {
       }
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'private-access') {
         e.preventDefault();
+        e.stopPropagation();
         unlockPrivateRoute();
       }
     }, true);
@@ -7829,6 +7833,7 @@ function handleClick(event) {
         state.privateRouteUnlocked = false;
         state.privatePasswordDraft = '';
         state.privatePasswordError = '';
+        state.focusedTileId = null;
       } else {
         state.primaryFilter = nextPrimary;
         clearPrivateViewState();
@@ -8069,6 +8074,22 @@ function moveFocus(delta) {
 
 function handleKeyDown(event) {
   if (!document.body.classList.contains('codex-media-library-active')) {
+    return;
+  }
+
+  if (event.target instanceof HTMLInputElement && event.target.dataset.privateAccess === 'password') {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      unlockPrivateRoute(event.target.value);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      state.privatePasswordDraft = '';
+      state.privatePasswordError = '';
+      state.focusedTileId = null;
+      render();
+    }
     return;
   }
 
@@ -8358,6 +8379,7 @@ function restoreNavigationFromHash() {
         state.privateRouteUnlocked = false;
         state.privatePasswordDraft = '';
         state.privatePasswordError = '';
+        state.focusedTileId = null;
       } else {
         clearPrivateViewState();
       }

@@ -679,6 +679,15 @@ describe('media library download actions', () => {
     assert.match(appSource, /privateRouteUnlocked = false/);
   });
 
+  it('keeps Private password Enter isolated from tile preview shortcuts', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /event\.target instanceof HTMLInputElement && event\.target\.dataset\.privateAccess === 'password'/);
+    assert.match(appSource, /unlockPrivateRoute\(event\.target\.value\)/);
+    assert.match(appSource, /e\.stopPropagation\(\);\s*unlockPrivateRoute\(\);/);
+    assert.match(appSource, /state\.focusedTileId = null/);
+  });
+
   it('keeps favourite toggles in preview on the local button path without a full render', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 

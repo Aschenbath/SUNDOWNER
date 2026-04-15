@@ -257,3 +257,9 @@ pm; git diff --check passed.
 - Fixed the Favourites-preview flicker. `toggleFavorite()` now treats the current preview item as a local button-state patch in every view, including `Favourites`, instead of falling through to a full `render()` after the item is removed from the favourites filter. `getPreviewOverlayModel()` also guards the counter against the `1 / 0` state when the current preview item is no longer in the active filtered list.
 - Removed the preview Info `Hidden album` shortcut and its click handler. Adding items to Private is now scoped to the Private page via `Add photos/videos`; the normal Photos selection toolbar no longer shows `Move to hidden album`, while unlocked Private selection still exposes `Remove from Private`.
 - Cache busts moved to `app.js?v=88` and `components.js?v=26`. **Validation**: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, `--check js/media-library/components.js`, targeted Mocha `test\previewActions.test.js` (`26 passing`), and `git diff --check` passed.
+
+### 2026-04-15 21:09 Asia/Shanghai
+
+- Fixed the Private password Enter regression. Root cause: the document-level keyboard shortcut handler still saw Enter from the password input and used a stale `state.focusedTileId`, which could open the previously focused photo while submitting the Private gate.
+- The Private password input now consumes Enter/Escape before global tile shortcuts, the private-access form stops submit propagation, and Private entry/unlock paths clear `focusedTileId` so stale tile focus cannot leak into the gate.
+- Cache bust moved to `app.js?v=89`. **Validation**: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, targeted Mocha `test\previewActions.test.js` (`27 passing`), and `git diff --check` passed.
