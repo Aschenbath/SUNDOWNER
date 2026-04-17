@@ -1262,7 +1262,7 @@ export function MindChatView({
             type="text"
             class="cml-mind__input"
             data-mind-input="message"
-            placeholder="我有时会觉得我真正的人生还未开启"
+            placeholder="我有时会觉得我真正的人生还未开启..."
             value="${safeDraft}"
             ${busy ? 'disabled' : ''}
           />
