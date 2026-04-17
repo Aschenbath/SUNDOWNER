@@ -427,3 +427,9 @@ pm; git diff --check passed.
 - Added a new `Wallpaper focus` chooser in `js/media-library/components.js`, rendered as a 3x3 grid with visual anchor dots, so the user can decide which part of the wallpaper should stay in frame instead of always forcing center-crop.
 - Updated the live preview path in `js/media-library/app.js` and the actual chat background CSS in `css/media-library.css` to use `--cml-mind-wallpaper-position`, so both the settings drawer preview and the saved Mind surface honor the selected wallpaper alignment immediately. Also bumped cache versions to `components.js?v=41`, `app.js?v=106`, and `media-library.css?v=90`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` all passed.
+
+### 2026-04-17 20:32 Asia/Shanghai
+
+- Fixed the `Mind` send cooldown feel in `js/media-library/components.js` by stopping the composer input from inheriting the global `busy` disabled state during optimistic send. The send button still disables while the request is in flight, but the text field now stays focusable and immediately ready for the next message.
+- This keeps the optimistic message flow intact in `js/media-library/app.js` while removing the brief post-Enter lockout where the input could not be reselected until the network roundtrip completed.
+- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js` both passed.

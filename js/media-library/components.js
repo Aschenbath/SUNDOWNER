@@ -1335,7 +1335,6 @@ export function MindChatView({
             data-mind-input="message"
             placeholder="我有时会觉得我真正的人生还未开启..."
             value="${safeDraft}"
-            ${busy ? 'disabled' : ''}
           />
           <button type="submit" class="cml-mind__send" data-action="send-mind-message"${sendButtonStyle} ${busy ? 'disabled' : ''} aria-label="Send message">
             ${icon('arrow-up')}
