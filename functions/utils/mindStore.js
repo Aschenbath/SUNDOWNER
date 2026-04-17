@@ -8,6 +8,7 @@ const DEFAULT_MIND_SETTINGS = {
     backgroundPreset: 'ios-sky',
     backgroundImageData: '',
     backgroundPhotoId: '',
+    sendButtonColor: 'green',
 }
 
 function normalizeText(value) {
@@ -33,12 +34,15 @@ function normalizeImageData(value) {
 }
 
 function normalizeMindSettings(input = {}) {
+    const sendButtonColor = normalizeText(input.sendButtonColor).toLowerCase()
+    const allowedSendButtonColors = new Set(['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'black'])
     return {
         contactName: normalizeText(input.contactName) || DEFAULT_MIND_SETTINGS.contactName,
         contactAvatarData: normalizeImageData(input.contactAvatarData),
         backgroundPreset: normalizePreset(input.backgroundPreset),
         backgroundImageData: normalizeImageData(input.backgroundImageData),
         backgroundPhotoId: normalizeText(input.backgroundPhotoId),
+        sendButtonColor: allowedSendButtonColors.has(sendButtonColor) ? sendButtonColor : DEFAULT_MIND_SETTINGS.sendButtonColor,
     }
 }
 

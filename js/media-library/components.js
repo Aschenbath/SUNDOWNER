@@ -32,6 +32,7 @@ const icons = {
   rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 0 1 13.1-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m15.5 4 2.1 3-3.1 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M19.5 12a7.5 7.5 0 0 1-13.1 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.5 20-2.1-3 3.1-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v6.8A1.2 1.2 0 0 0 5.2 20h13.6a1.2 1.2 0 0 0 1.2-1.2V12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 4v10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.5 7.5 3.5-3.5 3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   sliders: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h4m4 0h8M4 12h10m4 0h2M4 18h2m4 0h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="11" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
+  'arrow-up': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18V7.5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/><path d="m7.8 11.4 4.2-4.4 4.2 4.4" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5.5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="18.5" r="1.5" fill="currentColor"/></svg>',
   folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   'folder-filled': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="#8ab4f8" stroke="#8ab4f8" stroke-width="1.6" stroke-linejoin="round"/></svg>',
@@ -1200,6 +1201,17 @@ function formatMindDay(timestamp) {
   return `${year}-${month}-${day}`;
 }
 
+const MIND_SEND_BUTTON_OPTIONS = [
+  { value: 'default', label: '默认' },
+  { value: 'blue', label: '蓝色' },
+  { value: 'green', label: '绿色' },
+  { value: 'yellow', label: '黄色' },
+  { value: 'pink', label: '粉色' },
+  { value: 'orange', label: '橙色' },
+  { value: 'purple', label: '紫色' },
+  { value: 'black', label: '黑色' }
+];
+
 export function MindChatView({
   messages = [],
   draft = '',
@@ -1214,6 +1226,7 @@ export function MindChatView({
   const safeDraft = escapeHtml(String(draft || ''));
   const contactName = escapeHtml(settings.contactName || 'Mind');
   const contactAvatarData = escapeHtml(settings.contactAvatarData || '');
+  const sendButtonColor = escapeHtml(settings.sendButtonColor || 'green');
   const wallpaperStyle = wallpaperUrl
     ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(wallpaperUrl)}')"`
     : '';
@@ -1248,7 +1261,7 @@ export function MindChatView({
     : '';
 
   return `
-    <section class="cml-mind cml-mind--${escapeHtml(settings.backgroundPreset || 'ios-sky')}" aria-label="Mind conversation"${wallpaperStyle}>
+    <section class="cml-mind cml-mind--${escapeHtml(settings.backgroundPreset || 'ios-sky')} cml-mind--send-${sendButtonColor}" aria-label="Mind conversation"${wallpaperStyle}>
       <div class="cml-mind__surface"></div>
       <div class="cml-mind__history">
         ${historyHtml}
@@ -1266,10 +1279,10 @@ export function MindChatView({
             value="${safeDraft}"
             ${busy ? 'disabled' : ''}
           />
+          <button type="submit" class="cml-mind__send" data-action="send-mind-message" ${busy ? 'disabled' : ''} aria-label="Send message">
+            ${icon('arrow-up')}
+          </button>
         </label>
-        <button type="submit" class="cml-mind__send" data-action="send-mind-message" ${busy ? 'disabled' : ''} aria-label="Send message">
-          ${icon('next')}
-        </button>
       </form>
       ${settingsOpen ? `
         <button type="button" class="cml-mind__settings-backdrop" data-action="close-mind-settings" aria-label="Close settings"></button>
@@ -1344,6 +1357,24 @@ export function MindChatView({
                 ` : `
                   <p class="cml-mind__photo-picker-empty">No photos available in the main library yet.</p>
                 `}
+              </div>
+            </div>
+            <div class="cml-mind__field">
+              <span>Send button</span>
+              <div class="cml-mind__tone-grid">
+                ${MIND_SEND_BUTTON_OPTIONS.map((option) => `
+                  <button
+                    type="button"
+                    class="cml-mind__tone-option ${settingsDraft.sendButtonColor === option.value ? 'is-active' : ''}"
+                    data-action="set-mind-send-button-color"
+                    data-value="${option.value}"
+                    aria-pressed="${settingsDraft.sendButtonColor === option.value ? 'true' : 'false'}"
+                    ${busy ? 'disabled' : ''}
+                  >
+                    <span class="cml-mind__tone-dot cml-mind__tone-dot--${option.value}"></span>
+                    <span>${option.label}</span>
+                  </button>
+                `).join('')}
               </div>
             </div>
             <div class="cml-mind__settings-actions">

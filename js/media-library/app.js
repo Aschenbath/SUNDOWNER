@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=37';
+} from './components.js?v=38';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -2099,6 +2099,8 @@ function normalizeMindSettings(settings = {}) {
   const defaults = createDefaultMindSettings();
   const preset = normalizeText(settings.backgroundPreset);
   const allowedPresets = new Set(['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper']);
+  const sendButtonColor = normalizeText(settings.sendButtonColor).toLowerCase();
+  const allowedSendButtonColors = new Set(['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'black']);
   const normalizeImage = (value) => {
     const nextValue = normalizeText(value);
     return /^data:image\//i.test(nextValue) ? nextValue : '';
@@ -2108,7 +2110,8 @@ function normalizeMindSettings(settings = {}) {
     contactAvatarData: normalizeImage(settings.contactAvatarData),
     backgroundPreset: allowedPresets.has(preset) ? preset : defaults.backgroundPreset,
     backgroundImageData: normalizeImage(settings.backgroundImageData),
-    backgroundPhotoId: normalizeText(settings.backgroundPhotoId)
+    backgroundPhotoId: normalizeText(settings.backgroundPhotoId),
+    sendButtonColor: allowedSendButtonColors.has(sendButtonColor) ? sendButtonColor : defaults.sendButtonColor
   };
 }
 
@@ -2141,7 +2144,8 @@ function createDefaultMindSettings() {
     contactAvatarData: '',
     backgroundPreset: 'ios-sky',
     backgroundImageData: '',
-    backgroundPhotoId: ''
+    backgroundPhotoId: '',
+    sendButtonColor: 'green'
   };
 }
 
@@ -7589,6 +7593,18 @@ function handleAction(actionTarget) {
           ...state.mindSettingsDraft,
           backgroundPhotoId: normalizeText(actionTarget.dataset.id),
           backgroundImageData: ''
+        };
+        render();
+      }
+      return true;
+    case 'set-mind-send-button-color':
+      if (!state.mindBusy) {
+        state.mindSettingsDraft = {
+          ...state.mindSettingsDraft,
+          sendButtonColor: normalizeMindSettings({
+            ...state.mindSettingsDraft,
+            sendButtonColor: actionTarget.dataset.value || ''
+          }).sendButtonColor
         };
         render();
       }

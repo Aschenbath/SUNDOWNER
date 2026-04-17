@@ -378,3 +378,10 @@ pm; git diff --check passed.
 - Updated the Mind composer placeholder copy in `js/media-library/components.js` from `我有时会觉得我真正的人生还未开启` to `我有时会觉得我真正的人生还未开启...`.
 - Bumped cache versions to `components.js?v=37`, `app.js?v=100`, and `media-library.css?v=85` via `js/media-library/app.js` and `index.html`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
+
+### 2026-04-17 16:20 Asia/Shanghai
+
+- Reworked the Mind composer send control toward the supplied `p1` reference: `js/media-library/components.js` now nests the submit button inside the main input pill and swaps the icon to an upward arrow, while `css/media-library.css` turns it into a rounded-square in-pill button instead of a detached circular chip.
+- Extended Mind settings persistence in `functions/utils/mindStore.js` and `js/media-library/app.js` with `sendButtonColor`, then added a `Send button` color picker in the settings drawer using the `p3`-style palette (`默认 / 蓝色 / 绿色 / 黄色 / 粉色 / 橙色 / 紫色 / 黑色`). Default tone is now green to match the requested p1-like look.
+- Bumped cache versions to `components.js?v=38`, `app.js?v=101`, and `media-library.css?v=86`.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
