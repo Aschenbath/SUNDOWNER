@@ -445,3 +445,9 @@ pm; git diff --check passed.
 - Tightened the desktop `Mind` composer proportions again in `css/media-library.css`: the input pill now uses `width: 75%` with a `980px` cap, so it reads about a quarter shorter than the previous full-width desktop version.
 - Reduced the pill height from `62px` to `52px`, the inner input height from `48px` to `40px`, and the send button from `56x48` to `50x40`, so the whole composer sits lower and lighter. Mobile keeps `width: 100%` under the existing responsive breakpoint to preserve usability on small screens.
 - **Validation**: `git diff --check` passed after the CSS-only change.
+
+### 2026-04-17 21:49 Asia/Shanghai
+
+- Centered the narrowed desktop Mind composer in `css/media-library.css` by adding `margin: 0 auto` on `.cml-mind__input-shell`, while explicitly resetting that margin on the mobile full-width breakpoint.
+- Reworked `deleteMindMessageById()` in `js/media-library/app.js` into an optimistic delete flow: the chosen message is removed from `state.mindMessages` and rerendered immediately, the delete request runs afterward, and the UI only rolls back if the backend call fails.
+- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.

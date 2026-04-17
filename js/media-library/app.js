@@ -2390,9 +2390,12 @@ async function deleteMindMessageById(messageId) {
   if (!normalizedId || state.mindBusy) {
     return;
   }
+  const previousMessages = state.mindMessages.slice();
+  state.mindMessages = state.mindMessages.filter((message) => message.id !== normalizedId);
   state.mindBusy = true;
   if (refs.root) {
     render();
+    scrollMindToBottom({ force: false });
   }
   try {
     const payload = await postJson('/api/manage/mind', {
@@ -2402,6 +2405,7 @@ async function deleteMindMessageById(messageId) {
     applyMindState(payload);
     showToast('Message deleted', 'success');
   } catch (error) {
+    state.mindMessages = previousMessages;
     showToast(error.message || 'Failed to delete message');
   } finally {
     state.mindBusy = false;

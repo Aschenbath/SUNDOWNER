@@ -5884,6 +5884,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-mind__input-shell {
   width: 75%;
   max-width: 980px;
+  margin: 0 auto;
   min-width: 0;
   min-height: 52px;
   padding: 4px 6px 4px 16px;
@@ -6345,6 +6346,7 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-mind__input-shell {
     width: 100%;
     max-width: none;
+    margin: 0;
   }
 
   #codex-media-library-root .cml-mind__settings {
