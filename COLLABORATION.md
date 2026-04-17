@@ -315,3 +315,10 @@ pm; git diff --check passed.
 - Reworked the bottom composer to better match the supplied `p2` reference: instead of a floating white pill, the input area is now a full-width dark footer editor with a subtle top divider, darker inner writing field, and much larger/clearer input text and placeholder contrast.
 - Added stronger focus overrides on `.cml-mind__input` to suppress the bright browser-blue focus ring that was making the typed text area look washed out, and bumped `index.html` media-library CSS cache bust to `?v=77`.
 - **Validation**: `git diff --check` passed. This change was CSS-only, so no JS syntax check was needed beyond the existing clean state.
+
+### 2026-04-17 14:56 Asia/Shanghai
+
+- Refined the Mind message layout in `js/media-library/components.js` and `css/media-library.css` to match the new references more closely: incoming rows now keep avatar, bubble, and time on the same line, the incoming bubble shows the contact name inside the bubble, and self messages no longer reserve a fake hidden-avatar spacer that pushed bubbles inward.
+- Shrunk the Mind composer from the oversized dark editor into a compact `p3`-style control strip: left circular `+` button, central pill input, and right send button. The input text size came back down to ordinary chat scale while keeping the higher contrast from the previous pass.
+- Bumped cache busts to `components.js?v=30`, `app.js?v=92`, and `media-library.css?v=78` via `js/media-library/app.js` and `index.html`.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.

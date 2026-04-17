@@ -1226,17 +1226,23 @@ export function MindChatView({
         ? (contactAvatarData
           ? `<span class="cml-mind__avatar"><img src="${contactAvatarData}" alt="${contactName}" class="cml-mind__avatar-image"></span>`
           : `<span class="cml-mind__avatar cml-mind__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`)
-        : '<span class="cml-mind__avatar cml-mind__avatar--spacer" aria-hidden="true"></span>';
+        : '';
+      const senderLabel = message.side === 'left'
+        ? `<span class="cml-mind__sender">${contactName}</span>`
+        : '';
       return `
         ${showDay ? `<div class="cml-mind__day">${escapeHtml(dayLabel)}</div>` : ''}
         <article class="cml-mind__message ${sideClass}">
           ${avatarHtml}
           <div class="cml-mind__message-stack">
-            <div class="cml-mind__bubble">
-              <p class="cml-mind__text">${escapeHtml(message.text).replace(/\n/g, '<br>')}</p>
+            <div class="cml-mind__bubble-row">
+              <div class="cml-mind__bubble">
+                ${senderLabel}
+                <p class="cml-mind__text">${escapeHtml(message.text).replace(/\n/g, '<br>')}</p>
+              </div>
+              <time class="cml-mind__time">${escapeHtml(formatMindTime(message.createdAt))}</time>
+              <button type="button" class="cml-mind__delete" data-action="delete-mind-message" data-id="${escapeHtml(message.id)}" aria-label="Delete message">${icon('trash')}</button>
             </div>
-            <button type="button" class="cml-mind__delete" data-action="delete-mind-message" data-id="${escapeHtml(message.id)}" aria-label="Delete message">${icon('trash')}</button>
-            <time class="cml-mind__time">${escapeHtml(formatMindTime(message.createdAt))}</time>
           </div>
         </article>
       `;
@@ -1254,6 +1260,9 @@ export function MindChatView({
         ${historyHtml}
       </div>
       <form class="cml-mind__composer" data-form="mind">
+        <button type="button" class="cml-mind__composer-plus" data-action="toggle-mind-settings" aria-label="Open Mind style">
+          ${icon('plus')}
+        </button>
         <label class="cml-mind__input-shell" aria-label="Mind message">
           <input
             type="text"
