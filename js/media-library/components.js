@@ -1206,13 +1206,16 @@ export function MindChatView({
   busy = false,
   settings = {},
   settingsDraft = settings,
-  settingsOpen = false
+  settingsOpen = false,
+  wallpaperUrl = '',
+  wallpaperDraftUrl = '',
+  wallpaperPhotoChoices = []
 }) {
   const safeDraft = escapeHtml(String(draft || ''));
   const contactName = escapeHtml(settings.contactName || 'Mind');
   const contactAvatarData = escapeHtml(settings.contactAvatarData || '');
-  const wallpaperStyle = settings.backgroundImageData
-    ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(settings.backgroundImageData)}')"`
+  const wallpaperStyle = wallpaperUrl
+    ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(wallpaperUrl)}')"`
     : '';
   let lastDay = '';
   const historyHtml = messages.length
@@ -1311,12 +1314,40 @@ export function MindChatView({
                 `).join('')}
               </div>
               <div class="cml-mind__asset-row">
-                ${settingsDraft.backgroundImageData ? `<span class="cml-mind__wallpaper-thumb"><img src="${escapeHtml(settingsDraft.backgroundImageData)}" alt="Wallpaper preview" class="cml-mind__asset-image"></span>` : ''}
+                ${wallpaperDraftUrl ? `<span class="cml-mind__wallpaper-thumb"><img src="${escapeHtml(wallpaperDraftUrl)}" alt="Wallpaper preview" class="cml-mind__asset-image"></span>` : ''}
                 <label class="cml-mind__asset-button">
                   <input type="file" accept="image/*" data-mind-file="backgroundImageData" ${busy ? 'disabled' : ''} hidden />
                   <span>Upload wallpaper</span>
                 </label>
-                ${settingsDraft.backgroundImageData ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-wallpaper" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
+                ${(wallpaperDraftUrl || settingsDraft.backgroundPhotoId) ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-wallpaper" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
+              </div>
+              <div class="cml-mind__photo-picker">
+                <div class="cml-mind__photo-picker-head">
+                  <span>Choose from Photos</span>
+                  <span>${escapeHtml(String(wallpaperPhotoChoices.length))} available</span>
+                </div>
+                ${wallpaperPhotoChoices.length ? `
+                  <div class="cml-mind__photo-picker-grid">
+                    ${wallpaperPhotoChoices.map((item) => {
+                      const previewUrl = escapeHtml(item.thumbnailUrl || item.sourceUrl || '');
+                      const isActive = settingsDraft.backgroundPhotoId === item.id;
+                      return `
+                        <button
+                          type="button"
+                          class="cml-mind__photo-option ${isActive ? 'is-active' : ''}"
+                          data-action="set-mind-wallpaper-photo"
+                          data-id="${escapeHtml(item.id)}"
+                          aria-pressed="${isActive ? 'true' : 'false'}"
+                          ${busy ? 'disabled' : ''}
+                        >
+                          <img src="${previewUrl}" alt="${escapeHtml(item.description || item.name || 'Photo wallpaper')}" class="cml-mind__photo-option-image">
+                        </button>
+                      `;
+                    }).join('')}
+                  </div>
+                ` : `
+                  <p class="cml-mind__photo-picker-empty">No photos available in the main library yet.</p>
+                `}
               </div>
             </div>
             <div class="cml-mind__settings-actions">

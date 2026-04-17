@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=32';
+} from './components.js?v=33';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -2107,7 +2107,8 @@ function normalizeMindSettings(settings = {}) {
     contactName: normalizeText(settings.contactName) || defaults.contactName,
     contactAvatarData: normalizeImage(settings.contactAvatarData),
     backgroundPreset: allowedPresets.has(preset) ? preset : defaults.backgroundPreset,
-    backgroundImageData: normalizeImage(settings.backgroundImageData)
+    backgroundImageData: normalizeImage(settings.backgroundImageData),
+    backgroundPhotoId: normalizeText(settings.backgroundPhotoId)
   };
 }
 
@@ -2139,7 +2140,8 @@ function createDefaultMindSettings() {
     contactName: 'Mind',
     contactAvatarData: '',
     backgroundPreset: 'ios-sky',
-    backgroundImageData: ''
+    backgroundImageData: '',
+    backgroundPhotoId: ''
   };
 }
 
@@ -2337,12 +2339,43 @@ async function handleMindAssetSelection(field, file) {
     const dataUrl = await readFileAsDataUrl(file);
     state.mindSettingsDraft = {
       ...state.mindSettingsDraft,
-      [field]: dataUrl
+      [field]: dataUrl,
+      ...(field === 'backgroundImageData' ? { backgroundPhotoId: '' } : {})
     };
     render();
   } catch (error) {
     showToast(error.message || 'Failed to read image');
   }
+}
+
+function getMindWallpaperPhotoChoices(limit = 12) {
+  return getAccessibleItems(getAllItems())
+    .filter((item) => item?.type === 'photo')
+    .sort((left, right) => {
+      const leftTime = Number(left?.takenAt) || Number(left?.timestamp) || 0;
+      const rightTime = Number(right?.takenAt) || Number(right?.timestamp) || 0;
+      if (leftTime !== rightTime) {
+        return rightTime - leftTime;
+      }
+      return String(right?.id || '').localeCompare(String(left?.id || ''));
+    })
+    .slice(0, Math.max(1, limit));
+}
+
+function resolveMindWallpaperItem(settings = state.mindSettings) {
+  const photoId = normalizeText(settings?.backgroundPhotoId);
+  if (!photoId) {
+    return null;
+  }
+  return getAccessibleItems(getAllItems()).find((item) => item?.id === photoId && item?.type === 'photo') || null;
+}
+
+function resolveMindWallpaperUrl(settings = state.mindSettings) {
+  const wallpaperItem = resolveMindWallpaperItem(settings);
+  if (wallpaperItem) {
+    return normalizeText(wallpaperItem.sourceUrl || wallpaperItem.thumbnailUrl || '');
+  }
+  return normalizeText(settings?.backgroundImageData);
 }
 
 async function mirrorMindMessagesIfNeeded() {
@@ -6262,7 +6295,10 @@ function render() {
                   busy: state.mindBusy,
                   settings: state.mindSettings,
                   settingsDraft: state.mindSettingsDraft,
-                  settingsOpen: state.mindSettingsOpen
+                  settingsOpen: state.mindSettingsOpen,
+                  wallpaperUrl: resolveMindWallpaperUrl(state.mindSettings),
+                  wallpaperDraftUrl: resolveMindWallpaperUrl(state.mindSettingsDraft),
+                  wallpaperPhotoChoices: getMindWallpaperPhotoChoices()
                 })
                 : state.secondaryFilter === 'Documents'
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
@@ -7534,6 +7570,17 @@ function handleAction(actionTarget) {
       if (!state.mindBusy) {
         state.mindSettingsDraft = {
           ...state.mindSettingsDraft,
+          backgroundImageData: '',
+          backgroundPhotoId: ''
+        };
+        render();
+      }
+      return true;
+    case 'set-mind-wallpaper-photo':
+      if (!state.mindBusy) {
+        state.mindSettingsDraft = {
+          ...state.mindSettingsDraft,
+          backgroundPhotoId: normalizeText(actionTarget.dataset.id),
           backgroundImageData: ''
         };
         render();

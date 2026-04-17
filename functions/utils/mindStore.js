@@ -7,6 +7,7 @@ const DEFAULT_MIND_SETTINGS = {
     contactAvatarData: '',
     backgroundPreset: 'ios-sky',
     backgroundImageData: '',
+    backgroundPhotoId: '',
 }
 
 function normalizeText(value) {
@@ -37,6 +38,7 @@ function normalizeMindSettings(input = {}) {
         contactAvatarData: normalizeImageData(input.contactAvatarData),
         backgroundPreset: normalizePreset(input.backgroundPreset),
         backgroundImageData: normalizeImageData(input.backgroundImageData),
+        backgroundPhotoId: normalizeText(input.backgroundPhotoId),
     }
 }
 

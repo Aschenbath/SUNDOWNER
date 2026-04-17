@@ -341,3 +341,10 @@ pm; git diff --check passed.
 - Removed two pieces of Mind helper copy in `js/media-library/components.js`: the topbar subtitle (`iMessage-style self conversation`) is gone, and the composer input no longer renders the `Write something to your future self` placeholder text.
 - Bumped the media-library module cache versions to `components.js?v=32` inside `js/media-library/app.js` and `app.js?v=94` in `index.html` so the text removal shows up immediately after refresh.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
+
+### 2026-04-17 15:33 Asia/Shanghai
+
+- Extended Mind wallpaper settings end-to-end so they can point at an existing library photo instead of only storing uploaded data URLs. `functions/utils/mindStore.js` and `js/media-library/app.js` now persist/normalize `backgroundPhotoId`, resolve it against accessible photo items at render time, and automatically clear that id when the user uploads a custom wallpaper instead.
+- Added a recent-photo wallpaper picker inside the Mind settings drawer in `js/media-library/components.js`, with thumbnail buttons sourced from the current photo library and styled in `css/media-library.css`. This keeps `Upload wallpaper` available, but also lets the user pick a background straight from existing photos.
+- Bumped cache versions to `components.js?v=33`, `app.js?v=95`, and `media-library.css?v=81` via `js/media-library/app.js` and `index.html`.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.

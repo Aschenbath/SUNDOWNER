@@ -6049,6 +6049,71 @@ body.codex-media-library-active #app {
   gap: 10px;
 }
 
+#codex-media-library-root .cml-mind__photo-picker {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+#codex-media-library-root .cml-mind__photo-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgba(219, 229, 240, 0.88);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#codex-media-library-root .cml-mind__photo-picker-head span:last-child {
+  color: rgba(184, 196, 208, 0.7);
+  font-weight: 500;
+}
+
+#codex-media-library-root .cml-mind__photo-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#codex-media-library-root .cml-mind__photo-option {
+  aspect-ratio: 1 / 1;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+
+#codex-media-library-root .cml-mind__photo-option:hover {
+  transform: translateY(-1px);
+  border-color: rgba(138, 180, 248, 0.4);
+}
+
+#codex-media-library-root .cml-mind__photo-option.is-active {
+  border-color: rgba(138, 180, 248, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(138, 180, 248, 0.9), 0 0 0 3px rgba(138, 180, 248, 0.14);
+}
+
+#codex-media-library-root .cml-mind__photo-option-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+#codex-media-library-root .cml-mind__photo-picker-empty {
+  margin: 0;
+  color: rgba(198, 209, 221, 0.72);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 #codex-media-library-root .cml-mind__preset {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
@@ -6155,6 +6220,10 @@ body.codex-media-library-active #app {
 
   #codex-media-library-root .cml-mind__preset-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  #codex-media-library-root .cml-mind__photo-picker-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   #codex-media-library-root .cml-mind__input {
