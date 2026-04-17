@@ -5895,21 +5895,21 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-mind__send {
   width: 60px;
   height: 56px;
-  border: 0;
+  border: 0 !important;
   border-radius: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--cml-mind-send-text);
-  background: var(--cml-mind-send-bg);
-  box-shadow: 0 10px 22px var(--cml-mind-send-shadow);
+  color: var(--cml-mind-send-text) !important;
+  background: var(--cml-mind-send-bg) !important;
+  box-shadow: 0 10px 22px var(--cml-mind-send-shadow) !important;
   cursor: pointer;
   transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease, filter 160ms ease;
 }
 
 #codex-media-library-root .cml-mind__send:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 28px var(--cml-mind-send-shadow);
+  box-shadow: 0 14px 28px var(--cml-mind-send-shadow) !important;
   filter: brightness(1.03);
 }
 
@@ -5917,7 +5917,7 @@ body.codex-media-library-active #app {
   opacity: 0.55;
   cursor: default;
   transform: none;
-  box-shadow: none;
+  box-shadow: none !important;
 }
 
 #codex-media-library-root .cml-mind__send .cml-icon {

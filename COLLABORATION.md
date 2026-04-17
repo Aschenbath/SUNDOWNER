@@ -399,3 +399,10 @@ pm; git diff --check passed.
 - Moved Mind send-button theming onto the button element with explicit CSS variables in js/media-library/components.js and js/media-library/app.js, so both live preview and saved state paint the real button immediately.
 - Bumped frontend cache versions to components.js?v=39 and pp.js?v=103 to avoid stale browser modules hiding the fix.
 - **Validation**: git diff --check, D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js, and D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js all passed.
+
+### 2026-04-17 17:02 Asia/Shanghai
+
+- Traced the remaining Mind send-button color bug to css/ui-overrides.css: the media-library isolation layer was forcing every button inside #codex-media-library-root to ackground: none !important; box-shadow: none !important; color: inherit !important, which visually erased the chosen send-button tone even when the saved setting was correct.
+- Fixed css/media-library.css so .cml-mind__send explicitly reclaims its background, text color, border, and shadow with stronger declarations, letting the selected send-button color render reliably in the live chat composer.
+- Bumped cache versions in index.html to pp.js?v=104 and media-library.css?v=87 so browsers stop serving the stale uncolored button styles.
+- **Validation**: git diff --check passed after the CSS change.
