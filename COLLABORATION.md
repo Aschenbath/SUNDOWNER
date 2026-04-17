@@ -406,3 +406,10 @@ pm; git diff --check passed.
 - Fixed css/media-library.css so .cml-mind__send explicitly reclaims its background, text color, border, and shadow with stronger declarations, letting the selected send-button color render reliably in the live chat composer.
 - Bumped cache versions in index.html to pp.js?v=104 and media-library.css?v=87 so browsers stop serving the stale uncolored button styles.
 - **Validation**: git diff --check passed after the CSS change.
+
+### 2026-04-17 17:46 Asia/Shanghai
+
+- Tightened the `Mind` composer in `css/media-library.css` after UI feedback: reduced the sticky footer padding, shrank the input pill from the previous oversized height, and lowered the input font size slightly so the whole bar feels more like a compact chat composer than a large editor.
+- Softened the send control in the same CSS file by reducing its height and increasing the corner radius from the earlier rounded-square look to a more capsule-like shape, so it reads less boxy while keeping the existing in-pill placement and color-system behavior.
+- Bumped `index.html` media-library CSS cache bust from `?v=87` to `?v=88` so the updated composer proportions load immediately after refresh.
+- **Validation**: `git diff --check` passed after the CSS and cache-bust edits.

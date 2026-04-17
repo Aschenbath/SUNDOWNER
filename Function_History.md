@@ -99,3 +99,4 @@
 26-04-17 by codex: Make Mind interactions feel immediate by preserving Style drawer scroll, applying settings optimistically on Save, patching send-button/preset changes without full rerenders, and sending messages optimistically on Enter
 26-04-17 by codex: Fix Mind send-button color application so the chosen tone paints the actual composer button immediately in preview and after save, instead of relying on flaky outer-class inheritance
 26-04-17 by codex: Fix Mind send-button color again by overriding media-library's global button isolation (ackground:none !important) so the chosen send tone actually renders on the composer button
+26-04-17 by codex: Tighten the Mind composer again by reducing the input pill height and making the send button rounder/less square, with a CSS cache-bust so the refreshed sizing ships immediately
