@@ -360,3 +360,9 @@ pm; git diff --check passed.
 - Removed the Mind empty-state instructional bubble in `js/media-library/components.js` so an empty Mind view no longer explains the mirroring behavior and instead opens as a clean blank chat surface.
 - Deleted the now-unused `.cml-mind__empty` / `.cml-mind__empty-bubble` styles from `css/media-library.css` and bumped cache versions to `components.js?v=34`, `app.js?v=97`, and `media-library.css?v=82`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
+
+### 2026-04-17 15:51 Asia/Shanghai
+
+- Restored the Mind empty-state bubble in `js/media-library/components.js`, but replaced the old instructional copy with the user-supplied line `我有时会觉得我真正的人生还未开启`.
+- Restored the matching `.cml-mind__empty` / `.cml-mind__empty-bubble` styles in `css/media-library.css` and bumped cache versions to `components.js?v=35`, `app.js?v=98`, and `media-library.css?v=83`.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.

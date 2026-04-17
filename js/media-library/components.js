@@ -1245,7 +1245,11 @@ export function MindChatView({
         </article>
       `;
     }).join('')
-    : '';
+    : `
+      <div class="cml-mind__empty">
+        <div class="cml-mind__empty-bubble">我有时会觉得我真正的人生还未开启</div>
+      </div>
+    `;
 
   return `
     <section class="cml-mind cml-mind--${escapeHtml(settings.backgroundPreset || 'ios-sky')}" aria-label="Mind conversation"${wallpaperStyle}>

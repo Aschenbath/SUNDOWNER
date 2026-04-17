@@ -92,3 +92,4 @@
 26-04-17 by codex: Let Mind use existing library photos as wallpaper choices by persisting a background photo id and exposing a recent-photo picker in the settings drawer alongside upload wallpaper
 26-04-17 by codex: Remove green success toasts across the media-library by making toast rendering ignore success events while keeping error toasts intact
 26-04-17 by codex: Remove the Mind empty-state instructional bubble so a blank Mind view opens as a clean chat canvas with no explanatory copy
+26-04-17 by codex: Restore the Mind empty-state bubble with the custom line “我有时会觉得我真正的人生还未开启”
