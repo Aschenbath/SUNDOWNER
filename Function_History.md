@@ -80,3 +80,4 @@
 26-04-17 by codex: Stop preview DateTaken saves from forcing a full media-library render so the photo preview no longer flashes after saving date & time
 26-04-17 by codex: Add a sidebar TODO filter that reuses the Photos timeline but only shows photos that are not in any album, with URL hash support at #/todo
 26-04-17 by codex: Fix the green success toast dismiss button markup so saved toasts no longer show mojibake after the message text
+26-04-17 by codex: Add a distinct toggle in album photo-picker mode so Add photos can instantly filter down to photos that have never been added to any album

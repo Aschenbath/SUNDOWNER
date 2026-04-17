@@ -261,6 +261,7 @@ const state = {
   albumDialogError: '',
   albumDrawerSearch: '',
   albumDrawerScope: 'all',
+  albumPickerDistinctOnly: false,
   albumDrawerCreateMode: false,
   confirmDialogOpen: false,
   confirmDialogMode: '',
@@ -3640,6 +3641,20 @@ function setPreviewAlbumCreateMode(forceOpen) {
   });
 }
 
+function toggleAlbumPickerDistinctOnly() {
+  if (!canUseDistinctAlbumPicker()) {
+    state.albumPickerDistinctOnly = false;
+    return;
+  }
+  state.albumPickerDistinctOnly = !state.albumPickerDistinctOnly;
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  render();
+  if (refs.scrollRegion) {
+    refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
+  }
+}
+
 function openConfirmDialog(options = {}) {
   state.confirmDialogOpen = true;
   state.confirmDialogMode = normalizeText(options.mode || '');
@@ -4052,6 +4067,7 @@ function resetAddToTargetModes() {
   state.albumSelectionTarget = '';
   state.videoAlbumSelectionTarget = '';
   state.privateSelectionMode = false;
+  state.albumPickerDistinctOnly = false;
 }
 
 function resetPrivateRouteUnlockError() {
@@ -5269,6 +5285,10 @@ function isTodoPhotoItem(item) {
   return item?.type === 'photo' && resolveCollectionAlbums(item).length === 0;
 }
 
+function canUseDistinctAlbumPicker() {
+  return Boolean(getAlbumSelectionTarget()) && !getVideoAlbumSelectionTarget() && !state.privateSelectionMode;
+}
+
 function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = false } = {}) {
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const query = parsedSearch.textQuery.toLowerCase();
@@ -5291,6 +5311,10 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
     }
 
     if (albumSelectionTarget && itemBelongsToAlbum(item, albumSelectionTarget)) {
+      return false;
+    }
+
+    if (state.albumPickerDistinctOnly && canUseDistinctAlbumPicker() && !isTodoPhotoItem(item)) {
       return false;
     }
 
@@ -7206,6 +7230,9 @@ function handleAction(actionTarget) {
       return true;
     case 'close-album-dialog':
       closeAlbumDialog();
+      return true;
+    case 'toggle-album-picker-distinct':
+      toggleAlbumPickerDistinctOnly();
       return true;
     case 'set-album-drawer-scope':
       setAlbumDrawerScope(actionTarget.dataset.scope);

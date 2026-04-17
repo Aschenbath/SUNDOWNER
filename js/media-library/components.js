@@ -522,6 +522,8 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   const isPrivatePickerMode = Boolean(state.privateSelectionMode);
   const pickerTargetLabel = isPrivatePickerMode ? 'Private' : (videoAlbumSelectionTarget || albumSelectionTarget);
   const isAlbumPickerMode = Boolean(albumSelectionTarget || videoAlbumSelectionTarget || isPrivatePickerMode);
+  const canUseDistinctPicker = Boolean(albumSelectionTarget) && !videoAlbumSelectionTarget && !isPrivatePickerMode;
+  const distinctOnly = Boolean(state.albumPickerDistinctOnly) && canUseDistinctPicker;
   const canCreateAlbum = state.primaryFilter === 'Collections' && !activeAlbumName;
   const canCreateVideoAlbum = state.secondaryFilter === 'Videos' && !state.videoCategoryFilter && !isAlbumPickerMode;
   const canAddToCurrentVideoAlbum = state.secondaryFilter === 'Videos' && Boolean(state.videoCategoryFilter) && !isAlbumPickerMode;
@@ -583,6 +585,16 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
             ${icon('previous')}
             <span>Back to ${escapeHtml(pickerTargetLabel || 'album')}</span>
           </button>
+          ${canUseDistinctPicker ? `
+            <button
+              type="button"
+              class="cml-topbar__secondary-button ${distinctOnly ? 'is-selected' : ''}"
+              data-action="toggle-album-picker-distinct"
+              aria-pressed="${distinctOnly ? 'true' : 'false'}"
+            >
+              <span>distinct</span>
+            </button>
+          ` : ''}
         ` : activeAlbumName ? `
           <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-current-album">
             ${icon('plus')}
