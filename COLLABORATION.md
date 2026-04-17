@@ -335,3 +335,9 @@ pm; git diff --check passed.
 - Removed the last bottom gap on the `Mind` page by stopping the `is-mind-view` chain from using `calc(100vh - ...)`/negative-margin hacks in `css/media-library.css`. The main-content shell, main-content body, inner wrapper, and `.cml-mind` itself now all inherit `height: 100%` from the existing layout, so the chat surface and sticky composer actually reach the bottom of the usable pane.
 - Bumped `index.html` media-library CSS cache bust from `?v=79` to `?v=80` so the full-height fix is visible immediately after refresh.
 - **Validation**: `git diff --check` passed. This was a CSS/layout-only change, so no JS syntax check was needed.
+
+### 2026-04-17 15:23 Asia/Shanghai
+
+- Removed two pieces of Mind helper copy in `js/media-library/components.js`: the topbar subtitle (`iMessage-style self conversation`) is gone, and the composer input no longer renders the `Write something to your future self` placeholder text.
+- Bumped the media-library module cache versions to `components.js?v=32` inside `js/media-library/app.js` and `app.js?v=94` in `index.html` so the text removal shows up immediately after refresh.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.

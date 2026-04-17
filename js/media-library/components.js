@@ -528,7 +528,6 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
           ${headerAvatar}
           <div class="cml-mind-header__copy">
             <p class="cml-mind-header__title">${contactName}</p>
-            <p class="cml-mind-header__meta">iMessage-style self conversation</p>
           </div>
         </div>
         <button type="button" class="cml-topbar__secondary-button ${state.mindSettingsOpen ? 'is-selected' : ''}" data-action="toggle-mind-settings" aria-pressed="${state.mindSettingsOpen ? 'true' : 'false'}">
@@ -1264,7 +1263,7 @@ export function MindChatView({
             type="text"
             class="cml-mind__input"
             data-mind-input="message"
-            placeholder="Write something to your future self"
+            placeholder=""
             value="${safeDraft}"
             ${busy ? 'disabled' : ''}
           />
