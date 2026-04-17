@@ -77,3 +77,5 @@
 26-04-15 by codex: Stop preview favourite toggles from full-rendering the Favourites page, remove the preview Info hidden-album shortcut, and keep Private add/remove flows scoped to the Private page
 26-04-15 by codex: Fix Private password Enter handling so the password field unlocks Private without falling through to stale focused-tile preview shortcuts
 26-04-15 by codex: Simplify the locked Private entry page into a single polished unlock panel, removing duplicate summary copy and restyling the password form
+26-04-17 by codex: Stop preview DateTaken saves from forcing a full media-library render so the photo preview no longer flashes after saving date & time
+26-04-17 by codex: Add a sidebar TODO filter that reuses the Photos timeline but only shows photos that are not in any album, with URL hash support at #/todo

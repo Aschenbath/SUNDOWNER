@@ -4945,7 +4945,9 @@ async function savePreviewCaptureTime(itemId, captureTimeInput, previousItem = n
       sortMediaItemsInPlace(state.mediaItems);
     }
 
-    render();
+    if (!(state.previewId && renderPreviewTransientLayers())) {
+      render();
+    }
     showToast('Date & time saved', 'success');
   } catch (error) {
     const captureSection = refs.root?.querySelector('.cml-preview__info-section--capture-time');
@@ -5263,6 +5265,10 @@ function getVisibleSecondaryFilters(items) {
   return [...navigationModel.secondary];
 }
 
+function isTodoPhotoItem(item) {
+  return item?.type === 'photo' && resolveCollectionAlbums(item).length === 0;
+}
+
 function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = false } = {}) {
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const query = parsedSearch.textQuery.toLowerCase();
@@ -5301,6 +5307,11 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
     }
 
     switch (state.secondaryFilter) {
+      case 'TODO':
+        if (!isTodoPhotoItem(item)) {
+          return false;
+        }
+        break;
       case 'Videos':
         if (item.type !== 'video') {
           return false;
@@ -8330,6 +8341,9 @@ function buildNavigationHash() {
         : state.videoCategoryFilter;
       return '#/videos/' + encodeURIComponent(routeValue);
     }
+    if (secondary === 'TODO') {
+      return '#/todo';
+    }
     return '#/' + secondary.toLowerCase();
   }
   if (primary === 'Collections' && album) {
@@ -8406,6 +8420,13 @@ function restoreNavigationFromHash() {
       state.primaryFilter = 'Photos';
       state.secondaryFilter = 'Videos';
       state.videoCategoryFilter = normalizeVideoAlbumRouteValue(parts.slice(1).join('/'));
+      state.activeAlbumName = '';
+      clearPrivateViewState();
+      break;
+    case 'todo':
+      state.primaryFilter = 'Photos';
+      state.secondaryFilter = 'TODO';
+      state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       clearPrivateViewState();
       break;

@@ -40,6 +40,7 @@ const icons = {
 };
 
 const secondaryIconMap = {
+  TODO: 'updates',
   Albums: 'albums',
   Videos: 'play',
   Documents: 'documents',
