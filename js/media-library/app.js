@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=41';
+} from './components.js?v=42';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -306,7 +306,8 @@ const state = {
   mindMessages: [],
   mindDraft: '',
   mindLoading: false,
-  mindBusy: false,
+  mindSettingsBusy: false,
+  mindDeletingIds: new Set(),
   mindSettings: createDefaultMindSettings(),
   mindSettingsDraft: createMindSettingsDraft(),
   mindSettingsOpen: false,
@@ -383,6 +384,7 @@ let persistedAlbumStatePromise = null;
 let pendingPersistedAlbumSnapshot = null;
 let mindStatePromise = null;
 let mindMirrorPromise = null;
+let mindMutationQueue = Promise.resolve();
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
 const MIND_BACKGROUND_PRESETS = ['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'];
 const MIND_BACKGROUND_POSITIONS = [
@@ -2196,6 +2198,15 @@ function normalizeMindMessage(rawMessage = {}) {
   };
 }
 
+function sortMindMessages(messages = []) {
+  return messages.slice().sort((left, right) => {
+    if (left.createdAt !== right.createdAt) {
+      return left.createdAt - right.createdAt;
+    }
+    return left.id.localeCompare(right.id);
+  });
+}
+
 function createDefaultMindSettings() {
   return {
     contactName: 'Mind',
@@ -2218,15 +2229,20 @@ function createMindSettingsDraft(settings = {}) {
 function applyMindState(payload) {
   state.mindSettings = normalizeMindSettings(payload?.settings || {});
   state.mindSettingsDraft = createMindSettingsDraft(state.mindSettings);
-  state.mindMessages = safeArray(payload?.messages)
+  state.mindMessages = sortMindMessages(safeArray(payload?.messages)
     .map((message) => normalizeMindMessage(message))
-    .filter(Boolean)
-    .sort((left, right) => {
-      if (left.createdAt !== right.createdAt) {
-        return left.createdAt - right.createdAt;
-      }
-      return left.id.localeCompare(right.id);
-    });
+    .filter(Boolean));
+}
+
+function enqueueMindMutation(task) {
+  const queuedTask = mindMutationQueue
+    .catch(() => undefined)
+    .then(task);
+  mindMutationQueue = queuedTask.then(
+    () => undefined,
+    () => undefined
+  );
+  return queuedTask;
 }
 
 function hasFreshMindMessages() {
@@ -2271,14 +2287,10 @@ function scrollMindToBottom({ force = false } = {}) {
 }
 
 async function sendMindMessage() {
-  if (state.mindBusy) {
-    return;
-  }
   const text = normalizeMindText(state.mindDraft);
   if (!text) {
     return;
   }
-  const previousMessages = state.mindMessages.slice();
   const optimisticMessage = normalizeMindMessage({
     id: `mind-local-${Date.now()}`,
     text,
@@ -2291,7 +2303,6 @@ async function sendMindMessage() {
   if (optimisticMessage) {
     state.mindMessages = [...state.mindMessages, optimisticMessage];
   }
-  state.mindBusy = true;
   if (refs.root) {
     render();
     scrollMindToBottom({ force: true });
@@ -2300,32 +2311,27 @@ async function sendMindMessage() {
       input.focus();
     }
   }
-  try {
-    const payload = await postJson('/api/manage/mind', { text });
-    applyMindState(payload);
-    if (refs.root) {
-      render();
-      scrollMindToBottom({ force: true });
-      const input = refs.root.querySelector('.cml-mind__input');
-      if (input instanceof HTMLInputElement) {
-        input.focus();
+  void enqueueMindMutation(() => postJson('/api/manage/mind', { text }))
+    .then((payload) => {
+      applyMindState(payload);
+    })
+    .catch((error) => {
+      state.mindMessages = state.mindMessages.filter((message) => message.id !== optimisticMessage?.id);
+      if (!normalizeMindText(state.mindDraft)) {
+        state.mindDraft = text;
       }
-    }
-  } catch (error) {
-    state.mindDraft = text;
-    state.mindMessages = previousMessages;
-    showToast(error.message || 'Failed to send Mind message');
-  } finally {
-    state.mindBusy = false;
-    if (refs.root) {
-      render();
-      scrollMindToBottom({ force: false });
-      const input = refs.root.querySelector('.cml-mind__input');
-      if (input instanceof HTMLInputElement) {
-        input.focus();
+      showToast(error.message || 'Failed to send Mind message');
+    })
+    .finally(() => {
+      if (refs.root) {
+        render();
+        scrollMindToBottom({ force: false });
+        const input = refs.root.querySelector('.cml-mind__input');
+        if (input instanceof HTMLInputElement) {
+          input.focus();
+        }
       }
-    }
-  }
+    });
 }
 
 function setMindSettingsOpen(nextOpen) {
@@ -2352,7 +2358,7 @@ function setMindSettingsOpen(nextOpen) {
 }
 
 async function saveMindSettings() {
-  if (state.mindBusy) {
+  if (state.mindSettingsBusy) {
     return;
   }
   const previousSettings = normalizeMindSettings(state.mindSettings);
@@ -2361,15 +2367,15 @@ async function saveMindSettings() {
   state.mindSettings = optimisticSettings;
   state.mindSettingsDraft = createMindSettingsDraft(optimisticSettings);
   state.mindSettingsOpen = false;
-  state.mindBusy = true;
+  state.mindSettingsBusy = true;
   if (refs.root) {
     render();
   }
   try {
-    const payload = await postJson('/api/manage/mind', {
+    const payload = await enqueueMindMutation(() => postJson('/api/manage/mind', {
       action: 'update-settings',
       settings: state.mindSettingsDraft
-    });
+    }));
     applyMindState(payload);
   } catch (error) {
     state.mindSettings = previousSettings;
@@ -2377,7 +2383,7 @@ async function saveMindSettings() {
     state.mindSettingsOpen = true;
     showToast(error.message || 'Failed to save Mind settings');
   } finally {
-    state.mindBusy = false;
+    state.mindSettingsBusy = false;
     if (refs.root) {
       render();
       scrollMindToBottom({ force: false });
@@ -2387,28 +2393,30 @@ async function saveMindSettings() {
 
 async function deleteMindMessageById(messageId) {
   const normalizedId = normalizeText(messageId);
-  if (!normalizedId || state.mindBusy) {
+  if (!normalizedId || state.mindDeletingIds.has(normalizedId)) {
     return;
   }
-  const previousMessages = state.mindMessages.slice();
+  const deletedMessage = state.mindMessages.find((message) => message.id === normalizedId) || null;
   state.mindMessages = state.mindMessages.filter((message) => message.id !== normalizedId);
-  state.mindBusy = true;
+  state.mindDeletingIds.add(normalizedId);
   if (refs.root) {
     render();
     scrollMindToBottom({ force: false });
   }
   try {
-    const payload = await postJson('/api/manage/mind', {
+    const payload = await enqueueMindMutation(() => postJson('/api/manage/mind', {
       action: 'delete-message',
       id: normalizedId
-    });
+    }));
     applyMindState(payload);
     showToast('Message deleted', 'success');
   } catch (error) {
-    state.mindMessages = previousMessages;
+    if (deletedMessage && !state.mindMessages.some((message) => message.id === normalizedId)) {
+      state.mindMessages = sortMindMessages([...state.mindMessages, deletedMessage]);
+    }
     showToast(error.message || 'Failed to delete message');
   } finally {
-    state.mindBusy = false;
+    state.mindDeletingIds.delete(normalizedId);
     if (refs.root) {
       render();
       scrollMindToBottom({ force: false });
@@ -6446,7 +6454,8 @@ function render() {
                 ? MindChatView({
                   messages: state.mindMessages,
                   draft: state.mindDraft,
-                  busy: state.mindBusy,
+                  settingsBusy: state.mindSettingsBusy,
+                  deletingIds: state.mindDeletingIds,
                   settings: state.mindSettings,
                   settingsDraft: state.mindSettingsDraft,
                   settingsOpen: state.mindSettingsOpen,
@@ -7707,7 +7716,7 @@ function handleAction(actionTarget) {
       setMindSettingsOpen(false);
       return true;
     case 'set-mind-background-preset':
-      if (!state.mindBusy) {
+      if (!state.mindSettingsBusy) {
         state.mindSettingsDraft = {
           ...state.mindSettingsDraft,
           backgroundPreset: normalizeMindSettings({
@@ -7721,7 +7730,7 @@ function handleAction(actionTarget) {
       }
       return true;
     case 'clear-mind-avatar':
-      if (!state.mindBusy) {
+      if (!state.mindSettingsBusy) {
         state.mindSettingsDraft = {
           ...state.mindSettingsDraft,
           contactAvatarData: ''
@@ -7730,7 +7739,7 @@ function handleAction(actionTarget) {
       }
       return true;
     case 'clear-mind-wallpaper':
-      if (!state.mindBusy) {
+      if (!state.mindSettingsBusy) {
         state.mindSettingsDraft = {
           ...state.mindSettingsDraft,
           backgroundImageData: '',
@@ -7740,7 +7749,7 @@ function handleAction(actionTarget) {
       }
       return true;
     case 'set-mind-wallpaper-photo':
-      if (!state.mindBusy) {
+      if (!state.mindSettingsBusy) {
         state.mindSettingsDraft = {
           ...state.mindSettingsDraft,
           backgroundPhotoId: normalizeText(actionTarget.dataset.id),
@@ -7752,7 +7761,7 @@ function handleAction(actionTarget) {
       }
       return true;
     case 'set-mind-background-position':
-      if (!state.mindBusy) {
+      if (!state.mindSettingsBusy) {
         state.mindSettingsDraft = {
           ...state.mindSettingsDraft,
           backgroundPosition: normalizeMindSettings({
@@ -7766,7 +7775,7 @@ function handleAction(actionTarget) {
       }
       return true;
     case 'set-mind-send-button-color':
-      if (!state.mindBusy) {
+      if (!state.mindSettingsBusy) {
         state.mindSettingsDraft = {
           ...state.mindSettingsDraft,
           sendButtonColor: normalizeMindSettings({

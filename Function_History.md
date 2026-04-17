@@ -106,3 +106,4 @@
 26-04-17 by codex: Stop Mind fresh messages from auto-mirroring to the left on leave/visibility/hash changes, so delete and other in-session actions no longer trigger the wrong side-switch behavior
 26-04-17 by codex: Shrink the Mind composer pill again on desktop by shortening its width to roughly three quarters of the chat pane and reducing the height of both the input shell and send button, while keeping mobile width full
 26-04-17 by codex: Center the narrowed Mind composer pill on desktop and make delete optimistic so a tapped message disappears immediately while the backend confirmation runs in the background
+26-04-17 by codex: Remove Mind's global action cooldown by splitting send/delete/settings pending state, queueing backend mutations serially, and keeping the UI responsive for consecutive sends and deletes

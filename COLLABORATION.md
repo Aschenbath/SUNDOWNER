@@ -451,3 +451,10 @@ pm; git diff --check passed.
 - Centered the narrowed desktop Mind composer in `css/media-library.css` by adding `margin: 0 auto` on `.cml-mind__input-shell`, while explicitly resetting that margin on the mobile full-width breakpoint.
 - Reworked `deleteMindMessageById()` in `js/media-library/app.js` into an optimistic delete flow: the chosen message is removed from `state.mindMessages` and rerendered immediately, the delete request runs afterward, and the UI only rolls back if the backend call fails.
 - **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
+
+### 2026-04-17 22:11 Asia/Shanghai
+
+- Reworked Mind mutation handling in `js/media-library/app.js` so send, delete, and settings-save no longer share one global `mindBusy` lock. The state now tracks `mindSettingsBusy` plus a per-message `mindDeletingIds` set, while backend writes are serialized through a `mindMutationQueue` helper instead of blocking the whole UI.
+- Updated `sendMindMessage()` to keep optimistic append behavior without imposing a global cooldown, so rapid consecutive sends can be queued. Updated `deleteMindMessageById()` to keep optimistic disappearance while only locking the specific message being deleted.
+- Updated `js/media-library/components.js` to stop disabling the whole composer for sends, disable only the specific delete button while that message is pending, and scope settings-form disabled states to `settingsBusy`. Bumped frontend cache versions to `components.js?v=42` and `app.js?v=107`.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js`, and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js` all passed.

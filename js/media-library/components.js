@@ -1275,7 +1275,8 @@ function buildMindSendButtonStyle(value) {
 export function MindChatView({
   messages = [],
   draft = '',
-  busy = false,
+  settingsBusy = false,
+  deletingIds = new Set(),
   settings = {},
   settingsDraft = settings,
   settingsOpen = false,
@@ -1313,7 +1314,7 @@ export function MindChatView({
                 <p class="cml-mind__text">${escapeHtml(message.text).replace(/\n/g, '<br>')}</p>
               </div>
               <time class="cml-mind__time">${escapeHtml(formatMindTime(message.createdAt))}</time>
-              <button type="button" class="cml-mind__delete" data-action="delete-mind-message" data-id="${escapeHtml(message.id)}" aria-label="Delete message">${icon('trash')}</button>
+              <button type="button" class="cml-mind__delete" data-action="delete-mind-message" data-id="${escapeHtml(message.id)}" ${deletingIds.has(message.id) ? 'disabled' : ''} aria-label="Delete message">${icon('trash')}</button>
             </div>
           </div>
         </article>
@@ -1336,7 +1337,7 @@ export function MindChatView({
             placeholder="我有时会觉得我真正的人生还未开启..."
             value="${safeDraft}"
           />
-          <button type="submit" class="cml-mind__send" data-action="send-mind-message"${sendButtonStyle} ${busy ? 'disabled' : ''} aria-label="Send message">
+          <button type="submit" class="cml-mind__send" data-action="send-mind-message"${sendButtonStyle} aria-label="Send message">
             ${icon('arrow-up')}
           </button>
         </label>
@@ -1354,7 +1355,7 @@ export function MindChatView({
             </div>
             <label class="cml-mind__field">
               <span>Chat name</span>
-              <input type="text" class="cml-mind__field-input" data-mind-settings-field="contactName" value="${escapeHtml(settingsDraft.contactName || '')}" maxlength="48" placeholder="Mind" ${busy ? 'disabled' : ''} />
+              <input type="text" class="cml-mind__field-input" data-mind-settings-field="contactName" value="${escapeHtml(settingsDraft.contactName || '')}" maxlength="48" placeholder="Mind" ${settingsBusy ? 'disabled' : ''} />
             </label>
             <div class="cml-mind__field">
               <span>Avatar</span>
@@ -1363,10 +1364,10 @@ export function MindChatView({
                   ? `<span class="cml-mind__asset-preview"><img src="${escapeHtml(settingsDraft.contactAvatarData)}" alt="Avatar preview" class="cml-mind__asset-image"></span>`
                   : `<span class="cml-mind__asset-preview cml-mind__asset-preview--fallback">${escapeHtml((settingsDraft.contactName || 'Mind').charAt(0).toUpperCase() || 'M')}</span>`}
                 <label class="cml-mind__asset-button">
-                  <input type="file" accept="image/*" data-mind-file="contactAvatarData" ${busy ? 'disabled' : ''} hidden />
+                  <input type="file" accept="image/*" data-mind-file="contactAvatarData" ${settingsBusy ? 'disabled' : ''} hidden />
                   <span>Upload avatar</span>
                 </label>
-                ${settingsDraft.contactAvatarData ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-avatar" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
+                ${settingsDraft.contactAvatarData ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-avatar" ${settingsBusy ? 'disabled' : ''}>Remove</button>` : ''}
               </div>
             </div>
             <div class="cml-mind__field">
@@ -1382,10 +1383,10 @@ export function MindChatView({
               <div class="cml-mind__asset-row">
                 ${wallpaperDraftUrl ? `<span class="cml-mind__wallpaper-thumb"><img src="${escapeHtml(wallpaperDraftUrl)}" alt="Wallpaper preview" class="cml-mind__asset-image"></span>` : ''}
                 <label class="cml-mind__asset-button">
-                  <input type="file" accept="image/*" data-mind-file="backgroundImageData" ${busy ? 'disabled' : ''} hidden />
+                  <input type="file" accept="image/*" data-mind-file="backgroundImageData" ${settingsBusy ? 'disabled' : ''} hidden />
                   <span>Upload wallpaper</span>
                 </label>
-                ${(wallpaperDraftUrl || settingsDraft.backgroundPhotoId) ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-wallpaper" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
+                ${(wallpaperDraftUrl || settingsDraft.backgroundPhotoId) ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-wallpaper" ${settingsBusy ? 'disabled' : ''}>Remove</button>` : ''}
               </div>
               <div class="cml-mind__field">
                 <span>Wallpaper focus</span>
@@ -1397,7 +1398,7 @@ export function MindChatView({
                       data-action="set-mind-background-position"
                       data-value="${option.value}"
                       aria-pressed="${settingsDraft.backgroundPosition === option.value ? 'true' : 'false'}"
-                      ${busy ? 'disabled' : ''}
+                      ${settingsBusy ? 'disabled' : ''}
                     >
                       <span class="cml-mind__position-dot cml-mind__position-dot--${option.value.replace(/\s+/g, '-')}"></span>
                       <span>${option.label}</span>
@@ -1422,7 +1423,7 @@ export function MindChatView({
                           data-action="set-mind-wallpaper-photo"
                           data-id="${escapeHtml(item.id)}"
                           aria-pressed="${isActive ? 'true' : 'false'}"
-                          ${busy ? 'disabled' : ''}
+                          ${settingsBusy ? 'disabled' : ''}
                         >
                           <img src="${previewUrl}" alt="${escapeHtml(item.description || item.name || 'Photo wallpaper')}" class="cml-mind__photo-option-image">
                         </button>
@@ -1444,7 +1445,7 @@ export function MindChatView({
                     data-action="set-mind-send-button-color"
                     data-value="${option.value}"
                     aria-pressed="${settingsDraft.sendButtonColor === option.value ? 'true' : 'false'}"
-                    ${busy ? 'disabled' : ''}
+                    ${settingsBusy ? 'disabled' : ''}
                   >
                     <span class="cml-mind__tone-dot cml-mind__tone-dot--${option.value}"></span>
                     <span>${option.label}</span>
@@ -1453,8 +1454,8 @@ export function MindChatView({
               </div>
             </div>
             <div class="cml-mind__settings-actions">
-              <button type="button" class="cml-topbar__secondary-button" data-action="close-mind-settings" ${busy ? 'disabled' : ''}>Cancel</button>
-              <button type="submit" class="cml-topbar__upload-button" ${busy ? 'disabled' : ''}>Save</button>
+              <button type="button" class="cml-topbar__secondary-button" data-action="close-mind-settings" ${settingsBusy ? 'disabled' : ''}>Cancel</button>
+              <button type="submit" class="cml-topbar__upload-button" ${settingsBusy ? 'disabled' : ''}>Save</button>
             </div>
           </form>
         </aside>
