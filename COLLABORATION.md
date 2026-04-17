@@ -301,3 +301,10 @@ pm; git diff --check passed.
 - Finished the Mind customization flow in `js/media-library/app.js`: the top-right `Style` button now opens a settings sheet where the contact name, avatar image, background preset, and optional wallpaper can be edited; the form persists through `POST /api/manage/mind` with `action: 'update-settings'`, while delete buttons call the new `delete-message` action.
 - Extended the persisted Mind state in `functions/utils/mindStore.js` so `manage@sysConfig@mind` now carries normalized `settings` alongside `messages`, with defaults and image-data sanitization centralized in the store layer.
 - **Validation**: `git diff --check` passed. This shell still has no usable `node` binary on `PATH` (`where.exe node` returns nothing), so I could not run `node --check` here.
+
+### 2026-04-17 14:33 Asia/Shanghai
+
+- Simplified the `Mind` layout after UI feedback: `js/media-library/app.js` now marks the main content wrapper with `is-mind-view`, and `css/media-library.css` uses that state to let Mind occupy the whole right content area instead of rendering as a separate rounded chat card floating inside it.
+- Toned the default Mind palette down to a more neutral iMessage-like gray surface, kept the blue outgoing bubbles, and converted the settings UI from an inline white panel into a proper right-side drawer with a backdrop so the chat area remains visually continuous and the controls are readable/clickable.
+- `js/media-library/components.js` now renders the settings drawer/backdrop as siblings of the chat surface rather than nested inside the message area, which fixes the “chat region gets split by a box” problem and makes close interactions more intuitive.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js`, and `--check js/media-library/components.js` all passed.

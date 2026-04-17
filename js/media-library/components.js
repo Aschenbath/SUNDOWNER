@@ -1250,63 +1250,8 @@ export function MindChatView({
   return `
     <section class="cml-mind cml-mind--${escapeHtml(settings.backgroundPreset || 'ios-sky')}" aria-label="Mind conversation"${wallpaperStyle}>
       <div class="cml-mind__surface"></div>
-      <div class="cml-mind__thread">
-        <div class="cml-mind__history">
-          ${historyHtml}
-        </div>
-        ${settingsOpen ? `
-          <div class="cml-mind__settings">
-            <form class="cml-mind__settings-card" data-form="mind-settings">
-              <div class="cml-mind__settings-head">
-                <div>
-                  <p class="cml-mind__settings-eyebrow">Conversation Style</p>
-                  <h3 class="cml-mind__settings-title">Customize this chat</h3>
-                </div>
-                <button type="button" class="cml-mind__settings-close" data-action="close-mind-settings" aria-label="Close settings">${icon('close')}</button>
-              </div>
-              <label class="cml-mind__field">
-                <span>Chat name</span>
-                <input type="text" class="cml-mind__field-input" data-mind-settings-field="contactName" value="${escapeHtml(settingsDraft.contactName || '')}" maxlength="48" placeholder="Mind" ${busy ? 'disabled' : ''} />
-              </label>
-              <div class="cml-mind__field">
-                <span>Avatar</span>
-                <div class="cml-mind__asset-row">
-                  ${settingsDraft.contactAvatarData
-                    ? `<span class="cml-mind__asset-preview"><img src="${escapeHtml(settingsDraft.contactAvatarData)}" alt="Avatar preview" class="cml-mind__asset-image"></span>`
-                    : `<span class="cml-mind__asset-preview cml-mind__asset-preview--fallback">${escapeHtml((settingsDraft.contactName || 'Mind').charAt(0).toUpperCase() || 'M')}</span>`}
-                  <label class="cml-mind__asset-button">
-                    <input type="file" accept="image/*" data-mind-file="contactAvatarData" ${busy ? 'disabled' : ''} hidden />
-                    <span>Upload avatar</span>
-                  </label>
-                  ${settingsDraft.contactAvatarData ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-avatar" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
-                </div>
-              </div>
-              <div class="cml-mind__field">
-                <span>Background</span>
-                <div class="cml-mind__preset-grid">
-                  ${['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'].map((preset) => `
-                    <button type="button" class="cml-mind__preset ${settingsDraft.backgroundPreset === preset ? 'is-active' : ''}" data-action="set-mind-background-preset" data-value="${preset}" aria-pressed="${settingsDraft.backgroundPreset === preset ? 'true' : 'false'}">
-                      <span class="cml-mind__preset-swatch cml-mind__preset-swatch--${preset}"></span>
-                      <span>${escapeHtml(preset.replace(/-/g, ' '))}</span>
-                    </button>
-                  `).join('')}
-                </div>
-                <div class="cml-mind__asset-row">
-                  ${settingsDraft.backgroundImageData ? `<span class="cml-mind__wallpaper-thumb"><img src="${escapeHtml(settingsDraft.backgroundImageData)}" alt="Wallpaper preview" class="cml-mind__asset-image"></span>` : ''}
-                  <label class="cml-mind__asset-button">
-                    <input type="file" accept="image/*" data-mind-file="backgroundImageData" ${busy ? 'disabled' : ''} hidden />
-                    <span>Upload wallpaper</span>
-                  </label>
-                  ${settingsDraft.backgroundImageData ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-wallpaper" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
-                </div>
-              </div>
-              <div class="cml-mind__settings-actions">
-                <button type="button" class="cml-topbar__secondary-button" data-action="close-mind-settings" ${busy ? 'disabled' : ''}>Cancel</button>
-                <button type="submit" class="cml-topbar__upload-button" ${busy ? 'disabled' : ''}>Save</button>
-              </div>
-            </form>
-          </div>
-        ` : ''}
+      <div class="cml-mind__history">
+        ${historyHtml}
       </div>
       <form class="cml-mind__composer" data-form="mind">
         <label class="cml-mind__input-shell" aria-label="Mind message">
@@ -1323,6 +1268,60 @@ export function MindChatView({
           ${icon('next')}
         </button>
       </form>
+      ${settingsOpen ? `
+        <button type="button" class="cml-mind__settings-backdrop" data-action="close-mind-settings" aria-label="Close settings"></button>
+        <aside class="cml-mind__settings" aria-label="Mind settings">
+          <form class="cml-mind__settings-card" data-form="mind-settings">
+            <div class="cml-mind__settings-head">
+              <div>
+                <p class="cml-mind__settings-eyebrow">Conversation Style</p>
+                <h3 class="cml-mind__settings-title">Customize this chat</h3>
+              </div>
+              <button type="button" class="cml-mind__settings-close" data-action="close-mind-settings" aria-label="Close settings">${icon('close')}</button>
+            </div>
+            <label class="cml-mind__field">
+              <span>Chat name</span>
+              <input type="text" class="cml-mind__field-input" data-mind-settings-field="contactName" value="${escapeHtml(settingsDraft.contactName || '')}" maxlength="48" placeholder="Mind" ${busy ? 'disabled' : ''} />
+            </label>
+            <div class="cml-mind__field">
+              <span>Avatar</span>
+              <div class="cml-mind__asset-row">
+                ${settingsDraft.contactAvatarData
+                  ? `<span class="cml-mind__asset-preview"><img src="${escapeHtml(settingsDraft.contactAvatarData)}" alt="Avatar preview" class="cml-mind__asset-image"></span>`
+                  : `<span class="cml-mind__asset-preview cml-mind__asset-preview--fallback">${escapeHtml((settingsDraft.contactName || 'Mind').charAt(0).toUpperCase() || 'M')}</span>`}
+                <label class="cml-mind__asset-button">
+                  <input type="file" accept="image/*" data-mind-file="contactAvatarData" ${busy ? 'disabled' : ''} hidden />
+                  <span>Upload avatar</span>
+                </label>
+                ${settingsDraft.contactAvatarData ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-avatar" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
+              </div>
+            </div>
+            <div class="cml-mind__field">
+              <span>Background</span>
+              <div class="cml-mind__preset-grid">
+                ${['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'].map((preset) => `
+                  <button type="button" class="cml-mind__preset ${settingsDraft.backgroundPreset === preset ? 'is-active' : ''}" data-action="set-mind-background-preset" data-value="${preset}" aria-pressed="${settingsDraft.backgroundPreset === preset ? 'true' : 'false'}">
+                    <span class="cml-mind__preset-swatch cml-mind__preset-swatch--${preset}"></span>
+                    <span>${escapeHtml(preset.replace(/-/g, ' '))}</span>
+                  </button>
+                `).join('')}
+              </div>
+              <div class="cml-mind__asset-row">
+                ${settingsDraft.backgroundImageData ? `<span class="cml-mind__wallpaper-thumb"><img src="${escapeHtml(settingsDraft.backgroundImageData)}" alt="Wallpaper preview" class="cml-mind__asset-image"></span>` : ''}
+                <label class="cml-mind__asset-button">
+                  <input type="file" accept="image/*" data-mind-file="backgroundImageData" ${busy ? 'disabled' : ''} hidden />
+                  <span>Upload wallpaper</span>
+                </label>
+                ${settingsDraft.backgroundImageData ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-wallpaper" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
+              </div>
+            </div>
+            <div class="cml-mind__settings-actions">
+              <button type="button" class="cml-topbar__secondary-button" data-action="close-mind-settings" ${busy ? 'disabled' : ''}>Cancel</button>
+              <button type="submit" class="cml-topbar__upload-button" ${busy ? 'disabled' : ''}>Save</button>
+            </div>
+          </form>
+        </aside>
+      ` : ''}
     </section>
   `;
 }

@@ -6245,7 +6245,7 @@ function render() {
         })}
         <div class="cml-main-content-shell">
           <main class="cml-main-content" tabindex="-1">
-            <div class="cml-main-content__inner">
+            <div class="cml-main-content__inner ${viewModel.isMindView ? 'is-mind-view' : ''}">
               ${state.primaryFilter === 'Bin'
                 ? BinGrid({
                   items: viewModel.binItems,
