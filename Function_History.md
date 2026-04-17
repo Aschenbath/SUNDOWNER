@@ -87,3 +87,4 @@
 26-04-17 by codex: Restyle Mind into a higher-contrast dark chat surface with a P2-like bottom composer so typed text, placeholders, and timestamps stay readable
 26-04-17 by codex: Tighten Mind again so incoming messages use avatar+bubble+time on one line and the composer becomes a compact P3-style pill with a left plus button
 26-04-17 by codex: Remove Mind's leftover right-column gap, stop showing the contact name inside incoming bubbles, and only reveal message timestamps on hover/focus
+26-04-17 by codex: Remove Mind's remaining bottom dead space by making the view follow the main-content height instead of hard-coded viewport math, and bump the CSS cache bust so the full-height chat surface ships immediately

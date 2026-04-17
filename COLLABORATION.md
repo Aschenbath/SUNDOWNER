@@ -329,3 +329,9 @@ pm; git diff --check passed.
 - Simplified incoming bubbles in `js/media-library/components.js`: the inline `Mind` sender label is gone, and timestamps now default to hidden opacity/offset in CSS and only fade in on message hover/focus. That keeps the bubble cleaner while still exposing send time on demand.
 - Bumped cache busts to `components.js?v=31`, `app.js?v=93`, and `media-library.css?v=79` so the layout/timestamp changes are visible immediately after refresh.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
+
+### 2026-04-17 15:14 Asia/Shanghai
+
+- Removed the last bottom gap on the `Mind` page by stopping the `is-mind-view` chain from using `calc(100vh - ...)`/negative-margin hacks in `css/media-library.css`. The main-content shell, main-content body, inner wrapper, and `.cml-mind` itself now all inherit `height: 100%` from the existing layout, so the chat surface and sticky composer actually reach the bottom of the usable pane.
+- Bumped `index.html` media-library CSS cache bust from `?v=79` to `?v=80` so the full-height fix is visible immediately after refresh.
+- **Validation**: `git diff --check` passed. This was a CSS/layout-only change, so no JS syntax check was needed.
