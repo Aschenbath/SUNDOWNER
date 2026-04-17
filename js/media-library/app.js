@@ -6390,7 +6390,7 @@ function getToastMarkup() {
   return `
     <div class="cml-toast cml-toast--${state.toastType}" role="alert" aria-live="polite">
       <span class="cml-toast__message">${state.toastMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
-      <button type="button" class="cml-toast__dismiss" data-action="dismiss-toast" aria-label="Dismiss">鉁?/button>
+      <button type="button" class="cml-toast__dismiss" data-action="dismiss-toast" aria-label="Dismiss">✕</button>
     </div>
   `;
 }
