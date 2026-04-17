@@ -433,3 +433,9 @@ pm; git diff --check passed.
 - Fixed the `Mind` send cooldown feel in `js/media-library/components.js` by stopping the composer input from inheriting the global `busy` disabled state during optimistic send. The send button still disables while the request is in flight, but the text field now stays focusable and immediately ready for the next message.
 - This keeps the optimistic message flow intact in `js/media-library/app.js` while removing the brief post-Enter lockout where the input could not be reselected until the network roundtrip completed.
 - **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js` both passed.
+
+### 2026-04-17 20:42 Asia/Shanghai
+
+- Removed the implicit `mirrorMindMessagesIfNeeded()` triggers from `js/media-library/app.js` for leaving the Mind view, tab visibility changes, page-hide, and hash-navigation changes. Fresh web-authored Mind messages should no longer jump from right to left just because another UI action happened in the same visit.
+- This directly prevents the deletion flow from being pre-empted by an unrelated auto-mirror request, which had been making all fresh messages flip left before the requested delete completed.
+- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.

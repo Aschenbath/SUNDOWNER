@@ -103,3 +103,4 @@
 26-04-17 by codex: Remove Mind's separate bottom bar treatment by dropping the left plus button and making the composer itself a transparent floating container with only the pill input and send button visible
 26-04-17 by codex: Add selectable wallpaper focus positions to Mind so uploaded or photo-backed chat backgrounds can be aligned to any 3x3 anchor and preview that crop live before saving
 26-04-17 by codex: Fix Mind send-after-Enter cooldown by keeping the text input enabled during optimistic-send busy state, while only the send button stays disabled until the request finishes
+26-04-17 by codex: Stop Mind fresh messages from auto-mirroring to the left on leave/visibility/hash changes, so delete and other in-session actions no longer trigger the wrong side-switch behavior

@@ -2553,10 +2553,6 @@ function isMindViewActive() {
 
 function handleMindViewTransition(nextPrimary, nextSecondary = state.secondaryFilter) {
   const enteringMind = nextPrimary === 'Mind' && !nextSecondary;
-  const leavingMind = state.primaryFilter === 'Mind' && nextPrimary !== 'Mind';
-  if (leavingMind) {
-    void mirrorMindMessagesIfNeeded();
-  }
   if (enteringMind) {
     void loadMindState({ forceRender: true });
     window.setTimeout(() => scrollMindToBottom({ force: true }), 40);
@@ -2564,15 +2560,11 @@ function handleMindViewTransition(nextPrimary, nextSecondary = state.secondaryFi
 }
 
 function handleDocumentVisibilityChange() {
-  if (document.visibilityState === 'hidden' && isMindViewActive()) {
-    void mirrorMindMessagesIfNeeded();
-  }
+  // Mind fresh messages should not auto-mirror on tab visibility changes.
 }
 
 function handleWindowPageHide() {
-  if (isMindViewActive()) {
-    void mirrorMindMessagesIfNeeded();
-  }
+  // Mind fresh messages should not auto-mirror on page hide.
 }
 
 async function loadAdminPanelData() {
@@ -9148,11 +9140,7 @@ function boot() {
   restoreNavigationFromHash();
   syncMount();
   window.addEventListener('hashchange', () => {
-    const wasMindView = state.primaryFilter === 'Mind';
     restoreNavigationFromHash();
-    if (wasMindView && state.primaryFilter !== 'Mind') {
-      void mirrorMindMessagesIfNeeded();
-    }
     if (refs.root) {
       if (state.primaryFilter === 'Mind') {
         void loadMindState({ forceRender: true });
