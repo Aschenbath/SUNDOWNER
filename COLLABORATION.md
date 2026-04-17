@@ -281,3 +281,9 @@ pm; git diff --check passed.
 - Fixed the mojibake on green saved toasts in `js/media-library/app.js`. Root cause: `getToastMarkup()` still contained a corrupted dismiss-button literal (`鉁?/button>`) while the imperative `patchToastDom()` path already used a clean `✕`, so any flow that rebuilt the toast from the template produced garbage after the success text.
 - The shared toast template now renders the same explicit `✕</button>` markup as the DOM-patching path, keeping preview-triggered success toasts and ordinary render-triggered toasts visually consistent.
 - **Validation**: `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` passed; `git diff -- js/media-library/app.js` shows only the toast-button literal fix.
+
+### 2026-04-17 11:15 Asia/Shanghai
+
+- Added a dedicated `distinct` toggle for ordinary photo-album picker mode in `js/media-library/components.js` and `js/media-library/app.js`. When the user is in `Add photos` for a normal album, the top-right action area now shows `distinct`; turning it on limits the picker timeline to `photo` items whose resolved album list is empty, so the picker becomes a fast inbox of never-filed photos.
+- The distinct filter is intentionally scoped to normal album pickers only: it does not appear for video album assignment or Private add flows. State resets when leaving picker mode, and toggling it clears current selection before rerendering so hidden items cannot remain selected and get added accidentally.
+- Added a lightweight active pill style in `css/media-library.css` for the toggled button. **Validation**: `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` and `--check js/media-library/components.js` passed; `git diff -- js/media-library/app.js js/media-library/components.js css/media-library.css` reviewed cleanly.
