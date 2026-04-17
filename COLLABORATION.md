@@ -385,3 +385,10 @@ pm; git diff --check passed.
 - Extended Mind settings persistence in `functions/utils/mindStore.js` and `js/media-library/app.js` with `sendButtonColor`, then added a `Send button` color picker in the settings drawer using the `p3`-style palette (`默认 / 蓝色 / 绿色 / 黄色 / 粉色 / 橙色 / 紫色 / 黑色`). Default tone is now green to match the requested p1-like look.
 - Bumped cache versions to `components.js?v=38`, `app.js?v=101`, and `media-library.css?v=86`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
+
+### 2026-04-17 16:36 Asia/Shanghai
+
+- Smoothed Mind interaction latency in `js/media-library/app.js`: sending a message now clears the input and inserts an optimistic local bubble before the `/api/manage/mind` response returns, so pressing Enter feels immediate instead of waiting on the roundtrip.
+- Fixed the Style drawer jump-to-top problem by preserving `.cml-mind__settings-card` scroll position across rerenders, and made preset/send-color taps lighter by patching the live Mind preview in place instead of forcing a full render for those button clicks.
+- Changed Mind settings save to optimistic apply: clicking `Save` now closes the drawer and updates the active UI immediately, then persists in the background; on failure, the previous settings are restored and the drawer reopens with the attempted draft intact. Bumped `index.html` app cache bust to `app.js?v=102`.
+- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.

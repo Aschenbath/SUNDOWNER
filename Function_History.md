@@ -96,3 +96,4 @@
 26-04-17 by codex: Move the custom Mind empty-state line into the composer placeholder instead of rendering it as a large centered bubble
 26-04-17 by codex: Add an ellipsis suffix to the custom Mind composer placeholder line
 26-04-17 by codex: Restyle Mind's send control into a p1-style in-pill rounded square button and add p3-style send-button color options in the settings drawer
+26-04-17 by codex: Make Mind interactions feel immediate by preserving Style drawer scroll, applying settings optimistically on Save, patching send-button/preset changes without full rerenders, and sending messages optimistically on Enter

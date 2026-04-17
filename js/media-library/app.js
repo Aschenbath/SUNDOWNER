@@ -384,6 +384,8 @@ let pendingPersistedAlbumSnapshot = null;
 let mindStatePromise = null;
 let mindMirrorPromise = null;
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
+const MIND_BACKGROUND_PRESETS = ['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'];
+const MIND_SEND_BUTTON_COLORS = ['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'black'];
 
 const touchZoom = {
   active: false,
@@ -2219,13 +2221,30 @@ async function sendMindMessage() {
   if (!text) {
     return;
   }
+  const previousMessages = state.mindMessages.slice();
+  const optimisticMessage = normalizeMindMessage({
+    id: `mind-local-${Date.now()}`,
+    text,
+    source: 'web',
+    phase: 'fresh',
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  });
+  state.mindDraft = '';
+  if (optimisticMessage) {
+    state.mindMessages = [...state.mindMessages, optimisticMessage];
+  }
   state.mindBusy = true;
   if (refs.root) {
     render();
+    scrollMindToBottom({ force: true });
+    const input = refs.root.querySelector('.cml-mind__input');
+    if (input instanceof HTMLInputElement) {
+      input.focus();
+    }
   }
   try {
     const payload = await postJson('/api/manage/mind', { text });
-    state.mindDraft = '';
     applyMindState(payload);
     if (refs.root) {
       render();
@@ -2236,6 +2255,8 @@ async function sendMindMessage() {
       }
     }
   } catch (error) {
+    state.mindDraft = text;
+    state.mindMessages = previousMessages;
     showToast(error.message || 'Failed to send Mind message');
   } finally {
     state.mindBusy = false;
@@ -2277,6 +2298,12 @@ async function saveMindSettings() {
   if (state.mindBusy) {
     return;
   }
+  const previousSettings = normalizeMindSettings(state.mindSettings);
+  const attemptedDraft = createMindSettingsDraft(state.mindSettingsDraft);
+  const optimisticSettings = normalizeMindSettings(state.mindSettingsDraft);
+  state.mindSettings = optimisticSettings;
+  state.mindSettingsDraft = createMindSettingsDraft(optimisticSettings);
+  state.mindSettingsOpen = false;
   state.mindBusy = true;
   if (refs.root) {
     render();
@@ -2287,9 +2314,10 @@ async function saveMindSettings() {
       settings: state.mindSettingsDraft
     });
     applyMindState(payload);
-    state.mindSettingsOpen = false;
-    showToast('Mind appearance updated', 'success');
   } catch (error) {
+    state.mindSettings = previousSettings;
+    state.mindSettingsDraft = attemptedDraft;
+    state.mindSettingsOpen = true;
     showToast(error.message || 'Failed to save Mind settings');
   } finally {
     state.mindBusy = false;
@@ -2380,6 +2408,49 @@ function resolveMindWallpaperUrl(settings = state.mindSettings) {
     return normalizeText(wallpaperItem.sourceUrl || wallpaperItem.thumbnailUrl || '');
   }
   return normalizeText(settings?.backgroundImageData);
+}
+
+function patchMindDraftPreview() {
+  if (!refs.root || !state.mindSettingsOpen) {
+    return false;
+  }
+  const section = refs.root.querySelector('.cml-mind');
+  if (!(section instanceof HTMLElement)) {
+    return false;
+  }
+  const draftSettings = normalizeMindSettings(state.mindSettingsDraft);
+  MIND_BACKGROUND_PRESETS.forEach((preset) => {
+    section.classList.toggle(`cml-mind--${preset}`, draftSettings.backgroundPreset === preset);
+  });
+  MIND_SEND_BUTTON_COLORS.forEach((tone) => {
+    section.classList.toggle(`cml-mind--send-${tone}`, draftSettings.sendButtonColor === tone);
+  });
+  const wallpaperUrl = resolveMindWallpaperUrl(draftSettings);
+  if (wallpaperUrl) {
+    const escapedUrl = String(wallpaperUrl).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    section.style.setProperty('--cml-mind-wallpaper-image', `url("${escapedUrl}")`);
+  } else {
+    section.style.removeProperty('--cml-mind-wallpaper-image');
+    if (!section.getAttribute('style')?.trim()) {
+      section.removeAttribute('style');
+    }
+  }
+  refs.root.querySelectorAll('[data-action="set-mind-background-preset"]').forEach((button) => {
+    const active = button instanceof HTMLElement && button.dataset.value === draftSettings.backgroundPreset;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  refs.root.querySelectorAll('[data-action="set-mind-send-button-color"]').forEach((button) => {
+    const active = button instanceof HTMLElement && button.dataset.value === draftSettings.sendButtonColor;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  refs.root.querySelectorAll('[data-action="set-mind-wallpaper-photo"]').forEach((button) => {
+    const active = button instanceof HTMLElement && button.dataset.id === draftSettings.backgroundPhotoId;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  return true;
 }
 
 async function mirrorMindMessagesIfNeeded() {
@@ -6244,6 +6315,7 @@ function render() {
   }
 
   const previousScrollTop = refs.scrollRegion ? refs.scrollRegion.scrollTop : state.virtualScrollTop;
+  const previousMindSettingsScrollTop = refs.root?.querySelector('.cml-mind__settings-card')?.scrollTop || 0;
   const searchWasFocused = document.activeElement instanceof HTMLInputElement
     && (
       document.activeElement.classList.contains('cml-topbar__search-input')
@@ -6460,6 +6532,13 @@ function render() {
     state.virtualViewportHeight = refs.scrollRegion.clientHeight;
     refs.scrollRegion.onscroll = handleScroll;
     requestAnimationFrame(() => { scrollRestoring = false; });
+  }
+
+  if (state.mindSettingsOpen && previousMindSettingsScrollTop > 0) {
+    const nextSettingsCard = refs.root.querySelector('.cml-mind__settings-card');
+    if (nextSettingsCard instanceof HTMLElement) {
+      nextSettingsCard.scrollTop = previousMindSettingsScrollTop;
+    }
   }
 
   if (searchWasFocused) {
@@ -7565,7 +7644,9 @@ function handleAction(actionTarget) {
             backgroundPreset: actionTarget.dataset.value || ''
           }).backgroundPreset
         };
-        render();
+        if (!patchMindDraftPreview()) {
+          render();
+        }
       }
       return true;
     case 'clear-mind-avatar':
@@ -7606,7 +7687,9 @@ function handleAction(actionTarget) {
             sendButtonColor: actionTarget.dataset.value || ''
           }).sendButtonColor
         };
-        render();
+        if (!patchMindDraftPreview()) {
+          render();
+        }
       }
       return true;
     case 'delete-mind-message':
