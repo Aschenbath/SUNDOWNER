@@ -1316,9 +1316,6 @@ export function MindChatView({
         ${historyHtml}
       </div>
       <form class="cml-mind__composer" data-form="mind">
-        <button type="button" class="cml-mind__composer-plus" data-action="toggle-mind-settings" aria-label="Open Mind style">
-          ${icon('plus')}
-        </button>
         <label class="cml-mind__input-shell" aria-label="Mind message">
           <input
             type="text"

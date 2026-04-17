@@ -413,3 +413,10 @@ pm; git diff --check passed.
 - Softened the send control in the same CSS file by reducing its height and increasing the corner radius from the earlier rounded-square look to a more capsule-like shape, so it reads less boxy while keeping the existing in-pill placement and color-system behavior.
 - Bumped `index.html` media-library CSS cache bust from `?v=87` to `?v=88` so the updated composer proportions load immediately after refresh.
 - **Validation**: `git diff --check` passed after the CSS and cache-bust edits.
+
+### 2026-04-17 19:58 Asia/Shanghai
+
+- Simplified the `Mind` composer structure in `js/media-library/components.js` by removing the left-side `+` button entirely. `Style` in the top-right header is now the only settings entry point, which matches the requested cleaner chat-input model.
+- Reworked the bottom composer chrome in `css/media-library.css` so it no longer renders as its own dark footer bar with a top divider. The sticky form is now transparent, while the pill input itself carries the visual weight via its own darker fill and shadow, leaving only the capsule input and send button visible over the wallpaper.
+- Bumped cache versions to `components.js?v=40`, `app.js?v=105`, and `media-library.css?v=89` through `js/media-library/app.js` and `index.html`.
+- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js` both passed.
