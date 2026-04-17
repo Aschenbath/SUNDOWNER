@@ -322,3 +322,10 @@ pm; git diff --check passed.
 - Shrunk the Mind composer from the oversized dark editor into a compact `p3`-style control strip: left circular `+` button, central pill input, and right send button. The input text size came back down to ordinary chat scale while keeping the higher contrast from the previous pass.
 - Bumped cache busts to `components.js?v=30`, `app.js?v=92`, and `media-library.css?v=78` via `js/media-library/app.js` and `index.html`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
+
+### 2026-04-17 15:03 Asia/Shanghai
+
+- Removed the remaining Mind layout dead space by marking both `.cml-main-content-shell` and `.cml-main-content` with `is-mind-view` in `js/media-library/app.js`, then collapsing the shell's extra 62px column and zeroing the content padding in `css/media-library.css`. This makes everything outside the sidebar belong to the chat surface as requested.
+- Simplified incoming bubbles in `js/media-library/components.js`: the inline `Mind` sender label is gone, and timestamps now default to hidden opacity/offset in CSS and only fade in on message hover/focus. That keeps the bubble cleaner while still exposing send time on demand.
+- Bumped cache busts to `components.js?v=31`, `app.js?v=93`, and `media-library.css?v=79` so the layout/timestamp changes are visible immediately after refresh.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.

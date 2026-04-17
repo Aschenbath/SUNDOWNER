@@ -1227,9 +1227,6 @@ export function MindChatView({
           ? `<span class="cml-mind__avatar"><img src="${contactAvatarData}" alt="${contactName}" class="cml-mind__avatar-image"></span>`
           : `<span class="cml-mind__avatar cml-mind__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`)
         : '';
-      const senderLabel = message.side === 'left'
-        ? `<span class="cml-mind__sender">${contactName}</span>`
-        : '';
       return `
         ${showDay ? `<div class="cml-mind__day">${escapeHtml(dayLabel)}</div>` : ''}
         <article class="cml-mind__message ${sideClass}">
@@ -1237,7 +1234,6 @@ export function MindChatView({
           <div class="cml-mind__message-stack">
             <div class="cml-mind__bubble-row">
               <div class="cml-mind__bubble">
-                ${senderLabel}
                 <p class="cml-mind__text">${escapeHtml(message.text).replace(/\n/g, '<br>')}</p>
               </div>
               <time class="cml-mind__time">${escapeHtml(formatMindTime(message.createdAt))}</time>

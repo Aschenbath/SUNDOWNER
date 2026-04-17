@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=30';
+} from './components.js?v=31';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -6243,8 +6243,8 @@ function render() {
           canDownloadSelection: viewModel.canDownloadSelection,
           canSetAlbumCover: viewModel.canSetAlbumCover
         })}
-        <div class="cml-main-content-shell">
-          <main class="cml-main-content" tabindex="-1">
+        <div class="cml-main-content-shell ${viewModel.isMindView ? 'is-mind-view' : ''}">
+          <main class="cml-main-content ${viewModel.isMindView ? 'is-mind-view' : ''}" tabindex="-1">
             <div class="cml-main-content__inner ${viewModel.isMindView ? 'is-mind-view' : ''}">
               ${state.primaryFilter === 'Bin'
                 ? BinGrid({

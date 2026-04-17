@@ -746,6 +746,10 @@ body.codex-media-library-active #app {
   min-height: 0;
 }
 
+#codex-media-library-root .cml-main-content-shell.is-mind-view {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 #codex-media-library-root .cml-main-content {
   min-width: 0;
   overflow: auto;
@@ -754,6 +758,10 @@ body.codex-media-library-active #app {
   padding: 0 28px 34px;
   scrollbar-width: thin;
   scrollbar-color: rgba(138, 180, 248, 0.25) transparent;
+}
+
+#codex-media-library-root .cml-main-content.is-mind-view {
+  padding: 0;
 }
 
 #codex-media-library-root .cml-main-content::-webkit-scrollbar {
@@ -5493,7 +5501,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-main-content__inner.is-mind-view {
   gap: 0;
   padding-bottom: 0;
-  margin: 0 -28px -60px;
+  margin: 0 0 -60px;
   min-height: calc(100vh - 132px);
 }
 
@@ -5610,7 +5618,7 @@ body.codex-media-library-active #app {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 26px 34px 14px;
+  padding: 26px 24px 8px;
   overflow: auto;
 }
 
@@ -5705,15 +5713,6 @@ body.codex-media-library-active #app {
   color: #eff4fb;
 }
 
-#codex-media-library-root .cml-mind__sender {
-  display: block;
-  margin-bottom: 6px;
-  color: #ffb35c;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
 #codex-media-library-root .cml-mind__text {
   margin: 0;
   white-space: normal;
@@ -5727,6 +5726,9 @@ body.codex-media-library-active #app {
   color: rgba(214, 221, 230, 0.72);
   font-size: 14px;
   white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 140ms ease, transform 140ms ease;
 }
 
 #codex-media-library-root .cml-mind--midnight .cml-mind__time {
@@ -5747,6 +5749,12 @@ body.codex-media-library-active #app {
   opacity: 0;
   cursor: pointer;
   transition: opacity 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+#codex-media-library-root .cml-mind__message:hover .cml-mind__time,
+#codex-media-library-root .cml-mind__message:focus-within .cml-mind__time {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 #codex-media-library-root .cml-mind__message:hover .cml-mind__delete,
@@ -6134,7 +6142,7 @@ body.codex-media-library-active #app {
 
 @media (max-width: 640px) {
   #codex-media-library-root .cml-main-content__inner.is-mind-view {
-    margin: 0 -16px -60px;
+    margin: 0 0 -60px;
   }
 
   #codex-media-library-root .cml-mind__settings {
