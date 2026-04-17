@@ -5554,7 +5554,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-mind {
-  --cml-mind-bubble-left: rgba(243, 245, 248, 0.96);
+  --cml-mind-bubble-left: rgba(58, 67, 84, 0.96);
   --cml-mind-bubble-right: linear-gradient(180deg, #1988ff, #0074ff);
   --cml-mind-bubble-right-text: #ffffff;
   position: relative;
@@ -5562,19 +5562,19 @@ body.codex-media-library-active #app {
   grid-template-rows: minmax(0, 1fr) auto;
   min-height: calc(100vh - 132px);
   overflow: hidden;
-  background: linear-gradient(180deg, #e5e8ed 0%, #dce1e8 48%, #d5dae2 100%);
+  background: linear-gradient(180deg, #1f232b 0%, #20242c 48%, #22272f 100%);
 }
 
 #codex-media-library-root .cml-mind--ios-sky {
-  background: linear-gradient(180deg, #dde2e9 0%, #d6dce5 48%, #cfd6e0 100%);
+  background: linear-gradient(180deg, #1f232b 0%, #20252f 48%, #242a34 100%);
 }
 
 #codex-media-library-root .cml-mind--sunset-glow {
-  background: linear-gradient(180deg, #e6d9d5 0%, #ddd5dc 48%, #d3d6e1 100%);
+  background: linear-gradient(180deg, #262224 0%, #2a2529 48%, #262a34 100%);
 }
 
 #codex-media-library-root .cml-mind--seafoam {
-  background: linear-gradient(180deg, #dbe4df 0%, #d6e0db 44%, #d2d8d5 100%);
+  background: linear-gradient(180deg, #202624 0%, #222927 44%, #252c2a 100%);
 }
 
 #codex-media-library-root .cml-mind--midnight {
@@ -5584,12 +5584,12 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-mind--paper {
-  background: linear-gradient(180deg, #e6e0d8 0%, #ddd7cf 48%, #d7d2cb 100%);
+  background: linear-gradient(180deg, #282522 0%, #2b2824 48%, #302d29 100%);
 }
 
 #codex-media-library-root .cml-mind[style*='--cml-mind-wallpaper-image'] {
   background-image:
-    linear-gradient(180deg, rgba(20, 24, 30, 0.08), rgba(20, 24, 30, 0.14)),
+    linear-gradient(180deg, rgba(14, 17, 22, 0.34), rgba(14, 17, 22, 0.42)),
     var(--cml-mind-wallpaper-image);
   background-size: cover;
   background-position: center;
@@ -5599,8 +5599,8 @@ body.codex-media-library-active #app {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04));
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
   pointer-events: none;
 }
 
@@ -5619,8 +5619,8 @@ body.codex-media-library-active #app {
   margin: 8px 0 6px;
   padding: 6px 13px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.4);
-  color: rgba(71, 80, 92, 0.76);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(226, 232, 240, 0.82);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -5649,8 +5649,8 @@ body.codex-media-library-active #app {
   overflow: hidden;
   flex-shrink: 0;
   margin-top: auto;
-  background: rgba(255, 255, 255, 0.74);
-  color: #506072;
+  background: rgba(255, 255, 255, 0.18);
+  color: #f1f5f9;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5678,13 +5678,13 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-mind__bubble {
   padding: 11px 16px;
   border-radius: 22px;
-  box-shadow: 0 6px 18px rgba(27, 34, 44, 0.1);
+  box-shadow: 0 8px 22px rgba(8, 12, 18, 0.22);
 }
 
 #codex-media-library-root .cml-mind__message.is-other .cml-mind__bubble,
 #codex-media-library-root .cml-mind__empty-bubble {
   background: var(--cml-mind-bubble-left);
-  color: #232a33;
+  color: #f3f6fa;
   border-top-left-radius: 10px;
 }
 
@@ -5709,12 +5709,12 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-mind__time {
   padding: 0 6px;
-  color: rgba(70, 79, 91, 0.58);
+  color: rgba(214, 221, 230, 0.72);
   font-size: 11px;
 }
 
 #codex-media-library-root .cml-mind--midnight .cml-mind__time {
-  color: rgba(228, 235, 244, 0.6);
+  color: rgba(232, 239, 247, 0.74);
 }
 
 #codex-media-library-root .cml-mind__delete {
@@ -5768,30 +5768,46 @@ body.codex-media-library-active #app {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: center;
-  margin: 0 22px 18px;
-  padding: 12px 14px 12px 18px;
-  border-radius: 28px;
-  background: rgba(248, 249, 251, 0.88);
-  box-shadow: 0 12px 34px rgba(30, 36, 47, 0.14);
+  align-items: end;
+  margin: 0;
+  padding: 14px 18px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(21, 24, 30, 0.96);
+  box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.24);
 }
 
 #codex-media-library-root .cml-mind__input-shell {
   min-width: 0;
+  min-height: 136px;
+  padding: 18px 18px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 #codex-media-library-root .cml-mind__input {
   width: 100%;
+  min-height: 92px;
   border: 0;
   outline: none;
+  box-shadow: none;
+  appearance: none;
   background: transparent;
-  color: #1f2933;
+  color: #f8fafc;
   font: inherit;
-  font-size: 16px;
+  font-size: 28px;
+  line-height: 1.45;
 }
 
 #codex-media-library-root .cml-mind__input::placeholder {
-  color: rgba(86, 96, 109, 0.56);
+  color: rgba(208, 216, 226, 0.46);
+}
+
+#codex-media-library-root .cml-mind__input:focus,
+#codex-media-library-root .cml-mind__input:focus-visible {
+  outline: none;
+  border: 0;
+  box-shadow: none;
 }
 
 #codex-media-library-root .cml-mind__send {
@@ -5806,6 +5822,7 @@ body.codex-media-library-active #app {
   background: linear-gradient(180deg, #1988ff, #0074ff);
   box-shadow: 0 10px 22px rgba(0, 116, 255, 0.28);
   cursor: pointer;
+  margin-bottom: 12px;
   transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
 }
 
@@ -6064,8 +6081,8 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-mind__composer {
-    margin-left: 12px;
-    margin-right: 12px;
+    padding-left: 14px;
+    padding-right: 14px;
   }
 
   #codex-media-library-root .cml-mind__settings {
@@ -6084,5 +6101,9 @@ body.codex-media-library-active #app {
 
   #codex-media-library-root .cml-mind__preset-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  #codex-media-library-root .cml-mind__input {
+    font-size: 22px;
   }
 }

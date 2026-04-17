@@ -308,3 +308,10 @@ pm; git diff --check passed.
 - Toned the default Mind palette down to a more neutral iMessage-like gray surface, kept the blue outgoing bubbles, and converted the settings UI from an inline white panel into a proper right-side drawer with a backdrop so the chat area remains visually continuous and the controls are readable/clickable.
 - `js/media-library/components.js` now renders the settings drawer/backdrop as siblings of the chat surface rather than nested inside the message area, which fixes the “chat region gets split by a box” problem and makes close interactions more intuitive.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js`, and `--check js/media-library/components.js` all passed.
+
+### 2026-04-17 14:41 Asia/Shanghai
+
+- Tightened `Mind` contrast in `css/media-library.css`: the whole conversation surface now defaults to a darker slate background, the left-side bubbles are dark enough to preserve the “no extra frame” look but still carry bright text, and day/time labels were brightened so they remain visible over the dark canvas.
+- Reworked the bottom composer to better match the supplied `p2` reference: instead of a floating white pill, the input area is now a full-width dark footer editor with a subtle top divider, darker inner writing field, and much larger/clearer input text and placeholder contrast.
+- Added stronger focus overrides on `.cml-mind__input` to suppress the bright browser-blue focus ring that was making the typed text area look washed out, and bumped `index.html` media-library CSS cache bust to `?v=77`.
+- **Validation**: `git diff --check` passed. This change was CSS-only, so no JS syntax check was needed beyond the existing clean state.

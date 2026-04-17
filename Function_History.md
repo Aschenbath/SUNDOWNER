@@ -84,3 +84,4 @@
 26-04-17 by codex: Add a Mind chat page with right-now/right-next-visit bubble mirroring, persist web notes in manage@sysConfig@mind, and sync non-command Telegram channel text into the same history
 26-04-17 by codex: Redesign Mind into an iMessage-inspired chat with customizable contact name/avatar/background, wallpaper upload, and per-message delete controls
 26-04-17 by codex: Rework Mind layout so the whole right content area is the chat surface, tone down the palette, and turn settings into a right-side drawer instead of an inline white card
+26-04-17 by codex: Restyle Mind into a higher-contrast dark chat surface with a P2-like bottom composer so typed text, placeholders, and timestamps stay readable
