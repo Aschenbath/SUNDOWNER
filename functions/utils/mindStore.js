@@ -8,6 +8,7 @@ const DEFAULT_MIND_SETTINGS = {
     backgroundPreset: 'ios-sky',
     backgroundImageData: '',
     backgroundPhotoId: '',
+    backgroundPosition: 'center center',
     sendButtonColor: 'green',
 }
 
@@ -33,6 +34,22 @@ function normalizeImageData(value) {
     return /^data:image\//i.test(data) ? data : ''
 }
 
+function normalizeBackgroundPosition(value) {
+    const position = normalizeText(value).toLowerCase()
+    const allowed = new Set([
+        'left top',
+        'center top',
+        'right top',
+        'left center',
+        'center center',
+        'right center',
+        'left bottom',
+        'center bottom',
+        'right bottom',
+    ])
+    return allowed.has(position) ? position : DEFAULT_MIND_SETTINGS.backgroundPosition
+}
+
 function normalizeMindSettings(input = {}) {
     const sendButtonColor = normalizeText(input.sendButtonColor).toLowerCase()
     const allowedSendButtonColors = new Set(['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'black'])
@@ -42,6 +59,7 @@ function normalizeMindSettings(input = {}) {
         backgroundPreset: normalizePreset(input.backgroundPreset),
         backgroundImageData: normalizeImageData(input.backgroundImageData),
         backgroundPhotoId: normalizeText(input.backgroundPhotoId),
+        backgroundPosition: normalizeBackgroundPosition(input.backgroundPosition),
         sendButtonColor: allowedSendButtonColors.has(sendButtonColor) ? sendButtonColor : DEFAULT_MIND_SETTINGS.sendButtonColor,
     }
 }

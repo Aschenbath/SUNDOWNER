@@ -1212,6 +1212,18 @@ const MIND_SEND_BUTTON_OPTIONS = [
   { value: 'black', label: '黑色' }
 ];
 
+const MIND_BACKGROUND_POSITION_OPTIONS = [
+  { value: 'left top', label: '左上' },
+  { value: 'center top', label: '上方' },
+  { value: 'right top', label: '右上' },
+  { value: 'left center', label: '左侧' },
+  { value: 'center center', label: '居中' },
+  { value: 'right center', label: '右侧' },
+  { value: 'left bottom', label: '左下' },
+  { value: 'center bottom', label: '下方' },
+  { value: 'right bottom', label: '右下' }
+];
+
 const MIND_SEND_BUTTON_THEME_BY_VALUE = {
   default: {
     background: 'linear-gradient(180deg, #6b7280 0%, #4b5563 100%)',
@@ -1277,8 +1289,8 @@ export function MindChatView({
   const sendButtonColor = escapeHtml(settings.sendButtonColor || 'green');
   const sendButtonStyle = buildMindSendButtonStyle(settings.sendButtonColor || 'green');
   const wallpaperStyle = wallpaperUrl
-    ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(wallpaperUrl)}')"`
-    : '';
+    ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(wallpaperUrl)}');--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`
+    : ` style="--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`;
   let lastDay = '';
   const historyHtml = messages.length
     ? messages.map((message) => {
@@ -1375,6 +1387,24 @@ export function MindChatView({
                   <span>Upload wallpaper</span>
                 </label>
                 ${(wallpaperDraftUrl || settingsDraft.backgroundPhotoId) ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-wallpaper" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
+              </div>
+              <div class="cml-mind__field">
+                <span>Wallpaper focus</span>
+                <div class="cml-mind__position-grid">
+                  ${MIND_BACKGROUND_POSITION_OPTIONS.map((option) => `
+                    <button
+                      type="button"
+                      class="cml-mind__position-option ${settingsDraft.backgroundPosition === option.value ? 'is-active' : ''}"
+                      data-action="set-mind-background-position"
+                      data-value="${option.value}"
+                      aria-pressed="${settingsDraft.backgroundPosition === option.value ? 'true' : 'false'}"
+                      ${busy ? 'disabled' : ''}
+                    >
+                      <span class="cml-mind__position-dot cml-mind__position-dot--${option.value.replace(/\s+/g, '-')}"></span>
+                      <span>${option.label}</span>
+                    </button>
+                  `).join('')}
+                </div>
               </div>
               <div class="cml-mind__photo-picker">
                 <div class="cml-mind__photo-picker-head">

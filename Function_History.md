@@ -101,3 +101,4 @@
 26-04-17 by codex: Fix Mind send-button color again by overriding media-library's global button isolation (ackground:none !important) so the chosen send tone actually renders on the composer button
 26-04-17 by codex: Tighten the Mind composer again by reducing the input pill height and making the send button rounder/less square, with a CSS cache-bust so the refreshed sizing ships immediately
 26-04-17 by codex: Remove Mind's separate bottom bar treatment by dropping the left plus button and making the composer itself a transparent floating container with only the pill input and send button visible
+26-04-17 by codex: Add selectable wallpaper focus positions to Mind so uploaded or photo-backed chat backgrounds can be aligned to any 3x3 anchor and preview that crop live before saving

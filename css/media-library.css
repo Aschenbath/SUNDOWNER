@@ -5648,7 +5648,7 @@ body.codex-media-library-active #app {
     linear-gradient(180deg, rgba(14, 17, 22, 0.34), rgba(14, 17, 22, 0.42)),
     var(--cml-mind-wallpaper-image);
   background-size: cover;
-  background-position: center;
+  background-position: var(--cml-mind-wallpaper-position, center center);
 }
 
 #codex-media-library-root .cml-mind__surface {
@@ -5659,6 +5659,58 @@ body.codex-media-library-active #app {
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
   pointer-events: none;
 }
+
+#codex-media-library-root .cml-mind__position-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#codex-media-library-root .cml-mind__position-option {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 10px 8px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e5edf7;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+#codex-media-library-root .cml-mind__position-option:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+#codex-media-library-root .cml-mind__position-option.is-active {
+  border-color: rgba(76, 163, 255, 0.72);
+  background: rgba(20, 132, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(76, 163, 255, 0.18);
+}
+
+#codex-media-library-root .cml-mind__position-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle at var(--cml-mind-position-x, 50%) var(--cml-mind-position-y, 50%), rgba(138, 180, 248, 0.95) 0 14%, rgba(138, 180, 248, 0.2) 15% 34%, rgba(255, 255, 255, 0.08) 35% 100%),
+    rgba(18, 21, 27, 0.9);
+}
+
+#codex-media-library-root .cml-mind__position-dot--left-top { --cml-mind-position-x: 22%; --cml-mind-position-y: 22%; }
+#codex-media-library-root .cml-mind__position-dot--center-top { --cml-mind-position-x: 50%; --cml-mind-position-y: 22%; }
+#codex-media-library-root .cml-mind__position-dot--right-top { --cml-mind-position-x: 78%; --cml-mind-position-y: 22%; }
+#codex-media-library-root .cml-mind__position-dot--left-center { --cml-mind-position-x: 22%; --cml-mind-position-y: 50%; }
+#codex-media-library-root .cml-mind__position-dot--center-center { --cml-mind-position-x: 50%; --cml-mind-position-y: 50%; }
+#codex-media-library-root .cml-mind__position-dot--right-center { --cml-mind-position-x: 78%; --cml-mind-position-y: 50%; }
+#codex-media-library-root .cml-mind__position-dot--left-bottom { --cml-mind-position-x: 22%; --cml-mind-position-y: 78%; }
+#codex-media-library-root .cml-mind__position-dot--center-bottom { --cml-mind-position-x: 50%; --cml-mind-position-y: 78%; }
+#codex-media-library-root .cml-mind__position-dot--right-bottom { --cml-mind-position-x: 78%; --cml-mind-position-y: 78%; }
 
 #codex-media-library-root .cml-mind__history {
   position: relative;

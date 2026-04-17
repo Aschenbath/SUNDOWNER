@@ -420,3 +420,10 @@ pm; git diff --check passed.
 - Reworked the bottom composer chrome in `css/media-library.css` so it no longer renders as its own dark footer bar with a top divider. The sticky form is now transparent, while the pill input itself carries the visual weight via its own darker fill and shadow, leaving only the capsule input and send button visible over the wallpaper.
 - Bumped cache versions to `components.js?v=40`, `app.js?v=105`, and `media-library.css?v=89` through `js/media-library/app.js` and `index.html`.
 - **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js` both passed.
+
+### 2026-04-17 20:20 Asia/Shanghai
+
+- Extended Mind wallpaper settings end-to-end with a persisted `backgroundPosition` field in `functions/utils/mindStore.js` and `js/media-library/app.js`. The allowed values are a full 3x3 anchor set (`left/center/right` × `top/center/bottom`), defaulting to `center center`.
+- Added a new `Wallpaper focus` chooser in `js/media-library/components.js`, rendered as a 3x3 grid with visual anchor dots, so the user can decide which part of the wallpaper should stay in frame instead of always forcing center-crop.
+- Updated the live preview path in `js/media-library/app.js` and the actual chat background CSS in `css/media-library.css` to use `--cml-mind-wallpaper-position`, so both the settings drawer preview and the saved Mind surface honor the selected wallpaper alignment immediately. Also bumped cache versions to `components.js?v=41`, `app.js?v=106`, and `media-library.css?v=90`.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` all passed.

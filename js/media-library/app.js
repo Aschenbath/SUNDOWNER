@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=40';
+} from './components.js?v=41';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -385,6 +385,17 @@ let mindStatePromise = null;
 let mindMirrorPromise = null;
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
 const MIND_BACKGROUND_PRESETS = ['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'];
+const MIND_BACKGROUND_POSITIONS = [
+  'left top',
+  'center top',
+  'right top',
+  'left center',
+  'center center',
+  'right center',
+  'left bottom',
+  'center bottom',
+  'right bottom'
+];
 const MIND_SEND_BUTTON_COLORS = ['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'black'];
 const MIND_SEND_BUTTON_THEMES = {
   default: {
@@ -2143,6 +2154,8 @@ function normalizeMindSettings(settings = {}) {
   const defaults = createDefaultMindSettings();
   const preset = normalizeText(settings.backgroundPreset);
   const allowedPresets = new Set(['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper']);
+  const backgroundPosition = normalizeText(settings.backgroundPosition).toLowerCase();
+  const allowedBackgroundPositions = new Set(MIND_BACKGROUND_POSITIONS);
   const sendButtonColor = normalizeText(settings.sendButtonColor).toLowerCase();
   const allowedSendButtonColors = new Set(['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'black']);
   const normalizeImage = (value) => {
@@ -2155,6 +2168,7 @@ function normalizeMindSettings(settings = {}) {
     backgroundPreset: allowedPresets.has(preset) ? preset : defaults.backgroundPreset,
     backgroundImageData: normalizeImage(settings.backgroundImageData),
     backgroundPhotoId: normalizeText(settings.backgroundPhotoId),
+    backgroundPosition: allowedBackgroundPositions.has(backgroundPosition) ? backgroundPosition : defaults.backgroundPosition,
     sendButtonColor: allowedSendButtonColors.has(sendButtonColor) ? sendButtonColor : defaults.sendButtonColor
   };
 }
@@ -2189,6 +2203,7 @@ function createDefaultMindSettings() {
     backgroundPreset: 'ios-sky',
     backgroundImageData: '',
     backgroundPhotoId: '',
+    backgroundPosition: 'center center',
     sendButtonColor: 'green'
   };
 }
@@ -2485,12 +2500,18 @@ function patchMindDraftPreview() {
     section.style.setProperty('--cml-mind-wallpaper-image', `url("${escapedUrl}")`);
   } else {
     section.style.removeProperty('--cml-mind-wallpaper-image');
-    if (!section.getAttribute('style')?.trim()) {
-      section.removeAttribute('style');
-    }
+  }
+  section.style.setProperty('--cml-mind-wallpaper-position', draftSettings.backgroundPosition || createDefaultMindSettings().backgroundPosition);
+  if (!section.getAttribute('style')?.trim()) {
+    section.removeAttribute('style');
   }
   refs.root.querySelectorAll('[data-action="set-mind-background-preset"]').forEach((button) => {
     const active = button instanceof HTMLElement && button.dataset.value === draftSettings.backgroundPreset;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  refs.root.querySelectorAll('[data-action="set-mind-background-position"]').forEach((button) => {
+    const active = button instanceof HTMLElement && button.dataset.value === draftSettings.backgroundPosition;
     button.classList.toggle('is-active', active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
@@ -7729,7 +7750,23 @@ function handleAction(actionTarget) {
           backgroundPhotoId: normalizeText(actionTarget.dataset.id),
           backgroundImageData: ''
         };
-        render();
+        if (!patchMindDraftPreview()) {
+          render();
+        }
+      }
+      return true;
+    case 'set-mind-background-position':
+      if (!state.mindBusy) {
+        state.mindSettingsDraft = {
+          ...state.mindSettingsDraft,
+          backgroundPosition: normalizeMindSettings({
+            ...state.mindSettingsDraft,
+            backgroundPosition: actionTarget.dataset.value || ''
+          }).backgroundPosition
+        };
+        if (!patchMindDraftPreview()) {
+          render();
+        }
       }
       return true;
     case 'set-mind-send-button-color':
