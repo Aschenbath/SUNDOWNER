@@ -398,13 +398,15 @@ export function Sidebar({
         ${navigationModel.primary.map((label) => {
           const key = label.toLowerCase();
           const active = isPrimaryActive(label) ? 'is-active' : '';
-          const iconName = key === 'photos'
-            ? 'photos'
-            : key === 'bin'
-              ? 'trash'
-              : key === 'private'
-                ? 'lock'
-                : 'albums';
+  const iconName = key === 'photos'
+    ? 'photos'
+    : key === 'bin'
+      ? 'trash'
+      : key === 'mind'
+        ? 'memory'
+      : key === 'private'
+        ? 'lock'
+        : 'albums';
           const displayLabel = label === 'Collections' ? 'Albums' : label;
           return `
             <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}" aria-current="${isPrimaryActive(label) ? 'page' : 'false'}">
@@ -514,6 +516,16 @@ function AvatarButton({
 }
 
 export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSelection = false, canSetAlbumCover = false }) {
+  if (state.primaryFilter === 'Mind') {
+    return `
+      <header class="cml-topbar cml-topbar--mind">
+        <div class="cml-topbar__mind-copy">
+          <p class="cml-topbar__mind-eyebrow">Mind</p>
+          <h2 class="cml-topbar__mind-title">A chat with your past self</h2>
+        </div>
+      </header>
+    `;
+  }
   const selectedCount = state.selectedIds.size;
   const searchValue = escapeHtml(state.searchDraft ?? state.searchQuery);
   const activeAlbumName = String(state.activeAlbumName || '');
@@ -1152,6 +1164,76 @@ export function CollectionGrid({ collections }) {
           </span>
         </button>
       `).join('')}
+    </section>
+  `;
+}
+
+function formatMindTime(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function formatMindDay(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  return `${year}-${month}-${day}`;
+}
+
+export function MindChatView({ messages = [], draft = '', busy = false }) {
+  const safeDraft = escapeHtml(String(draft || ''));
+  let lastDay = '';
+  const historyHtml = messages.length
+    ? messages.map((message) => {
+      const dayLabel = formatMindDay(message.createdAt);
+      const showDay = dayLabel && dayLabel !== lastDay;
+      lastDay = dayLabel || lastDay;
+      const sideClass = message.side === 'right' ? 'is-self' : 'is-other';
+      return `
+        ${showDay ? `<div class="cml-mind__day">${escapeHtml(dayLabel)}</div>` : ''}
+        <article class="cml-mind__message ${sideClass}">
+          <div class="cml-mind__bubble">
+            <p class="cml-mind__text">${escapeHtml(message.text).replace(/\n/g, '<br>')}</p>
+          </div>
+          <time class="cml-mind__time">${escapeHtml(formatMindTime(message.createdAt))}</time>
+        </article>
+      `;
+    }).join('')
+    : `
+      <div class="cml-mind__empty">
+        <div class="cml-mind__empty-bubble">Telegram 里的普通文本会同步到这里，你现在在网页发的内容会先待在右边，下次回来它就会跑到左边。</div>
+      </div>
+    `;
+
+  return `
+    <section class="cml-mind" aria-label="Mind conversation">
+      <div class="cml-mind__history">
+        ${historyHtml}
+      </div>
+      <form class="cml-mind__composer" data-form="mind">
+        <label class="cml-mind__input-shell" aria-label="Mind message">
+          <input
+            type="text"
+            class="cml-mind__input"
+            data-mind-input="message"
+            placeholder="Write something to your future self"
+            value="${safeDraft}"
+            ${busy ? 'disabled' : ''}
+          />
+        </label>
+        <button type="submit" class="cml-mind__send" data-action="send-mind-message" ${busy ? 'disabled' : ''} aria-label="Send message">
+          ${icon('next')}
+        </button>
+      </form>
     </section>
   `;
 }

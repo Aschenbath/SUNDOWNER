@@ -11,6 +11,7 @@ import { addFileToIndex, removeFileFromIndex } from './indexManager.js'
 import { getUploadConfig, normalizeUploadSettings } from '../api/manage/sysConfig/upload.js'
 import { sanitizeUploadFolder, sanitizeFileName, moderateContent } from '../upload/uploadTools.js'
 import { resolveTelegramDedupeDecision, saveTelegramDedupeRecord } from './telegramDedupe.js'
+import { upsertTelegramMindMessage } from './mindStore.js'
 
 const TELEGRAM_ALLOWED_UPDATES = ['channel_post', 'edited_channel_post']
 const TELEGRAM_ALBUM_COMMAND_PREFIX = 'telegram-sync@album-command@'
@@ -125,6 +126,14 @@ function extractAlbumCommand(message) {
     }
 
     return { action: 'set', albumPath }
+}
+
+function extractMindTextMessage(message) {
+    const text = typeof message?.text === 'string' ? message.text.trim() : ''
+    if (!text || text.startsWith('/')) {
+        return ''
+    }
+    return text
 }
 
 async function loadAlbumCommandState(db, channelName) {
@@ -431,6 +440,23 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
     const mediaInfo = extractMediaFromMessage(message)
     if (albumCommand && !mediaInfo) {
         return await handleAlbumCommandMessage(context, channel, update, message, albumCommand)
+    }
+    const mindText = extractMindTextMessage(message)
+    if (mindText && !mediaInfo) {
+        await upsertTelegramMindMessage(context.env, {
+            text: mindText,
+            channelName: channel.name,
+            messageId: Number(message.message_id || 0),
+            createdAt: Number(message.date || 0) * 1000 || Date.now(),
+        })
+        return {
+            imported: true,
+            ignored: false,
+            kind: 'mind',
+            channelName: channel.name,
+            messageId: message.message_id,
+            updateId: update.update_id,
+        }
     }
     if (!mediaInfo) {
         return { ignored: true, reason: 'no_supported_media' }

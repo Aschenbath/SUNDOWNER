@@ -11,6 +11,7 @@ import {
   LoginOverlay,
   MediaGrid,
   MediaTimelineSection,
+  MindChatView,
   MobileBottomNav,
   PrivateAlbumGate,
   PrivateAlbumSummary,
@@ -26,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=27';
+} from './components.js?v=28';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -302,6 +303,10 @@ const state = {
   uploadActive: false,
   uploadTotal: 0,
   uploadDone: 0,
+  mindMessages: [],
+  mindDraft: '',
+  mindLoading: false,
+  mindBusy: false,
   lastSelectedId: null,
   needsLogin: false,
   loginError: '',
@@ -373,6 +378,8 @@ let scrollRestoring = false;
 const sectionRangeCache = new Map(); // anchorId → { startIndex, endIndex }
 let persistedAlbumStatePromise = null;
 let pendingPersistedAlbumSnapshot = null;
+let mindStatePromise = null;
+let mindMirrorPromise = null;
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
 
 const touchZoom = {
@@ -2079,6 +2086,172 @@ async function postJson(url, payload) {
     throw new Error(data?.error || `${url} returned ${response.status}`);
   }
   return data;
+}
+
+function normalizeMindText(value) {
+  return String(value ?? '').replace(/\r\n/g, '\n').trim();
+}
+
+function normalizeMindMessage(rawMessage = {}) {
+  const text = normalizeMindText(rawMessage.text);
+  if (!text) {
+    return null;
+  }
+  const source = String(rawMessage.source || '').toLowerCase() === 'telegram' ? 'telegram' : 'web';
+  const phase = source === 'web' && String(rawMessage.phase || '').toLowerCase() === 'fresh'
+    ? 'fresh'
+    : 'mirrored';
+  const timestamp = Number(rawMessage.createdAt);
+  return {
+    id: normalizeText(rawMessage.id) || `mind-${hashString(`${text}-${timestamp || Date.now()}`)}`,
+    text,
+    source,
+    phase,
+    side: source === 'web' && phase === 'fresh' ? 'right' : 'left',
+    createdAt: Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now(),
+    updatedAt: Number(rawMessage.updatedAt) || 0,
+    channelName: normalizeText(rawMessage.channelName),
+    sourceRef: normalizeText(rawMessage.sourceRef)
+  };
+}
+
+function applyMindState(payload) {
+  state.mindMessages = safeArray(payload?.messages)
+    .map((message) => normalizeMindMessage(message))
+    .filter(Boolean)
+    .sort((left, right) => {
+      if (left.createdAt !== right.createdAt) {
+        return left.createdAt - right.createdAt;
+      }
+      return left.id.localeCompare(right.id);
+    });
+}
+
+function hasFreshMindMessages() {
+  return state.mindMessages.some((message) => message.source === 'web' && message.phase === 'fresh');
+}
+
+async function loadMindState({ forceRender = false } = {}) {
+  if (mindStatePromise) {
+    return mindStatePromise;
+  }
+  state.mindLoading = true;
+  mindStatePromise = fetchJson('/api/manage/mind')
+    .then((payload) => {
+      applyMindState(payload);
+      return payload;
+    })
+    .catch((error) => {
+      console.error('[media-library] failed to load Mind state', error);
+      showToast(error.message || 'Failed to load Mind');
+      throw error;
+    })
+    .finally(() => {
+      state.mindLoading = false;
+      mindStatePromise = null;
+      if (forceRender && refs.root) {
+        render();
+        scrollMindToBottom({ force: false });
+      }
+    });
+  return mindStatePromise;
+}
+
+function scrollMindToBottom({ force = false } = {}) {
+  if (!refs.scrollRegion || state.primaryFilter !== 'Mind') {
+    return;
+  }
+  const target = refs.scrollRegion.scrollHeight;
+  refs.scrollRegion.scrollTo({
+    top: target,
+    behavior: force ? 'auto' : 'smooth'
+  });
+}
+
+async function sendMindMessage() {
+  if (state.mindBusy) {
+    return;
+  }
+  const text = normalizeMindText(state.mindDraft);
+  if (!text) {
+    return;
+  }
+  state.mindBusy = true;
+  if (refs.root) {
+    render();
+  }
+  try {
+    const payload = await postJson('/api/manage/mind', { text });
+    state.mindDraft = '';
+    applyMindState(payload);
+    if (refs.root) {
+      render();
+      scrollMindToBottom({ force: true });
+      const input = refs.root.querySelector('.cml-mind__input');
+      if (input instanceof HTMLInputElement) {
+        input.focus();
+      }
+    }
+  } catch (error) {
+    showToast(error.message || 'Failed to send Mind message');
+  } finally {
+    state.mindBusy = false;
+    if (refs.root) {
+      render();
+      scrollMindToBottom({ force: false });
+      const input = refs.root.querySelector('.cml-mind__input');
+      if (input instanceof HTMLInputElement) {
+        input.focus();
+      }
+    }
+  }
+}
+
+async function mirrorMindMessagesIfNeeded() {
+  if (mindMirrorPromise || !hasFreshMindMessages()) {
+    return mindMirrorPromise;
+  }
+  mindMirrorPromise = postJson('/api/manage/mind', { action: 'mirror' })
+    .then((payload) => {
+      applyMindState(payload);
+      return payload;
+    })
+    .catch((error) => {
+      console.error('[media-library] failed to mirror Mind messages', error);
+      throw error;
+    })
+    .finally(() => {
+      mindMirrorPromise = null;
+    });
+  return mindMirrorPromise;
+}
+
+function isMindViewActive() {
+  return state.primaryFilter === 'Mind';
+}
+
+function handleMindViewTransition(nextPrimary, nextSecondary = state.secondaryFilter) {
+  const enteringMind = nextPrimary === 'Mind' && !nextSecondary;
+  const leavingMind = state.primaryFilter === 'Mind' && nextPrimary !== 'Mind';
+  if (leavingMind) {
+    void mirrorMindMessagesIfNeeded();
+  }
+  if (enteringMind) {
+    void loadMindState({ forceRender: true });
+    window.setTimeout(() => scrollMindToBottom({ force: true }), 40);
+  }
+}
+
+function handleDocumentVisibilityChange() {
+  if (document.visibilityState === 'hidden' && isMindViewActive()) {
+    void mirrorMindMessagesIfNeeded();
+  }
+}
+
+function handleWindowPageHide() {
+  if (isMindViewActive()) {
+    void mirrorMindMessagesIfNeeded();
+  }
 }
 
 async function loadAdminPanelData() {
@@ -5670,12 +5843,15 @@ function getViewModel() {
     ? buildCollectionSummaries(accessibleItems)
     : [];
   const collectionCards = allCollections.slice(0, state.loadedCount);
+  const isMindView = state.primaryFilter === 'Mind';
   const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName;
   const isAlbumPickerMode = Boolean(albumSelectionTarget || videoAlbumSelectionTarget || state.privateSelectionMode);
-  const timelineItems = state.primaryFilter === 'Bin'
+  const timelineItems = isMindView
+    ? []
+    : state.primaryFilter === 'Bin'
     ? state.binItems
     : filteredItems;
-  const baseSections = isCollectionRoot
+  const baseSections = isMindView || isCollectionRoot
     ? []
     : buildSections(timelineItems, state.primaryFilter === 'Bin'
       ? {
@@ -5686,12 +5862,12 @@ function getViewModel() {
           getScrubberLabel: (item) => formatScrubberLabel(item.deletedAt || item.takenAt)
         }
       : undefined);
-  const laidOutSections = isCollectionRoot
+  const laidOutSections = isMindView || isCollectionRoot
     ? []
     : buildTimelineLayoutSections(baseSections, {
         sectionGap: state.primaryFilter === 'Bin' ? BIN_TIMELINE_SECTION_GAP : TIMELINE_SECTION_GAP
       });
-  const shouldVirtualizeTimeline = !isCollectionRoot && timelineItems.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD;
+  const shouldVirtualizeTimeline = !isMindView && !isCollectionRoot && timelineItems.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD;
   const virtualWindow = !shouldVirtualizeTimeline
     ? {
         sections: laidOutSections.map((section) => ({
@@ -5704,14 +5880,14 @@ function getViewModel() {
         })),
         signature: ''
       }
-    : isCollectionRoot
+    : (isMindView || isCollectionRoot)
       ? { sections: [], signature: '' }
       : applyTimelineVirtualWindow(laidOutSections, {
           scrollTop: state.virtualScrollTop,
           viewportHeight: state.virtualViewportHeight
         });
   const sections = virtualWindow.sections;
-  const years = isCollectionRoot
+  const years = isMindView || isCollectionRoot
     ? []
     : [...new Set(timelineItems.map((item) => String(item.year)))]
       .sort((left, right) => Number(right) - Number(left));
@@ -5749,6 +5925,7 @@ function getViewModel() {
     albumSelectionTarget,
     videoAlbumSelectionTarget,
     isAlbumPickerMode,
+    isMindView,
     isCollectionRoot,
     collectionCards,
     totalCollectionCount: allCollections.length,
@@ -5940,6 +6117,12 @@ function render() {
                   layoutWidth: state.layoutWidth,
                   activeSectionAnchor: state.activeSectionAnchor
                 })
+                : viewModel.isMindView
+                ? MindChatView({
+                  messages: state.mindMessages,
+                  draft: state.mindDraft,
+                  busy: state.mindBusy
+                })
                 : state.secondaryFilter === 'Documents'
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : state.privateViewOpen && !state.privateRouteUnlocked
@@ -5960,7 +6143,7 @@ function render() {
                 ${state.privateViewOpen
                   ? PrivateAlbumSummary({ itemCount: viewModel.filteredItems.length, locked: false })
                   : ''}
-                ${SearchSummary({
+                ${viewModel.isMindView ? '' : SearchSummary({
                   query: parsedSearch.textQuery,
                   resultCount: viewModel.isCollectionRoot
                     ? viewModel.totalCollectionCount
@@ -6007,7 +6190,7 @@ function render() {
                     }))}`}
             </div>
           </main>
-          ${!viewModel.isCollectionRoot && state.secondaryFilter !== 'Documents' ? YearScroller({
+          ${!viewModel.isMindView && !viewModel.isCollectionRoot && state.secondaryFilter !== 'Documents' ? YearScroller({
             scrubberSections: viewModel.scrubberSections,
             activeSectionAnchor: state.activeSectionAnchor,
             activeScrubberLabel: state.activeScrubberLabel
@@ -6101,6 +6284,9 @@ function render() {
   setupPreviewTouchHandlers();
   setupYearScrollerDrag();
   setupImageLoadAnimations();
+  if (viewModel.isMindView) {
+    window.requestAnimationFrame(() => scrollMindToBottom({ force: false }));
+  }
 }
 
 function syncTopbarSelectionState() {
@@ -6618,6 +6804,9 @@ function mount() {
   document.body.classList.add('codex-media-library-active');
   state.liveSyncAttempts = 0;
   void loadPersistedAlbumState({ forceRender: true });
+  if (state.primaryFilter === 'Mind') {
+    void loadMindState({ forceRender: true });
+  }
   syncLiveMedia({ forceRender: true });
   void syncStorageSummary({ forceRender: true });
   if (!state.adminUsername) {
@@ -6643,9 +6832,16 @@ function mount() {
         e.preventDefault();
         e.stopPropagation();
         unlockPrivateRoute();
+        return;
+      }
+      if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'mind') {
+        e.preventDefault();
+        void sendMindMessage();
       }
     }, true);
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('visibilitychange', handleDocumentVisibilityChange);
+    window.addEventListener('pagehide', handleWindowPageHide);
     window.addEventListener('resize', handleWindowResize);
     document.addEventListener('click', (e) => {
       if (state.docsContextMenu && !(e.target instanceof Element && e.target.closest('.cml-docs-ctx'))) {
@@ -7055,6 +7251,9 @@ function updateActiveYear() {
 }
 
 function getScrollableResultCount() {
+  if (state.primaryFilter === 'Mind') {
+    return state.mindMessages.length;
+  }
   if (state.primaryFilter === 'Bin') {
     return state.binItems.length;
   }
@@ -7154,6 +7353,9 @@ function handleAction(actionTarget) {
       return true;
     case 'open-upload':
       requestNativeUpload();
+      return true;
+    case 'send-mind-message':
+      void sendMindMessage();
       return true;
     case 'toggle-select':
       if (actionTarget.dataset.id) {
@@ -7864,6 +8066,7 @@ function handleClick(event) {
         patchSidebarActive();
         return;
       }
+      handleMindViewTransition(nextPrimary, '');
       if (nextPrimary === 'Private') {
         state.primaryFilter = 'Photos';
         state.privateViewOpen = true;
@@ -7910,6 +8113,7 @@ function handleClick(event) {
         patchSidebarActive();
         return;
       }
+      handleMindViewTransition('Photos', nextSecondary);
       state.primaryFilter = 'Photos';
       state.secondaryFilter = nextSecondary;
       if (state.secondaryFilter !== 'Videos') {
@@ -8001,6 +8205,10 @@ function handleInput(event) {
     if (state.privatePasswordError) {
       resetPrivateRouteUnlockError();
     }
+    return;
+  }
+  if (input.dataset.mindInput === 'message') {
+    state.mindDraft = input.value;
     return;
   }
   if (input.classList.contains('cml-topbar__search-input') || input.classList.contains('cml-sidebar__search-input')) {
@@ -8379,6 +8587,9 @@ function buildNavigationHash() {
   if (primary === 'Collections') {
     return '#/albums';
   }
+  if (primary === 'Mind') {
+    return '#/mind';
+  }
   if (primary === 'Bin') {
     return '#/bin';
   }
@@ -8436,6 +8647,13 @@ function restoreNavigationFromHash() {
         state.activeAlbumName = '';
       }
       break;
+    case 'mind':
+      state.primaryFilter = 'Mind';
+      state.secondaryFilter = '';
+      state.videoCategoryFilter = '';
+      state.activeAlbumName = '';
+      clearPrivateViewState();
+      break;
     case 'bin':
       state.primaryFilter = 'Bin';
       state.secondaryFilter = '';
@@ -8487,8 +8705,15 @@ function boot() {
   restoreNavigationFromHash();
   syncMount();
   window.addEventListener('hashchange', () => {
+    const wasMindView = state.primaryFilter === 'Mind';
     restoreNavigationFromHash();
+    if (wasMindView && state.primaryFilter !== 'Mind') {
+      void mirrorMindMessagesIfNeeded();
+    }
     if (refs.root) {
+      if (state.primaryFilter === 'Mind') {
+        void loadMindState({ forceRender: true });
+      }
       if (state.primaryFilter === 'Bin') {
         void fetchBinItems();
       }

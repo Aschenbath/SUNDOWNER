@@ -303,7 +303,7 @@ const rawItems = [
 ];
 
 export const navigationModel = {
-  primary: ['Photos', 'Collections', 'Private', 'Bin'],
+  primary: ['Photos', 'Collections', 'Mind', 'Private', 'Bin'],
   secondary: ['TODO', 'Videos', 'Documents', 'Favourites']
 };
 
