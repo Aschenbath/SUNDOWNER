@@ -354,3 +354,9 @@ pm; git diff --check passed.
 - Removed success toasts across the media-library by changing `showToast()` in `js/media-library/app.js` to ignore `type === 'success'`. This removes the green “saved / updated / completed” bars globally while preserving error toasts and manual dismiss for non-success cases.
 - Bumped `index.html` media-library app cache bust from `?v=95` to `?v=96` so the toast-behavior change appears immediately after refresh.
 - **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
+
+### 2026-04-17 15:48 Asia/Shanghai
+
+- Removed the Mind empty-state instructional bubble in `js/media-library/components.js` so an empty Mind view no longer explains the mirroring behavior and instead opens as a clean blank chat surface.
+- Deleted the now-unused `.cml-mind__empty` / `.cml-mind__empty-bubble` styles from `css/media-library.css` and bumped cache versions to `components.js?v=34`, `app.js?v=97`, and `media-library.css?v=82`.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.

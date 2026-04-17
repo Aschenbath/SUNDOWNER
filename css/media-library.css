@@ -5699,8 +5699,7 @@ body.codex-media-library-active #app {
   box-shadow: 0 8px 22px rgba(8, 12, 18, 0.22);
 }
 
-#codex-media-library-root .cml-mind__message.is-other .cml-mind__bubble,
-#codex-media-library-root .cml-mind__empty-bubble {
+#codex-media-library-root .cml-mind__message.is-other .cml-mind__bubble {
   background: var(--cml-mind-bubble-left);
   color: #f3f6fa;
   border-top-left-radius: 10px;
@@ -5712,8 +5711,7 @@ body.codex-media-library-active #app {
   border-top-right-radius: 10px;
 }
 
-#codex-media-library-root .cml-mind--midnight .cml-mind__message.is-other .cml-mind__bubble,
-#codex-media-library-root .cml-mind--midnight .cml-mind__empty-bubble {
+#codex-media-library-root .cml-mind--midnight .cml-mind__message.is-other .cml-mind__bubble {
   color: #eff4fb;
 }
 
@@ -5774,19 +5772,6 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-mind__delete .cml-icon {
   width: 14px;
   height: 14px;
-}
-
-#codex-media-library-root .cml-mind__empty {
-  padding-top: 82px;
-  display: flex;
-  justify-content: center;
-}
-
-#codex-media-library-root .cml-mind__empty-bubble {
-  max-width: 430px;
-  padding: 16px 18px;
-  border-radius: 24px;
-  line-height: 1.6;
 }
 
 #codex-media-library-root .cml-mind__composer {

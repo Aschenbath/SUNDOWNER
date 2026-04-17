@@ -1245,11 +1245,7 @@ export function MindChatView({
         </article>
       `;
     }).join('')
-    : `
-      <div class="cml-mind__empty">
-        <div class="cml-mind__empty-bubble">Telegram 里的普通文本会同步到这里，你现在在网页发的内容会先待在右边，下次回来它就会跑到左边。</div>
-      </div>
-    `;
+    : '';
 
   return `
     <section class="cml-mind cml-mind--${escapeHtml(settings.backgroundPreset || 'ios-sky')}" aria-label="Mind conversation"${wallpaperStyle}>
