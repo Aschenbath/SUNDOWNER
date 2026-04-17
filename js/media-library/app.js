@@ -4100,11 +4100,18 @@ function patchToastDom() {
 }
 
 function showToast(message, type = 'error') {
+  const normalizedType = String(type || 'error');
+  if (normalizedType === 'success') {
+    if (state.toastType === 'success' && state.toastMessage) {
+      dismissToast();
+    }
+    return;
+  }
   if (state.toastTimeoutId) {
     window.clearTimeout(state.toastTimeoutId);
   }
   state.toastMessage = String(message || '');
-  state.toastType = String(type || 'error');
+  state.toastType = normalizedType;
   if (!patchToastDom()) { render(); }
   state.toastTimeoutId = window.setTimeout(() => {
     state.toastMessage = '';

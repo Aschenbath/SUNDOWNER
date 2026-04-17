@@ -348,3 +348,9 @@ pm; git diff --check passed.
 - Added a recent-photo wallpaper picker inside the Mind settings drawer in `js/media-library/components.js`, with thumbnail buttons sourced from the current photo library and styled in `css/media-library.css`. This keeps `Upload wallpaper` available, but also lets the user pick a background straight from existing photos.
 - Bumped cache versions to `components.js?v=33`, `app.js?v=95`, and `media-library.css?v=81` via `js/media-library/app.js` and `index.html`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
+
+### 2026-04-17 15:38 Asia/Shanghai
+
+- Removed success toasts across the media-library by changing `showToast()` in `js/media-library/app.js` to ignore `type === 'success'`. This removes the green “saved / updated / completed” bars globally while preserving error toasts and manual dismiss for non-success cases.
+- Bumped `index.html` media-library app cache bust from `?v=95` to `?v=96` so the toast-behavior change appears immediately after refresh.
+- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
