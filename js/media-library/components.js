@@ -392,7 +392,7 @@ export function Sidebar({
     <aside class="cml-sidebar">
       <div class="cml-sidebar__brand">
         <div class="cml-sidebar__brand-wordmark" aria-label="SUNDOWNER">
-          <span class="cml-sidebar__brand-name">SUNDOWNER</span>
+          <img class="cml-sidebar__brand-logo" src="/logo-sundowner.png?v=1" alt="SUNDOWNER" />
         </div>
       </div>
       <div class="cml-sidebar__nav" role="navigation" aria-label="Primary navigation">
@@ -2318,7 +2318,7 @@ export function LoginOverlay({ error = '', isLoading = false } = {}) {
     <div class="cml-login-overlay" role="main" aria-label="Sign in">
       <div class="cml-login-card">
         <div class="cml-login__brand">
-          <img class="cml-login__logo" src="/logo-sundowner.svg?v=2" alt="SUNDOWNER" />
+          <img class="cml-login__logo" src="/logo-sundowner.png?v=1" alt="SUNDOWNER" />
         </div>
         <p class="cml-login__subtitle">Your private photo space</p>
         <form class="cml-login__form" data-form="login" method="post" action="">

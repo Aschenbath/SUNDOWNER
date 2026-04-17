@@ -22,7 +22,6 @@ body.codex-media-library-active #app {
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif !important;
 }
 
-#codex-media-library-root .cml-sidebar__brand-name,
 #codex-media-library-root .cml-login__wordmark {
   font-family: "Times New Roman", Times, serif !important;
 }
@@ -97,15 +96,11 @@ body.codex-media-library-active #app {
   min-height: 0;
 }
 
-#codex-media-library-root .cml-sidebar__brand-name {
-  display: inline-block;
-  color: #f1ece1;
-  font-size: clamp(28px, 2.2vw, 36px);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  line-height: 0.96;
-  text-indent: 0.12em;
-  text-transform: uppercase;
+#codex-media-library-root .cml-sidebar__brand-logo {
+  display: block;
+  width: min(320px, 100%);
+  height: auto;
+  object-fit: contain;
 }
 
 #codex-media-library-root .cml-sidebar__search {
@@ -3078,7 +3073,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-login__logo {
   display: block;
-  width: min(220px, 100%);
+  width: min(260px, 100%);
   height: auto;
 }
 

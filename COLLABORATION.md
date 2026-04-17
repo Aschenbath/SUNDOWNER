@@ -458,3 +458,9 @@ pm; git diff --check passed.
 - Updated `sendMindMessage()` to keep optimistic append behavior without imposing a global cooldown, so rapid consecutive sends can be queued. Updated `deleteMindMessageById()` to keep optimistic disappearance while only locking the specific message being deleted.
 - Updated `js/media-library/components.js` to stop disabling the whole composer for sends, disable only the specific delete button while that message is pending, and scope settings-form disabled states to `settingsBusy`. Bumped frontend cache versions to `components.js?v=42` and `app.js?v=107`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js`, and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js` all passed.
+
+### 2026-04-17 22:24 Asia/Shanghai
+
+- Copied the user-provided `F:\IMG_0832.PNG` into the repo as `logo-sundowner.png` and switched the active branding references away from the old boat SVG. `js/media-library/components.js` now renders the PNG in the sidebar brand block and login screen, while `index.html` and `manifest.json` point browser/app icons at the PNG too.
+- Updated `css/media-library.css` so the sidebar brand uses a real logo image block instead of the old all-text wordmark styling, and slightly enlarged the login-logo slot to fit the new artwork better.
+- Updated `test/previewActions.test.js` to assert the sidebar now references `logo-sundowner.png` instead of relying on the old no-SVG expectation alone. Validation: `git diff --check` plus `node.exe --check` for `js/media-library/components.js` and `js/media-library/app.js` passed. Attempting `node.exe --test test/previewActions.test.js` was not sufficient because this repo's test setup expects a harness that provides `describe`.

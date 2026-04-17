@@ -8,9 +8,9 @@
   "theme_color": "#101113",
   "icons": [
     {
-      "src": "/logo-sundowner.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/logo-sundowner.png",
+      "sizes": "1727x1290",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

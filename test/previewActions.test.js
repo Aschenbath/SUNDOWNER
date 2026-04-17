@@ -554,7 +554,7 @@ describe('media library download actions', () => {
     });
 
     assert.match(html, /cml-sidebar__brand-wordmark/);
-    assert.match(html, />SUNDOWNER</);
+    assert.match(html, /logo-sundowner\.png/);
     assert.match(html, />Albums</);
     assert.match(html, />Private</);
     assert.match(html, /data-secondary="Videos"/);
