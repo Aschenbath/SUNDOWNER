@@ -1,7 +1,9 @@
 import {
   appendWebMindMessage,
+  deleteMindMessage,
   getMindState,
   mirrorFreshMindMessages,
+  updateMindSettings,
 } from '../../utils/mindStore.js';
 
 function jsonResponse(payload, init = {}) {
@@ -33,6 +35,16 @@ export async function onRequest(context) {
     try {
       if (body?.action === 'mirror') {
         const state = await mirrorFreshMindMessages(env);
+        return jsonResponse(state);
+      }
+
+      if (body?.action === 'update-settings') {
+        const state = await updateMindSettings(env, body?.settings || {});
+        return jsonResponse(state);
+      }
+
+      if (body?.action === 'delete-message') {
+        const state = await deleteMindMessage(env, body?.id || '');
         return jsonResponse(state);
       }
 

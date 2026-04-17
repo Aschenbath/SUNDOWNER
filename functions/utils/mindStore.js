@@ -2,6 +2,12 @@ import { getDatabase } from './databaseAdapter.js'
 
 const MIND_STORAGE_KEY = 'manage@sysConfig@mind'
 const MAX_MIND_MESSAGES = 600
+const DEFAULT_MIND_SETTINGS = {
+    contactName: 'Mind',
+    contactAvatarData: '',
+    backgroundPreset: 'ios-sky',
+    backgroundImageData: '',
+}
 
 function normalizeText(value) {
     return String(value ?? '').replace(/\r\n/g, '\n').trim()
@@ -10,6 +16,27 @@ function normalizeText(value) {
 function createEmptyMindState() {
     return {
         messages: [],
+        settings: { ...DEFAULT_MIND_SETTINGS },
+    }
+}
+
+function normalizePreset(value) {
+    const preset = normalizeText(value)
+    const allowed = new Set(['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'])
+    return allowed.has(preset) ? preset : DEFAULT_MIND_SETTINGS.backgroundPreset
+}
+
+function normalizeImageData(value) {
+    const data = normalizeText(value)
+    return /^data:image\//i.test(data) ? data : ''
+}
+
+function normalizeMindSettings(input = {}) {
+    return {
+        contactName: normalizeText(input.contactName) || DEFAULT_MIND_SETTINGS.contactName,
+        contactAvatarData: normalizeImageData(input.contactAvatarData),
+        backgroundPreset: normalizePreset(input.backgroundPreset),
+        backgroundImageData: normalizeImageData(input.backgroundImageData),
     }
 }
 
@@ -62,7 +89,10 @@ function normalizeMindState(rawValue) {
                 return left.id.localeCompare(right.id)
             })
             .slice(-MAX_MIND_MESSAGES)
-        return { messages }
+        return {
+            messages,
+            settings: normalizeMindSettings(parsed?.settings || {}),
+        }
     } catch {
         return createEmptyMindState()
     }
@@ -156,4 +186,23 @@ export async function mirrorFreshMindMessages(env) {
         return message
     })
     return changed ? writeMindState(env, state) : state
+}
+
+export async function updateMindSettings(env, partialSettings = {}) {
+    const state = await readMindState(env)
+    state.settings = normalizeMindSettings({
+        ...state.settings,
+        ...partialSettings,
+    })
+    return writeMindState(env, state)
+}
+
+export async function deleteMindMessage(env, messageId) {
+    const normalizedId = normalizeText(messageId)
+    if (!normalizedId) {
+        throw new Error('Message id is required')
+    }
+    const state = await readMindState(env)
+    state.messages = state.messages.filter((message) => message.id !== normalizedId)
+    return writeMindState(env, state)
 }

@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=28';
+} from './components.js?v=29';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -307,6 +307,9 @@ const state = {
   mindDraft: '',
   mindLoading: false,
   mindBusy: false,
+  mindSettings: createDefaultMindSettings(),
+  mindSettingsDraft: createMindSettingsDraft(),
+  mindSettingsOpen: false,
   lastSelectedId: null,
   needsLogin: false,
   loginError: '',
@@ -2092,6 +2095,22 @@ function normalizeMindText(value) {
   return String(value ?? '').replace(/\r\n/g, '\n').trim();
 }
 
+function normalizeMindSettings(settings = {}) {
+  const defaults = createDefaultMindSettings();
+  const preset = normalizeText(settings.backgroundPreset);
+  const allowedPresets = new Set(['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper']);
+  const normalizeImage = (value) => {
+    const nextValue = normalizeText(value);
+    return /^data:image\//i.test(nextValue) ? nextValue : '';
+  };
+  return {
+    contactName: normalizeText(settings.contactName) || defaults.contactName,
+    contactAvatarData: normalizeImage(settings.contactAvatarData),
+    backgroundPreset: allowedPresets.has(preset) ? preset : defaults.backgroundPreset,
+    backgroundImageData: normalizeImage(settings.backgroundImageData)
+  };
+}
+
 function normalizeMindMessage(rawMessage = {}) {
   const text = normalizeMindText(rawMessage.text);
   if (!text) {
@@ -2115,7 +2134,25 @@ function normalizeMindMessage(rawMessage = {}) {
   };
 }
 
+function createDefaultMindSettings() {
+  return {
+    contactName: 'Mind',
+    contactAvatarData: '',
+    backgroundPreset: 'ios-sky',
+    backgroundImageData: ''
+  };
+}
+
+function createMindSettingsDraft(settings = {}) {
+  return {
+    ...createDefaultMindSettings(),
+    ...settings
+  };
+}
+
 function applyMindState(payload) {
+  state.mindSettings = normalizeMindSettings(payload?.settings || {});
+  state.mindSettingsDraft = createMindSettingsDraft(state.mindSettings);
   state.mindMessages = safeArray(payload?.messages)
     .map((message) => normalizeMindMessage(message))
     .filter(Boolean)
@@ -2204,6 +2241,107 @@ async function sendMindMessage() {
         input.focus();
       }
     }
+  }
+}
+
+function setMindSettingsOpen(nextOpen) {
+  const nextValue = Boolean(nextOpen);
+  if (state.mindSettingsOpen === nextValue) {
+    return;
+  }
+  state.mindSettingsOpen = nextValue;
+  if (nextValue) {
+    state.mindSettingsDraft = createMindSettingsDraft(state.mindSettings);
+  }
+  if (refs.root) {
+    render();
+    if (nextValue) {
+      window.setTimeout(() => {
+        const input = refs.root?.querySelector('[data-mind-settings-field="contactName"]');
+        if (input instanceof HTMLInputElement) {
+          input.focus();
+          input.select();
+        }
+      }, 30);
+    }
+  }
+}
+
+async function saveMindSettings() {
+  if (state.mindBusy) {
+    return;
+  }
+  state.mindBusy = true;
+  if (refs.root) {
+    render();
+  }
+  try {
+    const payload = await postJson('/api/manage/mind', {
+      action: 'update-settings',
+      settings: state.mindSettingsDraft
+    });
+    applyMindState(payload);
+    state.mindSettingsOpen = false;
+    showToast('Mind appearance updated', 'success');
+  } catch (error) {
+    showToast(error.message || 'Failed to save Mind settings');
+  } finally {
+    state.mindBusy = false;
+    if (refs.root) {
+      render();
+      scrollMindToBottom({ force: false });
+    }
+  }
+}
+
+async function deleteMindMessageById(messageId) {
+  const normalizedId = normalizeText(messageId);
+  if (!normalizedId || state.mindBusy) {
+    return;
+  }
+  state.mindBusy = true;
+  if (refs.root) {
+    render();
+  }
+  try {
+    const payload = await postJson('/api/manage/mind', {
+      action: 'delete-message',
+      id: normalizedId
+    });
+    applyMindState(payload);
+    showToast('Message deleted', 'success');
+  } catch (error) {
+    showToast(error.message || 'Failed to delete message');
+  } finally {
+    state.mindBusy = false;
+    if (refs.root) {
+      render();
+      scrollMindToBottom({ force: false });
+    }
+  }
+}
+
+async function handleMindAssetSelection(field, file) {
+  if (!file) {
+    return;
+  }
+  if (!file.type.startsWith('image/')) {
+    showToast('Please choose an image file');
+    return;
+  }
+  if (file.size > 1.5 * 1024 * 1024) {
+    showToast('Please choose an image smaller than 1.5 MB');
+    return;
+  }
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    state.mindSettingsDraft = {
+      ...state.mindSettingsDraft,
+      [field]: dataUrl
+    };
+    render();
+  } catch (error) {
+    showToast(error.message || 'Failed to read image');
   }
 }
 
@@ -6121,7 +6259,10 @@ function render() {
                 ? MindChatView({
                   messages: state.mindMessages,
                   draft: state.mindDraft,
-                  busy: state.mindBusy
+                  busy: state.mindBusy,
+                  settings: state.mindSettings,
+                  settingsDraft: state.mindSettingsDraft,
+                  settingsOpen: state.mindSettingsOpen
                 })
                 : state.secondaryFilter === 'Documents'
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
@@ -6837,6 +6978,11 @@ function mount() {
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'mind') {
         e.preventDefault();
         void sendMindMessage();
+        return;
+      }
+      if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'mind-settings') {
+        e.preventDefault();
+        void saveMindSettings();
       }
     }, true);
     document.addEventListener('keydown', handleKeyDown);
@@ -7356,6 +7502,47 @@ function handleAction(actionTarget) {
       return true;
     case 'send-mind-message':
       void sendMindMessage();
+      return true;
+    case 'toggle-mind-settings':
+      setMindSettingsOpen(!state.mindSettingsOpen);
+      return true;
+    case 'close-mind-settings':
+      setMindSettingsOpen(false);
+      return true;
+    case 'set-mind-background-preset':
+      if (!state.mindBusy) {
+        state.mindSettingsDraft = {
+          ...state.mindSettingsDraft,
+          backgroundPreset: normalizeMindSettings({
+            ...state.mindSettingsDraft,
+            backgroundPreset: actionTarget.dataset.value || ''
+          }).backgroundPreset
+        };
+        render();
+      }
+      return true;
+    case 'clear-mind-avatar':
+      if (!state.mindBusy) {
+        state.mindSettingsDraft = {
+          ...state.mindSettingsDraft,
+          contactAvatarData: ''
+        };
+        render();
+      }
+      return true;
+    case 'clear-mind-wallpaper':
+      if (!state.mindBusy) {
+        state.mindSettingsDraft = {
+          ...state.mindSettingsDraft,
+          backgroundImageData: ''
+        };
+        render();
+      }
+      return true;
+    case 'delete-mind-message':
+      if (actionTarget.dataset.id) {
+        void deleteMindMessageById(actionTarget.dataset.id);
+      }
       return true;
     case 'toggle-select':
       if (actionTarget.dataset.id) {
@@ -8211,6 +8398,13 @@ function handleInput(event) {
     state.mindDraft = input.value;
     return;
   }
+  if (input.dataset.mindSettingsField) {
+    state.mindSettingsDraft = {
+      ...state.mindSettingsDraft,
+      [input.dataset.mindSettingsField]: input.value
+    };
+    return;
+  }
   if (input.classList.contains('cml-topbar__search-input') || input.classList.contains('cml-sidebar__search-input')) {
     state.searchDraft = input.value;
     return;
@@ -8271,6 +8465,11 @@ function handleChange(event) {
   }
   if (target.hasAttribute('data-admin-avatar-input')) {
     void handleAdminAvatarSelection(target.files && target.files[0] ? target.files[0] : null);
+    target.value = '';
+    return;
+  }
+  if (target.dataset.mindFile) {
+    void handleMindAssetSelection(target.dataset.mindFile, target.files && target.files[0] ? target.files[0] : null);
     target.value = '';
   }
 }

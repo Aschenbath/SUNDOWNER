@@ -517,12 +517,24 @@ function AvatarButton({
 
 export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSelection = false, canSetAlbumCover = false }) {
   if (state.primaryFilter === 'Mind') {
+    const contactName = escapeHtml(state.mindSettings?.contactName || 'Mind');
+    const avatarData = escapeHtml(state.mindSettings?.contactAvatarData || '');
+    const headerAvatar = avatarData
+      ? `<span class="cml-mind-header__avatar"><img src="${avatarData}" alt="${contactName}" class="cml-mind-header__avatar-image"></span>`
+      : `<span class="cml-mind-header__avatar cml-mind-header__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`;
     return `
       <header class="cml-topbar cml-topbar--mind">
-        <div class="cml-topbar__mind-copy">
-          <p class="cml-topbar__mind-eyebrow">Mind</p>
-          <h2 class="cml-topbar__mind-title">A chat with your past self</h2>
+        <div class="cml-mind-header">
+          ${headerAvatar}
+          <div class="cml-mind-header__copy">
+            <p class="cml-mind-header__title">${contactName}</p>
+            <p class="cml-mind-header__meta">iMessage-style self conversation</p>
+          </div>
         </div>
+        <button type="button" class="cml-topbar__secondary-button ${state.mindSettingsOpen ? 'is-selected' : ''}" data-action="toggle-mind-settings" aria-pressed="${state.mindSettingsOpen ? 'true' : 'false'}">
+          ${icon('sliders')}
+          <span>Style</span>
+        </button>
       </header>
     `;
   }
@@ -1189,8 +1201,20 @@ function formatMindDay(timestamp) {
   return `${year}-${month}-${day}`;
 }
 
-export function MindChatView({ messages = [], draft = '', busy = false }) {
+export function MindChatView({
+  messages = [],
+  draft = '',
+  busy = false,
+  settings = {},
+  settingsDraft = settings,
+  settingsOpen = false
+}) {
   const safeDraft = escapeHtml(String(draft || ''));
+  const contactName = escapeHtml(settings.contactName || 'Mind');
+  const contactAvatarData = escapeHtml(settings.contactAvatarData || '');
+  const wallpaperStyle = settings.backgroundImageData
+    ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(settings.backgroundImageData)}')"`
+    : '';
   let lastDay = '';
   const historyHtml = messages.length
     ? messages.map((message) => {
@@ -1198,13 +1222,22 @@ export function MindChatView({ messages = [], draft = '', busy = false }) {
       const showDay = dayLabel && dayLabel !== lastDay;
       lastDay = dayLabel || lastDay;
       const sideClass = message.side === 'right' ? 'is-self' : 'is-other';
+      const avatarHtml = message.side === 'left'
+        ? (contactAvatarData
+          ? `<span class="cml-mind__avatar"><img src="${contactAvatarData}" alt="${contactName}" class="cml-mind__avatar-image"></span>`
+          : `<span class="cml-mind__avatar cml-mind__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`)
+        : '<span class="cml-mind__avatar cml-mind__avatar--spacer" aria-hidden="true"></span>';
       return `
         ${showDay ? `<div class="cml-mind__day">${escapeHtml(dayLabel)}</div>` : ''}
         <article class="cml-mind__message ${sideClass}">
-          <div class="cml-mind__bubble">
-            <p class="cml-mind__text">${escapeHtml(message.text).replace(/\n/g, '<br>')}</p>
+          ${avatarHtml}
+          <div class="cml-mind__message-stack">
+            <div class="cml-mind__bubble">
+              <p class="cml-mind__text">${escapeHtml(message.text).replace(/\n/g, '<br>')}</p>
+            </div>
+            <button type="button" class="cml-mind__delete" data-action="delete-mind-message" data-id="${escapeHtml(message.id)}" aria-label="Delete message">${icon('trash')}</button>
+            <time class="cml-mind__time">${escapeHtml(formatMindTime(message.createdAt))}</time>
           </div>
-          <time class="cml-mind__time">${escapeHtml(formatMindTime(message.createdAt))}</time>
         </article>
       `;
     }).join('')
@@ -1215,9 +1248,65 @@ export function MindChatView({ messages = [], draft = '', busy = false }) {
     `;
 
   return `
-    <section class="cml-mind" aria-label="Mind conversation">
-      <div class="cml-mind__history">
-        ${historyHtml}
+    <section class="cml-mind cml-mind--${escapeHtml(settings.backgroundPreset || 'ios-sky')}" aria-label="Mind conversation"${wallpaperStyle}>
+      <div class="cml-mind__surface"></div>
+      <div class="cml-mind__thread">
+        <div class="cml-mind__history">
+          ${historyHtml}
+        </div>
+        ${settingsOpen ? `
+          <div class="cml-mind__settings">
+            <form class="cml-mind__settings-card" data-form="mind-settings">
+              <div class="cml-mind__settings-head">
+                <div>
+                  <p class="cml-mind__settings-eyebrow">Conversation Style</p>
+                  <h3 class="cml-mind__settings-title">Customize this chat</h3>
+                </div>
+                <button type="button" class="cml-mind__settings-close" data-action="close-mind-settings" aria-label="Close settings">${icon('close')}</button>
+              </div>
+              <label class="cml-mind__field">
+                <span>Chat name</span>
+                <input type="text" class="cml-mind__field-input" data-mind-settings-field="contactName" value="${escapeHtml(settingsDraft.contactName || '')}" maxlength="48" placeholder="Mind" ${busy ? 'disabled' : ''} />
+              </label>
+              <div class="cml-mind__field">
+                <span>Avatar</span>
+                <div class="cml-mind__asset-row">
+                  ${settingsDraft.contactAvatarData
+                    ? `<span class="cml-mind__asset-preview"><img src="${escapeHtml(settingsDraft.contactAvatarData)}" alt="Avatar preview" class="cml-mind__asset-image"></span>`
+                    : `<span class="cml-mind__asset-preview cml-mind__asset-preview--fallback">${escapeHtml((settingsDraft.contactName || 'Mind').charAt(0).toUpperCase() || 'M')}</span>`}
+                  <label class="cml-mind__asset-button">
+                    <input type="file" accept="image/*" data-mind-file="contactAvatarData" ${busy ? 'disabled' : ''} hidden />
+                    <span>Upload avatar</span>
+                  </label>
+                  ${settingsDraft.contactAvatarData ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-avatar" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
+                </div>
+              </div>
+              <div class="cml-mind__field">
+                <span>Background</span>
+                <div class="cml-mind__preset-grid">
+                  ${['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'].map((preset) => `
+                    <button type="button" class="cml-mind__preset ${settingsDraft.backgroundPreset === preset ? 'is-active' : ''}" data-action="set-mind-background-preset" data-value="${preset}" aria-pressed="${settingsDraft.backgroundPreset === preset ? 'true' : 'false'}">
+                      <span class="cml-mind__preset-swatch cml-mind__preset-swatch--${preset}"></span>
+                      <span>${escapeHtml(preset.replace(/-/g, ' '))}</span>
+                    </button>
+                  `).join('')}
+                </div>
+                <div class="cml-mind__asset-row">
+                  ${settingsDraft.backgroundImageData ? `<span class="cml-mind__wallpaper-thumb"><img src="${escapeHtml(settingsDraft.backgroundImageData)}" alt="Wallpaper preview" class="cml-mind__asset-image"></span>` : ''}
+                  <label class="cml-mind__asset-button">
+                    <input type="file" accept="image/*" data-mind-file="backgroundImageData" ${busy ? 'disabled' : ''} hidden />
+                    <span>Upload wallpaper</span>
+                  </label>
+                  ${settingsDraft.backgroundImageData ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-wallpaper" ${busy ? 'disabled' : ''}>Remove</button>` : ''}
+                </div>
+              </div>
+              <div class="cml-mind__settings-actions">
+                <button type="button" class="cml-topbar__secondary-button" data-action="close-mind-settings" ${busy ? 'disabled' : ''}>Cancel</button>
+                <button type="submit" class="cml-topbar__upload-button" ${busy ? 'disabled' : ''}>Save</button>
+              </div>
+            </form>
+          </div>
+        ` : ''}
       </div>
       <form class="cml-mind__composer" data-form="mind">
         <label class="cml-mind__input-shell" aria-label="Mind message">
