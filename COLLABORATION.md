@@ -439,3 +439,9 @@ pm; git diff --check passed.
 - Removed the implicit `mirrorMindMessagesIfNeeded()` triggers from `js/media-library/app.js` for leaving the Mind view, tab visibility changes, page-hide, and hash-navigation changes. Fresh web-authored Mind messages should no longer jump from right to left just because another UI action happened in the same visit.
 - This directly prevents the deletion flow from being pre-empted by an unrelated auto-mirror request, which had been making all fresh messages flip left before the requested delete completed.
 - **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
+
+### 2026-04-17 21:14 Asia/Shanghai
+
+- Tightened the desktop `Mind` composer proportions again in `css/media-library.css`: the input pill now uses `width: 75%` with a `980px` cap, so it reads about a quarter shorter than the previous full-width desktop version.
+- Reduced the pill height from `62px` to `52px`, the inner input height from `48px` to `40px`, and the send button from `56x48` to `50x40`, so the whole composer sits lower and lighter. Mobile keeps `width: 100%` under the existing responsive breakpoint to preserve usability on small screens.
+- **Validation**: `git diff --check` passed after the CSS-only change.
