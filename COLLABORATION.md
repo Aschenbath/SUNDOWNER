@@ -392,3 +392,10 @@ pm; git diff --check passed.
 - Fixed the Style drawer jump-to-top problem by preserving `.cml-mind__settings-card` scroll position across rerenders, and made preset/send-color taps lighter by patching the live Mind preview in place instead of forcing a full render for those button clicks.
 - Changed Mind settings save to optimistic apply: clicking `Save` now closes the drawer and updates the active UI immediately, then persists in the background; on failure, the previous settings are restored and the drawer reopens with the attempted draft intact. Bumped `index.html` app cache bust to `app.js?v=102`.
 - **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
+
+### 2026-04-17 16:53 Asia/Shanghai
+
+- Fixed a Mind regression where send-button color choices looked selected in the Style drawer but the composer button itself could stay dark after save.
+- Moved Mind send-button theming onto the button element with explicit CSS variables in js/media-library/components.js and js/media-library/app.js, so both live preview and saved state paint the real button immediately.
+- Bumped frontend cache versions to components.js?v=39 and pp.js?v=103 to avoid stale browser modules hiding the fix.
+- **Validation**: git diff --check, D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js, and D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js all passed.

@@ -1212,6 +1212,54 @@ const MIND_SEND_BUTTON_OPTIONS = [
   { value: 'black', label: '黑色' }
 ];
 
+const MIND_SEND_BUTTON_THEME_BY_VALUE = {
+  default: {
+    background: 'linear-gradient(180deg, #6b7280 0%, #4b5563 100%)',
+    shadow: 'rgba(75, 85, 99, 0.3)',
+    text: '#ffffff'
+  },
+  blue: {
+    background: 'linear-gradient(180deg, #2896ff 0%, #0d7fff 100%)',
+    shadow: 'rgba(13, 127, 255, 0.32)',
+    text: '#ffffff'
+  },
+  green: {
+    background: 'linear-gradient(180deg, #39da63 0%, #27c451 100%)',
+    shadow: 'rgba(39, 196, 81, 0.34)',
+    text: '#ffffff'
+  },
+  yellow: {
+    background: 'linear-gradient(180deg, #f8cf32 0%, #e9b400 100%)',
+    shadow: 'rgba(233, 180, 0, 0.3)',
+    text: '#1c1a12'
+  },
+  pink: {
+    background: 'linear-gradient(180deg, #f062a8 0%, #e14893 100%)',
+    shadow: 'rgba(225, 72, 147, 0.3)',
+    text: '#ffffff'
+  },
+  orange: {
+    background: 'linear-gradient(180deg, #ff8a33 0%, #f06000 100%)',
+    shadow: 'rgba(240, 96, 0, 0.3)',
+    text: '#ffffff'
+  },
+  purple: {
+    background: 'linear-gradient(180deg, #9a63ff 0%, #7f43e6 100%)',
+    shadow: 'rgba(127, 67, 230, 0.32)',
+    text: '#ffffff'
+  },
+  black: {
+    background: 'linear-gradient(180deg, #2d3138 0%, #16181d 100%)',
+    shadow: 'rgba(10, 12, 16, 0.42)',
+    text: '#ffffff'
+  }
+};
+
+function buildMindSendButtonStyle(value) {
+  const theme = MIND_SEND_BUTTON_THEME_BY_VALUE[value] || MIND_SEND_BUTTON_THEME_BY_VALUE.green;
+  return ` style="--cml-mind-send-bg:${theme.background};--cml-mind-send-shadow:${theme.shadow};--cml-mind-send-text:${theme.text}"`;
+}
+
 export function MindChatView({
   messages = [],
   draft = '',
@@ -1227,6 +1275,7 @@ export function MindChatView({
   const contactName = escapeHtml(settings.contactName || 'Mind');
   const contactAvatarData = escapeHtml(settings.contactAvatarData || '');
   const sendButtonColor = escapeHtml(settings.sendButtonColor || 'green');
+  const sendButtonStyle = buildMindSendButtonStyle(settings.sendButtonColor || 'green');
   const wallpaperStyle = wallpaperUrl
     ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(wallpaperUrl)}')"`
     : '';
@@ -1279,7 +1328,7 @@ export function MindChatView({
             value="${safeDraft}"
             ${busy ? 'disabled' : ''}
           />
-          <button type="submit" class="cml-mind__send" data-action="send-mind-message" ${busy ? 'disabled' : ''} aria-label="Send message">
+          <button type="submit" class="cml-mind__send" data-action="send-mind-message"${sendButtonStyle} ${busy ? 'disabled' : ''} aria-label="Send message">
             ${icon('arrow-up')}
           </button>
         </label>

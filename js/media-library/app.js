@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=38';
+} from './components.js?v=39';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -386,6 +386,48 @@ let mindMirrorPromise = null;
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
 const MIND_BACKGROUND_PRESETS = ['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'];
 const MIND_SEND_BUTTON_COLORS = ['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'black'];
+const MIND_SEND_BUTTON_THEMES = {
+  default: {
+    background: 'linear-gradient(180deg, #6b7280 0%, #4b5563 100%)',
+    shadow: 'rgba(75, 85, 99, 0.3)',
+    text: '#ffffff'
+  },
+  blue: {
+    background: 'linear-gradient(180deg, #2896ff 0%, #0d7fff 100%)',
+    shadow: 'rgba(13, 127, 255, 0.32)',
+    text: '#ffffff'
+  },
+  green: {
+    background: 'linear-gradient(180deg, #39da63 0%, #27c451 100%)',
+    shadow: 'rgba(39, 196, 81, 0.34)',
+    text: '#ffffff'
+  },
+  yellow: {
+    background: 'linear-gradient(180deg, #f8cf32 0%, #e9b400 100%)',
+    shadow: 'rgba(233, 180, 0, 0.3)',
+    text: '#1c1a12'
+  },
+  pink: {
+    background: 'linear-gradient(180deg, #f062a8 0%, #e14893 100%)',
+    shadow: 'rgba(225, 72, 147, 0.3)',
+    text: '#ffffff'
+  },
+  orange: {
+    background: 'linear-gradient(180deg, #ff8a33 0%, #f06000 100%)',
+    shadow: 'rgba(240, 96, 0, 0.3)',
+    text: '#ffffff'
+  },
+  purple: {
+    background: 'linear-gradient(180deg, #9a63ff 0%, #7f43e6 100%)',
+    shadow: 'rgba(127, 67, 230, 0.32)',
+    text: '#ffffff'
+  },
+  black: {
+    background: 'linear-gradient(180deg, #2d3138 0%, #16181d 100%)',
+    shadow: 'rgba(10, 12, 16, 0.42)',
+    text: '#ffffff'
+  }
+};
 
 const touchZoom = {
   active: false,
@@ -2410,6 +2452,17 @@ function resolveMindWallpaperUrl(settings = state.mindSettings) {
   return normalizeText(settings?.backgroundImageData);
 }
 
+function applyMindSendButtonTheme(button, tone) {
+  if (!(button instanceof HTMLElement)) {
+    return;
+  }
+  const resolvedTone = MIND_SEND_BUTTON_COLORS.includes(tone) ? tone : createDefaultMindSettings().sendButtonColor;
+  const theme = MIND_SEND_BUTTON_THEMES[resolvedTone] || MIND_SEND_BUTTON_THEMES.green;
+  button.style.setProperty('--cml-mind-send-bg', theme.background);
+  button.style.setProperty('--cml-mind-send-shadow', theme.shadow);
+  button.style.setProperty('--cml-mind-send-text', theme.text);
+}
+
 function patchMindDraftPreview() {
   if (!refs.root || !state.mindSettingsOpen) {
     return false;
@@ -2425,6 +2478,7 @@ function patchMindDraftPreview() {
   MIND_SEND_BUTTON_COLORS.forEach((tone) => {
     section.classList.toggle(`cml-mind--send-${tone}`, draftSettings.sendButtonColor === tone);
   });
+  applyMindSendButtonTheme(section.querySelector('.cml-mind__send'), draftSettings.sendButtonColor);
   const wallpaperUrl = resolveMindWallpaperUrl(draftSettings);
   if (wallpaperUrl) {
     const escapedUrl = String(wallpaperUrl).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
