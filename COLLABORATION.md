@@ -366,3 +366,9 @@ pm; git diff --check passed.
 - Restored the Mind empty-state bubble in `js/media-library/components.js`, but replaced the old instructional copy with the user-supplied line `我有时会觉得我真正的人生还未开启`.
 - Restored the matching `.cml-mind__empty` / `.cml-mind__empty-bubble` styles in `css/media-library.css` and bumped cache versions to `components.js?v=35`, `app.js?v=98`, and `media-library.css?v=83`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
+
+### 2026-04-17 15:58 Asia/Shanghai
+
+- Moved the custom Mind empty-state line out of the centered chat bubble and into the composer placeholder in `js/media-library/components.js`, so the chat canvas stays visually quiet while the line still appears in a lighter, lower-emphasis position.
+- Removed the corresponding empty-state bubble styles from `css/media-library.css` again, and bumped cache versions to `components.js?v=36`, `app.js?v=99`, and `media-library.css?v=84`.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.

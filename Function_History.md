@@ -93,3 +93,4 @@
 26-04-17 by codex: Remove green success toasts across the media-library by making toast rendering ignore success events while keeping error toasts intact
 26-04-17 by codex: Remove the Mind empty-state instructional bubble so a blank Mind view opens as a clean chat canvas with no explanatory copy
 26-04-17 by codex: Restore the Mind empty-state bubble with the custom line “我有时会觉得我真正的人生还未开启”
+26-04-17 by codex: Move the custom Mind empty-state line into the composer placeholder instead of rendering it as a large centered bubble
