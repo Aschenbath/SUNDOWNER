@@ -116,3 +116,4 @@
 26-04-18 by codex: Make the desktop sidebar Mind entry follow the customized contactName too, so renaming the chat to William or any other name updates both the top header and the left navigation label
 26-04-18 by codex: Fix the preserved-sidebar regression in Mind rename sync by updating the live sidebar patch path too, so contactName changes repaint the kept nav DOM instead of only affecting freshly rendered templates
 26-04-18 by codex: Restore Mind's intended next-visit mirroring by triggering the mirror action only when entering the Mind route or reopening directly into it, so fresh right-side web notes turn left on the next visit without using visibility/pagehide/hash side effects
+26-04-18 by codex: Stop Mind's customized contact name from flashing back to the default "Mind" on reopen by caching the saved settings locally for first paint and bumping the media-library app cache version

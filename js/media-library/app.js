@@ -54,6 +54,7 @@ const FAVORITES_STORAGE_KEY = 'codex-media-library-favorites';
 const ALBUMS_STORAGE_KEY = 'codex-media-library-albums';
 const ALBUM_ASSIGNMENTS_STORAGE_KEY = 'codex-media-library-album-assignments';
 const ALBUM_COVERS_STORAGE_KEY = 'codex-media-library-album-covers';
+const MIND_SETTINGS_STORAGE_KEY = 'codex-media-library-mind-settings';
 const LEGACY_ALBUM_STORAGE_KEYS = [
   FAVORITES_STORAGE_KEY,
   ALBUMS_STORAGE_KEY,
@@ -235,6 +236,8 @@ function clearLegacyAlbumState() {
 
 const legacyAlbumState = readLegacyAlbumState();
 
+const initialMindSettings = loadCachedMindSettings();
+
 const state = {
   primaryFilter: 'Photos',
   secondaryFilter: '',
@@ -308,8 +311,8 @@ const state = {
   mindLoading: false,
   mindSettingsBusy: false,
   mindDeletingIds: new Set(),
-  mindSettings: createDefaultMindSettings(),
-  mindSettingsDraft: createMindSettingsDraft(),
+  mindSettings: initialMindSettings,
+  mindSettingsDraft: createMindSettingsDraft(initialMindSettings),
   mindSettingsOpen: false,
   lastSelectedId: null,
   needsLogin: false,
@@ -2219,6 +2222,25 @@ function createDefaultMindSettings() {
   };
 }
 
+function loadCachedMindSettings() {
+  const cached = loadJson(MIND_SETTINGS_STORAGE_KEY, null);
+  if (!cached || typeof cached !== 'object' || Array.isArray(cached)) {
+    return createDefaultMindSettings();
+  }
+  return normalizeMindSettings(cached);
+}
+
+function persistMindSettings(settings) {
+  try {
+    window.localStorage.setItem(
+      MIND_SETTINGS_STORAGE_KEY,
+      JSON.stringify(normalizeMindSettings(settings))
+    );
+  } catch {
+    // Ignore localStorage failures and keep the UI functional.
+  }
+}
+
 function createMindSettingsDraft(settings = {}) {
   return {
     ...createDefaultMindSettings(),
@@ -2229,6 +2251,7 @@ function createMindSettingsDraft(settings = {}) {
 function applyMindState(payload) {
   state.mindSettings = normalizeMindSettings(payload?.settings || {});
   state.mindSettingsDraft = createMindSettingsDraft(state.mindSettings);
+  persistMindSettings(state.mindSettings);
   state.mindMessages = sortMindMessages(safeArray(payload?.messages)
     .map((message) => normalizeMindMessage(message))
     .filter(Boolean));

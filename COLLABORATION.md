@@ -509,6 +509,12 @@ pm; git diff --check passed.
 - Fixed `js/media-library/app.js` by teaching `loadMindState()` a `mirrorAfterLoad` path and using it only when entering `Mind` or booting/hash-loading directly into `Mind`. That restores the intended "mirror on next visit" behavior without reintroducing delete-racing pagehide/visibility side effects.
 - **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
 
+### 2026-04-18 14:46 Asia/Shanghai
+
+- Traced the "reopen first shows Mind, then changes to the custom name" flicker to first paint using `createDefaultMindSettings()` before `/api/manage/mind` returns. The saved contact name was correct on the backend, but the first render still booted with the hard-coded default string.
+- Fixed `js/media-library/app.js` by caching normalized Mind settings in `localStorage` and seeding initial `state.mindSettings` / `mindSettingsDraft` from that cache before the first render. `applyMindState()` now refreshes that cache whenever the backend settings load, and `index.html` bumps `app.js` to `?v=112` so the fix is not hidden behind browser cache.
+- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.
