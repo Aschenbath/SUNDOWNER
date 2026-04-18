@@ -99,13 +99,15 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar__brand-name {
   display: inline-block;
   font-family: "Times New Roman", Times, serif;
-  font-size: clamp(32px, 2.4vw, 58px);
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  line-height: 1;
+  font-size: clamp(29px, 2vw, 48px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 0.98;
   color: rgba(246, 244, 240, 0.96);
   text-transform: uppercase;
   white-space: nowrap;
+  font-kerning: normal;
+  font-variant-ligatures: none;
 }
 
 #codex-media-library-root .cml-sidebar__search {
