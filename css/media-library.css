@@ -26,6 +26,11 @@ body.codex-media-library-active #app {
   font-family: "Times New Roman", Times, serif !important;
 }
 
+#codex-media-library-root .cml-sidebar__brand-wordmark,
+#codex-media-library-root .cml-sidebar__brand-name {
+  font-family: "Times New Roman", Times, serif !important;
+}
+
 #codex-media-library-root button,
 #codex-media-library-root input {
   appearance: none;
@@ -98,7 +103,6 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-sidebar__brand-name {
   display: inline-block;
-  font-family: "Times New Roman", Times, serif;
   font-size: clamp(29px, 2vw, 48px);
   font-weight: 600;
   letter-spacing: 0.08em;

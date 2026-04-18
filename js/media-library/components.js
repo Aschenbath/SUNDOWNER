@@ -392,7 +392,7 @@ export function Sidebar({
     <aside class="cml-sidebar">
       <div class="cml-sidebar__brand">
         <div class="cml-sidebar__brand-wordmark" aria-label="SUNDOWNER">
-          <span class="cml-sidebar__brand-name">SUNDOWNER</span>
+          <span class="cml-sidebar__brand-name" style="font-family: 'Times New Roman', Times, serif !important;">SUNDOWNER</span>
         </div>
       </div>
       <div class="cml-sidebar__nav" role="navigation" aria-label="Primary navigation">

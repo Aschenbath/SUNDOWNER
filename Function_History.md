@@ -110,4 +110,5 @@
 26-04-17 by codex: Replace the old boat-based SUNDOWNER logo usage with the user-supplied IMG_0832.PNG across sidebar/login branding plus favicon/manifest references, and update the affected previewActions assertion
 26-04-18 by codex: Correct the branding scope misunderstanding by restoring the media-library sidebar to a text-only SUNDOWNER wordmark while switching the separate p2 ui-overrides logo path to the user-supplied IMG_0832.PNG
 26-04-18 by codex: Refine the restored sidebar wordmark to read like a classic Times New Roman masthead by reducing the over-styled weight/spacing and bumping the CSS cache version
+26-04-18 by codex: Fix the sidebar wordmark being forced back to Segoe UI by the media-library global font reset, and hard-lock the SUNDOWNER brand mark to Times New Roman with both a selector exception and inline fallback
 26-04-18 by codex: Normalize footer and other patched external links in `ui-overrides.js` so bare Feishu/Lark or domain-style URLs are upgraded to `https://...` instead of being treated as broken relative paths
