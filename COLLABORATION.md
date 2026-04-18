@@ -515,6 +515,12 @@ pm; git diff --check passed.
 - Fixed `js/media-library/app.js` by caching normalized Mind settings in `localStorage` and seeding initial `state.mindSettings` / `mindSettingsDraft` from that cache before the first render. `applyMindState()` now refreshes that cache whenever the backend settings load, and `index.html` bumps `app.js` to `?v=112` so the fix is not hidden behind browser cache.
 - **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
 
+### 2026-04-18 16:12 Asia/Shanghai
+
+- The first-paint Mind settings cache introduced at 14:46 turned out to be unsafe in production and left the deployed page blank, so it was rolled back immediately instead of trying to salvage it under a broken site.
+- Reverted the `localStorage`-seeded Mind bootstrap path from `js/media-library/app.js` and bumped `index.html` to `app.js?v=113` so Cloudflare Pages and browsers stop serving the bad startup script. The customized-name flicker remains unresolved for now and should be revisited with a safer boot-path patch after the site is stable again.
+- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.
