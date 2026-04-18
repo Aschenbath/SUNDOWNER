@@ -492,6 +492,11 @@ pm; git diff --check passed.
 - Repaired the Documents and move-dialog breadcrumb separators in `js/media-library/components.js` by replacing the broken mojibake separator markup with a normal `/`, and bumped frontend cache versions to `components.js?v=46`, `app.js?v=111`, and `media-library.css?v=95` through `js/media-library/app.js` and `index.html`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js`, `--check js/media-library/components.js`, and `--check functions/utils/telegramSync.js` all passed.
 
+### 2026-04-18 13:49 Asia/Shanghai
+
+- Fixed a Mind naming inconsistency in `js/media-library/components.js`: the chat header was already using `settings.contactName`, but the desktop sidebar entry still hard-coded `Mind`. The sidebar now renders the same customized contact name, so renaming the chat to values like `William` updates both places together.
+- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js` both passed.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.
