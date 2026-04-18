@@ -2249,7 +2249,7 @@ function hasFreshMindMessages() {
   return state.mindMessages.some((message) => message.source === 'web' && message.phase === 'fresh');
 }
 
-async function loadMindState({ forceRender = false } = {}) {
+async function loadMindState({ forceRender = false, mirrorAfterLoad = false } = {}) {
   if (mindStatePromise) {
     return mindStatePromise;
   }
@@ -2258,6 +2258,13 @@ async function loadMindState({ forceRender = false } = {}) {
     .then((payload) => {
       applyMindState(payload);
       return payload;
+    })
+    .then((payload) => {
+      if (!mirrorAfterLoad) {
+        return payload;
+      }
+      return Promise.resolve(mirrorMindMessagesIfNeeded())
+        .then((mirroredPayload) => mirroredPayload || payload);
     })
     .catch((error) => {
       console.error('[media-library] failed to load Mind state', error);
@@ -2566,7 +2573,7 @@ function isMindViewActive() {
 function handleMindViewTransition(nextPrimary, nextSecondary = state.secondaryFilter) {
   const enteringMind = nextPrimary === 'Mind' && !nextSecondary;
   if (enteringMind) {
-    void loadMindState({ forceRender: true });
+    void loadMindState({ forceRender: true, mirrorAfterLoad: true });
     window.setTimeout(() => scrollMindToBottom({ force: true }), 40);
   }
 }
@@ -7180,7 +7187,7 @@ function mount() {
   state.liveSyncAttempts = 0;
   void loadPersistedAlbumState({ forceRender: true });
   if (state.primaryFilter === 'Mind') {
-    void loadMindState({ forceRender: true });
+    void loadMindState({ forceRender: true, mirrorAfterLoad: true });
   }
   syncLiveMedia({ forceRender: true });
   void syncStorageSummary({ forceRender: true });
@@ -9183,9 +9190,9 @@ function boot() {
   window.addEventListener('hashchange', () => {
     restoreNavigationFromHash();
     if (refs.root) {
-      if (state.primaryFilter === 'Mind') {
-        void loadMindState({ forceRender: true });
-      }
+        if (state.primaryFilter === 'Mind') {
+          void loadMindState({ forceRender: true, mirrorAfterLoad: true });
+        }
       if (state.primaryFilter === 'Bin') {
         void fetchBinItems();
       }

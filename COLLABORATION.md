@@ -503,6 +503,12 @@ pm; git diff --check passed.
 - Fixed `js/media-library/app.js` by extending `patchSidebarActive()` to also rewrite the `.cml-sidebar__nav-label` for `data-primary="Mind"` from `state.mindSettings.contactName` on every sidebar sync pass. This makes renamed chats update the preserved sidebar immediately without giving up the no-flicker sidebar strategy.
 - **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
 
+### 2026-04-18 14:35 Asia/Shanghai
+
+- Traced the "switch away / refresh / reopen still stays on the right" Mind regression to a missing trigger: after removing the old implicit mirror hooks on leave/visibility/hash transitions, the code no longer ran `mirror` anywhere on the next visit, so fresh web-authored bubbles never flipped left at all.
+- Fixed `js/media-library/app.js` by teaching `loadMindState()` a `mirrorAfterLoad` path and using it only when entering `Mind` or booting/hash-loading directly into `Mind`. That restores the intended "mirror on next visit" behavior without reintroducing delete-racing pagehide/visibility side effects.
+- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.
