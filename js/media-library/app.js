@@ -6338,6 +6338,12 @@ function patchSidebarActive() {
       : primary === state.primaryFilter && !state.secondaryFilter && !state.privateViewOpen;
     btn.classList.toggle('is-active', active);
     btn.setAttribute('aria-current', active ? 'page' : 'false');
+    if (primary === 'Mind') {
+      const labelNode = btn.querySelector('.cml-sidebar__nav-label');
+      if (labelNode) {
+        labelNode.textContent = state.mindSettings?.contactName || 'Mind';
+      }
+    }
   });
   refs.root.querySelectorAll('.cml-sidebar__subnav-item').forEach((btn) => {
     const secondary = btn.dataset.secondary;
