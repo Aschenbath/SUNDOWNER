@@ -96,11 +96,16 @@ body.codex-media-library-active #app {
   min-height: 0;
 }
 
-#codex-media-library-root .cml-sidebar__brand-logo {
-  display: block;
-  width: min(320px, 100%);
-  height: auto;
-  object-fit: contain;
+#codex-media-library-root .cml-sidebar__brand-name {
+  display: inline-block;
+  font-family: "Times New Roman", Times, serif;
+  font-size: clamp(32px, 2.4vw, 58px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  color: rgba(246, 244, 240, 0.96);
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 #codex-media-library-root .cml-sidebar__search {

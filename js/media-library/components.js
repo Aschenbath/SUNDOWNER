@@ -392,7 +392,7 @@ export function Sidebar({
     <aside class="cml-sidebar">
       <div class="cml-sidebar__brand">
         <div class="cml-sidebar__brand-wordmark" aria-label="SUNDOWNER">
-          <img class="cml-sidebar__brand-logo" src="/logo-sundowner.png?v=1" alt="SUNDOWNER" />
+          <span class="cml-sidebar__brand-name">SUNDOWNER</span>
         </div>
       </div>
       <div class="cml-sidebar__nav" role="navigation" aria-label="Primary navigation">

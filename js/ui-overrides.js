@@ -1,6 +1,6 @@
 (function () {
   const BRAND_NAME = 'SUNDOWNER';
-  const LOGO_PATH = '/logo-sundowner.svg';
+  const LOGO_PATH = '/logo-sundowner.png';
   const ROUTE_CLASSES = ['codex-route-login', 'codex-route-home', 'codex-route-dashboard', 'codex-route-browse'];
   const BLOCKED_URL_PATTERNS = [
     /cfbed\.sanyue\.de/i,
