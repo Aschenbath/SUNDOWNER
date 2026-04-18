@@ -471,3 +471,9 @@ pm; git diff --check passed.
 - Switched the separate `p2` branding injection path in `js/ui-overrides.js` from `/logo-sundowner.svg` to `/logo-sundowner.png`, so the legacy/page-patched logo uses the user-provided `F:\IMG_0832.PNG` without overriding the sidebar wordmark.
 - Added a regression assertion in `test/previewActions.test.js` to keep the sidebar branding text-only, and bumped cache versions in `js/media-library/app.js` plus `index.html` (`components.js?v=44`, `ui-overrides.js?v=7`, `app.js?v=109`, `media-library.css?v=92`) so both the corrected wordmark and the p2 logo swap ship immediately after refresh.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, `--check js/media-library/app.js`, and `--check js/ui-overrides.js` all passed.
+
+### 2026-04-18 08:57 Asia/Shanghai
+
+- Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.
+- Updated `js/ui-overrides.js` to normalize bare external domains before the branding patches continue: values such as `feishu.cn/...`, `larksuite.com/...`, or other domain-style links now get upgraded to `https://...` instead of being treated by the browser as broken relative paths under the current site.
+- This points away from a "mobile move" regression in our recent UI work and toward malformed configured links being interpreted as in-site navigation; blocked-link filtering still runs afterward, so existing outbound safety behavior is unchanged.

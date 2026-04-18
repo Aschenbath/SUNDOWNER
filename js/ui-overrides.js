@@ -104,6 +104,36 @@
     }
   }
 
+  function normalizeExternalHref(rawValue) {
+    const value = typeof rawValue === 'string' ? rawValue.trim() : '';
+    if (!value) {
+      return '';
+    }
+    if (/^(?:[a-z][a-z0-9+.-]*:|#|\/)/i.test(value)) {
+      return value;
+    }
+    if (/^(?:www\.)?(?:feishu\.cn|larksuite\.com)\b/i.test(value) || /^[\w.-]+\.[a-z]{2,}(?:\/|$)/i.test(value)) {
+      return `https://${value}`;
+    }
+    return value;
+  }
+
+  function patchExternalLinks(root) {
+    if (!(root instanceof Element || root instanceof Document)) {
+      return;
+    }
+    root.querySelectorAll('a[href]').forEach((link) => {
+      if (!(link instanceof HTMLAnchorElement)) {
+        return;
+      }
+      const rawHref = link.getAttribute('href');
+      const normalizedHref = normalizeExternalHref(rawHref);
+      if (normalizedHref && rawHref !== normalizedHref) {
+        link.setAttribute('href', normalizedHref);
+      }
+    });
+  }
+
   function patchLogos(root) {
     if (!(root instanceof Element || root instanceof Document)) {
       return;
@@ -890,6 +920,7 @@
     patchTitle();
     patchMeta();
     patchLogos(root);
+    patchExternalLinks(root);
     neutralizeElementText(root);
     patchDialogTitles(root);
     root.querySelectorAll('a[href]').forEach(markBlockedLink);
