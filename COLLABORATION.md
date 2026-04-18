@@ -472,6 +472,12 @@ pm; git diff --check passed.
 - Added a regression assertion in `test/previewActions.test.js` to keep the sidebar branding text-only, and bumped cache versions in `js/media-library/app.js` plus `index.html` (`components.js?v=44`, `ui-overrides.js?v=7`, `app.js?v=109`, `media-library.css?v=92`) so both the corrected wordmark and the p2 logo swap ship immediately after refresh.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, `--check js/media-library/app.js`, and `--check js/ui-overrides.js` all passed.
 
+### 2026-04-18 09:12 Asia/Shanghai
+
+- Tightened the restored sidebar `SUNDOWNER` wordmark in `css/media-library.css` so it reads closer to a classic `Times New Roman` masthead instead of an over-designed serif lockup. The font family remains `Times New Roman`, but the sizing, weight, tracking, and line-height were reduced to a more standard look.
+- Bumped `index.html` cache bust for `media-library.css` from `?v=92` to `?v=93` so the typography correction appears immediately after refresh.
+- **Validation**: `git diff --check` passed.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.
