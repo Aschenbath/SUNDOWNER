@@ -485,6 +485,13 @@ pm; git diff --check passed.
 - Bumped frontend cache versions in `js/media-library/app.js` and `index.html` (`components.js?v=45`, `app.js?v=110`, `media-library.css?v=94`) so the forced-font fix cannot be hidden behind stale browser assets.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
 
+### 2026-04-18 12:06 Asia/Shanghai
+
+- Fixed Telegram import-directory fallback in `functions/utils/telegramSync.js`: if a channel still carries the old auto-generated default like `tg-import/<channel>` or `telegram-import/<channel>`, the sync path now treats that as legacy noise and imports into root instead of nesting files under that two-level directory again.
+- Added matching UI normalization in `js/media-library/app.js` so existing files that already carry those legacy Directory values are shown from the root-level Documents view instead of forcing the user into `tg-import/...` breadcrumbs. This strips only the old default prefix and preserves any real deeper album subpath after it.
+- Repaired the Documents and move-dialog breadcrumb separators in `js/media-library/components.js` by replacing the broken mojibake separator markup with a normal `/`, and bumped frontend cache versions to `components.js?v=46`, `app.js?v=111`, and `media-library.css?v=95` through `js/media-library/app.js` and `index.html`.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js`, `--check js/media-library/components.js`, and `--check functions/utils/telegramSync.js` all passed.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.
