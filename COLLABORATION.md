@@ -464,3 +464,10 @@ pm; git diff --check passed.
 - Copied the user-provided `F:\IMG_0832.PNG` into the repo as `logo-sundowner.png` and switched the active branding references away from the old boat SVG. `js/media-library/components.js` now renders the PNG in the sidebar brand block and login screen, while `index.html` and `manifest.json` point browser/app icons at the PNG too.
 - Updated `css/media-library.css` so the sidebar brand uses a real logo image block instead of the old all-text wordmark styling, and slightly enlarged the login-logo slot to fit the new artwork better.
 - Updated `test/previewActions.test.js` to assert the sidebar now references `logo-sundowner.png` instead of relying on the old no-SVG expectation alone. Validation: `git diff --check` plus `node.exe --check` for `js/media-library/components.js` and `js/media-library/app.js` passed. Attempting `node.exe --test test/previewActions.test.js` was not sufficient because this repo's test setup expects a harness that provides `describe`.
+
+### 2026-04-18 08:27 Asia/Shanghai
+
+- Corrected the logo-scope misunderstanding from the previous branding pass. The media-library sidebar in `js/media-library/components.js` is back to a text-only `SUNDOWNER` wordmark, and `css/media-library.css` now styles it as a serif/Times-style brand mark instead of an uploaded image block.
+- Switched the separate `p2` branding injection path in `js/ui-overrides.js` from `/logo-sundowner.svg` to `/logo-sundowner.png`, so the legacy/page-patched logo uses the user-provided `F:\IMG_0832.PNG` without overriding the sidebar wordmark.
+- Added a regression assertion in `test/previewActions.test.js` to keep the sidebar branding text-only, and bumped cache versions in `js/media-library/app.js` plus `index.html` (`components.js?v=44`, `ui-overrides.js?v=7`, `app.js?v=109`, `media-library.css?v=92`) so both the corrected wordmark and the p2 logo swap ship immediately after refresh.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, `--check js/media-library/app.js`, and `--check js/ui-overrides.js` all passed.
