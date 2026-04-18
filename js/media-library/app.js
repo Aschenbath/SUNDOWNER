@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=45';
+} from './components.js?v=46';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -2872,6 +2872,28 @@ function inferAlbumFromFileId(fileId, metadata) {
   return channelName || 'Library';
 }
 
+function normalizeLegacyTelegramDirectory(rawDirectory, metadata = {}) {
+  const directory = normalizeText(rawDirectory || '').replace(/^\/+|\/+$/g, '');
+  if (!directory) {
+    return '';
+  }
+  const channelName = normalizeText(metadata.ChannelName || '');
+  if (!channelName) {
+    return directory;
+  }
+  const segments = directory.split('/').filter(Boolean);
+  if (segments.length < 2) {
+    return directory;
+  }
+  const root = String(segments[0] || '').toLowerCase();
+  const channelSegment = String(segments[1] || '').toLowerCase();
+  const safeChannel = channelName.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').toLowerCase();
+  if ((root === 'tg-import' || root === 'telegram-import') && channelSegment === safeChannel) {
+    return segments.slice(2).join('/');
+  }
+  return directory;
+}
+
 function formatGPSCoords(lat, lng) {
   const numLat = Number(lat);
   const numLng = Number(lng);
@@ -3221,7 +3243,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
       ? buildFileRoute(fileId, { preview: '1' })
       : '',
     isDocumentLike: type === 'document' || isDocumentLikeSource(fileId, fileName, tags),
-    directory: normalizeText(metadata.Directory || ''),
+    directory: normalizeLegacyTelegramDirectory(metadata.Directory || '', metadata),
     sortOrder: timestamp,
     domIndex: index
   };

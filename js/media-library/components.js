@@ -850,7 +850,7 @@ export function DocumentsListView({ items, state }) {
       ${pathParts.map((part, i) => {
         const path = pathParts.slice(0, i + 1).join('/');
         const isLast = i === pathParts.length - 1;
-        return `<span class="cml-docs-breadcrumb__sep">鈥?/span>
+          return `<span class="cml-docs-breadcrumb__sep">/</span>
           <button type="button" class="cml-docs-breadcrumb__item ${isLast ? 'is-active' : ''}" data-action="docs-navigate" data-dir="${escapeHtml(path)}">
             <span>${escapeHtml(part)}</span>
           </button>`;
@@ -1016,7 +1016,7 @@ export function DocumentsListView({ items, state }) {
         ${moveParts.map((part, i) => {
           const path = moveParts.slice(0, i + 1).join('/');
           const isLast = i === moveParts.length - 1;
-          return `<span class="cml-docs-move-dialog__crumb-sep">鈥?/span>
+          return `<span class="cml-docs-move-dialog__crumb-sep">/</span>
             <button type="button" class="cml-docs-move-dialog__crumb ${isLast ? 'is-active' : ''}" data-action="docs-move-nav" data-dir="${escapeHtml(path)}">
               ${escapeHtml(part)}
             </button>`;

@@ -35,8 +35,26 @@ function normalizeChatId(value) {
     return String(value ?? '').trim()
 }
 
+function isLegacyDefaultTelegramImportDirectory(channelName, importDirectory) {
+    const normalized = sanitizeUploadFolder(importDirectory || '')
+    if (!normalized) {
+        return false
+    }
+    const parts = normalized.split('/').filter(Boolean)
+    if (parts.length < 2) {
+        return false
+    }
+    const root = String(parts[0] || '').trim().toLowerCase()
+    const safeChannel = sanitizeFileName(channelName).toLowerCase()
+    const scopedChannel = String(parts[1] || '').trim().toLowerCase()
+    return (root === 'tg-import' || root === 'telegram-import') && scopedChannel === safeChannel
+}
+
 function getChannelImportRoot(channelName, importDirectory) {
     const fallback = typeof importDirectory === 'string' ? importDirectory : ''
+    if (isLegacyDefaultTelegramImportDirectory(channelName, fallback)) {
+        return ''
+    }
     return sanitizeUploadFolder(fallback)
 }
 
