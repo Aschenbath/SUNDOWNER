@@ -497,6 +497,12 @@ pm; git diff --check passed.
 - Fixed a Mind naming inconsistency in `js/media-library/components.js`: the chat header was already using `settings.contactName`, but the desktop sidebar entry still hard-coded `Mind`. The sidebar now renders the same customized contact name, so renaming the chat to values like `William` updates both places together.
 - **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js` both passed.
 
+### 2026-04-18 14:03 Asia/Shanghai
+
+- The previous Mind rename fix only updated the sidebar template, but `render()` preserves the existing `.cml-sidebar` DOM and only runs lightweight patch helpers afterward. That meant the top header could show the new contactName while the kept sidebar nav still displayed stale text.
+- Fixed `js/media-library/app.js` by extending `patchSidebarActive()` to also rewrite the `.cml-sidebar__nav-label` for `data-primary="Mind"` from `state.mindSettings.contactName` on every sidebar sync pass. This makes renamed chats update the preserved sidebar immediately without giving up the no-flicker sidebar strategy.
+- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.
