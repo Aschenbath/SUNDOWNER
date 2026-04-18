@@ -408,7 +408,9 @@ export function Sidebar({
       : key === 'private'
         ? 'lock'
         : 'albums';
-          const displayLabel = label === 'Collections' ? 'Albums' : label;
+          const displayLabel = label === 'Collections'
+            ? 'Albums'
+            : (label === 'Mind' ? (state.mindSettings?.contactName || 'Mind') : label);
           return `
             <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}" aria-current="${isPrimaryActive(label) ? 'page' : 'false'}">
               ${icon(iconName)}

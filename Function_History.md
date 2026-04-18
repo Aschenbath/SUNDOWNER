@@ -113,3 +113,4 @@
 26-04-18 by codex: Fix the sidebar wordmark being forced back to Segoe UI by the media-library global font reset, and hard-lock the SUNDOWNER brand mark to Times New Roman with both a selector exception and inline fallback
 26-04-18 by codex: Normalize footer and other patched external links in `ui-overrides.js` so bare Feishu/Lark or domain-style URLs are upgraded to `https://...` instead of being treated as broken relative paths
 26-04-18 by codex: Restore Telegram channel imports to root by ignoring the old tg-import/telegram-import default directory template, strip that legacy prefix from existing Documents paths in the media-library UI, and fix the breadcrumb separator mojibake
+26-04-18 by codex: Make the desktop sidebar Mind entry follow the customized contactName too, so renaming the chat to William or any other name updates both the top header and the left navigation label
