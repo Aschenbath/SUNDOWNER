@@ -478,6 +478,13 @@ pm; git diff --check passed.
 - Bumped `index.html` cache bust for `media-library.css` from `?v=92` to `?v=93` so the typography correction appears immediately after refresh.
 - **Validation**: `git diff --check` passed.
 
+### 2026-04-18 09:41 Asia/Shanghai
+
+- Traced the still-wrong sidebar wordmark rendering to the top-level `media-library.css` reset: `#codex-media-library-root * { font-family: "Segoe UI" ... !important; }` was overriding the local brand rule, which is why the screenshot still looked like a sans face instead of Times New Roman.
+- Fixed that by adding a high-priority `Times New Roman` exception for `.cml-sidebar__brand-wordmark` / `.cml-sidebar__brand-name` in `css/media-library.css`, and by duplicating the font family directly on the `<span class="cml-sidebar__brand-name">` inside `js/media-library/components.js` as an inline `!important` fallback.
+- Bumped frontend cache versions in `js/media-library/app.js` and `index.html` (`components.js?v=45`, `app.js?v=110`, `media-library.css?v=94`) so the forced-font fix cannot be hidden behind stale browser assets.
+- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.
