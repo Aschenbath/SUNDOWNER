@@ -6144,7 +6144,8 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-mind__input-wrap {
-  display: block;
+  display: flex;
+  align-items: center;
   min-width: 0;
 }
 
@@ -6205,11 +6206,14 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-mind__input--editor {
-  display: block;
-  overflow-y: auto;
-  white-space: pre-wrap;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
   word-break: break-word;
-  line-height: 1.4;
+  line-height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 #codex-media-library-root .cml-mind__input--editor:empty::before {
