@@ -392,6 +392,7 @@ let mindMutationQueue = Promise.resolve();
 let mindVisitStickyMessages = [];
 let stableAppViewportHeight = 0;
 let stableAppViewportWidth = 0;
+let lockedDocumentScrollY = 0;
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
 const MIND_BACKGROUND_PRESETS = ['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'];
 const MIND_BACKGROUND_POSITIONS = [
@@ -2064,6 +2065,41 @@ function syncViewportHeightVar({ force = false } = {}) {
   refs.root.style.setProperty('--cml-app-height', `${nextHeight}px`);
   stableAppViewportHeight = nextHeight;
   stableAppViewportWidth = nextWidth;
+}
+
+function lockDocumentScroll() {
+  lockedDocumentScrollY = window.scrollY || window.pageYOffset || 0;
+  document.documentElement.classList.add('codex-media-library-active');
+  document.body.classList.add('codex-media-library-active');
+  document.documentElement.style.overflow = 'hidden';
+  document.documentElement.style.overscrollBehavior = 'none';
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${lockedDocumentScrollY}px`;
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.style.width = '100%';
+}
+
+function unlockDocumentScroll() {
+  document.documentElement.classList.remove('codex-media-library-active');
+  document.body.classList.remove('codex-media-library-active');
+  document.documentElement.style.overflow = '';
+  document.documentElement.style.overscrollBehavior = '';
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+  window.scrollTo(0, lockedDocumentScrollY || 0);
+}
+
+function stabilizeMobileMindViewport() {
+  if (!(state.primaryFilter === 'Mind' && isMobileLayout())) {
+    return;
+  }
+  window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
 }
 
 function rememberMobileMindReturnRoute() {
@@ -7356,7 +7392,7 @@ function stopLiveObserver() {
 
 function mount() {
   ensureRoot();
-  document.body.classList.add('codex-media-library-active');
+  lockDocumentScroll();
   state.liveSyncAttempts = 0;
   void loadPersistedAlbumState({ forceRender: true });
   if (state.primaryFilter === 'Mind') {
@@ -7425,7 +7461,7 @@ function mount() {
 }
 
 function unmount() {
-  document.body.classList.remove('codex-media-library-active');
+  unlockDocumentScroll();
   stopLiveObserver();
   if (timelineRenderRaf) {
     window.cancelAnimationFrame(timelineRenderRaf);
@@ -7855,6 +7891,7 @@ function handleVisualViewportResize() {
   }
   if (isMobileMindComposerFocused()) {
     window.requestAnimationFrame(() => {
+      stabilizeMobileMindViewport();
       scrollMindToBottom({ force: true });
     });
   }
@@ -8977,7 +9014,13 @@ function handleFocusIn(event) {
     state.focusedTileId = tile.getAttribute('data-tile-id');
   }
   if (event.target instanceof HTMLInputElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
-    window.setTimeout(() => scrollMindToBottom({ force: true }), 80);
+    stabilizeMobileMindViewport();
+    [0, 80, 220].forEach((delay) => {
+      window.setTimeout(() => {
+        stabilizeMobileMindViewport();
+        scrollMindToBottom({ force: true });
+      }, delay);
+    });
   }
 }
 
@@ -9002,7 +9045,7 @@ function handleFocusOut(event) {
   }
   if (event.target instanceof HTMLInputElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
     window.setTimeout(() => {
-      syncViewportHeightVar({ force: true });
+      stabilizeMobileMindViewport();
       scrollMindToBottom({ force: true });
     }, 180);
   }
