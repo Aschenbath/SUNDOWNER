@@ -444,12 +444,13 @@ export function Sidebar({
 export function MobileBottomNav({ navigationModel, state }) {
   const isPrimary = (label) => state.primaryFilter === label && !state.secondaryFilter;
   const isSecondary = (label) => state.secondaryFilter === label;
+  const mindLabel = state.mindSettings?.contactName || 'Chat';
 
   const tabs = [
     { displayLabel: 'Photos', iconName: 'photos', attr: 'data-primary="Photos"', active: isPrimary('Photos') },
     { displayLabel: 'Albums', iconName: 'albums', attr: 'data-primary="Collections"', active: isPrimary('Collections') },
     { displayLabel: 'Files', iconName: 'documents', attr: 'data-secondary="Documents"', active: isSecondary('Documents') },
-    { displayLabel: 'Bin', iconName: 'trash', attr: 'data-primary="Bin"', active: isPrimary('Bin') }
+    { displayLabel: mindLabel, iconName: 'memory', attr: 'data-primary="Mind"', active: isPrimary('Mind') }
   ];
 
   const tabsHtml = tabs.map(({ displayLabel, iconName, attr, active }) => `
@@ -1154,9 +1155,26 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
   `;
 }
 
-export function CollectionGrid({ collections }) {
+export function CollectionGrid({ collections, showBinEntry = false }) {
   return `
     <section class="cml-collection-grid" aria-label="Album collections">
+      ${showBinEntry ? `
+        <button
+          type="button"
+          class="cml-collection-card cml-collection-card--system"
+          data-primary="Bin"
+          aria-label="Open recently deleted"
+        >
+          <span class="cml-collection-card__cover cml-collection-card__cover--system">
+            <span class="cml-collection-card__placeholder cml-collection-card__placeholder--system">${icon('trash')}</span>
+          </span>
+          <span class="cml-collection-card__body">
+            <strong class="cml-collection-card__title">Recently deleted</strong>
+            <span class="cml-collection-card__meta">Bin</span>
+            <span class="cml-collection-card__copy">Open deleted photos and videos</span>
+          </span>
+        </button>
+      ` : ''}
       ${collections.map((collection) => `
         <button
           type="button"

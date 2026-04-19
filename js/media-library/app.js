@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=46';
+} from './components.js?v=47';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -6510,6 +6510,7 @@ function render() {
   const existingSidebar = refs.root.querySelector('.cml-sidebar');
   const existingShell = refs.root.querySelector('.cml-app-shell');
 
+  const showMobileBinEntry = viewModel.isCollectionRoot && state.layoutWidth <= 960;
   const fullHtml = `
     <div class="cml-app-shell">
       ${Sidebar({
@@ -6594,8 +6595,8 @@ function render() {
                     })
                   : ''}
                 ${viewModel.isCollectionRoot
-                  ? (viewModel.collectionCards.length
-                     ? CollectionGrid({ collections: viewModel.collectionCards })
+                  ? ((viewModel.collectionCards.length || showMobileBinEntry)
+                     ? CollectionGrid({ collections: viewModel.collectionCards, showBinEntry: showMobileBinEntry })
                      : EmptyState({ query: parsedSearch.textQuery, isLoading: state.isLibraryLoading, mode: 'collections' }))
                   : viewModel.isVideoAlbumRoot
                     ? (viewModel.videoAlbumCards.length

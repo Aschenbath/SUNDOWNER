@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
+import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, MobileBottomNav, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
@@ -465,6 +465,38 @@ describe('media library download actions', () => {
     assert.doesNotMatch(gridHtml, /19:35/);
     assert.match(gridHtml, /class="cml-collection-card__cover /);
     assert.doesNotMatch(gridHtml, />Cover</);
+  });
+
+  it('uses Mind instead of Bin in the mobile nav and nests a Bin entry into the mobile albums wall', () => {
+    const mobileNavHtml = MobileBottomNav({
+      navigationModel: {
+        primary: ['Photos', 'Collections', 'Mind', 'Private', 'Bin'],
+        secondary: ['Videos', 'Documents', 'Favourites']
+      },
+      state: {
+        primaryFilter: 'Mind',
+        secondaryFilter: '',
+        mindSettings: { contactName: 'Willian' }
+      }
+    });
+    const gridHtml = CollectionGrid({
+      collections: [{
+        name: 'scenery',
+        itemCount: 12,
+        createdAt: '2026-04-07T19:35:00+08:00',
+        lastModifiedAt: Date.parse('2026-04-09T08:00:00+08:00'),
+        coverItem: null,
+        hasCustomCover: false,
+      }],
+      showBinEntry: true
+    });
+
+    assert.match(mobileNavHtml, /data-primary="Mind"/);
+    assert.match(mobileNavHtml, />Willian</);
+    assert.doesNotMatch(mobileNavHtml, /data-primary="Bin"/);
+    assert.match(gridHtml, /data-primary="Bin"/);
+    assert.match(gridHtml, /Recently deleted/);
+    assert.match(gridHtml, /Open deleted photos and videos/);
   });
 
   it('renders the albums root with a compact title-and-count header', () => {
