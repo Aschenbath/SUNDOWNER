@@ -390,6 +390,8 @@ let mindStatePromise = null;
 let mindMirrorPromise = null;
 let mindMutationQueue = Promise.resolve();
 let mindVisitStickyMessages = [];
+let stableAppViewportHeight = 0;
+let stableAppViewportWidth = 0;
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
 const MIND_BACKGROUND_PRESETS = ['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'];
 const MIND_BACKGROUND_POSITIONS = [
@@ -2031,7 +2033,7 @@ function isMobileMindComposerFocused() {
     && activeElement.dataset.mindInput === 'message';
 }
 
-function syncViewportHeightVar() {
+function syncViewportHeightVar({ force = false } = {}) {
   if (!(refs.root instanceof HTMLElement)) {
     return;
   }
@@ -2042,9 +2044,26 @@ function syncViewportHeightVar() {
       || document.documentElement.clientHeight
       || 0
   );
-  if (nextHeight > 0) {
-    refs.root.style.setProperty('--cml-app-height', `${nextHeight}px`);
+  const nextWidth = Math.round(
+    viewport?.width
+      || window.innerWidth
+      || document.documentElement.clientWidth
+      || 0
+  );
+  if (nextHeight <= 0) {
+    return;
   }
+  const keyboardLikeResize = !force
+    && isMobileMindComposerFocused()
+    && stableAppViewportHeight > 0
+    && nextHeight < stableAppViewportHeight - 120
+    && Math.abs(nextWidth - stableAppViewportWidth) < 40;
+  if (keyboardLikeResize) {
+    return;
+  }
+  refs.root.style.setProperty('--cml-app-height', `${nextHeight}px`);
+  stableAppViewportHeight = nextHeight;
+  stableAppViewportWidth = nextWidth;
 }
 
 function rememberMobileMindReturnRoute() {
@@ -6780,7 +6799,7 @@ function render() {
     : refs.root.querySelector('.cml-main-content');
   refs.sectionAnchors = [...refs.root.querySelectorAll('.cml-timeline-section')];
   refs.contentInner = refs.root.querySelector('.cml-main-content__inner');
-  syncViewportHeightVar();
+  syncViewportHeightVar({ force: stableAppViewportHeight === 0 });
   refs.sectionItemIds = new Map(viewModel.sections.map((section) => [
     section.anchorId,
     section.items.map((item) => item.id)
@@ -8957,7 +8976,7 @@ function handleFocusIn(event) {
     state.focusedTileId = tile.getAttribute('data-tile-id');
   }
   if (event.target instanceof HTMLInputElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
-    window.setTimeout(() => scrollMindToBottom({ force: true }), 120);
+    window.setTimeout(() => scrollMindToBottom({ force: true }), 80);
   }
 }
 
@@ -8979,6 +8998,12 @@ function handleFocusOut(event) {
       state.docsNewFolderOpen = false;
       render();
     }
+  }
+  if (event.target instanceof HTMLInputElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
+    window.setTimeout(() => {
+      syncViewportHeightVar({ force: true });
+      scrollMindToBottom({ force: true });
+    }, 180);
   }
 }
 

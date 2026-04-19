@@ -2657,6 +2657,7 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-topbar--mind-mobile {
     justify-content: initial;
     gap: 10px;
+    min-height: calc(58px + env(safe-area-inset-top, 0px));
     padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 8px;
     background: linear-gradient(180deg, rgba(32, 33, 36, 0.98), rgba(32, 33, 36, 0.92));
     z-index: 48;
@@ -6618,12 +6619,25 @@ body.codex-media-library-active #app {
     bottom: 0;
   }
 
+  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-main-content.is-mind-view {
+    position: relative;
+    min-height: calc(var(--cml-app-height) - (58px + env(safe-area-inset-top, 0px)));
+    height: calc(var(--cml-app-height) - (58px + env(safe-area-inset-top, 0px)));
+    overflow: hidden;
+  }
+
   #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-mind__composer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 45;
     padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   }
 
   #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-mind__history {
-    scroll-padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    height: 100%;
+    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
   }
 
   #codex-media-library-root .cml-mind__input-shell {
@@ -6661,6 +6675,11 @@ body.codex-media-library-active #app {
   #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-mind {
     min-height: var(--cml-app-height);
     height: var(--cml-app-height);
+  }
+
+  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-main-content.is-mind-view {
+    min-height: calc(var(--cml-app-height) - (58px + env(safe-area-inset-top, 0px)));
+    height: calc(var(--cml-app-height) - (58px + env(safe-area-inset-top, 0px)));
   }
 
   #codex-media-library-root .cml-mind__message {
