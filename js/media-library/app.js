@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=50';
+} from './components.js?v=51';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -2008,6 +2008,45 @@ function isMobileLayout() {
   return Number(state.layoutWidth || 0) <= 960;
 }
 
+function normalizeRoutePrimaryFilter(value) {
+  const normalized = normalizeText(value);
+  return ['Photos', 'Collections', 'Mind', 'Bin'].includes(normalized)
+    ? normalized
+    : 'Photos';
+}
+
+function normalizeRouteSecondaryFilter(value) {
+  const normalized = normalizeText(value);
+  return ['', 'Videos', 'Documents', 'Favourites', 'TODO'].includes(normalized)
+    ? normalized
+    : '';
+}
+
+function isMobileMindComposerFocused() {
+  if (!isMobileLayout() || state.primaryFilter !== 'Mind') {
+    return false;
+  }
+  const activeElement = document.activeElement;
+  return activeElement instanceof HTMLInputElement
+    && activeElement.dataset.mindInput === 'message';
+}
+
+function syncViewportHeightVar() {
+  if (!(refs.root instanceof HTMLElement)) {
+    return;
+  }
+  const viewport = window.visualViewport;
+  const nextHeight = Math.round(
+    viewport?.height
+      || window.innerHeight
+      || document.documentElement.clientHeight
+      || 0
+  );
+  if (nextHeight > 0) {
+    refs.root.style.setProperty('--cml-app-height', `${nextHeight}px`);
+  }
+}
+
 function rememberMobileMindReturnRoute() {
   state.mobileMindReturnPrimary = state.privateViewOpen ? 'Photos' : state.primaryFilter;
   state.mobileMindReturnSecondary = state.privateViewOpen ? '' : state.secondaryFilter;
@@ -2017,10 +2056,10 @@ function rememberMobileMindReturnRoute() {
 function leaveMobileMindView() {
   const targetPrimary = state.mobileMindReturnPrivate
     ? 'Photos'
-    : normalizePrimaryFilter(state.mobileMindReturnPrimary || 'Photos');
+    : normalizeRoutePrimaryFilter(state.mobileMindReturnPrimary || 'Photos');
   const targetSecondary = state.mobileMindReturnPrivate
     ? ''
-    : normalizeSecondaryFilter(state.mobileMindReturnSecondary || '');
+    : normalizeRouteSecondaryFilter(state.mobileMindReturnSecondary || '');
   handleMindViewTransition(targetPrimary, targetSecondary);
   state.primaryFilter = targetPrimary;
   state.secondaryFilter = targetSecondary;
@@ -6741,6 +6780,7 @@ function render() {
     : refs.root.querySelector('.cml-main-content');
   refs.sectionAnchors = [...refs.root.querySelectorAll('.cml-timeline-section')];
   refs.contentInner = refs.root.querySelector('.cml-main-content__inner');
+  syncViewportHeightVar();
   refs.sectionItemIds = new Map(viewModel.sections.map((section) => [
     section.anchorId,
     section.items.map((item) => item.id)
@@ -7343,6 +7383,8 @@ function mount() {
     document.addEventListener('visibilitychange', handleDocumentVisibilityChange);
     window.addEventListener('pagehide', handleWindowPageHide);
     window.addEventListener('resize', handleWindowResize);
+    window.visualViewport?.addEventListener('resize', handleVisualViewportResize);
+    window.visualViewport?.addEventListener('scroll', handleVisualViewportResize);
     document.addEventListener('click', (e) => {
       if (state.docsContextMenu && !(e.target instanceof Element && e.target.closest('.cml-docs-ctx'))) {
         state.docsContextMenu = null;
@@ -7767,12 +7809,35 @@ function handleWindowResize() {
   if (!document.body.classList.contains('codex-media-library-active')) {
     return;
   }
+  syncViewportHeightVar();
   if (refs.scrollRegion) {
     state.virtualViewportHeight = refs.scrollRegion.clientHeight;
     state.virtualScrollTop = refs.scrollRegion.scrollTop;
   }
   syncLayoutWidth();
+  if (isMobileMindComposerFocused()) {
+    window.requestAnimationFrame(() => {
+      scrollMindToBottom({ force: true });
+    });
+    return;
+  }
   render();
+}
+
+function handleVisualViewportResize() {
+  if (!document.body.classList.contains('codex-media-library-active')) {
+    return;
+  }
+  syncViewportHeightVar();
+  if (refs.scrollRegion) {
+    state.virtualViewportHeight = refs.scrollRegion.clientHeight;
+    state.virtualScrollTop = refs.scrollRegion.scrollTop;
+  }
+  if (isMobileMindComposerFocused()) {
+    window.requestAnimationFrame(() => {
+      scrollMindToBottom({ force: true });
+    });
+  }
 }
 
 function handleScroll() {

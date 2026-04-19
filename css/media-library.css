@@ -14,6 +14,13 @@ body.codex-media-library-active #app {
   position: fixed;
   inset: 0;
   z-index: 2147483000;
+  --cml-app-height: 100vh;
+}
+
+@supports (height: 100dvh) {
+  #codex-media-library-root {
+    --cml-app-height: 100dvh;
+  }
 }
 
 #codex-media-library-root,
@@ -62,7 +69,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-app-shell {
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr);
-  min-height: 100vh;
+  min-height: var(--cml-app-height);
   background: #1f1f1f;
   color: #e8eaed;
 }
@@ -74,7 +81,7 @@ body.codex-media-library-active #app {
   flex-direction: column;
   align-items: stretch;
   gap: 2px;
-  height: 100vh;
+  height: var(--cml-app-height);
   padding: 8px 8px 12px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -551,7 +558,7 @@ body.codex-media-library-active #app {
   display: grid;
   grid-template-rows: auto 1fr;
   min-width: 0;
-  height: 100vh;
+  height: var(--cml-app-height);
 }
 
 #codex-media-library-root .cml-topbar {
@@ -2868,8 +2875,8 @@ body.codex-media-library-active #app {
 
   #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-app-shell,
   #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-main-shell {
-    min-height: 100dvh;
-    height: 100dvh;
+    min-height: var(--cml-app-height);
+    height: var(--cml-app-height);
   }
 
   /* Toast repositioned above bottom nav */
@@ -6601,6 +6608,7 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-mind__history {
     padding-left: 16px;
     padding-right: 16px;
+    padding-bottom: 6px;
   }
 
   #codex-media-library-root .cml-mind__composer {
@@ -6612,6 +6620,10 @@ body.codex-media-library-active #app {
 
   #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-mind__composer {
     padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-mind__history {
+    scroll-padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   }
 
   #codex-media-library-root .cml-mind__input-shell {
@@ -6642,6 +6654,13 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-mind__history {
     padding: 18px 12px 14px;
     gap: 10px;
+  }
+
+  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-main-content,
+  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-main-content__inner,
+  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-mind {
+    min-height: var(--cml-app-height);
+    height: var(--cml-app-height);
   }
 
   #codex-media-library-root .cml-mind__message {
