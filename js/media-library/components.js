@@ -523,32 +523,13 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   if (state.primaryFilter === 'Mind') {
     const contactName = escapeHtml(state.mindSettings?.contactName || 'Mind');
     const avatarData = escapeHtml(state.mindSettings?.contactAvatarData || '');
+    const isMobileMind = Number(state.layoutWidth || 0) <= 960;
+    if (isMobileMind) {
+      return '';
+    }
     const headerAvatar = avatarData
       ? `<span class="cml-mind-header__avatar"><img src="${avatarData}" alt="${contactName}" class="cml-mind-header__avatar-image"></span>`
       : `<span class="cml-mind-header__avatar cml-mind-header__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`;
-    const isMobileMind = Number(state.layoutWidth || 0) <= 960;
-    if (isMobileMind) {
-      return `
-        <header class="cml-topbar cml-topbar--mind cml-topbar--mind-mobile">
-          <div class="cml-mobile-mind-bar">
-            <button
-              type="button"
-              class="cml-mobile-mind-bar__back"
-              data-action="leave-mobile-mind"
-              aria-label="Back"
-            >
-              ${icon('previous')}
-            </button>
-            <div class="cml-mind-header">
-              ${headerAvatar}
-              <div class="cml-mind-header__copy">
-                <p class="cml-mind-header__title">${contactName}</p>
-              </div>
-            </div>
-          </div>
-        </header>
-      `;
-    }
     return `
       <header class="cml-topbar cml-topbar--mind">
         <div class="cml-mind-header">
@@ -1373,16 +1354,21 @@ export function MindChatView({
   settingsOpen = false,
   wallpaperUrl = '',
   wallpaperDraftUrl = '',
-  wallpaperPhotoChoices = []
+  wallpaperPhotoChoices = [],
+  layoutWidth = 1280
 }) {
   const safeDraft = escapeHtml(String(draft || ''));
   const contactName = escapeHtml(settings.contactName || 'Mind');
   const contactAvatarData = escapeHtml(settings.contactAvatarData || '');
   const sendButtonColor = escapeHtml(settings.sendButtonColor || 'green');
   const sendButtonStyle = buildMindSendButtonStyle(settings.sendButtonColor || 'green');
+  const isMobileMind = Number(layoutWidth || 0) <= 960;
   const wallpaperStyle = wallpaperUrl
     ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(wallpaperUrl)}');--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`
     : ` style="--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`;
+  const headerAvatar = contactAvatarData
+    ? `<span class="cml-mind-header__avatar"><img src="${contactAvatarData}" alt="${contactName}" class="cml-mind-header__avatar-image"></span>`
+    : `<span class="cml-mind-header__avatar cml-mind-header__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`;
   let lastDay = '';
   const historyHtml = messages.length
     ? messages.map((message) => {
@@ -1412,6 +1398,186 @@ export function MindChatView({
       `;
     }).join('')
     : '';
+  const composerHtml = `
+    <form class="cml-mind__composer ${isMobileMind ? 'cml-mind__composer--mobile-fixed' : ''}" data-form="mind">
+      <div class="cml-mind__input-shell">
+        <button
+          type="button"
+          class="cml-mind__composer-plus ${settingsOpen ? 'is-active' : ''}"
+          data-action="toggle-mind-settings"
+          aria-pressed="${settingsOpen ? 'true' : 'false'}"
+          aria-label="Open style settings"
+        >
+          ${icon('plus')}
+        </button>
+        <label class="cml-mind__input-wrap" aria-label="Mind message">
+          <input
+            type="text"
+            class="cml-mind__input"
+            data-mind-input="message"
+            placeholder="我有时会觉得我真正的人生还未开启..."
+            value="${safeDraft}"
+          />
+        </label>
+        <button type="submit" class="cml-mind__send" data-action="send-mind-message"${sendButtonStyle} aria-label="Send message">
+          ${icon('arrow-up')}
+        </button>
+      </div>
+    </form>
+  `;
+  const settingsHtml = settingsOpen ? `
+    <button type="button" class="cml-mind__settings-backdrop" data-action="close-mind-settings" aria-label="Close settings"></button>
+    <aside class="cml-mind__settings" aria-label="Mind settings">
+      <form class="cml-mind__settings-card" data-form="mind-settings">
+        <div class="cml-mind__settings-head">
+          <div>
+            <p class="cml-mind__settings-eyebrow">Conversation Style</p>
+            <h3 class="cml-mind__settings-title">Customize this chat</h3>
+          </div>
+          <button type="button" class="cml-mind__settings-close" data-action="close-mind-settings" aria-label="Close settings">${icon('close')}</button>
+        </div>
+        <label class="cml-mind__field">
+          <span>Chat name</span>
+          <input type="text" class="cml-mind__field-input" data-mind-settings-field="contactName" value="${escapeHtml(settingsDraft.contactName || '')}" maxlength="48" placeholder="Mind" ${settingsBusy ? 'disabled' : ''} />
+        </label>
+        <div class="cml-mind__field">
+          <span>Avatar</span>
+          <div class="cml-mind__asset-row">
+            ${settingsDraft.contactAvatarData
+              ? `<span class="cml-mind__asset-preview"><img src="${escapeHtml(settingsDraft.contactAvatarData)}" alt="Avatar preview" class="cml-mind__asset-image"></span>`
+              : `<span class="cml-mind__asset-preview cml-mind__asset-preview--fallback">${escapeHtml((settingsDraft.contactName || 'Mind').charAt(0).toUpperCase() || 'M')}</span>`}
+            <label class="cml-mind__asset-button">
+              <input type="file" accept="image/*" data-mind-file="contactAvatarData" ${settingsBusy ? 'disabled' : ''} hidden />
+              <span>Upload avatar</span>
+            </label>
+            ${settingsDraft.contactAvatarData ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-avatar" ${settingsBusy ? 'disabled' : ''}>Remove</button>` : ''}
+          </div>
+        </div>
+        <div class="cml-mind__field">
+          <span>Background</span>
+          <div class="cml-mind__preset-grid">
+            ${['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'].map((preset) => `
+              <button type="button" class="cml-mind__preset ${settingsDraft.backgroundPreset === preset ? 'is-active' : ''}" data-action="set-mind-background-preset" data-value="${preset}" aria-pressed="${settingsDraft.backgroundPreset === preset ? 'true' : 'false'}">
+                <span class="cml-mind__preset-swatch cml-mind__preset-swatch--${preset}"></span>
+                <span>${escapeHtml(preset.replace(/-/g, ' '))}</span>
+              </button>
+            `).join('')}
+          </div>
+          <div class="cml-mind__asset-row">
+            ${wallpaperDraftUrl ? `<span class="cml-mind__wallpaper-thumb"><img src="${escapeHtml(wallpaperDraftUrl)}" alt="Wallpaper preview" class="cml-mind__asset-image"></span>` : ''}
+            <label class="cml-mind__asset-button">
+              <input type="file" accept="image/*" data-mind-file="backgroundImageData" ${settingsBusy ? 'disabled' : ''} hidden />
+              <span>Upload wallpaper</span>
+            </label>
+            ${(wallpaperDraftUrl || settingsDraft.backgroundPhotoId) ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-wallpaper" ${settingsBusy ? 'disabled' : ''}>Remove</button>` : ''}
+          </div>
+          <div class="cml-mind__field">
+            <span>Wallpaper focus</span>
+            <div class="cml-mind__position-grid">
+              ${MIND_BACKGROUND_POSITION_OPTIONS.map((option) => `
+                <button
+                  type="button"
+                  class="cml-mind__position-option ${settingsDraft.backgroundPosition === option.value ? 'is-active' : ''}"
+                  data-action="set-mind-background-position"
+                  data-value="${option.value}"
+                  aria-pressed="${settingsDraft.backgroundPosition === option.value ? 'true' : 'false'}"
+                  ${settingsBusy ? 'disabled' : ''}
+                >
+                  <span class="cml-mind__position-dot cml-mind__position-dot--${option.value.replace(/\s+/g, '-')}"></span>
+                  <span>${option.label}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+          <div class="cml-mind__photo-picker">
+            <div class="cml-mind__photo-picker-head">
+              <span>Choose from Photos</span>
+              <span>${escapeHtml(String(wallpaperPhotoChoices.length))} available</span>
+            </div>
+            ${wallpaperPhotoChoices.length ? `
+              <div class="cml-mind__photo-picker-grid">
+                ${wallpaperPhotoChoices.map((item) => {
+                  const previewUrl = escapeHtml(item.thumbnailUrl || item.sourceUrl || '');
+                  const isActive = settingsDraft.backgroundPhotoId === item.id;
+                  return `
+                    <button
+                      type="button"
+                      class="cml-mind__photo-option ${isActive ? 'is-active' : ''}"
+                      data-action="set-mind-wallpaper-photo"
+                      data-id="${escapeHtml(item.id)}"
+                      aria-pressed="${isActive ? 'true' : 'false'}"
+                      ${settingsBusy ? 'disabled' : ''}
+                    >
+                      <img src="${previewUrl}" alt="${escapeHtml(item.description || item.name || 'Photo wallpaper')}" class="cml-mind__photo-option-image">
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            ` : `
+              <p class="cml-mind__photo-picker-empty">No photos available in the main library yet.</p>
+            `}
+          </div>
+        </div>
+        <div class="cml-mind__field">
+          <span>Send button</span>
+          <div class="cml-mind__tone-grid">
+            ${MIND_SEND_BUTTON_OPTIONS.map((option) => `
+              <button
+                type="button"
+                class="cml-mind__tone-option ${settingsDraft.sendButtonColor === option.value ? 'is-active' : ''}"
+                data-action="set-mind-send-button-color"
+                data-value="${option.value}"
+                aria-pressed="${settingsDraft.sendButtonColor === option.value ? 'true' : 'false'}"
+                ${settingsBusy ? 'disabled' : ''}
+              >
+                <span class="cml-mind__tone-dot cml-mind__tone-dot--${option.value}"></span>
+                <span>${option.label}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="cml-mind__settings-actions">
+          <button type="button" class="cml-topbar__secondary-button" data-action="close-mind-settings" ${settingsBusy ? 'disabled' : ''}>Cancel</button>
+          <button type="submit" class="cml-topbar__upload-button" ${settingsBusy ? 'disabled' : ''}>Save</button>
+        </div>
+      </form>
+    </aside>
+  ` : '';
+
+  if (isMobileMind) {
+    return `
+      <section class="cml-mind cml-mind--${escapeHtml(settings.backgroundPreset || 'ios-sky')} cml-mind--send-${sendButtonColor} cml-mind--mobile-fixed" aria-label="Mind conversation"${wallpaperStyle}>
+        <div class="cml-mind__mobile-shell">
+          <div class="cml-mind__surface"></div>
+          <header class="cml-mind__mobile-header">
+            <div class="cml-mobile-mind-bar">
+              <button
+                type="button"
+                class="cml-mobile-mind-bar__back"
+                data-action="leave-mobile-mind"
+                aria-label="Back"
+              >
+                ${icon('previous')}
+              </button>
+              <div class="cml-mind-header">
+                ${headerAvatar}
+                <div class="cml-mind-header__copy">
+                  <p class="cml-mind-header__title">${contactName}</p>
+                </div>
+              </div>
+            </div>
+          </header>
+          <div class="cml-mind__mobile-history">
+            <div class="cml-mind__history">
+              ${historyHtml}
+            </div>
+          </div>
+          ${composerHtml}
+          ${settingsHtml}
+        </div>
+      </section>
+    `;
+  }
 
   return `
     <section class="cml-mind cml-mind--${escapeHtml(settings.backgroundPreset || 'ios-sky')} cml-mind--send-${sendButtonColor}" aria-label="Mind conversation"${wallpaperStyle}>
@@ -1419,149 +1585,8 @@ export function MindChatView({
       <div class="cml-mind__history">
         ${historyHtml}
       </div>
-      <form class="cml-mind__composer" data-form="mind">
-        <div class="cml-mind__input-shell">
-          <button
-            type="button"
-            class="cml-mind__composer-plus ${settingsOpen ? 'is-active' : ''}"
-            data-action="toggle-mind-settings"
-            aria-pressed="${settingsOpen ? 'true' : 'false'}"
-            aria-label="Open style settings"
-          >
-            ${icon('plus')}
-          </button>
-          <label class="cml-mind__input-wrap" aria-label="Mind message">
-            <input
-              type="text"
-              class="cml-mind__input"
-              data-mind-input="message"
-              placeholder="我有时会觉得我真正的人生还未开启..."
-              value="${safeDraft}"
-            />
-          </label>
-          <button type="submit" class="cml-mind__send" data-action="send-mind-message"${sendButtonStyle} aria-label="Send message">
-            ${icon('arrow-up')}
-          </button>
-        </div>
-      </form>
-      ${settingsOpen ? `
-        <button type="button" class="cml-mind__settings-backdrop" data-action="close-mind-settings" aria-label="Close settings"></button>
-        <aside class="cml-mind__settings" aria-label="Mind settings">
-          <form class="cml-mind__settings-card" data-form="mind-settings">
-            <div class="cml-mind__settings-head">
-              <div>
-                <p class="cml-mind__settings-eyebrow">Conversation Style</p>
-                <h3 class="cml-mind__settings-title">Customize this chat</h3>
-              </div>
-              <button type="button" class="cml-mind__settings-close" data-action="close-mind-settings" aria-label="Close settings">${icon('close')}</button>
-            </div>
-            <label class="cml-mind__field">
-              <span>Chat name</span>
-              <input type="text" class="cml-mind__field-input" data-mind-settings-field="contactName" value="${escapeHtml(settingsDraft.contactName || '')}" maxlength="48" placeholder="Mind" ${settingsBusy ? 'disabled' : ''} />
-            </label>
-            <div class="cml-mind__field">
-              <span>Avatar</span>
-              <div class="cml-mind__asset-row">
-                ${settingsDraft.contactAvatarData
-                  ? `<span class="cml-mind__asset-preview"><img src="${escapeHtml(settingsDraft.contactAvatarData)}" alt="Avatar preview" class="cml-mind__asset-image"></span>`
-                  : `<span class="cml-mind__asset-preview cml-mind__asset-preview--fallback">${escapeHtml((settingsDraft.contactName || 'Mind').charAt(0).toUpperCase() || 'M')}</span>`}
-                <label class="cml-mind__asset-button">
-                  <input type="file" accept="image/*" data-mind-file="contactAvatarData" ${settingsBusy ? 'disabled' : ''} hidden />
-                  <span>Upload avatar</span>
-                </label>
-                ${settingsDraft.contactAvatarData ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-avatar" ${settingsBusy ? 'disabled' : ''}>Remove</button>` : ''}
-              </div>
-            </div>
-            <div class="cml-mind__field">
-              <span>Background</span>
-              <div class="cml-mind__preset-grid">
-                ${['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'].map((preset) => `
-                  <button type="button" class="cml-mind__preset ${settingsDraft.backgroundPreset === preset ? 'is-active' : ''}" data-action="set-mind-background-preset" data-value="${preset}" aria-pressed="${settingsDraft.backgroundPreset === preset ? 'true' : 'false'}">
-                    <span class="cml-mind__preset-swatch cml-mind__preset-swatch--${preset}"></span>
-                    <span>${escapeHtml(preset.replace(/-/g, ' '))}</span>
-                  </button>
-                `).join('')}
-              </div>
-              <div class="cml-mind__asset-row">
-                ${wallpaperDraftUrl ? `<span class="cml-mind__wallpaper-thumb"><img src="${escapeHtml(wallpaperDraftUrl)}" alt="Wallpaper preview" class="cml-mind__asset-image"></span>` : ''}
-                <label class="cml-mind__asset-button">
-                  <input type="file" accept="image/*" data-mind-file="backgroundImageData" ${settingsBusy ? 'disabled' : ''} hidden />
-                  <span>Upload wallpaper</span>
-                </label>
-                ${(wallpaperDraftUrl || settingsDraft.backgroundPhotoId) ? `<button type="button" class="cml-mind__asset-clear" data-action="clear-mind-wallpaper" ${settingsBusy ? 'disabled' : ''}>Remove</button>` : ''}
-              </div>
-              <div class="cml-mind__field">
-                <span>Wallpaper focus</span>
-                <div class="cml-mind__position-grid">
-                  ${MIND_BACKGROUND_POSITION_OPTIONS.map((option) => `
-                    <button
-                      type="button"
-                      class="cml-mind__position-option ${settingsDraft.backgroundPosition === option.value ? 'is-active' : ''}"
-                      data-action="set-mind-background-position"
-                      data-value="${option.value}"
-                      aria-pressed="${settingsDraft.backgroundPosition === option.value ? 'true' : 'false'}"
-                      ${settingsBusy ? 'disabled' : ''}
-                    >
-                      <span class="cml-mind__position-dot cml-mind__position-dot--${option.value.replace(/\s+/g, '-')}"></span>
-                      <span>${option.label}</span>
-                    </button>
-                  `).join('')}
-                </div>
-              </div>
-              <div class="cml-mind__photo-picker">
-                <div class="cml-mind__photo-picker-head">
-                  <span>Choose from Photos</span>
-                  <span>${escapeHtml(String(wallpaperPhotoChoices.length))} available</span>
-                </div>
-                ${wallpaperPhotoChoices.length ? `
-                  <div class="cml-mind__photo-picker-grid">
-                    ${wallpaperPhotoChoices.map((item) => {
-                      const previewUrl = escapeHtml(item.thumbnailUrl || item.sourceUrl || '');
-                      const isActive = settingsDraft.backgroundPhotoId === item.id;
-                      return `
-                        <button
-                          type="button"
-                          class="cml-mind__photo-option ${isActive ? 'is-active' : ''}"
-                          data-action="set-mind-wallpaper-photo"
-                          data-id="${escapeHtml(item.id)}"
-                          aria-pressed="${isActive ? 'true' : 'false'}"
-                          ${settingsBusy ? 'disabled' : ''}
-                        >
-                          <img src="${previewUrl}" alt="${escapeHtml(item.description || item.name || 'Photo wallpaper')}" class="cml-mind__photo-option-image">
-                        </button>
-                      `;
-                    }).join('')}
-                  </div>
-                ` : `
-                  <p class="cml-mind__photo-picker-empty">No photos available in the main library yet.</p>
-                `}
-              </div>
-            </div>
-            <div class="cml-mind__field">
-              <span>Send button</span>
-              <div class="cml-mind__tone-grid">
-                ${MIND_SEND_BUTTON_OPTIONS.map((option) => `
-                  <button
-                    type="button"
-                    class="cml-mind__tone-option ${settingsDraft.sendButtonColor === option.value ? 'is-active' : ''}"
-                    data-action="set-mind-send-button-color"
-                    data-value="${option.value}"
-                    aria-pressed="${settingsDraft.sendButtonColor === option.value ? 'true' : 'false'}"
-                    ${settingsBusy ? 'disabled' : ''}
-                  >
-                    <span class="cml-mind__tone-dot cml-mind__tone-dot--${option.value}"></span>
-                    <span>${option.label}</span>
-                  </button>
-                `).join('')}
-              </div>
-            </div>
-            <div class="cml-mind__settings-actions">
-              <button type="button" class="cml-topbar__secondary-button" data-action="close-mind-settings" ${settingsBusy ? 'disabled' : ''}>Cancel</button>
-              <button type="submit" class="cml-topbar__upload-button" ${settingsBusy ? 'disabled' : ''}>Save</button>
-            </div>
-          </form>
-        </aside>
-      ` : ''}
+      ${composerHtml}
+      ${settingsHtml}
     </section>
   `;
 }

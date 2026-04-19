@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=51';
+} from './components.js?v=52';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -6661,7 +6661,8 @@ function render() {
                   settingsOpen: state.mindSettingsOpen,
                   wallpaperUrl: resolveMindWallpaperUrl(state.mindSettings),
                   wallpaperDraftUrl: resolveMindWallpaperUrl(state.mindSettingsDraft),
-                  wallpaperPhotoChoices: getMindWallpaperPhotoChoices()
+                  wallpaperPhotoChoices: getMindWallpaperPhotoChoices(),
+                  layoutWidth: state.layoutWidth
                 })
                 : state.secondaryFilter === 'Documents'
                 ? DocumentsListView({ items: viewModel.filteredItems, state })

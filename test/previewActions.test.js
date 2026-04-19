@@ -577,7 +577,7 @@ describe('media library download actions', () => {
     assert.match(mindHtml, /data-action="send-mind-message"/);
   });
 
-  it('uses a mobile-only back header for Mind while leaving desktop Style in place', () => {
+  it('renders mobile Mind as a fixed chat shell with an internal back header', () => {
     const mobileTopbarHtml = TopSearchBar({
       state: {
         primaryFilter: 'Mind',
@@ -590,11 +590,33 @@ describe('media library download actions', () => {
         }
       }
     });
+    const mobileMindHtml = MindChatView({
+      messages: [],
+      draft: '',
+      settingsBusy: false,
+      deletingIds: new Set(),
+      settingsOpen: false,
+      settings: {
+        contactName: 'Willian',
+        sendButtonColor: 'green',
+        backgroundPreset: 'ios-sky',
+        backgroundPosition: 'center center'
+      },
+      settingsDraft: {
+        contactName: 'Willian',
+        sendButtonColor: 'green',
+        backgroundPreset: 'ios-sky',
+        backgroundPosition: 'center center'
+      },
+      layoutWidth: 390
+    });
 
-    assert.match(mobileTopbarHtml, /cml-topbar--mind-mobile/);
-    assert.match(mobileTopbarHtml, /data-action="leave-mobile-mind"/);
-    assert.match(mobileTopbarHtml, />Willian</);
-    assert.doesNotMatch(mobileTopbarHtml, />\s*Style\s*</);
+    assert.equal(mobileTopbarHtml, '');
+    assert.match(mobileMindHtml, /cml-mind--mobile-fixed/);
+    assert.match(mobileMindHtml, /data-action="leave-mobile-mind"/);
+    assert.match(mobileMindHtml, /cml-mind__mobile-header/);
+    assert.match(mobileMindHtml, />Willian</);
+    assert.doesNotMatch(mobileMindHtml, />\s*Style\s*</);
   });
 
   it('renders the albums root with a compact title-and-count header', () => {

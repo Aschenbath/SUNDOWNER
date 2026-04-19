@@ -2789,7 +2789,7 @@ body.codex-media-library-active #app {
     display: none;
   }
 
-  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-mobile-nav {
+  #codex-media-library-root:has(.cml-mind--mobile-fixed) .cml-mobile-nav {
     display: none;
   }
 
@@ -2874,10 +2874,18 @@ body.codex-media-library-active #app {
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px) + 16px);
   }
 
-  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-app-shell,
-  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-main-shell {
+  #codex-media-library-root:has(.cml-mind--mobile-fixed) .cml-app-shell,
+  #codex-media-library-root:has(.cml-mind--mobile-fixed) .cml-main-shell,
+  #codex-media-library-root:has(.cml-mind--mobile-fixed) .cml-main-content-shell.is-mind-view,
+  #codex-media-library-root:has(.cml-mind--mobile-fixed) .cml-main-content.is-mind-view,
+  #codex-media-library-root:has(.cml-mind--mobile-fixed) .cml-main-content__inner.is-mind-view {
     min-height: var(--cml-app-height);
     height: var(--cml-app-height);
+  }
+
+  #codex-media-library-root:has(.cml-mind--mobile-fixed) .cml-main-content__inner.is-mind-view {
+    gap: 0;
+    padding-bottom: 0;
   }
 
   /* Toast repositioned above bottom nav */
@@ -6619,27 +6627,6 @@ body.codex-media-library-active #app {
     bottom: 0;
   }
 
-  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-main-content.is-mind-view {
-    position: relative;
-    min-height: calc(var(--cml-app-height) - (58px + env(safe-area-inset-top, 0px)));
-    height: calc(var(--cml-app-height) - (58px + env(safe-area-inset-top, 0px)));
-    overflow: hidden;
-  }
-
-  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-mind__composer {
-    position: fixed;
-    left: 0;
-    right: 0;
-    z-index: 45;
-    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-  }
-
-  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-mind__history {
-    height: 100%;
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
-    scroll-padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
-  }
-
   #codex-media-library-root .cml-mind__input-shell {
     width: 100%;
     max-width: none;
@@ -6658,6 +6645,77 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-mind__settings {
     width: min(360px, calc(100vw - 32px));
   }
+
+  #codex-media-library-root .cml-mind--mobile-fixed {
+    position: relative;
+    display: block;
+    min-height: var(--cml-app-height);
+    height: var(--cml-app-height);
+    overflow: hidden;
+  }
+
+  #codex-media-library-root .cml-mind--mobile-fixed .cml-mind__mobile-shell {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  #codex-media-library-root .cml-mind--mobile-fixed .cml-mind__surface {
+    z-index: 1;
+  }
+
+  #codex-media-library-root .cml-mind__mobile-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 4;
+    min-height: calc(58px + env(safe-area-inset-top, 0px));
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 8px;
+    background: linear-gradient(180deg, rgba(20, 23, 29, 0.92), rgba(20, 23, 29, 0.12));
+    pointer-events: auto;
+  }
+
+  #codex-media-library-root .cml-mind__mobile-history {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    overflow: hidden;
+  }
+
+  #codex-media-library-root .cml-mind--mobile-fixed .cml-mind__history {
+    position: absolute;
+    inset: calc(58px + env(safe-area-inset-top, 0px)) 0 0;
+    overflow: auto;
+    padding: 18px 12px calc(112px + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #codex-media-library-root .cml-mind__composer--mobile-fixed {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    padding: 0 14px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, rgba(15, 18, 24, 0), rgba(15, 18, 24, 0.28) 34%, rgba(15, 18, 24, 0.44) 100%);
+  }
+
+  #codex-media-library-root .cml-mind--mobile-fixed .cml-mind__settings-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+  }
+
+  #codex-media-library-root .cml-mind--mobile-fixed .cml-mind__settings {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 7;
+  }
 }
 
 @media (max-width: 640px) {
@@ -6668,18 +6726,6 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-mind__history {
     padding: 18px 12px 14px;
     gap: 10px;
-  }
-
-  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-main-content,
-  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-main-content__inner,
-  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-mind {
-    min-height: var(--cml-app-height);
-    height: var(--cml-app-height);
-  }
-
-  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-main-content.is-mind-view {
-    min-height: calc(var(--cml-app-height) - (58px + env(safe-area-inset-top, 0px)));
-    height: calc(var(--cml-app-height) - (58px + env(safe-area-inset-top, 0px)));
   }
 
   #codex-media-library-root .cml-mind__message {
