@@ -1400,20 +1400,24 @@ export function MindChatView({
     : '';
   const composerInputHtml = isMobileMind
     ? `
-          <input
-            type="text"
-            class="cml-mind__input cml-mind__input--mobile"
+          <div
+            class="cml-mind__input cml-mind__input--editor"
             data-mind-input="message"
             aria-label="Mind message"
-            placeholder="我有时会觉得我真正的人生还未开启..."
-            value="${safeDraft}"
+            data-placeholder="我有时会觉得我真正的人生还未开启..."
+            contenteditable="plaintext-only"
+            role="textbox"
+            aria-multiline="false"
             spellcheck="false"
             autocapitalize="none"
             autocorrect="off"
             autocomplete="off"
             inputmode="text"
             enterkeyhint="send"
-          />
+            data-gramm="false"
+            data-form-type="other"
+            data-lpignore="true"
+          >${safeDraft.replace(/\n/g, '<br>')}</div>
         `
     : `
           <input

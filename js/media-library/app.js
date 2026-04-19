@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=56';
+} from './components.js?v=57';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -309,6 +309,7 @@ const state = {
   uploadDone: 0,
   mindMessages: [],
   mindDraft: '',
+  mindComposerComposing: false,
   mindLoading: false,
   mindSettingsBusy: false,
   mindDeletingIds: new Set(),
@@ -2102,6 +2103,25 @@ function syncMindDraftEditorValue() {
 
 function isMobileMindRouteActive() {
   return state.primaryFilter === 'Mind' && isMobileLayout();
+}
+
+function handleCompositionStart(event) {
+  if (!(event.target instanceof HTMLElement) || event.target.dataset.mindInput !== 'message') {
+    return;
+  }
+  state.mindComposerComposing = true;
+}
+
+function handleCompositionEnd(event) {
+  if (!(event.target instanceof HTMLElement) || event.target.dataset.mindInput !== 'message') {
+    return;
+  }
+  state.mindComposerComposing = false;
+  state.mindDraft = event.target.isContentEditable
+    ? readMindDraftFromEditor(event.target)
+    : event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement
+      ? event.target.value
+      : state.mindDraft;
 }
 
 function syncMobileMindInputIsolation() {
@@ -7587,6 +7607,8 @@ function mount() {
     refs.root.addEventListener('click', handleClick, true);
     refs.root.addEventListener('input', handleInput);
     refs.root.addEventListener('change', handleChange);
+    refs.root.addEventListener('compositionstart', handleCompositionStart);
+    refs.root.addEventListener('compositionend', handleCompositionEnd);
     refs.root.addEventListener('focusin', handleFocusIn);
     refs.root.addEventListener('focusout', handleFocusOut);
     refs.root.addEventListener('submit', (e) => {
@@ -9403,6 +9425,9 @@ function handleKeyDown(event) {
   }
 
   if (event.target instanceof HTMLElement && event.target.dataset.mindInput === 'message' && event.target.isContentEditable) {
+    if (event.isComposing || state.mindComposerComposing) {
+      return;
+    }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       void sendMindMessage();

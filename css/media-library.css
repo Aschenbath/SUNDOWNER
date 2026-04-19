@@ -6149,6 +6149,8 @@ body.codex-media-library-active #app {
   display: flex;
   align-items: center;
   min-width: 0;
+  width: 100%;
+  justify-self: stretch;
 }
 
 #codex-media-library-root .cml-mind__composer-plus {
@@ -6210,6 +6212,9 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-mind__input--editor {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 40px;
   overflow: hidden;
   white-space: nowrap;
   word-break: break-word;
@@ -6224,11 +6229,6 @@ body.codex-media-library-active #app {
   pointer-events: none;
 }
 
-#codex-media-library-root .cml-mind__input--mobile {
-  line-height: 40px;
-  padding: 0;
-}
-
 #codex-media-library-root .cml-mind__send {
   width: 50px;
   height: 40px;
@@ -6241,6 +6241,8 @@ body.codex-media-library-active #app {
   background: var(--cml-mind-send-bg) !important;
   box-shadow: 0 10px 22px var(--cml-mind-send-shadow) !important;
   cursor: pointer;
+  justify-self: end;
+  margin-left: auto;
   transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease, filter 160ms ease;
 }
 
