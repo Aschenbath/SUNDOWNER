@@ -1398,29 +1398,22 @@ export function MindChatView({
       `;
     }).join('')
     : '';
-  const mobileDraftHtml = safeDraft
-    ? safeDraft.replace(/\n/g, '<br>')
-    : '';
   const composerInputHtml = isMobileMind
     ? `
-          <div
-            class="cml-mind__input cml-mind__input--editor"
+          <input
+            type="text"
+            class="cml-mind__input cml-mind__input--mobile"
             data-mind-input="message"
-            data-placeholder="我有时会觉得我真正的人生还未开启..."
-            contenteditable="plaintext-only"
-            role="textbox"
             aria-label="Mind message"
-            aria-multiline="false"
+            placeholder="我有时会觉得我真正的人生还未开启..."
+            value="${safeDraft}"
             spellcheck="false"
             autocapitalize="none"
             autocorrect="off"
             autocomplete="off"
             inputmode="text"
             enterkeyhint="send"
-            data-gramm="false"
-            data-form-type="other"
-            data-lpignore="true"
-          >${mobileDraftHtml}</div>
+          />
         `
     : `
           <input
@@ -1436,8 +1429,12 @@ export function MindChatView({
             enterkeyhint="send"
           />
         `;
+  const composerTag = isMobileMind ? 'div' : 'form';
+  const composerAttributes = isMobileMind
+    ? `class="cml-mind__composer cml-mind__composer--mobile-fixed" data-mind-composer="mobile"`
+    : `class="cml-mind__composer" data-form="mind"`;
   const composerHtml = `
-    <form class="cml-mind__composer ${isMobileMind ? 'cml-mind__composer--mobile-fixed' : ''}" data-form="mind">
+    <${composerTag} ${composerAttributes}>
       <div class="cml-mind__input-shell">
         <button
           type="button"
@@ -1451,11 +1448,11 @@ export function MindChatView({
         <label class="cml-mind__input-wrap" aria-label="Mind message">
           ${composerInputHtml}
         </label>
-        <button type="submit" class="cml-mind__send" data-action="send-mind-message"${sendButtonStyle} aria-label="Send message">
+        <button type="${isMobileMind ? 'button' : 'submit'}" class="cml-mind__send" data-action="send-mind-message"${sendButtonStyle} aria-label="Send message">
           ${icon('arrow-up')}
         </button>
       </div>
-    </form>
+    </${composerTag}>
   `;
   const settingsHtml = settingsOpen ? `
     <button type="button" class="cml-mind__settings-backdrop" data-action="close-mind-settings" aria-label="Close settings"></button>

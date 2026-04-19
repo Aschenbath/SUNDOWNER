@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=55';
+} from './components.js?v=56';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -2034,6 +2034,15 @@ function isMobileMindComposerFocused() {
     && activeElement.dataset.mindInput === 'message';
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function escapeDraftForEditor(value) {
   return escapeHtml(String(value || '')).replace(/\n/g, '<br>');
 }
@@ -2070,6 +2079,14 @@ function focusMindComposer() {
   if (input.isContentEditable) {
     placeCaretAtEnd(input);
   }
+}
+
+function shouldRestoreComposerFocus() {
+  return !(isMobileLayout() && state.primaryFilter === 'Mind');
+}
+
+function shouldBlurComposerAfterSend() {
+  return isMobileMindRouteActive();
 }
 
 function syncMindDraftEditorValue() {
@@ -2641,6 +2658,10 @@ async function sendMindMessage() {
   if (!text) {
     return;
   }
+  const activeComposer = document.activeElement instanceof HTMLElement
+    && document.activeElement.dataset.mindInput === 'message'
+      ? document.activeElement
+      : null;
   const optimisticMessage = normalizeMindMessage({
     id: `mind-local-${Date.now()}`,
     text,
@@ -2650,6 +2671,9 @@ async function sendMindMessage() {
     updatedAt: Date.now()
   });
   state.mindDraft = '';
+  if (shouldBlurComposerAfterSend() && activeComposer instanceof HTMLElement) {
+    activeComposer.blur();
+  }
   if (optimisticMessage) {
     state.mindMessages = [...state.mindMessages, optimisticMessage];
     syncMindVisitStickyMessages(state.mindMessages);
@@ -2657,7 +2681,9 @@ async function sendMindMessage() {
   if (refs.root) {
     render();
     scrollMindToBottom({ force: true });
-    focusMindComposer();
+    if (shouldRestoreComposerFocus()) {
+      focusMindComposer();
+    }
   }
   void enqueueMindMutation(() => postJson('/api/manage/mind', { text }))
     .then((payload) => {
@@ -2675,7 +2701,9 @@ async function sendMindMessage() {
       if (refs.root) {
         render();
         scrollMindToBottom({ force: false });
-        focusMindComposer();
+        if (shouldRestoreComposerFocus()) {
+          focusMindComposer();
+        }
       }
     });
 }
@@ -9356,6 +9384,20 @@ function handleKeyDown(event) {
       event.target.value = state.searchQuery;
       state.searchDraft = state.searchQuery;
       event.target.select();
+    }
+    return;
+  }
+
+  if (event.target instanceof HTMLInputElement && event.target.dataset.mindInput === 'message') {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void sendMindMessage();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.target.blur();
+      return;
     }
     return;
   }
