@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=53';
+} from './components.js?v=54';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -2030,8 +2030,57 @@ function isMobileMindComposerFocused() {
     return false;
   }
   const activeElement = document.activeElement;
-  return activeElement instanceof HTMLInputElement
+  return activeElement instanceof HTMLElement
     && activeElement.dataset.mindInput === 'message';
+}
+
+function escapeDraftForEditor(value) {
+  return escapeHtml(String(value || '')).replace(/\n/g, '<br>');
+}
+
+function readMindDraftFromEditor(element) {
+  if (!(element instanceof HTMLElement)) {
+    return '';
+  }
+  const raw = element.innerText ?? element.textContent ?? '';
+  return raw.replace(/\r\n/g, '\n').replace(/\u00a0/g, ' ');
+}
+
+function placeCaretAtEnd(element) {
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function focusMindComposer() {
+  const input = refs.root?.querySelector('.cml-mind__input');
+  if (!(input instanceof HTMLElement)) {
+    return;
+  }
+  input.focus();
+  if (input.isContentEditable) {
+    placeCaretAtEnd(input);
+  }
+}
+
+function syncMindDraftEditorValue() {
+  const input = refs.root?.querySelector('.cml-mind__input');
+  if (!(input instanceof HTMLElement) || !input.isContentEditable) {
+    return;
+  }
+  const nextHtml = escapeDraftForEditor(state.mindDraft);
+  if ((input.innerHTML || '') !== nextHtml) {
+    input.innerHTML = nextHtml;
+  }
 }
 
 function isMobileMindRouteActive() {
@@ -2608,10 +2657,7 @@ async function sendMindMessage() {
   if (refs.root) {
     render();
     scrollMindToBottom({ force: true });
-    const input = refs.root.querySelector('.cml-mind__input');
-    if (input instanceof HTMLInputElement) {
-      input.focus();
-    }
+    focusMindComposer();
   }
   void enqueueMindMutation(() => postJson('/api/manage/mind', { text }))
     .then((payload) => {
@@ -2629,10 +2675,7 @@ async function sendMindMessage() {
       if (refs.root) {
         render();
         scrollMindToBottom({ force: false });
-        const input = refs.root.querySelector('.cml-mind__input');
-        if (input instanceof HTMLInputElement) {
-          input.focus();
-        }
+        focusMindComposer();
       }
     });
 }
@@ -9015,7 +9058,7 @@ function handleClick(event) {
 
 function handleInput(event) {
   const input = event.target;
-  if (!(input instanceof HTMLInputElement) && !(input instanceof HTMLTextAreaElement)) {
+  if (!(input instanceof HTMLInputElement) && !(input instanceof HTMLTextAreaElement) && !(input instanceof HTMLElement)) {
     return;
   }
   if (input.dataset.login === 'username') {
@@ -9034,7 +9077,12 @@ function handleInput(event) {
     return;
   }
   if (input.dataset.mindInput === 'message') {
-    state.mindDraft = input.value;
+    state.mindDraft = input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement
+      ? input.value
+      : readMindDraftFromEditor(input);
+    return;
+  }
+  if (!(input instanceof HTMLInputElement) && !(input instanceof HTMLTextAreaElement)) {
     return;
   }
   if (input.dataset.mindSettingsField) {
@@ -9118,7 +9166,11 @@ function handleFocusIn(event) {
   if (tile instanceof HTMLElement) {
     state.focusedTileId = tile.getAttribute('data-tile-id');
   }
-  if (event.target instanceof HTMLInputElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
+  if (event.target instanceof HTMLElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
+    if (event.target.isContentEditable) {
+      syncMindDraftEditorValue();
+      placeCaretAtEnd(event.target);
+    }
     stabilizeMobileMindViewport();
     [0, 80, 220].forEach((delay) => {
       window.setTimeout(() => {
@@ -9148,7 +9200,7 @@ function handleFocusOut(event) {
       render();
     }
   }
-  if (event.target instanceof HTMLInputElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
+  if (event.target instanceof HTMLElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
     window.setTimeout(() => {
       stabilizeMobileMindViewport();
       scrollMindToBottom({ force: true });
@@ -9304,6 +9356,20 @@ function handleKeyDown(event) {
       event.target.value = state.searchQuery;
       state.searchDraft = state.searchQuery;
       event.target.select();
+    }
+    return;
+  }
+
+  if (event.target instanceof HTMLElement && event.target.dataset.mindInput === 'message' && event.target.isContentEditable) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void sendMindMessage();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.target.blur();
+      return;
     }
     return;
   }

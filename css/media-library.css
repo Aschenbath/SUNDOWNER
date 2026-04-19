@@ -6204,6 +6204,20 @@ body.codex-media-library-active #app {
   box-shadow: none;
 }
 
+#codex-media-library-root .cml-mind__input--editor {
+  display: block;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+#codex-media-library-root .cml-mind__input--editor:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(208, 216, 226, 0.54);
+  pointer-events: none;
+}
+
 #codex-media-library-root .cml-mind__send {
   width: 50px;
   height: 40px;

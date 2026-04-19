@@ -1398,6 +1398,39 @@ export function MindChatView({
       `;
     }).join('')
     : '';
+  const mobileDraftHtml = safeDraft
+    ? safeDraft.replace(/\n/g, '<br>')
+    : '';
+  const composerInputHtml = isMobileMind
+    ? `
+          <div
+            class="cml-mind__input cml-mind__input--editor"
+            data-mind-input="message"
+            data-placeholder="我有时会觉得我真正的人生还未开启..."
+            contenteditable="true"
+            role="textbox"
+            aria-label="Mind message"
+            aria-multiline="true"
+            spellcheck="false"
+            autocapitalize="off"
+            autocorrect="off"
+            enterkeyhint="send"
+          >${mobileDraftHtml}</div>
+        `
+    : `
+          <input
+            type="text"
+            class="cml-mind__input"
+            data-mind-input="message"
+            placeholder="我有时会觉得我真正的人生还未开启..."
+            value="${safeDraft}"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            enterkeyhint="send"
+          />
+        `;
   const composerHtml = `
     <form class="cml-mind__composer ${isMobileMind ? 'cml-mind__composer--mobile-fixed' : ''}" data-form="mind">
       <div class="cml-mind__input-shell">
@@ -1411,18 +1444,7 @@ export function MindChatView({
           ${icon('plus')}
         </button>
         <label class="cml-mind__input-wrap" aria-label="Mind message">
-          <input
-            type="text"
-            class="cml-mind__input"
-            data-mind-input="message"
-            placeholder="我有时会觉得我真正的人生还未开启..."
-            value="${safeDraft}"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-            spellcheck="false"
-            enterkeyhint="send"
-          />
+          ${composerInputHtml}
         </label>
         <button type="submit" class="cml-mind__send" data-action="send-mind-message"${sendButtonStyle} aria-label="Send message">
           ${icon('arrow-up')}

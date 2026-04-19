@@ -128,3 +128,4 @@
 26-04-19 by codex: Rebuild mobile Mind as a dedicated fixed chat shell with its own in-route back header, fixed composer, and isolated history scroller so keyboard open no longer reflows the whole page layout
 26-04-19 by codex: Lock the document scroll and stop forced viewport-height rewrites on mobile Mind input blur, so iPhone-style keyboard focus no longer scrolls the entire page/background upward behind the fixed chat shell
 26-04-19 by codex: Isolate mobile Mind focus from hidden sidebar/search inputs, drive composer lift through keyboard inset only, and harden the mobile message field with no-autocorrect/no-refocus attributes so iPhone keyboards stop stealing focus into the accessory bar
+26-04-19 by codex: Replace the mobile Mind message input with a contenteditable chat editor so iPhone/WeChat-style form assistant bars are less likely to appear, while keeping desktop Mind on the normal single-line input
