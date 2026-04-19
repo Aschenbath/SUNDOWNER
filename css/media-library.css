@@ -2,7 +2,7 @@ html.codex-media-library-active,
 body.codex-media-library-active {
   overflow: hidden !important;
   overscroll-behavior: none !important;
-  background: #1f1f1f !important;
+  background: #0f1218 !important;
 }
 
 body.codex-media-library-active #app {
@@ -6121,26 +6121,28 @@ body.codex-media-library-active #app {
   bottom: 0;
   display: block;
   margin: 0;
-  padding: 0 18px 16px;
+  padding: 0 20px 22px;
   background: transparent;
   box-shadow: none;
 }
 
 #codex-media-library-root .cml-mind__input-shell {
-  width: 75%;
-  max-width: 980px;
+  width: min(720px, 86%);
+  max-width: 720px;
   margin: 0 auto;
   min-width: 0;
-  min-height: 52px;
-  padding: 4px 6px 4px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(31, 35, 43, 0.94);
+  min-height: 56px;
+  padding: 6px 8px 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 28px;
+  background: rgba(22, 26, 34, 0.55);
+  backdrop-filter: saturate(160%) blur(22px);
+  -webkit-backdrop-filter: saturate(160%) blur(22px);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.22);
+  gap: 10px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
 }
 
 #codex-media-library-root .cml-mind__input-wrap {
@@ -6657,10 +6659,12 @@ body.codex-media-library-active #app {
     max-width: none;
     margin: 0;
     min-height: 54px;
-    padding-left: 8px;
-    padding-right: 6px;
-    background: rgba(31, 35, 43, 0.96);
-    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.24);
+    padding: 5px 7px 5px 12px;
+    border-radius: 26px;
+    background: rgba(20, 24, 32, 0.52);
+    backdrop-filter: saturate(160%) blur(20px);
+    -webkit-backdrop-filter: saturate(160%) blur(20px);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.34), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
   }
 
   #codex-media-library-root .cml-mind__composer-plus {
@@ -6724,8 +6728,8 @@ body.codex-media-library-active #app {
     right: 0;
     bottom: var(--cml-keyboard-inset, 0px);
     z-index: 5;
-    padding: 0 14px calc(14px + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(180deg, rgba(15, 18, 24, 0), rgba(15, 18, 24, 0.28) 34%, rgba(15, 18, 24, 0.44) 100%);
+    padding: 0 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: transparent;
     transition: bottom 180ms ease;
   }
 
