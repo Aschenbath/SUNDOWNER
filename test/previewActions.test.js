@@ -499,12 +499,51 @@ describe('media library download actions', () => {
     assert.match(gridHtml, /Open deleted photos and videos/);
   });
 
+  it('renders a dedicated mobile albums header and a first-card create entry on small screens', () => {
+    const topbarHtml = TopSearchBar({
+      state: {
+        primaryFilter: 'Collections',
+        secondaryFilter: '',
+        activeAlbumName: '',
+        albumSelectionTarget: '',
+        videoAlbumSelectionTarget: '',
+        privateSelectionMode: false,
+        selectedIds: new Set(),
+        searchDraft: '',
+        searchQuery: '',
+        layoutWidth: 390,
+        mobileAlbumSearchOpen: false
+      }
+    });
+    const gridHtml = CollectionGrid({
+      collections: [{
+        name: 'scenery',
+        itemCount: 12,
+        createdAt: '2026-04-07T19:35:00+08:00',
+        lastModifiedAt: Date.parse('2026-04-09T08:00:00+08:00'),
+        coverItem: null,
+        hasCustomCover: false,
+      }],
+      showBinEntry: true,
+      showCreateEntry: true
+    });
+
+    assert.match(topbarHtml, /cml-topbar--mobile-albums/);
+    assert.match(topbarHtml, /data-primary="Photos"/);
+    assert.match(topbarHtml, /data-action="open-mobile-album-search"/);
+    assert.match(topbarHtml, /data-action="open-create-album"/);
+    assert.doesNotMatch(topbarHtml, />\s*Upload\s*</);
+    assert.match(gridHtml, /cml-collection-card--create/);
+    assert.match(gridHtml, />New album</);
+  });
+
   it('keeps desktop Mind style in the topbar but adds a mobile-style plus launcher inside the composer', () => {
     const topbarHtml = TopSearchBar({
       state: {
         primaryFilter: 'Mind',
         secondaryFilter: '',
         mindSettingsOpen: false,
+        layoutWidth: 1280,
         mindSettings: {
           contactName: 'Willian',
           contactAvatarData: ''
@@ -535,6 +574,26 @@ describe('media library download actions', () => {
     assert.match(mindHtml, /cml-mind__composer-plus/);
     assert.match(mindHtml, /data-action="toggle-mind-settings"/);
     assert.match(mindHtml, /data-action="send-mind-message"/);
+  });
+
+  it('uses a mobile-only back header for Mind while leaving desktop Style in place', () => {
+    const mobileTopbarHtml = TopSearchBar({
+      state: {
+        primaryFilter: 'Mind',
+        secondaryFilter: '',
+        mindSettingsOpen: false,
+        layoutWidth: 390,
+        mindSettings: {
+          contactName: 'Willian',
+          contactAvatarData: ''
+        }
+      }
+    });
+
+    assert.match(mobileTopbarHtml, /cml-topbar--mind-mobile/);
+    assert.match(mobileTopbarHtml, /data-action="leave-mobile-mind"/);
+    assert.match(mobileTopbarHtml, />Willian</);
+    assert.doesNotMatch(mobileTopbarHtml, />\s*Style\s*</);
   });
 
   it('renders the albums root with a compact title-and-count header', () => {

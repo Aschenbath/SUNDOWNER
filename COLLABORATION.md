@@ -529,6 +529,12 @@ pm; git diff --check passed.
 - Added a visit-scoped sticky-side layer in `js/media-library/app.js`: current-visit web messages that have already rendered on the right stay right even if a later backend payload reports them as mirrored. That sticky set is cleared only when the user truly leaves `Mind` (route exit / hash restore away from `#/mind`), so next real entry still mirrors to the left as intended.
 - Bumped `index.html` to `app.js?v=114` and added `test/mindState.test.js` to lock the new visit-sticky behavior. **Validation**: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, targeted Mocha `test\mindState.test.js test\previewActions.test.js` (`29 passing`), and `git diff --check` passed.
 
+### 2026-04-19 14:41 Asia/Shanghai
+
+- Reworked the mobile `Albums` root into its own compact page instead of a shrunk desktop layout. `js/media-library/components.js` now renders a dedicated mobile header (`Back / Albums / Search / Create`) for collection root, `CollectionGrid` can inject a first-card `New album` tile, and `js/media-library/app.js` suppresses the desktop-style summary/search blocks on that mobile root.
+- Reworked mobile `Mind` into a temporary full-page chat surface. On narrow screens the topbar becomes a back-header with avatar/name, the bottom nav hides while that header is present, and `js/media-library/app.js` remembers the prior mobile route so the back button exits Mind to the page the user came from instead of hard-resetting to Photos.
+- Bumped cache versions to `components.js?v=49`, `app.js?v=117`, and `media-library.css?v=98`, and extended `test/previewActions.test.js` with mobile Albums-root and mobile Mind-header coverage. **Validation**: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/components.js`, targeted Mocha `test\previewActions.test.js` (`32 passing`), and `git diff --check` passed.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.

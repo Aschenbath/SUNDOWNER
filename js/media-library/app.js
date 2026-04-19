@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=48';
+} from './components.js?v=49';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -264,6 +264,10 @@ const state = {
   albumDrawerScope: 'all',
   albumPickerDistinctOnly: false,
   albumDrawerCreateMode: false,
+  mobileAlbumSearchOpen: false,
+  mobileMindReturnPrimary: 'Photos',
+  mobileMindReturnSecondary: '',
+  mobileMindReturnPrivate: false,
   confirmDialogOpen: false,
   confirmDialogMode: '',
   confirmDialogOrigin: '',
@@ -2000,9 +2004,57 @@ function getVideoAlbumSelectionTarget() {
   return normalizeVideoCategory(state.videoAlbumSelectionTarget);
 }
 
+function isMobileLayout() {
+  return Number(state.layoutWidth || 0) <= 960;
+}
+
+function rememberMobileMindReturnRoute() {
+  state.mobileMindReturnPrimary = state.privateViewOpen ? 'Photos' : state.primaryFilter;
+  state.mobileMindReturnSecondary = state.privateViewOpen ? '' : state.secondaryFilter;
+  state.mobileMindReturnPrivate = Boolean(state.privateViewOpen);
+}
+
+function leaveMobileMindView() {
+  const targetPrimary = state.mobileMindReturnPrivate
+    ? 'Photos'
+    : normalizePrimaryFilter(state.mobileMindReturnPrimary || 'Photos');
+  const targetSecondary = state.mobileMindReturnPrivate
+    ? ''
+    : normalizeSecondaryFilter(state.mobileMindReturnSecondary || '');
+  handleMindViewTransition(targetPrimary, targetSecondary);
+  state.primaryFilter = targetPrimary;
+  state.secondaryFilter = targetSecondary;
+  state.videoCategoryFilter = '';
+  state.activeAlbumName = '';
+  state.storagePanelOpen = false;
+  state.previewId = null;
+  state.selectedIds.clear();
+  state.binSelectedIds.clear();
+  resetAddToTargetModes();
+  resetSearchQuery();
+  clearPrivateViewState();
+  if (state.mobileMindReturnPrivate) {
+    state.privateViewOpen = true;
+    state.privateRouteUnlocked = false;
+    state.privatePasswordDraft = '';
+    state.privatePasswordError = '';
+  }
+  resetLoadedCount();
+  pushNavigationHash();
+  patchSidebarActive();
+  scheduleRender();
+  if (state.secondaryFilter === 'Documents') {
+    ensureDocsFolders();
+  }
+  if (state.primaryFilter === 'Bin') {
+    void fetchBinItems();
+  }
+}
+
 function resetSearchQuery() {
   state.searchQuery = '';
   state.searchDraft = '';
+  state.mobileAlbumSearchOpen = false;
 }
 
 function applySearchQuery(nextQuery) {
@@ -6511,6 +6563,8 @@ function render() {
   const existingShell = refs.root.querySelector('.cml-app-shell');
 
   const showMobileBinEntry = viewModel.isCollectionRoot && state.layoutWidth <= 960;
+  const showMobileAlbumCreateEntry = viewModel.isCollectionRoot && state.layoutWidth <= 640;
+  const hideMobileCollectionSummary = viewModel.isCollectionRoot && state.layoutWidth <= 640;
   const fullHtml = `
     <div class="cml-app-shell">
       ${Sidebar({
@@ -6555,7 +6609,7 @@ function render() {
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : state.privateViewOpen && !state.privateRouteUnlocked
                 ? PrivateAlbumGate({ error: state.privatePasswordError, value: state.privatePasswordDraft })
-                : `${state.primaryFilter === 'Collections'
+                : `${state.primaryFilter === 'Collections' && !hideMobileCollectionSummary
                   ? CollectionSummary({
                     activeAlbumName: viewModel.activeAlbumName,
                     collectionCount: viewModel.totalCollectionCount,
@@ -6571,7 +6625,7 @@ function render() {
                 ${state.privateViewOpen
                   ? PrivateAlbumSummary({ itemCount: viewModel.filteredItems.length, locked: false })
                   : ''}
-                ${viewModel.isMindView ? '' : SearchSummary({
+                ${viewModel.isMindView || hideMobileCollectionSummary ? '' : SearchSummary({
                   query: parsedSearch.textQuery,
                   resultCount: viewModel.isCollectionRoot
                     ? viewModel.totalCollectionCount
@@ -6596,7 +6650,11 @@ function render() {
                   : ''}
                 ${viewModel.isCollectionRoot
                   ? ((viewModel.collectionCards.length || showMobileBinEntry)
-                     ? CollectionGrid({ collections: viewModel.collectionCards, showBinEntry: showMobileBinEntry })
+                     ? CollectionGrid({
+                       collections: viewModel.collectionCards,
+                       showBinEntry: showMobileBinEntry,
+                       showCreateEntry: showMobileAlbumCreateEntry
+                     })
                      : EmptyState({ query: parsedSearch.textQuery, isLoading: state.isLibraryLoading, mode: 'collections' }))
                   : viewModel.isVideoAlbumRoot
                     ? (viewModel.videoAlbumCards.length
@@ -7800,6 +7858,18 @@ function handleAction(actionTarget) {
     case 'toggle-mind-settings':
       setMindSettingsOpen(!state.mindSettingsOpen);
       return true;
+    case 'leave-mobile-mind':
+      leaveMobileMindView();
+      return true;
+    case 'open-mobile-album-search':
+      state.mobileAlbumSearchOpen = true;
+      render();
+      requestAnimationFrame(() => focusSearchInput());
+      return true;
+    case 'close-mobile-album-search':
+      state.mobileAlbumSearchOpen = false;
+      render();
+      return true;
     case 'close-mind-settings':
       setMindSettingsOpen(false);
       return true;
@@ -8589,6 +8659,9 @@ function handleClick(event) {
       if (alreadyOnPrimary) {
         patchSidebarActive();
         return;
+      }
+      if (nextPrimary === 'Mind' && isMobileLayout() && state.primaryFilter !== 'Mind') {
+        rememberMobileMindReturnRoute();
       }
       handleMindViewTransition(nextPrimary, '');
       if (nextPrimary === 'Private') {

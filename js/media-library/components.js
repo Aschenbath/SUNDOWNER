@@ -526,6 +526,29 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
     const headerAvatar = avatarData
       ? `<span class="cml-mind-header__avatar"><img src="${avatarData}" alt="${contactName}" class="cml-mind-header__avatar-image"></span>`
       : `<span class="cml-mind-header__avatar cml-mind-header__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`;
+    const isMobileMind = Number(state.layoutWidth || 0) <= 960;
+    if (isMobileMind) {
+      return `
+        <header class="cml-topbar cml-topbar--mind cml-topbar--mind-mobile">
+          <div class="cml-mobile-mind-bar">
+            <button
+              type="button"
+              class="cml-mobile-mind-bar__back"
+              data-action="leave-mobile-mind"
+              aria-label="Back"
+            >
+              ${icon('previous')}
+            </button>
+            <div class="cml-mind-header">
+              ${headerAvatar}
+              <div class="cml-mind-header__copy">
+                <p class="cml-mind-header__title">${contactName}</p>
+              </div>
+            </div>
+          </div>
+        </header>
+      `;
+    }
     return `
       <header class="cml-topbar cml-topbar--mind">
         <div class="cml-mind-header">
@@ -558,6 +581,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   const canToggleHiddenAlbum = state.privateViewOpen && state.privateRouteUnlocked && !state.secondaryFilter;
   const hiddenActionLabel = 'Remove from Private';
   const addToAlbumLabel = state.secondaryFilter === 'Videos' ? 'Add to video album' : 'Add to album';
+  const isMobileAlbumsRoot = state.primaryFilter === 'Collections' && !activeAlbumName && !isAlbumPickerMode && Number(state.layoutWidth || 0) <= 640;
   if (selectedCount) {
     if (isAlbumPickerMode) {
       return `
@@ -597,6 +621,38 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
             <button type="button" class="cml-topbar__secondary-button is-destructive" data-action="delete-selected" ${canDeleteSelection ? '' : 'disabled'}>${icon('trash')}<span>Delete</span></button>
           </div>
         </div>
+      </header>
+    `;
+  }
+  if (isMobileAlbumsRoot) {
+    return `
+      <header class="cml-topbar cml-topbar--mobile-albums">
+        <div class="cml-mobile-albums-bar">
+          <button type="button" class="cml-mobile-albums-bar__back" data-primary="Photos" aria-label="Back to Photos">
+            ${icon('previous')}
+            <span>Back</span>
+          </button>
+          <h1 class="cml-mobile-albums-bar__title">Albums</h1>
+          <div class="cml-mobile-albums-bar__actions">
+            <button
+              type="button"
+              class="cml-topbar__icon-button cml-mobile-albums-bar__icon ${state.mobileAlbumSearchOpen ? 'is-active' : ''}"
+              data-action="${state.mobileAlbumSearchOpen ? 'close-mobile-album-search' : 'open-mobile-album-search'}"
+              aria-label="${state.mobileAlbumSearchOpen ? 'Close album search' : 'Search albums'}"
+            >
+              ${icon(state.mobileAlbumSearchOpen ? 'close' : 'search')}
+            </button>
+            <button type="button" class="cml-topbar__icon-button cml-mobile-albums-bar__icon" data-action="open-create-album" aria-label="Create album">
+              ${icon('plus')}
+            </button>
+          </div>
+        </div>
+        ${state.mobileAlbumSearchOpen ? `
+          <label class="cml-topbar__search cml-topbar__search--mobile-panel" aria-label="Search albums">
+            ${icon('search', 'cml-topbar__search-icon')}
+            <input type="search" class="cml-topbar__search-input" placeholder="Search albums" value="${searchValue}" />
+          </label>
+        ` : ''}
       </header>
     `;
   }
@@ -1155,9 +1211,24 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
   `;
 }
 
-export function CollectionGrid({ collections, showBinEntry = false }) {
+export function CollectionGrid({ collections, showBinEntry = false, showCreateEntry = false }) {
   return `
     <section class="cml-collection-grid" aria-label="Album collections">
+      ${showCreateEntry ? `
+        <button
+          type="button"
+          class="cml-collection-card cml-collection-card--create"
+          data-action="open-create-album"
+          aria-label="Create a new album"
+        >
+          <span class="cml-collection-card__cover cml-collection-card__cover--create">
+            <span class="cml-collection-card__placeholder cml-collection-card__placeholder--create">${icon('plus')}</span>
+          </span>
+          <span class="cml-collection-card__body">
+            <strong class="cml-collection-card__title">New album</strong>
+          </span>
+        </button>
+      ` : ''}
       ${showBinEntry ? `
         <button
           type="button"
