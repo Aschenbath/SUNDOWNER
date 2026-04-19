@@ -79,6 +79,7 @@
 26-04-15 by codex: Simplify the locked Private entry page into a single polished unlock panel, removing duplicate summary copy and restyling the password form
 26-04-17 by codex: Stop preview DateTaken saves from forcing a full media-library render so the photo preview no longer flashes after saving date & time
 26-04-19 by codex: Refine mobile navigation by replacing the bottom-nav Bin tab with Mind, surfacing Bin as a built-in Albums entry on mobile, and shrinking mobile album cards into a denser two-column wall
+26-04-19 by codex: Rebuild mobile Mind composer to a p2-style bottom input row, hiding the top mobile Style button and moving style access into a plus button on the left side of the message field
 26-04-17 by codex: Add a sidebar TODO filter that reuses the Photos timeline but only shows photos that are not in any album, with URL hash support at #/todo
 26-04-17 by codex: Fix the green success toast dismiss button markup so saved toasts no longer show mojibake after the message text
 26-04-17 by codex: Add a distinct toggle in album photo-picker mode so Add photos can instantly filter down to photos that have never been added to any album

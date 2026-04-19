@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, MobileBottomNav, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
+import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, MindChatView, MobileBottomNav, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
@@ -497,6 +497,44 @@ describe('media library download actions', () => {
     assert.match(gridHtml, /data-primary="Bin"/);
     assert.match(gridHtml, /Recently deleted/);
     assert.match(gridHtml, /Open deleted photos and videos/);
+  });
+
+  it('keeps desktop Mind style in the topbar but adds a mobile-style plus launcher inside the composer', () => {
+    const topbarHtml = TopSearchBar({
+      state: {
+        primaryFilter: 'Mind',
+        secondaryFilter: '',
+        mindSettingsOpen: false,
+        mindSettings: {
+          contactName: 'Willian',
+          contactAvatarData: ''
+        }
+      }
+    });
+    const mindHtml = MindChatView({
+      messages: [],
+      draft: '',
+      settingsBusy: false,
+      deletingIds: new Set(),
+      settingsOpen: false,
+      settings: {
+        contactName: 'Willian',
+        sendButtonColor: 'green',
+        backgroundPreset: 'ios-sky',
+        backgroundPosition: 'center center'
+      },
+      settingsDraft: {
+        contactName: 'Willian',
+        sendButtonColor: 'green',
+        backgroundPreset: 'ios-sky',
+        backgroundPosition: 'center center'
+      }
+    });
+
+    assert.match(topbarHtml, /<span>Style<\/span>/);
+    assert.match(mindHtml, /cml-mind__composer-plus/);
+    assert.match(mindHtml, /data-action="toggle-mind-settings"/);
+    assert.match(mindHtml, /data-action="send-mind-message"/);
   });
 
   it('renders the albums root with a compact title-and-count header', () => {

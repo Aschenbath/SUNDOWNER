@@ -5954,15 +5954,50 @@ body.codex-media-library-active #app {
   margin: 0 auto;
   min-width: 0;
   min-height: 52px;
-  padding: 4px 6px 4px 16px;
+  padding: 4px 6px 4px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   background: rgba(31, 35, 43, 0.94);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   box-shadow: 0 20px 44px rgba(0, 0, 0, 0.22);
+}
+
+#codex-media-library-root .cml-mind__input-wrap {
+  display: block;
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-mind__composer-plus {
+  display: none;
+  width: 38px;
+  height: 38px;
+  border: 0 !important;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #eff4fb !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+#codex-media-library-root .cml-mind__composer-plus:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  transform: translateY(-1px);
+}
+
+#codex-media-library-root .cml-mind__composer-plus.is-active {
+  background: rgba(138, 180, 248, 0.22) !important;
+  color: #a8c7fa !important;
+}
+
+#codex-media-library-root .cml-mind__composer-plus .cml-icon {
+  width: 18px;
+  height: 18px;
 }
 
 #codex-media-library-root .cml-mind__input {
@@ -6390,6 +6425,10 @@ body.codex-media-library-active #app {
     gap: 12px;
   }
 
+  #codex-media-library-root .cml-topbar--mind .cml-topbar__secondary-button {
+    display: none;
+  }
+
   #codex-media-library-root .cml-mind__message {
     max-width: 90%;
   }
@@ -6407,13 +6446,23 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-mind__composer {
     padding-left: 14px;
     padding-right: 14px;
-    padding-bottom: 14px;
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+    bottom: 0;
   }
 
   #codex-media-library-root .cml-mind__input-shell {
     width: 100%;
     max-width: none;
     margin: 0;
+    min-height: 54px;
+    padding-left: 8px;
+    padding-right: 6px;
+    background: rgba(31, 35, 43, 0.96);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.24);
+  }
+
+  #codex-media-library-root .cml-mind__composer-plus {
+    display: inline-flex;
   }
 
   #codex-media-library-root .cml-mind__settings {
@@ -6424,6 +6473,38 @@ body.codex-media-library-active #app {
 @media (max-width: 640px) {
   #codex-media-library-root .cml-main-content__inner.is-mind-view {
     margin: 0;
+  }
+
+  #codex-media-library-root .cml-mind__history {
+    padding: 18px 12px 10px;
+    gap: 10px;
+  }
+
+  #codex-media-library-root .cml-mind__message {
+    gap: 10px;
+    max-width: calc(100% - 6px);
+  }
+
+  #codex-media-library-root .cml-mind__avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+
+  #codex-media-library-root .cml-mind__bubble {
+    padding: 11px 15px;
+    border-radius: 18px;
+  }
+
+  #codex-media-library-root .cml-mind__text {
+    font-size: 15px;
+    line-height: 1.42;
+  }
+
+  #codex-media-library-root .cml-mind__day {
+    margin: 4px 0;
+    padding: 5px 11px;
+    font-size: 11px;
   }
 
   #codex-media-library-root .cml-mind__settings {
@@ -6444,5 +6525,21 @@ body.codex-media-library-active #app {
 
   #codex-media-library-root .cml-mind__input {
     font-size: 16px;
+  }
+
+  #codex-media-library-root .cml-mind__input-shell {
+    min-height: 52px;
+    gap: 6px;
+  }
+
+  #codex-media-library-root .cml-mind__composer-plus {
+    width: 34px;
+    height: 34px;
+  }
+
+  #codex-media-library-root .cml-mind__send {
+    width: 46px;
+    height: 38px;
+    border-radius: 19px;
   }
 }

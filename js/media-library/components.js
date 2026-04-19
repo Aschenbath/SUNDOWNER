@@ -1349,18 +1349,29 @@ export function MindChatView({
         ${historyHtml}
       </div>
       <form class="cml-mind__composer" data-form="mind">
-        <label class="cml-mind__input-shell" aria-label="Mind message">
-          <input
-            type="text"
-            class="cml-mind__input"
-            data-mind-input="message"
-            placeholder="我有时会觉得我真正的人生还未开启..."
-            value="${safeDraft}"
-          />
+        <div class="cml-mind__input-shell">
+          <button
+            type="button"
+            class="cml-mind__composer-plus ${settingsOpen ? 'is-active' : ''}"
+            data-action="toggle-mind-settings"
+            aria-pressed="${settingsOpen ? 'true' : 'false'}"
+            aria-label="Open style settings"
+          >
+            ${icon('plus')}
+          </button>
+          <label class="cml-mind__input-wrap" aria-label="Mind message">
+            <input
+              type="text"
+              class="cml-mind__input"
+              data-mind-input="message"
+              placeholder="我有时会觉得我真正的人生还未开启..."
+              value="${safeDraft}"
+            />
+          </label>
           <button type="submit" class="cml-mind__send" data-action="send-mind-message"${sendButtonStyle} aria-label="Send message">
             ${icon('arrow-up')}
           </button>
-        </label>
+        </div>
       </form>
       ${settingsOpen ? `
         <button type="button" class="cml-mind__settings-backdrop" data-action="close-mind-settings" aria-label="Close settings"></button>
