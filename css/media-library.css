@@ -770,6 +770,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-main-content.is-mind-view {
   padding: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 #codex-media-library-root .cml-main-content::-webkit-scrollbar {
@@ -1151,41 +1152,43 @@ body.codex-media-library-active #app {
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(circle at top left, rgba(138, 180, 248, 0.18), transparent 45%),
-    linear-gradient(180deg, rgba(30, 36, 48, 0.92) 0%, rgba(18, 22, 31, 0.98) 100%);
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.06), transparent 42%),
+    linear-gradient(180deg, rgba(39, 41, 47, 0.92) 0%, rgba(28, 30, 35, 0.98) 100%);
 }
 
 #codex-media-library-root .cml-collection-card__cover--create {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(236, 239, 244, 0.94);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 40%),
+    linear-gradient(180deg, rgba(51, 54, 61, 0.92) 0%, rgba(34, 36, 41, 0.98) 100%);
 }
 
 #codex-media-library-root .cml-collection-card__placeholder--system {
-  width: 72px;
-  height: 72px;
-  border-radius: 22px;
-  background: rgba(138, 180, 248, 0.12);
-  color: #a8c7fa;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: transparent;
+  color: #d7dde6;
 }
 
 #codex-media-library-root .cml-collection-card__placeholder--create {
-  width: 72px;
-  height: 72px;
-  border-radius: 22px;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
   background: transparent;
-  color: #16181d;
+  color: #eef2f7;
 }
 
 #codex-media-library-root .cml-collection-card__placeholder--system .cml-icon {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
 }
 
 #codex-media-library-root .cml-collection-card__placeholder--create .cml-icon {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
 }
 
 #codex-media-library-root .cml-video-album-grid {
@@ -2647,8 +2650,10 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-topbar--mind-mobile {
     justify-content: initial;
     gap: 10px;
-    padding: 10px 14px 8px;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 8px;
     background: linear-gradient(180deg, rgba(32, 33, 36, 0.98), rgba(32, 33, 36, 0.92));
+    z-index: 48;
+    pointer-events: auto;
   }
 
   #codex-media-library-root .cml-mobile-albums-bar {
@@ -2665,6 +2670,8 @@ body.codex-media-library-active #app {
     align-items: center;
     gap: 10px;
     width: 100%;
+    position: relative;
+    z-index: 1;
   }
 
   #codex-media-library-root .cml-mobile-albums-bar__back {
@@ -2693,6 +2700,10 @@ body.codex-media-library-active #app {
     color: #edf2f7 !important;
     box-shadow: none !important;
     cursor: pointer;
+    pointer-events: auto;
+    touch-action: manipulation;
+    position: relative;
+    z-index: 2;
   }
 
   #codex-media-library-root .cml-mobile-albums-bar__back .cml-icon,
@@ -2731,6 +2742,10 @@ body.codex-media-library-active #app {
     width: 100%;
     max-width: none;
     margin-right: 0;
+  }
+
+  #codex-media-library-root .cml-topbar__search-input {
+    font-size: 16px;
   }
 
   #codex-media-library-root .cml-preview__panel {
@@ -2788,6 +2803,7 @@ body.codex-media-library-active #app {
     cursor: pointer;
     transition: color 180ms ease;
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   #codex-media-library-root .cml-mobile-nav__tab:active {
@@ -2848,6 +2864,12 @@ body.codex-media-library-active #app {
   /* Content padding so last row isn't hidden behind nav bar */
   #codex-media-library-root .cml-main-content {
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-app-shell,
+  #codex-media-library-root:has(.cml-topbar--mind-mobile) .cml-main-shell {
+    min-height: 100dvh;
+    height: 100dvh;
   }
 
   /* Toast repositioned above bottom nav */
@@ -6618,7 +6640,7 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-mind__history {
-    padding: 18px 12px 10px;
+    padding: 18px 12px 14px;
     gap: 10px;
   }
 
@@ -6672,6 +6694,7 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-mind__input-shell {
     min-height: 52px;
     gap: 6px;
+    touch-action: manipulation;
   }
 
   #codex-media-library-root .cml-mind__composer-plus {

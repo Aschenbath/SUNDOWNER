@@ -496,7 +496,8 @@ describe('media library download actions', () => {
     assert.doesNotMatch(mobileNavHtml, /data-primary="Bin"/);
     assert.match(gridHtml, /data-primary="Bin"/);
     assert.match(gridHtml, /Recently deleted/);
-    assert.match(gridHtml, /Open deleted photos and videos/);
+    assert.match(gridHtml, />Bin</);
+    assert.doesNotMatch(gridHtml, /Open deleted photos and videos/);
   });
 
   it('renders a dedicated mobile albums header and a first-card create entry on small screens', () => {

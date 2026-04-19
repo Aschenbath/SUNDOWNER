@@ -1226,6 +1226,7 @@ export function CollectionGrid({ collections, showBinEntry = false, showCreateEn
           </span>
           <span class="cml-collection-card__body">
             <strong class="cml-collection-card__title">New album</strong>
+            <span class="cml-collection-card__meta">Create</span>
           </span>
         </button>
       ` : ''}
@@ -1242,7 +1243,6 @@ export function CollectionGrid({ collections, showBinEntry = false, showCreateEn
           <span class="cml-collection-card__body">
             <strong class="cml-collection-card__title">Recently deleted</strong>
             <span class="cml-collection-card__meta">Bin</span>
-            <span class="cml-collection-card__copy">Open deleted photos and videos</span>
           </span>
         </button>
       ` : ''}

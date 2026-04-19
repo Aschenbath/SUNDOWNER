@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=49';
+} from './components.js?v=50';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -6736,7 +6736,9 @@ function render() {
 
   refs.root.classList.toggle('has-selection', state.selectedIds.size > 0);
 
-  refs.scrollRegion = refs.root.querySelector('.cml-main-content');
+  refs.scrollRegion = viewModel.isMindView
+    ? refs.root.querySelector('.cml-mind__history')
+    : refs.root.querySelector('.cml-main-content');
   refs.sectionAnchors = [...refs.root.querySelectorAll('.cml-timeline-section')];
   refs.contentInner = refs.root.querySelector('.cml-main-content__inner');
   refs.sectionItemIds = new Map(viewModel.sections.map((section) => [
@@ -8888,6 +8890,9 @@ function handleFocusIn(event) {
   const tile = event.target instanceof Element ? event.target.closest('.cml-media-tile') : null;
   if (tile instanceof HTMLElement) {
     state.focusedTileId = tile.getAttribute('data-tile-id');
+  }
+  if (event.target instanceof HTMLInputElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
+    window.setTimeout(() => scrollMindToBottom({ force: true }), 120);
   }
 }
 
