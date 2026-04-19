@@ -118,3 +118,4 @@
 26-04-18 by codex: Restore Mind's intended next-visit mirroring by triggering the mirror action only when entering the Mind route or reopening directly into it, so fresh right-side web notes turn left on the next visit without using visibility/pagehide/hash side effects
 26-04-18 by codex: Stop Mind's customized contact name from flashing back to the default "Mind" on reopen by caching the saved settings locally for first paint and bumping the media-library app cache version
 26-04-18 by codex: Roll back the Mind first-paint settings cache after it caused a startup blank page, and ship a fresh app.js cache-bust to restore the site before revisiting the no-flicker rename fix
+26-04-19 by codex: Keep Mind web messages on the right for the whole current visit by adding a visit-sticky side override, so delayed mirror/load responses after tab switching no longer flip a just-sent message left until Mind is actually exited and reopened

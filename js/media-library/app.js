@@ -385,6 +385,7 @@ let pendingPersistedAlbumSnapshot = null;
 let mindStatePromise = null;
 let mindMirrorPromise = null;
 let mindMutationQueue = Promise.resolve();
+let mindVisitStickyMessages = [];
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
 const MIND_BACKGROUND_PRESETS = ['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'];
 const MIND_BACKGROUND_POSITIONS = [
@@ -2175,7 +2176,7 @@ function normalizeMindSettings(settings = {}) {
   };
 }
 
-function normalizeMindMessage(rawMessage = {}) {
+function normalizeMindMessage(rawMessage = {}, { forceRight = false } = {}) {
   const text = normalizeMindText(rawMessage.text);
   if (!text) {
     return null;
@@ -2190,12 +2191,51 @@ function normalizeMindMessage(rawMessage = {}) {
     text,
     source,
     phase,
-    side: source === 'web' && phase === 'fresh' ? 'right' : 'left',
+    side: forceRight || (source === 'web' && phase === 'fresh') ? 'right' : 'left',
     createdAt: Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now(),
     updatedAt: Number(rawMessage.updatedAt) || 0,
     channelName: normalizeText(rawMessage.channelName),
     sourceRef: normalizeText(rawMessage.sourceRef)
   };
+}
+
+function isMindMessageStickyForVisit(rawMessage = {}, stickyMessages = mindVisitStickyMessages) {
+  if (!stickyMessages.length) {
+    return false;
+  }
+  const source = String(rawMessage.source || '').toLowerCase() === 'telegram' ? 'telegram' : 'web';
+  if (source !== 'web') {
+    return false;
+  }
+  const id = normalizeText(rawMessage.id);
+  const text = normalizeMindText(rawMessage.text);
+  const createdAt = Number(rawMessage.createdAt);
+  return stickyMessages.some((message) => {
+    if (id && message.id && message.id === id) {
+      return true;
+    }
+    if (!text || message.text !== text) {
+      return false;
+    }
+    if (!Number.isFinite(createdAt) || !Number.isFinite(message.createdAt)) {
+      return true;
+    }
+    return Math.abs(createdAt - message.createdAt) <= 15000;
+  });
+}
+
+function syncMindVisitStickyMessages(messages = state.mindMessages) {
+  mindVisitStickyMessages = safeArray(messages)
+    .filter((message) => message?.source === 'web' && message?.side === 'right')
+    .map((message) => ({
+      id: normalizeText(message.id),
+      text: normalizeMindText(message.text),
+      createdAt: Number(message.createdAt) || 0
+    }));
+}
+
+function clearMindVisitStickyMessages() {
+  mindVisitStickyMessages = [];
 }
 
 function sortMindMessages(messages = []) {
@@ -2227,11 +2267,15 @@ function createMindSettingsDraft(settings = {}) {
 }
 
 function applyMindState(payload) {
+  const stickyMessages = mindVisitStickyMessages.slice();
   state.mindSettings = normalizeMindSettings(payload?.settings || {});
   state.mindSettingsDraft = createMindSettingsDraft(state.mindSettings);
   state.mindMessages = sortMindMessages(safeArray(payload?.messages)
-    .map((message) => normalizeMindMessage(message))
+    .map((message) => normalizeMindMessage(message, {
+      forceRight: isMindMessageStickyForVisit(message, stickyMessages)
+    }))
     .filter(Boolean));
+  syncMindVisitStickyMessages(state.mindMessages);
 }
 
 function enqueueMindMutation(task) {
@@ -2309,6 +2353,7 @@ async function sendMindMessage() {
   state.mindDraft = '';
   if (optimisticMessage) {
     state.mindMessages = [...state.mindMessages, optimisticMessage];
+    syncMindVisitStickyMessages(state.mindMessages);
   }
   if (refs.root) {
     render();
@@ -2324,6 +2369,7 @@ async function sendMindMessage() {
     })
     .catch((error) => {
       state.mindMessages = state.mindMessages.filter((message) => message.id !== optimisticMessage?.id);
+      syncMindVisitStickyMessages(state.mindMessages);
       if (!normalizeMindText(state.mindDraft)) {
         state.mindDraft = text;
       }
@@ -2405,6 +2451,7 @@ async function deleteMindMessageById(messageId) {
   }
   const deletedMessage = state.mindMessages.find((message) => message.id === normalizedId) || null;
   state.mindMessages = state.mindMessages.filter((message) => message.id !== normalizedId);
+  syncMindVisitStickyMessages(state.mindMessages);
   state.mindDeletingIds.add(normalizedId);
   if (refs.root) {
     render();
@@ -2420,6 +2467,7 @@ async function deleteMindMessageById(messageId) {
   } catch (error) {
     if (deletedMessage && !state.mindMessages.some((message) => message.id === normalizedId)) {
       state.mindMessages = sortMindMessages([...state.mindMessages, deletedMessage]);
+      syncMindVisitStickyMessages(state.mindMessages);
     }
     showToast(error.message || 'Failed to delete message');
   } finally {
@@ -2572,6 +2620,10 @@ function isMindViewActive() {
 
 function handleMindViewTransition(nextPrimary, nextSecondary = state.secondaryFilter) {
   const enteringMind = nextPrimary === 'Mind' && !nextSecondary;
+  const leavingMind = state.primaryFilter === 'Mind' && (!enteringMind || nextPrimary !== 'Mind');
+  if (leavingMind) {
+    clearMindVisitStickyMessages();
+  }
   if (enteringMind) {
     void loadMindState({ forceRender: true, mirrorAfterLoad: true });
     window.setTimeout(() => scrollMindToBottom({ force: true }), 40);
@@ -9179,6 +9231,9 @@ function restoreNavigationFromHash() {
       state.activeAlbumName = '';
       clearPrivateViewState();
       break;
+  }
+  if (state.primaryFilter !== 'Mind') {
+    clearMindVisitStickyMessages();
   }
 }
 

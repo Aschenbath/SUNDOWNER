@@ -521,6 +521,12 @@ pm; git diff --check passed.
 - Reverted the `localStorage`-seeded Mind bootstrap path from `js/media-library/app.js` and bumped `index.html` to `app.js?v=113` so Cloudflare Pages and browsers stop serving the bad startup script. The customized-name flicker remains unresolved for now and should be revisited with a safer boot-path patch after the site is stable again.
 - **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
 
+### 2026-04-19 12:39 Asia/Shanghai
+
+- Fixed the Mind "tab switch back, then message slowly jumps from right to left" regression. Root cause: the current visit had no client-side notion of "this web message already belongs to my present session", so any delayed `loadMindState(...mirrorAfterLoad)` or `mirror` payload could overwrite the bubble side after the user returned to the tab.
+- Added a visit-scoped sticky-side layer in `js/media-library/app.js`: current-visit web messages that have already rendered on the right stay right even if a later backend payload reports them as mirrored. That sticky set is cleared only when the user truly leaves `Mind` (route exit / hash restore away from `#/mind`), so next real entry still mirrors to the left as intended.
+- Bumped `index.html` to `app.js?v=114` and added `test/mindState.test.js` to lock the new visit-sticky behavior. **Validation**: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, targeted Mocha `test\mindState.test.js test\previewActions.test.js` (`29 passing`), and `git diff --check` passed.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.

@@ -6,22 +6,20 @@ import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, PreviewModal, Pr
 describe('media library download actions', () => {
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
     const html = Sidebar({
+      navigationModel: {
+        primary: ['Photos', 'Collections', 'Mind', 'Private', 'Bin'],
+        secondary: ['TODO', 'Videos', 'Documents', 'Favourites']
+      },
       state: {
         primaryFilter: 'Photos',
         secondaryFilter: '',
         privateViewOpen: false,
+        mindSettings: { contactName: 'Mind' },
       },
       storageSummary: null,
-      isAdminOpen: false,
-      isStorageOpen: false,
-      hasSelection: false,
-      isSelectionMode: false,
-      adminMenuOpen: false,
-      canManageMedia: true,
-      avatarUrl: '',
     });
 
-    assert.match(html, /class="cml-sidebar__brand-name">SUNDOWNER</);
+    assert.match(html, /class="cml-sidebar__brand-name"[^>]*>SUNDOWNER</);
     assert.doesNotMatch(html, /cml-sidebar__brand-logo/);
   });
 
@@ -563,7 +561,8 @@ describe('media library download actions', () => {
         primaryFilter: 'Bin',
         secondaryFilter: '',
         privateViewOpen: false,
-        searchQuery: ''
+        searchQuery: '',
+        mindSettings: { contactName: 'Mind' }
       },
       storageSummary: {
         usedMb: 50.9,
@@ -575,7 +574,7 @@ describe('media library download actions', () => {
     });
 
     assert.match(html, /cml-sidebar__brand-wordmark/);
-    assert.match(html, /logo-sundowner\.png/);
+    assert.match(html, /Times New Roman/);
     assert.match(html, />Albums</);
     assert.match(html, />Private</);
     assert.match(html, /data-secondary="Videos"/);
