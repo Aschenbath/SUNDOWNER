@@ -27,7 +27,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=52';
+} from './components.js?v=53';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -2034,6 +2034,94 @@ function isMobileMindComposerFocused() {
     && activeElement.dataset.mindInput === 'message';
 }
 
+function isMobileMindRouteActive() {
+  return state.primaryFilter === 'Mind' && isMobileLayout();
+}
+
+function syncMobileMindInputIsolation() {
+  if (!(refs.root instanceof HTMLElement)) {
+    return;
+  }
+  const mobileMindShell = refs.root.querySelector('.cml-mind--mobile-fixed');
+  const shouldIsolate = isMobileMindRouteActive() && mobileMindShell instanceof HTMLElement;
+  const restoreInputState = (element) => {
+    if (!(element instanceof HTMLElement) || !('dataset' in element)) {
+      return;
+    }
+    if (element.dataset.cmlMobileMindDisabled !== '1') {
+      return;
+    }
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
+      element.disabled = element.dataset.cmlMobileMindPrevDisabled === '1';
+    }
+    if (element.dataset.cmlMobileMindPrevTabindex === 'unset') {
+      element.removeAttribute('tabindex');
+    } else if (element.dataset.cmlMobileMindPrevTabindex) {
+      element.setAttribute('tabindex', element.dataset.cmlMobileMindPrevTabindex);
+    }
+    if (element.dataset.cmlMobileMindPrevContenteditable) {
+      element.setAttribute('contenteditable', element.dataset.cmlMobileMindPrevContenteditable);
+    } else if (element.hasAttribute('contenteditable')) {
+      element.removeAttribute('contenteditable');
+    }
+    delete element.dataset.cmlMobileMindDisabled;
+    delete element.dataset.cmlMobileMindPrevDisabled;
+    delete element.dataset.cmlMobileMindPrevTabindex;
+    delete element.dataset.cmlMobileMindPrevContenteditable;
+  };
+  const stashInputState = (element) => {
+    if (!(element instanceof HTMLElement) || !('dataset' in element)) {
+      return;
+    }
+    if (element.dataset.cmlMobileMindDisabled === '1') {
+      return;
+    }
+    element.dataset.cmlMobileMindDisabled = '1';
+    element.dataset.cmlMobileMindPrevTabindex = element.getAttribute('tabindex') ?? 'unset';
+    element.dataset.cmlMobileMindPrevContenteditable = element.getAttribute('contenteditable') ?? '';
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
+      element.dataset.cmlMobileMindPrevDisabled = element.disabled ? '1' : '0';
+      element.disabled = true;
+    }
+    if (element.hasAttribute('contenteditable')) {
+      element.setAttribute('contenteditable', 'false');
+    }
+    element.setAttribute('tabindex', '-1');
+  };
+  const toggleContainerInert = (selector, inert) => {
+    refs.root.querySelectorAll(selector).forEach((element) => {
+      if (!(element instanceof HTMLElement)) {
+        return;
+      }
+      element.toggleAttribute('inert', inert);
+      if (inert) {
+        element.setAttribute('aria-hidden', 'true');
+      } else {
+        element.removeAttribute('aria-hidden');
+      }
+    });
+  };
+
+  refs.root.querySelectorAll('input, textarea, select, [contenteditable], [tabindex]').forEach((element) => {
+    if (!(element instanceof HTMLElement)) {
+      return;
+    }
+    const insideMobileMind = element.closest('.cml-mind--mobile-fixed');
+    if (shouldIsolate && !insideMobileMind) {
+      stashInputState(element);
+    } else {
+      restoreInputState(element);
+    }
+  });
+
+  toggleContainerInert('.cml-sidebar, .cml-topbar, .cml-mobile-nav', shouldIsolate);
+
+  const activeElement = document.activeElement;
+  if (shouldIsolate && activeElement instanceof HTMLElement && !activeElement.closest('.cml-mind--mobile-fixed')) {
+    activeElement.blur();
+  }
+}
+
 function syncViewportHeightVar({ force = false } = {}) {
   if (!(refs.root instanceof HTMLElement)) {
     return;
@@ -2054,6 +2142,22 @@ function syncViewportHeightVar({ force = false } = {}) {
   if (nextHeight <= 0) {
     return;
   }
+  const keyboardInset = (() => {
+    if (!isMobileMindRouteActive()) {
+      return 0;
+    }
+    const baselineHeight = Math.max(
+      stableAppViewportHeight || 0,
+      Math.round(window.innerHeight || 0),
+      Math.round(document.documentElement.clientHeight || 0)
+    );
+    if (baselineHeight <= 0) {
+      return 0;
+    }
+    const viewportBottom = Math.round((viewport?.height || nextHeight) + (viewport?.offsetTop || 0));
+    return Math.max(0, baselineHeight - viewportBottom);
+  })();
+  refs.root.style.setProperty('--cml-keyboard-inset', `${keyboardInset}px`);
   const keyboardLikeResize = !force
     && isMobileMindComposerFocused()
     && stableAppViewportHeight > 0
@@ -2094,7 +2198,7 @@ function unlockDocumentScroll() {
 }
 
 function stabilizeMobileMindViewport() {
-  if (!(state.primaryFilter === 'Mind' && isMobileLayout())) {
+  if (!isMobileMindRouteActive()) {
     return;
   }
   window.scrollTo(0, 0);
@@ -6844,6 +6948,7 @@ function render() {
   refs.timelineLayoutSections = viewModel.timelineLayoutSections || [];
   refs.timelineVirtualSignature = viewModel.timelineVirtualSignature || '';
   refs.timelineVirtualEnabled = Boolean(viewModel.timelineVirtualEnabled);
+  syncMobileMindInputIsolation();
 
   if (shouldAnimateContentView) {
     animateContentViewTransition();
@@ -6865,7 +6970,7 @@ function render() {
     }
   }
 
-  if (searchWasFocused) {
+  if (searchWasFocused && !(viewModel.isMindView && isMobileLayout())) {
     focusSearchInput();
   }
 

@@ -1417,6 +1417,11 @@ export function MindChatView({
             data-mind-input="message"
             placeholder="我有时会觉得我真正的人生还未开启..."
             value="${safeDraft}"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            enterkeyhint="send"
           />
         </label>
         <button type="submit" class="cml-mind__send" data-action="send-mind-message"${sendButtonStyle} aria-label="Send message">

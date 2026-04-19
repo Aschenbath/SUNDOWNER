@@ -16,6 +16,7 @@ body.codex-media-library-active #app {
   inset: 0;
   z-index: 2147483000;
   --cml-app-height: 100vh;
+  --cml-keyboard-inset: 0px;
 }
 
 @supports (height: 100dvh) {
@@ -6690,18 +6691,19 @@ body.codex-media-library-active #app {
     position: absolute;
     inset: calc(58px + env(safe-area-inset-top, 0px)) 0 0;
     overflow: auto;
-    padding: 18px 12px calc(112px + env(safe-area-inset-bottom, 0px));
-    scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+    padding: 18px 12px calc(112px + env(safe-area-inset-bottom, 0px) + var(--cml-keyboard-inset, 0px));
+    scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px) + var(--cml-keyboard-inset, 0px));
   }
 
   #codex-media-library-root .cml-mind__composer--mobile-fixed {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--cml-keyboard-inset, 0px);
     z-index: 5;
     padding: 0 14px calc(14px + env(safe-area-inset-bottom, 0px));
     background: linear-gradient(180deg, rgba(15, 18, 24, 0), rgba(15, 18, 24, 0.28) 34%, rgba(15, 18, 24, 0.44) 100%);
+    transition: bottom 180ms ease;
   }
 
   #codex-media-library-root .cml-mind--mobile-fixed .cml-mind__settings-backdrop {
