@@ -7,6 +7,7 @@ const icons = {
   albums: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="6" width="15" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.5h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
   documents: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3.8h6l4 4v12A1.8 1.8 0 0 1 16.2 21H8a1.8 1.8 0 0 1-1.8-1.8V5.6A1.8 1.8 0 0 1 8 3.8Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14 3.8v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   favourites: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 5.4 1.9 3.8 4.2.6-3 2.9.7 4.1-3.8-2-3.8 2 .7-4.1-3-2.9 4.2-.6Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+  music: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5.5v9.2a3.1 3.1 0 1 1-1.7-2.8V7.6l-6.4 1.6v7a3.1 3.1 0 1 1-1.7-2.8V7l9.8-2.3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m15.2 15.2 4.3 4.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 12.8 3.7 3.7 7.5-8.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -15,6 +16,10 @@ const icons = {
   next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.2 5.8 6 6.2-6 6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 5 2 4.1 4.5.7-3.2 3 .8 4.6-4.1-2.1-4.1 2.1.8-4.6-3.2-3 4.5-.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.2h2.8v11.6H8Zm5.2 0H16v11.6h-2.8Z" fill="currentColor"/></svg>',
+  shuffle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h3v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="m4.5 18.5 5.2-5.2m2.7-2.7L16 7m3 12h-3v-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="m4.5 5.5 5.2 5.2M12.4 13.4 16 17m3 2-3 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  repeat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.5 6.5H8.2a3 3 0 0 0-2.1.9L4.5 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 6.5V3.8M17.5 6.5v2.7M6.5 17.5h9.3a3 3 0 0 0 2.1-.9l1.6-1.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 17.5v2.7M6.5 17.5v-2.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  speaker: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 14.5h3.4l4.6 3.6V5.9L8.4 9.5H5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M16.2 9.1a4.2 4.2 0 0 1 0 5.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M18.6 6.5a8 8 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
   memory: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18a7.5 7.5 0 0 1 15 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="9.4" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   cloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.8 18.3a4.3 4.3 0 1 1 .8-8.5 5.2 5.2 0 0 1 10.1 1.4A3.6 3.6 0 0 1 18 18.3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   calendar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8v2.4M17 4.8v2.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="4.8" y="6.8" width="14.4" height="12.4" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4.8 10.2h14.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
@@ -59,6 +64,7 @@ function escapeHtml(value) {
 
 function safeDisplayLabel(item) {
   if (item.type === 'document') return item.label || item.description || 'Document';
+  if (item.type === 'audio') return item.audioTitle || item.label || 'Audio';
   return item.description || item.displayTakenAt || item.album || (item.type === 'video' ? 'Video' : 'Photo');
 }
 
@@ -201,9 +207,16 @@ function formatPreviewTypeLabel(item) {
     return 'Photo';
   }
   const mimeType = String(item.mimeType || '');
-  return item.type === 'video'
-    ? `Video${mimeType ? ` - ${mimeType}` : ''}`
-    : `Photo${mimeType ? ` - ${mimeType}` : ''}`;
+  if (item.type === 'video') {
+    return `Video${mimeType ? ` - ${mimeType}` : ''}`;
+  }
+  if (item.type === 'audio') {
+    return `Audio${mimeType ? ` - ${mimeType}` : ''}`;
+  }
+  if (item.type === 'document') {
+    return `Document${mimeType ? ` - ${mimeType}` : ''}`;
+  }
+  return `Photo${mimeType ? ` - ${mimeType}` : ''}`;
 }
 
 function formatPreviewSize(sizeMb) {
@@ -216,6 +229,28 @@ function formatPreviewSize(sizeMb) {
 
 function clampAspectRatio(value) {
   return Math.max(0.4, Math.min(2.4, value || 1));
+}
+
+function formatAudioDuration(value) {
+  const numeric = Math.max(0, Number(value) || 0);
+  if (!numeric) {
+    return '--:--';
+  }
+  const totalSeconds = Math.round(numeric);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function formatAudioSubtitle(item = {}) {
+  const parts = [item.audioArtist, item.audioAlbum]
+    .map((value) => escapeHtml(String(value || '').trim()))
+    .filter(Boolean);
+  return parts.join(' · ');
 }
 
 function getLayoutConfig(containerWidth, denseGrid) {
@@ -293,7 +328,7 @@ export function buildJustifiedRows(items, options = {}) {
 function renderMediaAsset(item, className, withControls = false, { noAction = false } = {}) {
   const sourceUrl = item.sourceUrl || item.thumbnailUrl;
   const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
-  const mediaUrl = escapeHtml(item.type === 'video' ? sourceUrl : imageUrl);
+  const mediaUrl = escapeHtml((item.type === 'video' || item.type === 'audio') ? sourceUrl : imageUrl);
   const alt = escapeHtml(safeDisplayLabel(item));
   const originalPhotoUrl = item.type === 'photo' && sourceUrl && sourceUrl !== imageUrl
     ? escapeHtml(sourceUrl)
@@ -308,6 +343,25 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       ${icon('documents', 'cml-doc-tile__icon')}
       <span class="cml-doc-tile__ext">${escapeHtml(ext)}</span>
       <span class="cml-doc-tile__name">${docName}</span>
+    </div>`;
+  }
+  if (item.type === 'audio') {
+    const title = escapeHtml(item.audioTitle || item.label || 'Audio track');
+    const subtitle = formatAudioSubtitle(item);
+    if (withControls) {
+      return `<div class="${className} cml-audio-preview">
+        <div class="cml-audio-preview__cover">${icon('music')}</div>
+        <div class="cml-audio-preview__meta">
+          <strong class="cml-audio-preview__title">${title}</strong>
+          ${subtitle ? `<span class="cml-audio-preview__subtitle">${subtitle}</span>` : ''}
+        </div>
+        <audio class="cml-audio-preview__player" src="${mediaUrl}" controls preload="metadata"></audio>
+      </div>`;
+    }
+    return `<div class="${className} cml-audio-tile"${previewActionAttr}>
+      <span class="cml-audio-tile__cover">${icon('music')}</span>
+      <span class="cml-audio-tile__title">${title}</span>
+      ${subtitle ? `<span class="cml-audio-tile__subtitle">${subtitle}</span>` : ''}
     </div>`;
   }
   if (item.type === 'photo' && item.browserPreviewSupported === false) {
@@ -401,6 +455,8 @@ export function Sidebar({
           const active = isPrimaryActive(label) ? 'is-active' : '';
   const iconName = key === 'photos'
     ? 'photos'
+    : key === 'music'
+      ? 'music'
     : key === 'bin'
       ? 'trash'
       : key === 'mind'
@@ -449,6 +505,7 @@ export function MobileBottomNav({ navigationModel, state }) {
   const tabs = [
     { displayLabel: 'Photos', iconName: 'photos', attr: 'data-primary="Photos"', active: isPrimary('Photos') },
     { displayLabel: 'Albums', iconName: 'albums', attr: 'data-primary="Collections"', active: isPrimary('Collections') },
+    { displayLabel: 'Music', iconName: 'music', attr: 'data-primary="Music"', active: isPrimary('Music') },
     { displayLabel: 'Files', iconName: 'documents', attr: 'data-secondary="Documents"', active: isSecondary('Documents') },
     { displayLabel: mindLabel, iconName: 'memory', attr: 'data-primary="Mind"', active: isPrimary('Mind') }
   ];
@@ -563,6 +620,9 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   const hiddenActionLabel = 'Remove from Private';
   const addToAlbumLabel = state.secondaryFilter === 'Videos' ? 'Add to video album' : 'Add to album';
   const isMobileAlbumsRoot = state.primaryFilter === 'Collections' && !activeAlbumName && !isAlbumPickerMode && Number(state.layoutWidth || 0) <= 640;
+  const searchPlaceholder = state.primaryFilter === 'Music'
+    ? 'Search music, artist, album, type:audio'
+    : 'Search photos, descriptions, type:video, category:travel';
   if (selectedCount) {
     if (isAlbumPickerMode) {
       return `
@@ -638,10 +698,10 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
     `;
   }
   return `
-    <header class="cml-topbar">
+      <header class="cml-topbar">
       <label class="cml-topbar__search" aria-label="Search">
         ${icon('search', 'cml-topbar__search-icon')}
-        <input type="search" class="cml-topbar__search-input" placeholder="Search photos, descriptions, type:video, category:travel" value="${searchValue}" />
+        <input type="search" class="cml-topbar__search-input" placeholder="${escapeHtml(searchPlaceholder)}" value="${searchValue}" />
       </label>
       <div class="cml-topbar__actions">
         ${isAlbumPickerMode ? `
@@ -1139,6 +1199,134 @@ export function DocumentsListView({ items, state }) {
     </div>
     ${moveDialogHtml}
     ${contextMenuHtml}
+  `;
+}
+
+export function MusicSummary({ totalCount = 0, isMobile = false }) {
+  return `
+    <section class="cml-view-summary cml-view-summary--music">
+      ${isMobile ? '' : '<p class="cml-view-summary__eyebrow">Music</p>'}
+      <h2 class="cml-view-summary__title">Music</h2>
+      <p class="cml-view-summary__copy cml-view-summary__copy--albums">${formatItemCount(totalCount)} ready to play</p>
+    </section>
+  `;
+}
+
+export function MusicListView({ items = [], state, audioState = {} }) {
+  if (!items.length) {
+    return '';
+  }
+  const currentId = String(audioState.currentId || '');
+  const isPlaying = Boolean(audioState.isPlaying);
+  return `
+    <section class="cml-music-list" aria-label="Music library">
+      ${items.map((item, index) => {
+        const isCurrent = currentId === String(item.id || '');
+        const title = escapeHtml(item.audioTitle || item.label || 'Audio track');
+        const subtitle = formatAudioSubtitle(item) || escapeHtml(item.label || '');
+        return `
+          <button
+            type="button"
+            class="cml-music-row ${isCurrent ? 'is-current' : ''}"
+            data-action="play-audio-item"
+            data-id="${escapeHtml(item.id)}"
+            data-audio-row="${escapeHtml(item.id)}"
+            aria-pressed="${isCurrent ? 'true' : 'false'}"
+          >
+            <span class="cml-music-row__index">${isCurrent && isPlaying ? icon('pause') : icon('play')}</span>
+            <span class="cml-music-row__cover">${icon('music')}</span>
+            <span class="cml-music-row__meta">
+              <strong class="cml-music-row__title">${title}</strong>
+              <span class="cml-music-row__subtitle">${subtitle || `Track ${index + 1}`}</span>
+            </span>
+            <span class="cml-music-row__duration">${formatAudioDuration(item.audioDuration || 0)}</span>
+          </button>
+        `;
+      }).join('')}
+    </section>
+  `;
+}
+
+export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentTime = 0, duration = 0, isPlaying = false, mode = 'queue', volume = 1 }) {
+  const title = escapeHtml(currentItem?.audioTitle || currentItem?.label || 'Select a track');
+  const subtitle = formatAudioSubtitle(currentItem) || escapeHtml(currentItem?.label || 'Choose music from the list to start playback.');
+  const resolvedDuration = Math.max(0, Number(duration) || Number(currentItem?.audioDuration) || 0);
+  const resolvedCurrentTime = Math.min(Math.max(0, Number(currentTime) || 0), resolvedDuration || Number.MAX_SAFE_INTEGER);
+  return `
+    <aside class="cml-audio-panel" aria-label="Audio player">
+      <div class="cml-audio-panel__hero">
+        <span class="cml-audio-panel__cover">${icon('music')}</span>
+        <div class="cml-audio-panel__copy">
+          <strong class="cml-audio-panel__title">${title}</strong>
+          <span class="cml-audio-panel__subtitle">${subtitle}</span>
+        </div>
+      </div>
+      <div class="cml-audio-panel__controls">
+        <div class="cml-audio-panel__transport">
+          <button type="button" class="cml-audio-panel__mode ${mode === 'shuffle' ? 'is-active' : ''}" data-action="audio-set-mode" data-mode="shuffle" aria-label="Shuffle">${icon('shuffle')}</button>
+          <button type="button" class="cml-audio-panel__button" data-action="audio-prev" aria-label="Previous">${icon('previous')}</button>
+          <button type="button" class="cml-audio-panel__button cml-audio-panel__button--primary" data-action="audio-toggle-play" aria-label="${isPlaying ? 'Pause' : 'Play'}" data-audio-toggle>${isPlaying ? icon('pause') : icon('play')}</button>
+          <button type="button" class="cml-audio-panel__button" data-action="audio-next" aria-label="Next">${icon('next')}</button>
+          <button type="button" class="cml-audio-panel__mode ${mode === 'repeat-one' ? 'is-active' : ''}" data-action="audio-set-mode" data-mode="repeat-one" aria-label="Repeat current track">${icon('repeat')}</button>
+        </div>
+        <div class="cml-audio-panel__progress">
+          <span class="cml-audio-panel__time" data-audio-current-time>${formatAudioDuration(resolvedCurrentTime)}</span>
+          <input type="range" class="cml-audio-panel__seek" min="0" max="${Math.max(1, resolvedDuration || 1)}" step="1" value="${Math.min(Math.max(0, resolvedCurrentTime), Math.max(1, resolvedDuration || 1))}" data-audio-progress />
+          <span class="cml-audio-panel__time" data-audio-duration>${formatAudioDuration(resolvedDuration)}</span>
+        </div>
+        <div class="cml-audio-panel__volume">
+          ${icon('speaker')}
+          <input type="range" min="0" max="1" step="0.01" value="${Math.min(1, Math.max(0, Number(volume) || 0))}" data-action="audio-set-volume" data-audio-volume />
+        </div>
+      </div>
+      <div class="cml-audio-panel__queue">
+        <div class="cml-audio-panel__queue-head">
+          <strong>Queue</strong>
+          <span>${formatItemCount(queueItems.length)}</span>
+        </div>
+        <div class="cml-audio-panel__queue-list">
+          ${queueItems.length ? queueItems.map((item, index) => `
+            <button
+              type="button"
+              class="cml-audio-panel__queue-item ${currentItem?.id === item.id ? 'is-current' : ''}"
+              data-action="play-audio-item"
+              data-id="${escapeHtml(item.id)}"
+            >
+              <span class="cml-audio-panel__queue-index">${index + 1}</span>
+              <span class="cml-audio-panel__queue-copy">
+                <strong>${escapeHtml(item.audioTitle || item.label || 'Audio track')}</strong>
+                <span>${formatAudioSubtitle(item) || escapeHtml(item.label || '')}</span>
+              </span>
+              <span class="cml-audio-panel__queue-duration">${formatAudioDuration(item.audioDuration || 0)}</span>
+            </button>
+          `).join('') : `<p class="cml-audio-panel__queue-empty">Choose a track from Music to build the queue.</p>`}
+        </div>
+      </div>
+    </aside>
+  `;
+}
+
+export function MobileAudioMiniPlayer({ currentItem = null, isPlaying = false }) {
+  if (!currentItem) {
+    return '';
+  }
+  const title = escapeHtml(currentItem.audioTitle || currentItem.label || 'Now playing');
+  const subtitle = formatAudioSubtitle(currentItem) || escapeHtml(currentItem.label || '');
+  return `
+    <div class="cml-mobile-audio-player" aria-label="Now playing">
+      <button type="button" class="cml-mobile-audio-player__meta" data-primary="Music">
+        <span class="cml-mobile-audio-player__cover">${icon('music')}</span>
+        <span class="cml-mobile-audio-player__copy">
+          <strong>${title}</strong>
+          <span>${subtitle}</span>
+        </span>
+      </button>
+      <div class="cml-mobile-audio-player__actions">
+        <button type="button" class="cml-mobile-audio-player__button" data-action="audio-prev" aria-label="Previous">${icon('previous')}</button>
+        <button type="button" class="cml-mobile-audio-player__button cml-mobile-audio-player__button--primary" data-action="audio-toggle-play" aria-label="${isPlaying ? 'Pause' : 'Play'}" data-audio-toggle>${isPlaying ? icon('pause') : icon('play')}</button>
+        <button type="button" class="cml-mobile-audio-player__button" data-action="audio-next" aria-label="Next">${icon('next')}</button>
+      </div>
+    </div>
   `;
 }
 

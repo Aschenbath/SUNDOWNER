@@ -1,7 +1,8 @@
-import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js';
+import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js?v=2';
 import {
   AdminPanel,
   AlbumDialog,
+  AudioPlayerPanel,
   BinGrid,
   CollectionGrid,
   CollectionSummary,
@@ -12,7 +13,10 @@ import {
   MediaGrid,
   MediaTimelineSection,
   MindChatView,
+  MobileAudioMiniPlayer,
   MobileBottomNav,
+  MusicListView,
+  MusicSummary,
   PrivateAlbumGate,
   PrivateAlbumSummary,
   renderMediaRows,
@@ -27,13 +31,13 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=59';
+} from './components.js?v=61';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
   parseMediaSearchQuery,
   summarizeMediaSearch,
-} from './search-filters.js?v=2';
+} from './search-filters.js?v=3';
 import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
@@ -64,7 +68,7 @@ const API_PAGE_SIZE = 400;
 const API_MAX_ITEMS = 1600;
 const API_REQUEST_TIMEOUT_MS = 8000;
 const STORAGE_REQUEST_TIMEOUT_MS = 5000;
-const MEDIA_LIBRARY_UPLOAD_ACCEPT = 'image/*,video/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
+const MEDIA_LIBRARY_UPLOAD_ACCEPT = 'image/*,video/*,audio/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
 const COLLECTION_PAGE_SIZE = 24;
 const TIMELINE_ROW_GAP = 2;
 const TIMELINE_SECTION_CHROME_ESTIMATE = 92;
@@ -161,9 +165,13 @@ const EXCLUDED_MEDIA_ROOT = [
   '.empty-state'
 ].join(', ');
 
-const FILE_EXTENSION_PATTERN = /\.(?:jpg|jpeg|png|webp|gif|bmp|avif|heic|heif|mp4|mov|m4v|webm|avi)$/i;
+const FILE_EXTENSION_PATTERN = /\.(?:jpg|jpeg|png|webp|gif|bmp|avif|heic|heif|mp4|mov|m4v|webm|avi|mp3|m4a|aac|wav|ogg|flac)$/i;
 const VIDEO_EXTENSION_PATTERN = /\.(?:mp4|mov|m4v|webm|avi)$/i;
+const AUDIO_EXTENSION_PATTERN = /\.(?:mp3|m4a|aac|wav|ogg|flac)$/i;
 const DOCUMENT_HINT_PATTERN = /\b(document|documents|scan|receipt|invoice|contract|paper|archive|notes?)\b/i;
+const AUDIO_MODE_SEQUENCE = 'queue';
+const AUDIO_MODE_REPEAT_ONE = 'repeat-one';
+const AUDIO_MODE_SHUFFLE = 'shuffle';
 
 function loadJson(key, fallback) {
   try {
@@ -316,6 +324,13 @@ const state = {
   mindSettings: createDefaultMindSettings(),
   mindSettingsDraft: createMindSettingsDraft(),
   mindSettingsOpen: false,
+  audioCurrentId: '',
+  audioQueueIds: [],
+  audioMode: AUDIO_MODE_SEQUENCE,
+  audioCurrentTime: 0,
+  audioDuration: 0,
+  audioVolume: 0.92,
+  audioPlaying: false,
   lastSelectedId: null,
   needsLogin: false,
   loginError: '',
@@ -394,6 +409,8 @@ let mindVisitStickyMessages = [];
 let stableAppViewportHeight = 0;
 let stableAppViewportWidth = 0;
 let lockedDocumentScrollY = 0;
+let audioEngine = null;
+let audioUiRaf = 0;
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
 const MIND_BACKGROUND_PRESETS = ['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'];
 const MIND_BACKGROUND_POSITIONS = [
@@ -450,6 +467,259 @@ const MIND_SEND_BUTTON_THEMES = {
     text: '#ffffff'
   }
 };
+
+function normalizeAudioMode(value) {
+  return [AUDIO_MODE_SEQUENCE, AUDIO_MODE_REPEAT_ONE, AUDIO_MODE_SHUFFLE].includes(value)
+    ? value
+    : AUDIO_MODE_SEQUENCE;
+}
+
+function getAudioItemById(itemId, items = getAccessibleItems()) {
+  const normalizedId = normalizeText(itemId);
+  if (!normalizedId) {
+    return null;
+  }
+  return items.find((item) => item.type === 'audio' && normalizeText(item.id) === normalizedId) || null;
+}
+
+function getMusicContextItems(items = getAccessibleItems()) {
+  return getFilteredItems(items).filter((item) => item.type === 'audio');
+}
+
+function getAudioQueueItems(items = getAccessibleItems()) {
+  const queueIds = Array.isArray(state.audioQueueIds) ? state.audioQueueIds : [];
+  const mappedQueue = queueIds
+    .map((itemId) => getAudioItemById(itemId, items))
+    .filter(Boolean);
+  if (mappedQueue.length) {
+    return mappedQueue;
+  }
+  return state.primaryFilter === 'Music' ? getMusicContextItems(items) : [];
+}
+
+function syncAudioProgressUi() {
+  if (!refs.root) {
+    return;
+  }
+  const duration = Math.max(0, Number(state.audioDuration) || 0);
+  const currentTime = Math.max(0, Math.min(Number(state.audioCurrentTime) || 0, duration || Number.MAX_SAFE_INTEGER));
+  refs.root.querySelectorAll('[data-audio-current-time]').forEach((node) => {
+    node.textContent = formatDuration(currentTime);
+  });
+  refs.root.querySelectorAll('[data-audio-duration]').forEach((node) => {
+    node.textContent = formatDuration(duration);
+  });
+  refs.root.querySelectorAll('[data-audio-progress]').forEach((input) => {
+    if (input instanceof HTMLInputElement) {
+      input.max = String(Math.max(1, Math.round(duration || 1)));
+      input.value = String(Math.min(Math.max(0, Math.round(currentTime)), Math.max(1, Math.round(duration || 1))));
+    }
+  });
+  refs.root.querySelectorAll('[data-audio-volume]').forEach((input) => {
+    if (input instanceof HTMLInputElement) {
+      input.value = String(Math.min(1, Math.max(0, Number(state.audioVolume) || 0)));
+    }
+  });
+  refs.root.querySelectorAll('[data-audio-toggle]').forEach((button) => {
+    if (button instanceof HTMLElement) {
+      button.innerHTML = state.audioPlaying ? '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.2h2.8v11.6H8Zm5.2 0H16v11.6h-2.8Z" fill="currentColor"></path></svg></span>' : '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"></path></svg></span>';
+      button.setAttribute('aria-label', state.audioPlaying ? 'Pause' : 'Play');
+    }
+  });
+}
+
+function scheduleAudioUiSync() {
+  if (audioUiRaf) {
+    cancelAnimationFrame(audioUiRaf);
+  }
+  audioUiRaf = requestAnimationFrame(() => {
+    audioUiRaf = 0;
+    syncAudioProgressUi();
+  });
+}
+
+function ensureAudioEngine() {
+  if (audioEngine instanceof HTMLAudioElement) {
+    return audioEngine;
+  }
+  audioEngine = new Audio();
+  audioEngine.preload = 'metadata';
+  audioEngine.volume = Math.min(1, Math.max(0, Number(state.audioVolume) || 0));
+  audioEngine.addEventListener('loadedmetadata', () => {
+    state.audioDuration = Number.isFinite(audioEngine.duration) ? audioEngine.duration : 0;
+    scheduleAudioUiSync();
+  });
+  audioEngine.addEventListener('durationchange', () => {
+    state.audioDuration = Number.isFinite(audioEngine.duration) ? audioEngine.duration : state.audioDuration;
+    scheduleAudioUiSync();
+  });
+  audioEngine.addEventListener('timeupdate', () => {
+    state.audioCurrentTime = Number.isFinite(audioEngine.currentTime) ? audioEngine.currentTime : 0;
+    scheduleAudioUiSync();
+  });
+  audioEngine.addEventListener('play', () => {
+    state.audioPlaying = true;
+    if (refs.root) {
+      render();
+    }
+  });
+  audioEngine.addEventListener('pause', () => {
+    state.audioPlaying = false;
+    if (refs.root) {
+      render();
+    }
+  });
+  audioEngine.addEventListener('ended', () => {
+    handleAudioEnded();
+  });
+  audioEngine.addEventListener('error', () => {
+    state.audioPlaying = false;
+    scheduleAudioUiSync();
+  });
+  return audioEngine;
+}
+
+function formatDuration(value) {
+  const numeric = Math.max(0, Number(value) || 0);
+  const totalSeconds = Math.round(numeric);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const hours = Math.floor(minutes / 60);
+  if (hours > 0) {
+    return `${hours}:${String(minutes % 60).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+async function playAudioItemById(itemId, { queueItems = null, autoplay = true } = {}) {
+  const accessibleItems = getAccessibleItems();
+  const item = getAudioItemById(itemId, accessibleItems);
+  if (!item?.sourceUrl) {
+    return;
+  }
+  const engine = ensureAudioEngine();
+  const nextQueue = Array.isArray(queueItems) && queueItems.length
+    ? queueItems.filter((entry) => entry?.type === 'audio')
+    : (state.primaryFilter === 'Music' ? getMusicContextItems(accessibleItems) : [item]);
+  state.audioQueueIds = [...new Set(nextQueue.map((entry) => normalizeText(entry.id)).filter(Boolean))];
+  state.audioCurrentId = item.id;
+  state.audioCurrentTime = 0;
+  state.audioDuration = Number(item.audioDuration) || 0;
+  if (engine.src !== item.sourceUrl) {
+    engine.src = item.sourceUrl;
+    engine.load();
+  } else {
+    engine.currentTime = 0;
+  }
+  if (autoplay) {
+    try {
+      await engine.play();
+    } catch {
+      state.audioPlaying = false;
+    }
+  } else {
+    engine.pause();
+  }
+  if (refs.root) {
+    render();
+  }
+}
+
+function toggleAudioPlayback() {
+  const engine = ensureAudioEngine();
+  if (!state.audioCurrentId) {
+    const queueItems = getAudioQueueItems(getAccessibleItems());
+    if (queueItems.length) {
+      void playAudioItemById(queueItems[0].id, { queueItems });
+    }
+    return;
+  }
+  if (engine.paused) {
+    void engine.play().catch(() => {});
+  } else {
+    engine.pause();
+  }
+}
+
+function getAdjacentAudioItem(direction = 1) {
+  const queueItems = getAudioQueueItems(getAccessibleItems());
+  if (!queueItems.length) {
+    return null;
+  }
+  if (state.audioMode === AUDIO_MODE_SHUFFLE && queueItems.length > 1) {
+    const currentId = normalizeText(state.audioCurrentId);
+    const candidates = queueItems.filter((item) => normalizeText(item.id) !== currentId);
+    return candidates[Math.floor(Math.random() * candidates.length)] || queueItems[0];
+  }
+  const currentIndex = Math.max(0, queueItems.findIndex((item) => normalizeText(item.id) === normalizeText(state.audioCurrentId)));
+  const nextIndex = currentIndex + direction;
+  if (nextIndex < 0) {
+    return queueItems[queueItems.length - 1];
+  }
+  if (nextIndex >= queueItems.length) {
+    return queueItems[0];
+  }
+  return queueItems[nextIndex];
+}
+
+function playAdjacentAudio(direction = 1) {
+  const nextItem = getAdjacentAudioItem(direction);
+  if (!nextItem) {
+    return;
+  }
+  void playAudioItemById(nextItem.id, { queueItems: getAudioQueueItems(getAccessibleItems()) });
+}
+
+function handleAudioEnded() {
+  if (state.audioMode === AUDIO_MODE_REPEAT_ONE && state.audioCurrentId) {
+    void playAudioItemById(state.audioCurrentId, { queueItems: getAudioQueueItems(getAccessibleItems()) });
+    return;
+  }
+  const queueItems = getAudioQueueItems(getAccessibleItems());
+  if (!queueItems.length) {
+    state.audioPlaying = false;
+    scheduleAudioUiSync();
+    return;
+  }
+  const currentIndex = queueItems.findIndex((item) => normalizeText(item.id) === normalizeText(state.audioCurrentId));
+  if (state.audioMode === AUDIO_MODE_SHUFFLE) {
+    playAdjacentAudio(1);
+    return;
+  }
+  if (currentIndex >= queueItems.length - 1) {
+    state.audioPlaying = false;
+    state.audioCurrentTime = Number.isFinite(audioEngine?.duration) ? audioEngine.duration : state.audioDuration;
+    scheduleAudioUiSync();
+    if (audioEngine) {
+      audioEngine.pause();
+    }
+    return;
+  }
+  playAdjacentAudio(1);
+}
+
+function setAudioMode(mode) {
+  const normalizedMode = normalizeAudioMode(mode);
+  state.audioMode = state.audioMode === normalizedMode ? AUDIO_MODE_SEQUENCE : normalizedMode;
+  render();
+}
+
+function setAudioVolume(value) {
+  const numeric = Math.min(1, Math.max(0, Number(value) || 0));
+  state.audioVolume = numeric;
+  if (audioEngine) {
+    audioEngine.volume = numeric;
+  }
+  scheduleAudioUiSync();
+}
+
+function seekAudio(value) {
+  const engine = ensureAudioEngine();
+  const nextTime = Math.max(0, Number(value) || 0);
+  engine.currentTime = nextTime;
+  state.audioCurrentTime = nextTime;
+  scheduleAudioUiSync();
+}
 
 const touchZoom = {
   active: false,
@@ -2014,7 +2284,7 @@ function isMobileLayout() {
 
 function normalizeRoutePrimaryFilter(value) {
   const normalized = normalizeText(value);
-  return ['Photos', 'Collections', 'Mind', 'Bin'].includes(normalized)
+  return ['Photos', 'Collections', 'Music', 'Mind', 'Bin'].includes(normalized)
     ? normalized
     : 'Photos';
 }
@@ -2364,6 +2634,9 @@ function matchesSearchQuery(item, query) {
     item.videoCategory,
     item.album,
     item.label,
+    item.audioTitle,
+    item.audioArtist,
+    item.audioAlbum,
     item.location,
     item.year,
     item.monthLabel,
@@ -3524,6 +3797,58 @@ function isDocumentLikeSource(fileId, fileLabel, tags) {
   return DOCUMENT_HINT_PATTERN.test(`${fileId} ${fileLabel} ${tags.join(' ')}`);
 }
 
+function parseAudioDurationSeconds(value) {
+  if (value === null || value === undefined || value === '') {
+    return 0;
+  }
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return numeric > 1000 ? numeric / 1000 : numeric;
+  }
+  const text = normalizeText(value);
+  if (!text) {
+    return 0;
+  }
+  const timeMatch = text.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (timeMatch) {
+    const hours = timeMatch[3] ? Number(timeMatch[1]) : 0;
+    const minutes = timeMatch[3] ? Number(timeMatch[2]) : Number(timeMatch[1]);
+    const seconds = timeMatch[3] ? Number(timeMatch[3]) : Number(timeMatch[2]);
+    return hours * 3600 + minutes * 60 + seconds;
+  }
+  return 0;
+}
+
+function stripFileExtension(fileName = '') {
+  return normalizeText(String(fileName || '').replace(/\.[^.]+$/, ''));
+}
+
+function inferAudioMetadata(metadata = {}, fileName = '') {
+  const audioTitle = normalizeText(
+    metadata.Title
+    || metadata.TrackTitle
+    || metadata.SongTitle
+    || metadata.OriginalTitle
+    || stripFileExtension(fileName)
+    || fileName
+  );
+  const audioArtist = normalizeText(metadata.Artist || metadata.Performer || metadata.Author || '');
+  const audioAlbum = normalizeText(metadata.Album || metadata.Collection || '');
+  const audioDuration = parseAudioDurationSeconds(
+    metadata.Duration
+    || metadata.DurationSeconds
+    || metadata.AudioDuration
+    || metadata.Length
+    || metadata.TimeLength
+  );
+  return {
+    audioTitle,
+    audioArtist,
+    audioAlbum,
+    audioDuration
+  };
+}
+
 function inferMimeTypeFromReference(fileId, fileName, rawMimeType) {
   const normalized = normalizeText(rawMimeType).toLowerCase();
   if (normalized && normalized !== 'application/octet-stream') {
@@ -3543,6 +3868,12 @@ function inferMimeTypeFromReference(fileId, fileName, rawMimeType) {
   if (/\.m4v\b/.test(reference)) return 'video/x-m4v';
   if (/\.webm\b/.test(reference)) return 'video/webm';
   if (/\.avi\b/.test(reference)) return 'video/x-msvideo';
+  if (/\.mp3\b/.test(reference)) return 'audio/mpeg';
+  if (/\.m4a\b/.test(reference)) return 'audio/mp4';
+  if (/\.aac\b/.test(reference)) return 'audio/aac';
+  if (/\.wav\b/.test(reference)) return 'audio/wav';
+  if (/\.ogg\b/.test(reference)) return 'audio/ogg';
+  if (/\.flac\b/.test(reference)) return 'audio/flac';
   if (/\.pdf\b/.test(reference)) return 'application/pdf';
   if (/\.zip\b/.test(reference)) return 'application/zip';
   if (/\.rar\b/.test(reference)) return 'application/x-rar-compressed';
@@ -3584,9 +3915,19 @@ function buildIndexedMediaItem(record, domLookup, index) {
 
   const lookupKeys = buildMediaLookupKeys(fileId, fileName, fileName);
   const domMatch = lookupKeys.map((key) => domLookup.get(key)).find(Boolean) || null;
-  const type = mimeType.startsWith('video/') ? 'video' : (mimeType.startsWith('image/') ? 'photo' : 'document');
-  const defaultW = type === 'video' ? 1280 : (type === 'document' ? 240 : 1200);
-  const defaultH = type === 'video' ? 720 : (type === 'document' ? 240 : 900);
+  const type = mimeType.startsWith('video/')
+    ? 'video'
+    : mimeType.startsWith('image/')
+      ? 'photo'
+      : mimeType.startsWith('audio/')
+        ? 'audio'
+        : 'document';
+  const defaultW = type === 'video'
+    ? 1280
+    : (type === 'document' ? 240 : (type === 'audio' ? 320 : 1200));
+  const defaultH = type === 'video'
+    ? 720
+    : (type === 'document' ? 240 : (type === 'audio' ? 320 : 900));
   const width = toPositiveNumber(metadata.Width, toPositiveNumber(domMatch?.width, defaultW));
   const height = toPositiveNumber(metadata.Height, toPositiveNumber(domMatch?.height, defaultH));
   const captureTime = resolveMediaCaptureTimestamp(metadata, fileName || fileId);
@@ -3598,13 +3939,14 @@ function buildIndexedMediaItem(record, domLookup, index) {
   const videoCategory = inferVideoCategory(metadata, type);
   const isPrivateAlbum = inferPrivateAlbum(metadata, type);
   const label = fileName || inferAlbumFromFileId(fileId, metadata);
+  const audioMeta = type === 'audio' ? inferAudioMetadata(metadata, fileName) : null;
   const browserPreviewSupported = type === 'document' ? false : (type !== 'photo' || supportsBrowserImagePreview(mimeType));
   const videoThumbUrl = (type === 'video' && metadata.TgThumbnailFileId)
     ? buildFileRoute(fileId, { preview: '1' })
     : '';
   const thumbnailUrl = type === 'photo'
     ? resolvePhotoPreviewUrl(fileId, mimeType, domMatch?.thumbnailUrl || '')
-    : (type === 'document' ? '' : (domMatch?.thumbnailUrl || videoThumbUrl || sourceUrl));
+    : (type === 'document' || type === 'audio' ? '' : (domMatch?.thumbnailUrl || videoThumbUrl || sourceUrl));
   const posterUrl = type === 'video'
     ? (thumbnailUrl !== sourceUrl ? thumbnailUrl : '')
     : (thumbnailUrl !== sourceUrl ? thumbnailUrl : '');
@@ -3639,10 +3981,14 @@ function buildIndexedMediaItem(record, domLookup, index) {
     exif: metadata.Exif || null,
     browserPreviewSupported,
     description: normalizeText(metadata.Description || ''),
+    audioTitle: audioMeta?.audioTitle || '',
+    audioArtist: audioMeta?.audioArtist || '',
+    audioAlbum: audioMeta?.audioAlbum || '',
+    audioDuration: audioMeta?.audioDuration || 0,
     blurThumbUrl: (type === 'photo' && metadata.TgThumbnailFileId)
       ? buildFileRoute(fileId, { preview: '1' })
       : '',
-    isDocumentLike: type === 'document' || isDocumentLikeSource(fileId, fileName, tags),
+    isDocumentLike: type === 'document' || (!mimeType.startsWith('audio/') && isDocumentLikeSource(fileId, fileName, tags)),
     directory: normalizeLegacyTelegramDirectory(metadata.Directory || '', metadata),
     sortOrder: timestamp,
     domIndex: index
@@ -6257,6 +6603,10 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
       return false;
     }
 
+    if (state.primaryFilter === 'Music' && item.type !== 'audio') {
+      return false;
+    }
+
     switch (state.secondaryFilter) {
       case 'TODO':
         if (!isTodoPhotoItem(item)) {
@@ -6284,10 +6634,14 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
         }
         break;
       default:
-        // In Photos view (no secondary filter), exclude documents
-        // — unless user explicitly typed type:document in search.
+        // In Photos view (no secondary filter), exclude documents and audio
+        // unless the user explicitly filtered to that media type.
         if (state.primaryFilter === 'Photos' && item.type === 'document'
             && searchFilters.type !== 'document') {
+          return false;
+        }
+        if (state.primaryFilter === 'Photos' && item.type === 'audio'
+            && searchFilters.type !== 'audio') {
           return false;
         }
         break;
@@ -6598,14 +6952,20 @@ function getViewModel() {
     : [];
   const collectionCards = allCollections.slice(0, state.loadedCount);
   const isMindView = state.primaryFilter === 'Mind';
+  const isMusicView = state.primaryFilter === 'Music';
   const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName;
   const isAlbumPickerMode = Boolean(albumSelectionTarget || videoAlbumSelectionTarget || state.privateSelectionMode);
-  const timelineItems = isMindView
+  const musicItems = isMusicView
+    ? filteredItems.filter((item) => item.type === 'audio')
+    : [];
+  const audioQueueItems = getAudioQueueItems(accessibleItems);
+  const currentAudioItem = getAudioItemById(state.audioCurrentId, accessibleItems);
+  const timelineItems = isMindView || isMusicView
     ? []
     : state.primaryFilter === 'Bin'
     ? state.binItems
     : filteredItems;
-  const baseSections = isMindView || isCollectionRoot
+  const baseSections = isMindView || isMusicView || isCollectionRoot
     ? []
     : buildSections(timelineItems, state.primaryFilter === 'Bin'
       ? {
@@ -6616,12 +6976,12 @@ function getViewModel() {
           getScrubberLabel: (item) => formatScrubberLabel(item.deletedAt || item.takenAt)
         }
       : undefined);
-  const laidOutSections = isMindView || isCollectionRoot
+  const laidOutSections = isMindView || isMusicView || isCollectionRoot
     ? []
     : buildTimelineLayoutSections(baseSections, {
         sectionGap: state.primaryFilter === 'Bin' ? BIN_TIMELINE_SECTION_GAP : TIMELINE_SECTION_GAP
       });
-  const shouldVirtualizeTimeline = !isMindView && !isCollectionRoot && timelineItems.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD;
+  const shouldVirtualizeTimeline = !isMindView && !isMusicView && !isCollectionRoot && timelineItems.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD;
   const virtualWindow = !shouldVirtualizeTimeline
     ? {
         sections: laidOutSections.map((section) => ({
@@ -6634,14 +6994,14 @@ function getViewModel() {
         })),
         signature: ''
       }
-    : (isMindView || isCollectionRoot)
+    : (isMindView || isMusicView || isCollectionRoot)
       ? { sections: [], signature: '' }
       : applyTimelineVirtualWindow(laidOutSections, {
           scrollTop: state.virtualScrollTop,
           viewportHeight: state.virtualViewportHeight
         });
   const sections = virtualWindow.sections;
-  const years = isMindView || isCollectionRoot
+  const years = isMindView || isMusicView || isCollectionRoot
     ? []
     : [...new Set(timelineItems.map((item) => String(item.year)))]
       .sort((left, right) => Number(right) - Number(left));
@@ -6680,10 +7040,14 @@ function getViewModel() {
     videoAlbumSelectionTarget,
     isAlbumPickerMode,
     isMindView,
+    isMusicView,
     isCollectionRoot,
     collectionCards,
     totalCollectionCount: allCollections.length,
     filteredItems,
+    musicItems,
+    currentAudioItem,
+    audioQueueItems,
     isVideoAlbumRoot,
     videoAlbumCards,
     videoAlbumCount: videoAlbumCards.length,
@@ -6854,6 +7218,8 @@ function render() {
   const showMobileBinEntry = viewModel.isCollectionRoot && state.layoutWidth <= 640;
   const showMobileAlbumCreateEntry = viewModel.isCollectionRoot && state.layoutWidth <= 640;
   const hideMobileCollectionSummary = viewModel.isCollectionRoot && state.layoutWidth <= 640;
+  const showDesktopAudioPanel = viewModel.isMusicView && !isMobileLayout();
+  const showMobileAudioPlayer = !viewModel.isMindView && isMobileLayout() && Boolean(viewModel.currentAudioItem);
   const fullHtml = `
     <div class="cml-app-shell">
       ${Sidebar({
@@ -6862,16 +7228,16 @@ function render() {
         storageSummary: state.storageSummary,
         searchQuery: state.searchDraft
       })}
-      <div class="cml-main-shell">
+      <div class="cml-main-shell ${showMobileAudioPlayer ? 'has-mobile-audio-player' : ''}">
         ${TopSearchBar({
           state,
           canDeleteSelection: viewModel.canDeleteSelection,
           canDownloadSelection: viewModel.canDownloadSelection,
           canSetAlbumCover: viewModel.canSetAlbumCover
         })}
-        <div class="cml-main-content-shell ${viewModel.isMindView ? 'is-mind-view' : ''}">
-          <main class="cml-main-content ${viewModel.isMindView ? 'is-mind-view' : ''}" tabindex="-1">
-            <div class="cml-main-content__inner ${viewModel.isMindView ? 'is-mind-view' : ''}">
+        <div class="cml-main-content-shell ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'cml-main-content-shell--music' : ''}">
+          <main class="cml-main-content ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'cml-main-content--music' : ''}" tabindex="-1">
+            <div class="cml-main-content__inner ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'is-music-view' : ''}">
               ${state.primaryFilter === 'Bin'
                 ? BinGrid({
                   items: viewModel.binItems,
@@ -6895,6 +7261,25 @@ function render() {
                   wallpaperPhotoChoices: getMindWallpaperPhotoChoices(),
                   layoutWidth: state.layoutWidth
                 })
+                : viewModel.isMusicView
+                ? `${MusicSummary({
+                    totalCount: viewModel.musicItems.length,
+                    isMobile: isMobileLayout()
+                  })}
+                  ${viewModel.musicItems.length
+                    ? MusicListView({
+                        items: viewModel.musicItems,
+                        state,
+                        audioState: {
+                          currentId: state.audioCurrentId,
+                          isPlaying: state.audioPlaying
+                        }
+                      })
+                    : EmptyState({
+                        query: parsedSearch.textQuery,
+                        isLoading: state.isLibraryLoading,
+                        mode: 'media'
+                      })}`
                 : state.secondaryFilter === 'Documents'
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : state.privateViewOpen && !state.privateRouteUnlocked
@@ -6966,11 +7351,21 @@ function render() {
                     }))}`}
             </div>
           </main>
-          ${!viewModel.isMindView && !viewModel.isCollectionRoot && state.secondaryFilter !== 'Documents' ? YearScroller({
+          ${showDesktopAudioPanel
+            ? AudioPlayerPanel({
+                currentItem: viewModel.currentAudioItem,
+                queueItems: viewModel.audioQueueItems,
+                currentTime: state.audioCurrentTime,
+                duration: state.audioDuration,
+                isPlaying: state.audioPlaying,
+                mode: state.audioMode,
+                volume: state.audioVolume
+              })
+            : (!viewModel.isMindView && !viewModel.isMusicView && !viewModel.isCollectionRoot && state.secondaryFilter !== 'Documents' ? YearScroller({
             scrubberSections: viewModel.scrubberSections,
             activeSectionAnchor: state.activeSectionAnchor,
             activeScrubberLabel: state.activeScrubberLabel
-          }) : ''}
+          }) : '')}
         </div>
       </div>
       ${PreviewModal(getPreviewOverlayModel())}
@@ -6984,6 +7379,10 @@ function render() {
           <button type="button" class="cml-toast__dismiss" data-action="dismiss-toast" aria-label="Dismiss">✕</button>
         </div>
       ` : ''}
+      ${showMobileAudioPlayer ? MobileAudioMiniPlayer({
+        currentItem: viewModel.currentAudioItem,
+        isPlaying: state.audioPlaying
+      }) : ''}
       ${MobileBottomNav({ navigationModel: viewModel.navigationModel, state })}
     </div>
   `;
@@ -7074,6 +7473,7 @@ function render() {
   if (viewModel.isMindView) {
     window.requestAnimationFrame(() => scrollMindToBottom({ force: false }));
   }
+  syncAudioProgressUi();
 }
 
 function syncTopbarSelectionState() {
@@ -8273,6 +8673,26 @@ function handleAction(actionTarget) {
         void deleteMindMessageById(actionTarget.dataset.id);
       }
       return true;
+    case 'play-audio-item':
+      if (actionTarget.dataset.id) {
+        const queueItems = state.primaryFilter === 'Music'
+          ? getMusicContextItems(getAccessibleItems())
+          : getAudioQueueItems(getAccessibleItems());
+        void playAudioItemById(actionTarget.dataset.id, { queueItems });
+      }
+      return true;
+    case 'audio-toggle-play':
+      toggleAudioPlayback();
+      return true;
+    case 'audio-prev':
+      playAdjacentAudio(-1);
+      return true;
+    case 'audio-next':
+      playAdjacentAudio(1);
+      return true;
+    case 'audio-set-mode':
+      setAudioMode(actionTarget.dataset.mode || '');
+      return true;
     case 'toggle-select':
       if (actionTarget.dataset.id) {
         toggleSelect(actionTarget.dataset.id);
@@ -9132,6 +9552,14 @@ function handleInput(event) {
       : readMindDraftFromEditor(input);
     return;
   }
+  if (input instanceof HTMLInputElement && input.hasAttribute('data-audio-progress')) {
+    seekAudio(input.value);
+    return;
+  }
+  if (input instanceof HTMLInputElement && input.hasAttribute('data-audio-volume')) {
+    setAudioVolume(input.value);
+    return;
+  }
   if (!(input instanceof HTMLInputElement) && !(input instanceof HTMLTextAreaElement)) {
     return;
   }
@@ -9573,6 +10001,9 @@ function buildNavigationHash() {
   if (primary === 'Collections') {
     return '#/albums';
   }
+  if (primary === 'Music') {
+    return '#/music';
+  }
   if (primary === 'Mind') {
     return '#/mind';
   }
@@ -9635,6 +10066,13 @@ function restoreNavigationFromHash() {
       break;
     case 'mind':
       state.primaryFilter = 'Mind';
+      state.secondaryFilter = '';
+      state.videoCategoryFilter = '';
+      state.activeAlbumName = '';
+      clearPrivateViewState();
+      break;
+    case 'music':
+      state.primaryFilter = 'Music';
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';

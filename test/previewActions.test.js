@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { BinGrid, CollectionGrid, CollectionSummary, MediaTile, MindChatView, MobileBottomNav, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
+import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
     const html = Sidebar({
       navigationModel: {
-        primary: ['Photos', 'Collections', 'Mind', 'Private', 'Bin'],
+        primary: ['Photos', 'Collections', 'Music', 'Mind', 'Private', 'Bin'],
         secondary: ['TODO', 'Videos', 'Documents', 'Favourites']
       },
       state: {
@@ -470,7 +470,7 @@ describe('media library download actions', () => {
   it('uses Mind instead of Bin in the mobile nav and nests a Bin entry into the mobile albums wall', () => {
     const mobileNavHtml = MobileBottomNav({
       navigationModel: {
-        primary: ['Photos', 'Collections', 'Mind', 'Private', 'Bin'],
+        primary: ['Photos', 'Collections', 'Music', 'Mind', 'Private', 'Bin'],
         secondary: ['Videos', 'Documents', 'Favourites']
       },
       state: {
@@ -492,12 +492,81 @@ describe('media library download actions', () => {
     });
 
     assert.match(mobileNavHtml, /data-primary="Mind"/);
+    assert.match(mobileNavHtml, /data-primary="Music"/);
     assert.match(mobileNavHtml, />Willian</);
     assert.doesNotMatch(mobileNavHtml, /data-primary="Bin"/);
     assert.match(gridHtml, /data-primary="Bin"/);
     assert.match(gridHtml, /Recently deleted/);
     assert.match(gridHtml, />Bin</);
     assert.doesNotMatch(gridHtml, /Open deleted photos and videos/);
+  });
+
+  it('renders a dedicated music list and player queue for audio items', () => {
+    const items = [
+      {
+        id: 'audio-1',
+        type: 'audio',
+        label: 'track-01.mp3',
+        audioTitle: 'Darcy’s Letter',
+        audioArtist: 'Dario Marianelli',
+        audioAlbum: 'Pride & Prejudice',
+        audioDuration: 236
+      },
+      {
+        id: 'audio-2',
+        type: 'audio',
+        label: 'track-02.mp3',
+        audioTitle: 'Leaving Netherfield',
+        audioArtist: 'Dario Marianelli',
+        audioAlbum: 'Pride & Prejudice',
+        audioDuration: 184
+      }
+    ];
+    const listHtml = MusicListView({
+      items,
+      state: {},
+      audioState: { currentId: 'audio-1', isPlaying: true }
+    });
+    const panelHtml = AudioPlayerPanel({
+      currentItem: items[0],
+      queueItems: items,
+      currentTime: 42,
+      duration: 236,
+      isPlaying: true,
+      mode: 'shuffle',
+      volume: 0.5
+    });
+
+    assert.match(listHtml, /cml-music-list/);
+    assert.match(listHtml, /data-action="play-audio-item"/);
+    assert.match(listHtml, /Darcy’s Letter/);
+    assert.match(listHtml, /Dario Marianelli/);
+    assert.match(panelHtml, /Audio player/);
+    assert.match(panelHtml, /Queue/);
+    assert.match(panelHtml, /data-action="audio-toggle-play"/);
+    assert.match(panelHtml, /data-action="audio-set-mode"/);
+    assert.match(panelHtml, /data-audio-progress/);
+    assert.match(panelHtml, /data-audio-volume/);
+  });
+
+  it('shows a mobile mini player entry point for the current track', () => {
+    const html = MobileAudioMiniPlayer({
+      currentItem: {
+        id: 'audio-1',
+        type: 'audio',
+        label: 'track-01.mp3',
+        audioTitle: 'Darcy’s Letter',
+        audioArtist: 'Dario Marianelli',
+        audioAlbum: 'Pride & Prejudice'
+      },
+      isPlaying: false
+    });
+
+    assert.match(html, /cml-mobile-audio-player/);
+    assert.match(html, /data-primary="Music"/);
+    assert.match(html, /data-action="audio-prev"/);
+    assert.match(html, /data-action="audio-next"/);
+    assert.match(html, /Darcy’s Letter/);
   });
 
   it('renders a dedicated mobile albums header and a first-card create entry on small screens', () => {

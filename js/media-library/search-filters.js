@@ -1,4 +1,4 @@
-const MEDIA_TYPE_FACETS = new Set(['all', 'photo', 'video', 'document']);
+const MEDIA_TYPE_FACETS = new Set(['all', 'photo', 'video', 'audio', 'document']);
 const TYPE_PREFIXES = new Set(['type', 't', '\u7c7b\u578b']);
 const LOCATION_PREFIXES = new Set(['loc', 'location', 'place', '\u5730\u70b9', '\u4f4d\u7f6e']);
 const CATEGORY_PREFIXES = new Set(['category', 'cat', '\u5206\u7c7b', '\u89c6\u9891\u5206\u7c7b']);
@@ -34,6 +34,9 @@ function normalizeTypeFacet(value) {
   }
   if (['video', 'videos', 'movie', 'movies', '\u89c6\u9891', '\u5f55\u50cf'].includes(normalized)) {
     return 'video';
+  }
+  if (['audio', 'audios', 'music', 'song', 'songs', 'mp3', '\u97f3\u9891', '\u97f3\u4e50'].includes(normalized)) {
+    return 'audio';
   }
   if (['document', 'documents', 'doc', 'docs', 'scan', 'scans', '\u6587\u6863', '\u6587\u4ef6', '\u626b\u63cf'].includes(normalized)) {
     return 'document';
@@ -133,6 +136,9 @@ export function matchesMediaSearchFilters(item, input = {}) {
   if (filters.type === 'video' && item?.type !== 'video') {
     return false;
   }
+  if (filters.type === 'audio' && item?.type !== 'audio') {
+    return false;
+  }
   if (filters.type === 'document' && !item?.isDocumentLike) {
     return false;
   }
@@ -164,7 +170,13 @@ export function summarizeMediaSearch(filtersInput = {}) {
   const filters = normalizeMediaSearchFilters(filtersInput);
   const parts = [];
   if (filters.type !== 'all') {
-    parts.push(filters.type === 'document' ? 'Documents' : `${filters.type[0].toUpperCase()}${filters.type.slice(1)}s`);
+    parts.push(
+      filters.type === 'document'
+        ? 'Documents'
+        : filters.type === 'audio'
+          ? 'Music'
+          : `${filters.type[0].toUpperCase()}${filters.type.slice(1)}s`
+    );
   }
   if (filters.locationQuery) {
     parts.push(`Location: ${filters.locationQuery}`);
