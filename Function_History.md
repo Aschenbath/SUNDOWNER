@@ -135,3 +135,4 @@
 26-04-20 by codex: Fix desktop Mind composer hit-area width by forcing the middle input track and the input/editor itself to flex-grow across the full shell, so the visible pill no longer contains a tiny quarter-width editable region
 26-04-20 by codex: Shorten the desktop Mind placeholder from the long custom quote to a compact prompt (`写点什么...`) so the single-line composer no longer shows a chopped-off sentence at rest
 26-04-20 by codex: Restore the original Mind quote as the composer placeholder after fixing the real desktop caret-alignment issue, and hard-force the desktop input/editor chain to left-align so the caret no longer appears stranded near the middle
+26-04-20 by codex: Replace the desktop Mind composer shell from grid to flex so the input lane is no longer distorted by hidden/auto grid columns, keeping the caret and editable area pinned to the true left edge

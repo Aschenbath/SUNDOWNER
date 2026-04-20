@@ -613,6 +613,12 @@ pm; git diff --check passed.
 - Updated `css/media-library.css` so `.cml-mind__input-wrap`, `.cml-mind__input`, and `.cml-mind__input--editor` now all explicitly left-align their content and remove any stray internal indentation (`text-align:left`, `text-indent:0`, no horizontal padding on the actual field). At the same time, `js/media-library/components.js` restores the original quote `我有时会觉得我真正的人生还未开启...` for both desktop and mobile placeholders now that the real caret-position issue is being handled directly.
 - Bumped cache versions to `components.js?v=59`, `app.js?v=129`, and `media-library.css?v=111`. **Validation**: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/components.js`, `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`32 passing`), and `git diff --check`.
 
+### 2026-04-20 00:36 Asia/Shanghai
+
+- Continued the desktop Mind caret bug after the user confirmed the cursor could still get "stuck" inward. That pointed to the composer shell itself rather than just text alignment, so I stopped patching individual text properties and rebuilt the desktop composer lane more directly.
+- Updated `css/media-library.css` so `.cml-mind__input-shell` now uses a plain flex row instead of the earlier `grid-template-columns: auto minmax(0, 1fr) auto`. The plus button and send button are now fixed-size flex items, while the input wrapper becomes the single expanding flex lane. This avoids hidden/auto grid-column interactions distorting the start position of the editable area.
+- Bumped the CSS cache version to `media-library.css?v=112`. **Validation**: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/components.js`, `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`32 passing`), and `git diff --check`.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.
