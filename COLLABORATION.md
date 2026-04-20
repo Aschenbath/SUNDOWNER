@@ -602,6 +602,11 @@ pm; git diff --check passed.
 - Updated `css/media-library.css` so the middle composer lane is now structurally fixed open: `.cml-mind__input-wrap` gets `flex: 1 1 auto`, and both input variants get `flex: 1 1 auto` (`display:block` for the desktop `<input>`) to guarantee that the actual editable/hit area spans the same width as the visible pill shell.
 - Bumped the CSS cache version to `media-library.css?v=110`. **Validation**: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/components.js`, `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`32 passing`), and `git diff --check`.
 
+### 2026-04-20 00:18 Asia/Shanghai
+
+- Followed up on the user's screenshot after the width fix: the remaining "only part of the sentence is visible" issue on desktop was not the input hit-area anymore, but the placeholder copy itself. The desktop `Mind` composer was still trying to show the long custom quote in a single-line field, so even with the full-width input restored it naturally looked chopped off at rest.
+- Updated `js/media-library/components.js` so the custom long quote remains only on the mobile/contenteditable branch, while the desktop `<input>` branch now uses a short placeholder (`写点什么...`) that fits the one-line composer design. Bumped the app cache version to `components.js?v=58` and `app.js?v=128` so the placeholder swap ships immediately.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.

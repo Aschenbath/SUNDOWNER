@@ -1398,13 +1398,16 @@ export function MindChatView({
       `;
     }).join('')
     : '';
+  const mindPlaceholder = isMobileMind
+    ? '我有时会觉得我真正的人生还未开启...'
+    : '写点什么...';
   const composerInputHtml = isMobileMind
     ? `
           <div
             class="cml-mind__input cml-mind__input--editor"
             data-mind-input="message"
             aria-label="Mind message"
-            data-placeholder="我有时会觉得我真正的人生还未开启..."
+            data-placeholder="${mindPlaceholder}"
             contenteditable="plaintext-only"
             role="textbox"
             aria-multiline="false"
@@ -1424,7 +1427,7 @@ export function MindChatView({
             type="text"
             class="cml-mind__input"
             data-mind-input="message"
-            placeholder="我有时会觉得我真正的人生还未开启..."
+            placeholder="${mindPlaceholder}"
             value="${safeDraft}"
             autocomplete="off"
             autocorrect="off"
