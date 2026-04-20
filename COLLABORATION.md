@@ -624,6 +624,11 @@ pm; git diff --check passed.
 - Fixed the remaining desktop Mind composer squeeze after the user showed the placeholder still getting cut off. Root cause: the old `margin-left:auto` survived on `.cml-mind__send`, so even after converting the shell to flex, the send button was still absorbing the middle lane's free space and making the text field look like it stopped around the first quarter of the pill.
 - Updated `css/media-library.css` to zero out that leftover auto margin and bumped the cache version to `media-library.css?v=113` in `index.html` so the corrected layout ships immediately instead of hiding behind a stale CSS response.
 
+### 2026-04-20 01:02 Asia/Shanghai
+
+- Adjusted the desktop Mind outgoing-message geometry to feel symmetric with incoming bubbles. The right-side message row now reserves the same visual inset as the left side's avatar lane (`avatar width + bubble gap`) instead of hugging the edge more tightly than incoming messages.
+- Implemented the change in `css/media-library.css` by introducing shared history-level avatar/gap variables and applying an equivalent right inset only on desktop self messages, while keeping mobile self-message margins reset to `0`. Bumped the CSS cache version to `media-library.css?v=114` in `index.html`.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.
