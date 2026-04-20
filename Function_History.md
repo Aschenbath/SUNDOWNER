@@ -139,3 +139,4 @@
 26-04-20 by codex: Remove the leftover `margin-left:auto` from the desktop Mind send button, because it was still eating the flex row's free space and making the long placeholder look cut off even after the shell switched from grid to flex
 26-04-20 by codex: Make desktop Mind self-message bubbles reserve the same edge inset as incoming messages by offsetting the right side with the avatar-lane width on desktop only, while resetting that extra margin back to zero on mobile
 26-04-20 by codex: Correct the desktop Mind outgoing-bubble spacing fix by reversing self-message bubble rows instead of adding right margin; the hidden time/delete controls were the real width consumers pushing the blue bubble toward the center
+26-04-20 by codex: Restrict the Bin-as-album shortcut back to true mobile Albums root only (`layoutWidth <= 640`), so desktop Albums stops rendering `Recently deleted` as a fake collection card

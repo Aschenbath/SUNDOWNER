@@ -634,6 +634,11 @@ pm; git diff --check passed.
 - Corrected the previous desktop Mind spacing tweak after the user clarified the outgoing bubble should move right, not further toward the center. The real visual offset was not the row margin itself but the hidden time/delete controls still sitting on the bubble's right side and consuming layout width even while transparent.
 - Updated `css/media-library.css` so desktop self-message rows now reverse the bubble/action order (`row-reverse`) and right-align their stack, keeping the blue bubble flush toward the right edge while the hover-only time/delete controls sit to the bubble's left. Kept the self-message `margin-right` at `0` and reused the existing cache-bust path.
 
+### 2026-04-20 01:18 Asia/Shanghai
+
+- Fixed an accidental desktop Albums regression where `Recently deleted` still appeared as a collection card. That Bin-in-Albums shortcut was only meant for the narrow mobile layout after the bottom nav ran out of slots, but the render gate had drifted to `layoutWidth <= 960`, so desktop-sized windows could still pick it up.
+- Updated `js/media-library/app.js` so `showMobileBinEntry` now only turns on at the real phone breakpoint (`layoutWidth <= 640`). Bumped the media-library app cache version to `app.js?v=130` in `index.html`.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.

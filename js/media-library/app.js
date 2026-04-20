@@ -6851,7 +6851,7 @@ function render() {
   const existingSidebar = refs.root.querySelector('.cml-sidebar');
   const existingShell = refs.root.querySelector('.cml-app-shell');
 
-  const showMobileBinEntry = viewModel.isCollectionRoot && state.layoutWidth <= 960;
+  const showMobileBinEntry = viewModel.isCollectionRoot && state.layoutWidth <= 640;
   const showMobileAlbumCreateEntry = viewModel.isCollectionRoot && state.layoutWidth <= 640;
   const hideMobileCollectionSummary = viewModel.isCollectionRoot && state.layoutWidth <= 640;
   const fullHtml = `
