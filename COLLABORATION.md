@@ -619,6 +619,11 @@ pm; git diff --check passed.
 - Updated `css/media-library.css` so `.cml-mind__input-shell` now uses a plain flex row instead of the earlier `grid-template-columns: auto minmax(0, 1fr) auto`. The plus button and send button are now fixed-size flex items, while the input wrapper becomes the single expanding flex lane. This avoids hidden/auto grid-column interactions distorting the start position of the editable area.
 - Bumped the CSS cache version to `media-library.css?v=112`. **Validation**: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/components.js`, `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`32 passing`), and `git diff --check`.
 
+### 2026-04-20 00:49 Asia/Shanghai
+
+- Fixed the remaining desktop Mind composer squeeze after the user showed the placeholder still getting cut off. Root cause: the old `margin-left:auto` survived on `.cml-mind__send`, so even after converting the shell to flex, the send button was still absorbing the middle lane's free space and making the text field look like it stopped around the first quarter of the pill.
+- Updated `css/media-library.css` to zero out that leftover auto margin and bumped the cache version to `media-library.css?v=113` in `index.html` so the corrected layout ships immediately instead of hiding behind a stale CSS response.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.

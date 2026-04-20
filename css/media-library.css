@@ -6255,7 +6255,7 @@ body.codex-media-library-active #app {
   background: var(--cml-mind-send-bg) !important;
   box-shadow: 0 10px 22px var(--cml-mind-send-shadow) !important;
   cursor: pointer;
-  margin-left: auto;
+  margin-left: 0;
   transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease, filter 160ms ease;
 }
 
