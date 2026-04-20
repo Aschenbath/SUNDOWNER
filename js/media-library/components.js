@@ -1398,9 +1398,7 @@ export function MindChatView({
       `;
     }).join('')
     : '';
-  const mindPlaceholder = isMobileMind
-    ? '我有时会觉得我真正的人生还未开启...'
-    : '写点什么...';
+  const mindPlaceholder = '我有时会觉得我真正的人生还未开启...';
   const composerInputHtml = isMobileMind
     ? `
           <div

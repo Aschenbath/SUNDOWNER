@@ -134,3 +134,4 @@
 26-04-19 by codex: Retry the mobile Mind workaround with a composition-safe contenteditable editor and pin the desktop send button back to the far right, so the iOS accessory strip can be retested without re-breaking desktop composer alignment
 26-04-20 by codex: Fix desktop Mind composer hit-area width by forcing the middle input track and the input/editor itself to flex-grow across the full shell, so the visible pill no longer contains a tiny quarter-width editable region
 26-04-20 by codex: Shorten the desktop Mind placeholder from the long custom quote to a compact prompt (`写点什么...`) so the single-line composer no longer shows a chopped-off sentence at rest
+26-04-20 by codex: Restore the original Mind quote as the composer placeholder after fixing the real desktop caret-alignment issue, and hard-force the desktop input/editor chain to left-align so the caret no longer appears stranded near the middle
