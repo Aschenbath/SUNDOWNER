@@ -5991,7 +5991,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-mind__message.is-self {
   align-self: flex-end;
-  margin-right: calc(var(--cml-mind-avatar-size) + var(--cml-mind-message-gap));
+  margin-right: 0;
 }
 
 #codex-media-library-root .cml-mind__message.is-other {
@@ -6031,10 +6031,18 @@ body.codex-media-library-active #app {
   min-width: 0;
 }
 
+#codex-media-library-root .cml-mind__message.is-self .cml-mind__message-stack {
+  align-items: flex-end;
+}
+
 #codex-media-library-root .cml-mind__bubble-row {
   display: flex;
   align-items: flex-end;
   gap: 10px;
+}
+
+#codex-media-library-root .cml-mind__message.is-self .cml-mind__bubble-row {
+  flex-direction: row-reverse;
 }
 
 #codex-media-library-root .cml-mind__bubble {
@@ -6075,6 +6083,10 @@ body.codex-media-library-active #app {
   opacity: 0;
   transform: translateX(-4px);
   transition: opacity 140ms ease, transform 140ms ease;
+}
+
+#codex-media-library-root .cml-mind__message.is-self .cml-mind__time {
+  transform: translateX(4px);
 }
 
 #codex-media-library-root .cml-mind--midnight .cml-mind__time {
@@ -6657,10 +6669,6 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-mind__history {
     --cml-mind-avatar-size: 42px;
     --cml-mind-message-gap: 10px;
-  }
-
-  #codex-media-library-root .cml-mind__message.is-self {
-    margin-right: 0;
   }
 
   #codex-media-library-root .cml-mind__avatar {

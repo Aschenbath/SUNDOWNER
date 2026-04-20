@@ -629,6 +629,11 @@ pm; git diff --check passed.
 - Adjusted the desktop Mind outgoing-message geometry to feel symmetric with incoming bubbles. The right-side message row now reserves the same visual inset as the left side's avatar lane (`avatar width + bubble gap`) instead of hugging the edge more tightly than incoming messages.
 - Implemented the change in `css/media-library.css` by introducing shared history-level avatar/gap variables and applying an equivalent right inset only on desktop self messages, while keeping mobile self-message margins reset to `0`. Bumped the CSS cache version to `media-library.css?v=114` in `index.html`.
 
+### 2026-04-20 01:11 Asia/Shanghai
+
+- Corrected the previous desktop Mind spacing tweak after the user clarified the outgoing bubble should move right, not further toward the center. The real visual offset was not the row margin itself but the hidden time/delete controls still sitting on the bubble's right side and consuming layout width even while transparent.
+- Updated `css/media-library.css` so desktop self-message rows now reverse the bubble/action order (`row-reverse`) and right-align their stack, keeping the blue bubble flush toward the right edge while the hover-only time/delete controls sit to the bubble's left. Kept the self-message `margin-right` at `0` and reused the existing cache-bust path.
+
 ### 2026-04-18 08:57 Asia/Shanghai
 
 - Investigated the "Feishu won't open" report from the patched frontend path and traced the only relevant user-configured external entry to the footer portal link (`footerLink` from `manage@sysConfig@page`), which is rendered directly as an anchor without URL normalization.

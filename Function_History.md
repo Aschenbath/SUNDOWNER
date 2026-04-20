@@ -138,3 +138,4 @@
 26-04-20 by codex: Replace the desktop Mind composer shell from grid to flex so the input lane is no longer distorted by hidden/auto grid columns, keeping the caret and editable area pinned to the true left edge
 26-04-20 by codex: Remove the leftover `margin-left:auto` from the desktop Mind send button, because it was still eating the flex row's free space and making the long placeholder look cut off even after the shell switched from grid to flex
 26-04-20 by codex: Make desktop Mind self-message bubbles reserve the same edge inset as incoming messages by offsetting the right side with the avatar-lane width on desktop only, while resetting that extra margin back to zero on mobile
+26-04-20 by codex: Correct the desktop Mind outgoing-bubble spacing fix by reversing self-message bubble rows instead of adding right margin; the hidden time/delete controls were the real width consumers pushing the blue bubble toward the center
