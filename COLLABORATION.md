@@ -651,3 +651,9 @@ pm; git diff --check passed.
 - Added the new `Music` UI surface in `js/media-library/components.js` and `css/media-library.css`: desktop gets a track list in the main column plus a fixed right-side player/queue panel; mobile gets a `Music` nav entry and a compact bottom mini-player. Audio items no longer fall through to `Documents`, and `renderMediaAsset()` now renders audio-specific preview/tile markup when needed.
 - Updated search/navigation/caching to understand the new media type: `js/media-library/search-filters.js` now supports `type:audio`/music aliases, `js/media-library/data.js` adds `Music` to the primary nav model, `index.html` bumps cache versions to `app.js?v=131` and `media-library.css?v=116`, and `test/previewActions.test.js` now covers the dedicated music list/player queue and mobile mini-player entry point.
 - Validation: `node --check js/media-library/app.js`, `node --check js/media-library/components.js`, `node .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`34 passing`), and `git diff --check` (CRLF warnings only, no patch errors).
+
+### 2026-04-20 20:58 Asia/Shanghai
+
+- Fixed the missing desktop `Music` sidebar entry after the first audio rollout. The root cause was the existing incremental render path in `js/media-library/app.js`: it preserves the live `.cml-sidebar` DOM to avoid flicker, so new primary-nav structure from `Sidebar()` never appeared once the old sidebar was already mounted.
+- Added `getSidebarStructureSignature()` and made `render()` replace the preserved sidebar whenever the primary/secondary nav structure changes, while still keeping the old low-flicker patch path for ordinary active-state updates and storage-card refreshes.
+- Validation: `node --check js/media-library/app.js`, `node .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`34 passing`), and `git diff --check`.

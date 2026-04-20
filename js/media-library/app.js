@@ -7146,6 +7146,21 @@ function patchSidebarStorageCard() {
   return true;
 }
 
+function getSidebarStructureSignature(sidebar) {
+  if (!(sidebar instanceof HTMLElement)) {
+    return '';
+  }
+  const primary = [...sidebar.querySelectorAll('.cml-sidebar__nav-item')]
+    .map((button) => normalizeText(button.dataset.primary || ''))
+    .filter(Boolean)
+    .join('|');
+  const secondary = [...sidebar.querySelectorAll('.cml-sidebar__subnav-item')]
+    .map((button) => normalizeText(button.dataset.secondary || ''))
+    .filter(Boolean)
+    .join('|');
+  return `${primary}::${secondary}`;
+}
+
 let pendingNavRaf = 0;
 let pendingSelectionChromeRaf = 0;
 /** Batched render — collapses rapid nav clicks into one render frame */
@@ -7395,10 +7410,21 @@ function render() {
     tpl.innerHTML = fullHtml;
     const newShell = tpl.content.querySelector('.cml-app-shell');
     if (newShell) {
+      const nextSidebar = newShell.querySelector('.cml-sidebar');
+      if (nextSidebar instanceof HTMLElement) {
+        const currentSignature = getSidebarStructureSignature(existingSidebar);
+        const nextSignature = getSidebarStructureSignature(nextSidebar);
+        if (currentSignature !== nextSignature) {
+          existingSidebar.replaceWith(nextSidebar);
+        } else {
+          newShell.removeChild(nextSidebar);
+        }
+      }
+      const liveSidebar = existingShell.querySelector('.cml-sidebar');
       // Remove every child of the existing shell EXCEPT the sidebar
       const toRemove = [];
       for (let c = existingShell.firstChild; c; c = c.nextSibling) {
-        if (c !== existingSidebar) toRemove.push(c);
+        if (c !== liveSidebar) toRemove.push(c);
       }
       toRemove.forEach((c) => c.remove());
       // Append everything from the new shell EXCEPT its sidebar

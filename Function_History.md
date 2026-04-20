@@ -141,3 +141,4 @@
 26-04-20 by codex: Correct the desktop Mind outgoing-bubble spacing fix by reversing self-message bubble rows instead of adding right margin; the hidden time/delete controls were the real width consumers pushing the blue bubble toward the center
 26-04-20 by codex: Restrict the Bin-as-album shortcut back to true mobile Albums root only (`layoutWidth <= 640`), so desktop Albums stops rendering `Recently deleted` as a fake collection card
 26-04-20 by codex: Add first-class audio playback with a dedicated Music page, desktop queue player, mobile mini player, and audio media-type/search support
+26-04-20 by codex: Fix preserved desktop sidebar DOM so new primary-nav entries such as Music appear immediately when the sidebar structure changes
