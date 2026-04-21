@@ -664,3 +664,10 @@ pm; git diff --check passed.
 - Updated `js/media-library/app.js` so search summary copy no longer renders on active album/video-album detail pages, and the video category chip rail now hides once a specific video album is open. This keeps the detail view to the minimal structure the user asked for: back cue, album name, total, then media.
 - Bumped module cache versions to `components.js?v=62` (inside `js/media-library/app.js`) and `app.js?v=132` in `index.html`, and updated `test/previewActions.test.js` to assert the new icon-only back affordances instead of the removed verbose labels.
 - Validation: `node --check js/media-library/app.js`, `node --check js/media-library/components.js`, `node .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`34 passing`), and `git diff --check` (CRLF warnings only).
+
+### 2026-04-21 13:58 Asia/Shanghai
+
+- Refined the active album/video-album header layout so the back affordance and album name now sit on the same horizontal row instead of stacking. `js/media-library/components.js` now renders a dedicated `cml-view-summary__header-row` for active album and active video-album states, and inline album renaming stays in that same row.
+- Added the matching layout rules in `css/media-library.css` so the back button stays fixed-width while the title or rename field takes the remaining space without wrapping under it.
+- Bumped cache versions to `components.js?v=63` in `js/media-library/app.js`, plus `app.js?v=133` and `media-library.css?v=117` in `index.html`.
+- Validation: `node --check js/media-library/app.js`, `node --check js/media-library/components.js`, `node .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`34 passing`), and `git diff --check` (CRLF warnings only).

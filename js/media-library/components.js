@@ -1336,44 +1336,46 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
   const copy = hasActiveAlbum
     ? `${itemCount} item${itemCount === 1 ? '' : 's'} in this album`
     : `${collectionCount} album${collectionCount === 1 ? '' : 's'}`;
+  const activeHeaderHtml = hasActiveAlbum ? `
+        <div class="cml-view-summary__header-row">
+          <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-collection">
+            ${icon('previous')}
+          </button>
+          ${renameAlbumDialogOpen ? `
+            <div class="cml-view-summary__rename cml-view-summary__rename--inline">
+              <label class="cml-view-summary__rename-field">
+                <span class="cml-sr-only">Album name</span>
+                <input
+                  type="text"
+                  class="cml-view-summary__rename-input"
+                  data-rename-album-input
+                  data-focus-key="rename-album-inline"
+                  value="${escapeHtml(renameAlbumDraftName || '')}"
+                  placeholder=""
+                  maxlength="64"
+                  ${renameAlbumBusy ? 'disabled' : ''}
+                />
+              </label>
+              ${renameAlbumError ? `<p class="cml-view-summary__rename-error">${escapeHtml(renameAlbumError)}</p>` : ''}
+            </div>
+          ` : `
+            <button
+              type="button"
+              class="cml-view-summary__title-button"
+              data-action="rename-album"
+              data-album-name="${escapeHtml(activeAlbumName)}"
+              aria-label="Rename album ${escapeHtml(activeAlbumName)}"
+            >
+              <span class="cml-view-summary__title">${escapeHtml(title)}</span>
+            </button>
+          `}
+        </div>
+      ` : '';
   return `
     <section class="cml-view-summary">
-      ${hasActiveAlbum ? `
-        <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-collection">
-          ${icon('previous')}
-        </button>
-      ` : ''}
+      ${activeHeaderHtml}
       ${hasActiveAlbum ? '' : `<p class="cml-view-summary__eyebrow">Albums</p>`}
-      ${hasActiveAlbum ? `
-        ${renameAlbumDialogOpen ? `
-          <div class="cml-view-summary__rename">
-            <label class="cml-view-summary__rename-field">
-              <span class="cml-sr-only">Album name</span>
-              <input
-                type="text"
-                class="cml-view-summary__rename-input"
-                data-rename-album-input
-                data-focus-key="rename-album-inline"
-                value="${escapeHtml(renameAlbumDraftName || '')}"
-                placeholder=""
-                maxlength="64"
-                ${renameAlbumBusy ? 'disabled' : ''}
-              />
-            </label>
-            ${renameAlbumError ? `<p class="cml-view-summary__rename-error">${escapeHtml(renameAlbumError)}</p>` : ''}
-          </div>
-        ` : `
-          <button
-            type="button"
-            class="cml-view-summary__title-button"
-            data-action="rename-album"
-            data-album-name="${escapeHtml(activeAlbumName)}"
-            aria-label="Rename album ${escapeHtml(activeAlbumName)}"
-          >
-            <span class="cml-view-summary__title">${escapeHtml(title)}</span>
-          </button>
-        `}
-      ` : `<h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>`}
+      ${hasActiveAlbum ? '' : `<h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>`}
       ${copy ? `<p class="cml-view-summary__copy ${hasActiveAlbum ? '' : 'cml-view-summary__copy--albums'}">${escapeHtml(copy)}</p>` : ''}
     </section>
   `;
@@ -1825,12 +1827,15 @@ export function VideoAlbumSummary({ activeCategory = '', albumCount = 0, grouped
   return `
     <section class="cml-view-summary" aria-label="Video album summary">
       ${hasActiveCategory ? `
-        <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-video-album">
-          ${icon('previous')}
-        </button>
+        <div class="cml-view-summary__header-row">
+          <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-video-album">
+            ${icon('previous')}
+          </button>
+          <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
+        </div>
       ` : ''}
       ${hasActiveCategory ? '' : `<p class="cml-view-summary__eyebrow">Videos</p>`}
-      <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
+      ${hasActiveCategory ? '' : `<h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>`}
       ${copy ? `<p class="cml-view-summary__copy cml-view-summary__copy--albums">${escapeHtml(copy)}</p>` : ''}
     </section>
   `;

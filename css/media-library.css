@@ -825,6 +825,29 @@ body.codex-media-library-active #app {
   align-self: flex-start;
 }
 
+#codex-media-library-root .cml-view-summary__header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-view-summary__header-row .cml-view-summary__back {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+#codex-media-library-root .cml-view-summary__header-row .cml-view-summary__title,
+#codex-media-library-root .cml-view-summary__header-row .cml-view-summary__title-button,
+#codex-media-library-root .cml-view-summary__header-row .cml-view-summary__rename {
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-view-summary__header-row .cml-view-summary__title-button,
+#codex-media-library-root .cml-view-summary__header-row .cml-view-summary__rename {
+  flex: 1 1 auto;
+}
+
 #codex-media-library-root .cml-view-summary__eyebrow {
   margin: 0;
   color: #7e8898;
@@ -877,6 +900,11 @@ body.codex-media-library-active #app {
   gap: 6px;
   max-width: min(560px, 100%);
   position: relative;
+}
+
+#codex-media-library-root .cml-view-summary__rename--inline {
+  width: 100%;
+  max-width: none;
 }
 
 #codex-media-library-root .cml-view-summary__rename-field {
