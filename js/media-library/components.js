@@ -1341,7 +1341,6 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
       ${hasActiveAlbum ? `
         <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-collection">
           ${icon('previous')}
-          <span>All albums</span>
         </button>
       ` : ''}
       ${hasActiveAlbum ? '' : `<p class="cml-view-summary__eyebrow">Albums</p>`}
@@ -1818,26 +1817,16 @@ export function VideoAlbumSummary({ activeCategory = '', albumCount = 0, grouped
   const safeAlbumCount = Math.max(0, Number(albumCount) || 0);
   const safeGroupedVideoCount = Math.max(0, Number(groupedVideoCount) || 0);
   const safeTotalVideoCount = Math.max(0, Number(totalVideoCount) || 0);
-  const ungroupedVideoCount = Math.max(0, safeTotalVideoCount - safeGroupedVideoCount);
   const title = hasActiveCategory ? activeCategory : 'Video albums';
-  let copy = '';
-
-  if (hasActiveCategory) {
-    copy = `${safeTotalVideoCount} video${safeTotalVideoCount === 1 ? '' : 's'} in this album`;
-  } else if (safeAlbumCount > 0) {
-    copy = `${safeAlbumCount} album${safeAlbumCount === 1 ? '' : 's'} grouping ${safeGroupedVideoCount} video${safeGroupedVideoCount === 1 ? '' : 's'}${ungroupedVideoCount ? ` - ${ungroupedVideoCount} ungrouped` : ''}`;
-  } else if (safeTotalVideoCount > 0) {
-    copy = `${safeTotalVideoCount} video${safeTotalVideoCount === 1 ? '' : 's'} not grouped yet. Choose or create a video album in Info.`;
-  } else {
-    copy = '0 video albums';
-  }
+  const copy = hasActiveCategory
+    ? `${safeTotalVideoCount} video${safeTotalVideoCount === 1 ? '' : 's'} in this album`
+    : `${safeAlbumCount} album${safeAlbumCount === 1 ? '' : 's'}`;
 
   return `
     <section class="cml-view-summary" aria-label="Video album summary">
       ${hasActiveCategory ? `
         <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-video-album">
           ${icon('previous')}
-          <span>All video albums</span>
         </button>
       ` : ''}
       ${hasActiveCategory ? '' : `<p class="cml-view-summary__eyebrow">Videos</p>`}
@@ -2483,16 +2472,7 @@ export function SearchSummary({ query, resultCount, filterParts = [], hasActiveF
   }
   return `
     <section class="cml-search-summary">
-      <p class="cml-search-summary__eyebrow">Search results</p>
-      <div class="cml-search-summary__head">
-        <h2 class="cml-search-summary__title">${resultCount} match${resultCount === 1 ? '' : 'es'}${query ? ` for \"${escapeHtml(query)}\"` : ''}</h2>
-        <button type="button" class="cml-search-summary__clear" data-action="clear-search-filters">Reset</button>
-      </div>
-      ${filterParts.length ? `
-        <div class="cml-search-summary__tags">
-          ${filterParts.map((part) => `<span class="cml-search-summary__tag">${escapeHtml(part)}</span>`).join('')}
-        </div>
-      ` : ''}
+      <h2 class="cml-search-summary__title">${resultCount} match${resultCount === 1 ? '' : 'es'}${query ? ` for \"${escapeHtml(query)}\"` : ''}</h2>
     </section>
   `;
 }

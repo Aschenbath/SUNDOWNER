@@ -31,7 +31,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=61';
+} from './components.js?v=62';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -7315,7 +7315,7 @@ function render() {
                 ${state.privateViewOpen
                   ? PrivateAlbumSummary({ itemCount: viewModel.filteredItems.length, locked: false })
                   : ''}
-                ${viewModel.isMindView || hideMobileCollectionSummary ? '' : SearchSummary({
+                ${viewModel.isMindView || hideMobileCollectionSummary || viewModel.activeAlbumName || state.videoCategoryFilter ? '' : SearchSummary({
                   query: parsedSearch.textQuery,
                   resultCount: viewModel.isCollectionRoot
                     ? viewModel.totalCollectionCount
@@ -7331,7 +7331,7 @@ function render() {
                       totalVideoCount: state.videoCategoryFilter ? viewModel.activeVideoAlbumItemCount : viewModel.videoCategoryScopeCount
                     })
                   : ''}
-                ${state.secondaryFilter === 'Videos' && !viewModel.isVideoAlbumRoot
+                ${state.secondaryFilter === 'Videos' && !viewModel.isVideoAlbumRoot && !state.videoCategoryFilter
                   ? VideoCategoryBar({
                       categories: viewModel.videoCategoryOptions,
                       activeCategory: state.videoCategoryFilter,

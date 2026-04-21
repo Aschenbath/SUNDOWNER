@@ -457,7 +457,8 @@ describe('media library download actions', () => {
     assert.doesNotMatch(summaryHtml, /Custom cover/);
     assert.doesNotMatch(summaryHtml, /IMG_0626\.JPEG/);
     assert.doesNotMatch(summaryHtml, />Album</);
-    assert.match(summaryHtml, /All albums/);
+    assert.doesNotMatch(summaryHtml, /All albums/);
+    assert.match(summaryHtml, /data-action="close-collection"/);
     assert.match(summaryHtml, /class="cml-view-summary__title-button"/);
     assert.match(summaryHtml, /data-action="rename-album"/);
     assert.doesNotMatch(summaryHtml, />\s*Rename\s*</);
@@ -879,7 +880,8 @@ describe('media library download actions', () => {
     assert.match(gridHtml, /Video album/);
     assert.match(gridHtml, /data-category="__ungrouped__"/);
     assert.match(gridHtml, /Needs grouping/);
-    assert.match(summaryHtml, /All video albums/);
+    assert.doesNotMatch(summaryHtml, /All video albums/);
+    assert.match(summaryHtml, /data-action="close-video-album"/);
     assert.match(summaryHtml, /5 videos in this album/);
   });
 

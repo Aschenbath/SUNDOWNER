@@ -142,3 +142,4 @@
 26-04-20 by codex: Restrict the Bin-as-album shortcut back to true mobile Albums root only (`layoutWidth <= 640`), so desktop Albums stops rendering `Recently deleted` as a fake collection card
 26-04-20 by codex: Add first-class audio playback with a dedicated Music page, desktop queue player, mobile mini player, and audio media-type/search support
 26-04-20 by codex: Fix preserved desktop sidebar DOM so new primary-nav entries such as Music appear immediately when the sidebar structure changes
+26-04-21 by codex: Simplify album and video-album detail pages so active detail state only shows a back affordance, the album name, and the item total; hide search-summary copy and the video category chip rail once a specific album is open

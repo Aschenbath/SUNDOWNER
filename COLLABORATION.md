@@ -657,3 +657,10 @@ pm; git diff --check passed.
 - Fixed the missing desktop `Music` sidebar entry after the first audio rollout. The root cause was the existing incremental render path in `js/media-library/app.js`: it preserves the live `.cml-sidebar` DOM to avoid flicker, so new primary-nav structure from `Sidebar()` never appeared once the old sidebar was already mounted.
 - Added `getSidebarStructureSignature()` and made `render()` replace the preserved sidebar whenever the primary/secondary nav structure changes, while still keeping the old low-flicker patch path for ordinary active-state updates and storage-card refreshes.
 - Validation: `node --check js/media-library/app.js`, `node .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`34 passing`), and `git diff --check`.
+
+### 2026-04-21 13:25 Asia/Shanghai
+
+- Simplified album and video-album detail headers in `js/media-library/components.js` so the active-detail state now only keeps the back affordance, album name, and item total. The verbose back labels (`All albums`, `All video albums`) were removed, and `SearchSummary()` was reduced to a single compact count title instead of the old eyebrow/reset/tags block.
+- Updated `js/media-library/app.js` so search summary copy no longer renders on active album/video-album detail pages, and the video category chip rail now hides once a specific video album is open. This keeps the detail view to the minimal structure the user asked for: back cue, album name, total, then media.
+- Bumped module cache versions to `components.js?v=62` (inside `js/media-library/app.js`) and `app.js?v=132` in `index.html`, and updated `test/previewActions.test.js` to assert the new icon-only back affordances instead of the removed verbose labels.
+- Validation: `node --check js/media-library/app.js`, `node --check js/media-library/components.js`, `node .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`34 passing`), and `git diff --check` (CRLF warnings only).
