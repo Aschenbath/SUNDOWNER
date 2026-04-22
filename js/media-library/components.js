@@ -53,6 +53,16 @@ const secondaryIconMap = {
   Favourites: 'favourites'
 };
 
+const MEDIA_LIBRARY_THEME_OPTIONS = [
+  { key: 'editorial-dark', label: 'Editorial', swatch: '#8ea0d9' },
+  { key: 'clover', label: 'Clover', swatch: '#5bbd8a' },
+  { key: 'horizon', label: 'Horizon', swatch: '#78aaf8' },
+  { key: 'lily', label: 'Lily', swatch: '#d96bc8' },
+  { key: 'marigold', label: 'Marigold', swatch: '#e19a24' },
+  { key: 'royal', label: 'Royal', swatch: '#5371ff' },
+  { key: 'violet', label: 'Violet', swatch: '#9a4dff' }
+];
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -620,6 +630,38 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   const hiddenActionLabel = 'Remove from Private';
   const addToAlbumLabel = state.secondaryFilter === 'Videos' ? 'Add to video album' : 'Add to album';
   const isMobileAlbumsRoot = state.primaryFilter === 'Collections' && !activeAlbumName && !isAlbumPickerMode && Number(state.layoutWidth || 0) <= 640;
+  const showThemeControl = Number(state.layoutWidth || 0) > 960 && !isAlbumPickerMode;
+  const themeMenu = showThemeControl ? `
+    <div class="cml-theme-switcher">
+      <button
+        type="button"
+        class="cml-topbar__secondary-button ${state.uiThemeMenuOpen ? 'is-selected' : ''}"
+        data-action="toggle-ui-theme-menu"
+        aria-expanded="${state.uiThemeMenuOpen ? 'true' : 'false'}"
+        aria-label="Open style menu"
+      >
+        ${icon('sliders')}
+        <span>Style</span>
+      </button>
+      ${state.uiThemeMenuOpen ? `
+        <div class="cml-theme-menu" role="menu" aria-label="Theme options">
+          ${MEDIA_LIBRARY_THEME_OPTIONS.map((theme) => `
+            <button
+              type="button"
+              class="cml-theme-menu__item ${state.uiTheme === theme.key ? 'is-active' : ''}"
+              data-action="set-ui-theme"
+              data-theme-key="${escapeHtml(theme.key)}"
+              role="menuitemradio"
+              aria-checked="${state.uiTheme === theme.key ? 'true' : 'false'}"
+            >
+              <span class="cml-theme-menu__swatch" style="--cml-theme-swatch:${theme.swatch}"></span>
+              <span class="cml-theme-menu__label">${escapeHtml(theme.label)}</span>
+            </button>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>
+  ` : '';
   const searchPlaceholder = state.primaryFilter === 'Music'
     ? 'Search music, artist, album, type:audio'
     : 'Search photos, descriptions, type:video, category:travel';
@@ -704,6 +746,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
         <input type="search" class="cml-topbar__search-input" placeholder="${escapeHtml(searchPlaceholder)}" value="${searchValue}" />
       </label>
       <div class="cml-topbar__actions">
+        ${themeMenu}
         ${isAlbumPickerMode ? `
           <button type="button" class="cml-topbar__secondary-button" data-action="cancel-add-to-current-album">
             ${icon('previous')}

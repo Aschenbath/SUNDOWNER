@@ -31,7 +31,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=63';
+} from './components.js?v=64';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -172,6 +172,29 @@ const DOCUMENT_HINT_PATTERN = /\b(document|documents|scan|receipt|invoice|contra
 const AUDIO_MODE_SEQUENCE = 'queue';
 const AUDIO_MODE_REPEAT_ONE = 'repeat-one';
 const AUDIO_MODE_SHUFFLE = 'shuffle';
+const MEDIA_LIBRARY_THEME_STORAGE_KEY = 'codex-media-library-theme';
+const MEDIA_LIBRARY_THEME_KEYS = ['editorial-dark', 'clover', 'horizon', 'lily', 'marigold', 'royal', 'violet'];
+
+function normalizeMediaLibraryTheme(value) {
+  const normalized = normalizeText(value).toLowerCase();
+  return MEDIA_LIBRARY_THEME_KEYS.includes(normalized) ? normalized : 'editorial-dark';
+}
+
+function loadMediaLibraryTheme() {
+  try {
+    return normalizeMediaLibraryTheme(window.localStorage.getItem(MEDIA_LIBRARY_THEME_STORAGE_KEY));
+  } catch {
+    return 'editorial-dark';
+  }
+}
+
+function persistMediaLibraryTheme(value) {
+  try {
+    window.localStorage.setItem(MEDIA_LIBRARY_THEME_STORAGE_KEY, normalizeMediaLibraryTheme(value));
+  } catch {
+    // Ignore persistence failures and keep the UI responsive.
+  }
+}
 
 function loadJson(key, fallback) {
   try {
@@ -324,6 +347,8 @@ const state = {
   mindSettings: createDefaultMindSettings(),
   mindSettingsDraft: createMindSettingsDraft(),
   mindSettingsOpen: false,
+  uiTheme: loadMediaLibraryTheme(),
+  uiThemeMenuOpen: false,
   audioCurrentId: '',
   audioQueueIds: [],
   audioMode: AUDIO_MODE_SEQUENCE,
@@ -7236,7 +7261,7 @@ function render() {
   const showDesktopAudioPanel = viewModel.isMusicView && !isMobileLayout();
   const showMobileAudioPlayer = !viewModel.isMindView && isMobileLayout() && Boolean(viewModel.currentAudioItem);
   const fullHtml = `
-    <div class="cml-app-shell">
+    <div class="cml-app-shell" data-cml-theme="${state.uiTheme}">
       ${Sidebar({
         navigationModel: viewModel.navigationModel,
         state,
@@ -7443,6 +7468,11 @@ function render() {
     patchSidebarStorageCard();
   } else {
     refs.root.innerHTML = fullHtml;
+  }
+
+  const liveShell = refs.root.querySelector('.cml-app-shell');
+  if (liveShell instanceof HTMLElement) {
+    liveShell.dataset.cmlTheme = state.uiTheme;
   }
 
   if (state.renameAlbumDialogOpen) {
@@ -9371,6 +9401,12 @@ function handleClick(event) {
   // In selection mode, clicking anywhere on a tile toggles selection instead of opening preview
   const inSelectionMode = state.selectedIds.size > 0
     || Boolean(state.albumSelectionTarget || state.videoAlbumSelectionTarget || state.privateSelectionMode);
+  const clickedInsideThemeSwitcher = event.target instanceof Element && event.target.closest('.cml-theme-switcher');
+  const shouldCloseThemeMenu = state.uiThemeMenuOpen && !clickedInsideThemeSwitcher;
+
+  if (shouldCloseThemeMenu) {
+    state.uiThemeMenuOpen = false;
+  }
 
   if (!isSelectClick && actionTarget instanceof HTMLElement && actionTarget.dataset.action === 'open-preview' && actionTarget.dataset.id) {
     event.preventDefault();
@@ -9453,6 +9489,7 @@ function handleClick(event) {
       state.selectedIds.clear();
       state.binSelectedIds.clear();
       resetLoadedCount();
+      state.uiThemeMenuOpen = false;
       pushNavigationHash();
       patchSidebarActive();
       scheduleRender();
@@ -9492,6 +9529,7 @@ function handleClick(event) {
       state.selectedIds.clear();
       state.binSelectedIds.clear();
       resetLoadedCount();
+      state.uiThemeMenuOpen = false;
       pushNavigationHash();
       patchSidebarActive();
       scheduleRender();
@@ -9512,6 +9550,22 @@ function handleClick(event) {
         refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
       }
       return true;
+    }
+
+    if (actionTarget.dataset.action === 'toggle-ui-theme-menu') {
+      state.avatarMenuOpen = false;
+      state.uiThemeMenuOpen = !state.uiThemeMenuOpen;
+      render();
+      return;
+    }
+
+    if (actionTarget.dataset.action === 'set-ui-theme') {
+      const nextTheme = normalizeMediaLibraryTheme(actionTarget.dataset.themeKey || '');
+      state.uiTheme = nextTheme;
+      state.uiThemeMenuOpen = false;
+      persistMediaLibraryTheme(nextTheme);
+      render();
+      return;
     }
 
     if (actionTarget.dataset.anchor) {
@@ -9549,6 +9603,10 @@ function handleClick(event) {
     if (handleAction(actionTarget)) {
       return;
     }
+  }
+
+  if (shouldCloseThemeMenu) {
+    render();
   }
 }
 
