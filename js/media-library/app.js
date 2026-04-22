@@ -8406,6 +8406,26 @@ function toggleFavorite(itemId) {
   }
 }
 
+function applyLocationRouteToMountedUi() {
+  restoreNavigationFromHash();
+  if (!refs.root) {
+    syncMount();
+    return;
+  }
+  if (state.primaryFilter === 'Mind') {
+    const shouldForceMindRender = state.mindMessages.length === 0;
+    if (shouldRefreshMindOnEnter()) {
+      void loadMindState({ forceRender: shouldForceMindRender, mirrorAfterLoad: true });
+    } else if (hasFreshMindMessages()) {
+      void mirrorMindMessagesIfNeeded();
+    }
+  }
+  if (state.primaryFilter === 'Bin') {
+    void fetchBinItems();
+  }
+  render();
+}
+
 function scrollToYear(year) {
   if (!refs.scrollRegion) {
     return;
@@ -10125,13 +10145,17 @@ function patchHistory() {
   historyPatched = true;
   const { pushState, replaceState } = window.history;
   window.history.pushState = function patchedPushState(...args) {
+    const previousPath = `${window.location.pathname}${window.location.search}`;
     const result = pushState.apply(this, args);
-    queueMicrotask(syncMount);
+    const nextPath = `${window.location.pathname}${window.location.search}`;
+    queueMicrotask(previousPath === nextPath ? applyLocationRouteToMountedUi : syncMount);
     return result;
   };
   window.history.replaceState = function patchedReplaceState(...args) {
+    const previousPath = `${window.location.pathname}${window.location.search}`;
     const result = replaceState.apply(this, args);
-    queueMicrotask(syncMount);
+    const nextPath = `${window.location.pathname}${window.location.search}`;
+    queueMicrotask(previousPath === nextPath ? applyLocationRouteToMountedUi : syncMount);
     return result;
   };
   window.addEventListener('popstate', syncMount);
@@ -10294,16 +10318,7 @@ function boot() {
   restoreNavigationFromHash();
   syncMount();
   window.addEventListener('hashchange', () => {
-    restoreNavigationFromHash();
-    if (refs.root) {
-        if (state.primaryFilter === 'Mind') {
-          void loadMindState({ forceRender: true, mirrorAfterLoad: true });
-        }
-      if (state.primaryFilter === 'Bin') {
-        void fetchBinItems();
-      }
-      render();
-    }
+    applyLocationRouteToMountedUi();
   });
 }
 
