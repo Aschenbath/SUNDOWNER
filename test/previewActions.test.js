@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
+import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
@@ -548,6 +548,29 @@ describe('media library download actions', () => {
     assert.match(panelHtml, /data-action="audio-set-mode"/);
     assert.match(panelHtml, /data-audio-progress/);
     assert.match(panelHtml, /data-audio-volume/);
+  });
+
+  it('keeps the music summary renderable before any track is selected', () => {
+    const html = AudioPlayerPanel({
+      currentItem: null,
+      queueItems: [],
+      currentTime: 0,
+      duration: 0,
+      isPlaying: false,
+      mode: 'queue',
+      volume: 1
+    });
+    const summaryHtml = MusicSummary({
+      totalCount: 0,
+      currentItem: null,
+      queueItems: [],
+      isPlaying: false,
+      mode: 'queue'
+    });
+
+    assert.match(summaryHtml, /Pick a track and press play/);
+    assert.match(summaryHtml, /Your queue and player controls live below\./);
+    assert.match(html, /Select a track/);
   });
 
   it('shows a mobile mini player entry point for the current track', () => {

@@ -256,8 +256,9 @@ function formatAudioDuration(value) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-function formatAudioSubtitle(item = {}) {
-  const parts = [item.audioArtist, item.audioAlbum]
+function formatAudioSubtitle(item) {
+  const safeItem = item && typeof item === 'object' ? item : {};
+  const parts = [safeItem.audioArtist, safeItem.audioAlbum]
     .map((value) => escapeHtml(String(value || '').trim()))
     .filter(Boolean);
   return parts.join(' · ');
