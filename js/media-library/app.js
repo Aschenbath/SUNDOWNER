@@ -7351,7 +7351,9 @@ function render() {
               currentItem: viewModel.currentAudioItem,
               currentTime: state.audioCurrentTime,
               duration: state.audioDuration,
-              isPlaying: state.audioPlaying
+              isPlaying: state.audioPlaying,
+              mode: state.audioMode,
+              volume: state.audioVolume
             })
           : '',
         searchQuery: state.searchDraft

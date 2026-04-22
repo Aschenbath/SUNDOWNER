@@ -606,7 +606,9 @@ describe('media library download actions', () => {
       },
       currentTime: 67,
       duration: 238,
-      isPlaying: true
+      isPlaying: true,
+      mode: 'shuffle',
+      volume: 0.56
     });
     const sidebarHtml = Sidebar({
       navigationModel: {
@@ -631,6 +633,9 @@ describe('media library download actions', () => {
     assert.match(dockHtml, /cml-sidebar-audio-player/);
     assert.match(dockHtml, /data-action="audio-toggle-play"/);
     assert.match(dockHtml, /data-audio-progress/);
+    assert.match(dockHtml, /data-audio-volume/);
+    assert.match(dockHtml, /data-action="audio-set-mode"/);
+    assert.match(dockHtml, />Queue</);
     assert.match(sidebarHtml, /cml-sidebar-audio-player/);
     assert.match(sidebarHtml, /Storage/);
   });

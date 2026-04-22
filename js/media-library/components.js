@@ -1397,7 +1397,7 @@ export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentT
   `;
 }
 
-export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, duration = 0, isPlaying = false }) {
+export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, duration = 0, isPlaying = false, mode = 'queue', volume = 1 }) {
   if (!currentItem) {
     return '';
   }
@@ -1430,6 +1430,7 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
         </div>
       </div>
       <div class="cml-sidebar-audio-player__transport">
+        <button type="button" class="cml-sidebar-audio-player__button ${mode === 'shuffle' ? 'is-active' : ''}" data-action="audio-set-mode" data-mode="shuffle" aria-label="Shuffle">${icon('shuffle')}</button>
         <button type="button" class="cml-sidebar-audio-player__button" data-action="audio-prev" aria-label="Previous">${icon('previous')}</button>
         <button
           type="button"
@@ -1439,6 +1440,26 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
           data-audio-toggle
         >${isPlaying ? icon('pause') : icon('play')}</button>
         <button type="button" class="cml-sidebar-audio-player__button" data-action="audio-next" aria-label="Next">${icon('next')}</button>
+        <button type="button" class="cml-sidebar-audio-player__button ${mode === 'repeat-one' ? 'is-active' : ''}" data-action="audio-set-mode" data-mode="repeat-one" aria-label="Repeat current track">${icon('repeat')}</button>
+      </div>
+      <div class="cml-sidebar-audio-player__footer">
+        <div class="cml-sidebar-audio-player__volume">
+          ${icon('speaker')}
+          <input
+            type="range"
+            class="cml-sidebar-audio-player__volume-input"
+            min="0"
+            max="1"
+            step="0.01"
+            value="${Math.min(1, Math.max(0, Number(volume) || 0))}"
+            data-action="audio-set-volume"
+            data-audio-volume
+          />
+        </div>
+        <button type="button" class="cml-sidebar-audio-player__queue" data-primary="Music" aria-label="Queue">
+          ${icon('collections')}
+          <span>Queue</span>
+        </button>
       </div>
     </section>
   `;
