@@ -13,6 +13,7 @@ import {
   MediaGrid,
   MediaTimelineSection,
   MindChatView,
+  MindLoadingView,
   MobileAudioMiniPlayer,
   MobileBottomNav,
   MusicListView,
@@ -32,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=65';
+} from './components.js?v=66';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -6677,6 +6678,7 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
   const albumSelectionTarget = getAlbumSelectionTarget();
   const videoAlbumSelectionTarget = getVideoAlbumSelectionTarget();
   const searchFilters = parsedSearch.filters;
+  const hasGlobalSearch = Boolean(query || countActiveMediaSearchFilters(searchFilters) > 0);
 
   return items.filter((item) => {
     if (isPrivateRouteActive()) {
@@ -6711,11 +6713,11 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
       return false;
     }
 
-    if (state.primaryFilter === 'Music' && item.type !== 'audio') {
+    if (!hasGlobalSearch && state.primaryFilter === 'Music' && item.type !== 'audio') {
       return false;
     }
 
-    switch (state.secondaryFilter) {
+    switch (hasGlobalSearch ? '' : state.secondaryFilter) {
       case 'TODO':
         if (!isTodoPhotoItem(item)) {
           return false;
@@ -7030,6 +7032,10 @@ function getViewModel() {
   }
 
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
+  const globalSearchActive = Boolean(
+    parsedSearch.textQuery
+    || countActiveMediaSearchFilters(parsedSearch.filters) > 0
+  );
   const activeAlbumName = getActiveAlbumName();
   const albumSelectionTarget = getAlbumSelectionTarget();
   const videoAlbumSelectionTarget = getVideoAlbumSelectionTarget();
@@ -7060,8 +7066,17 @@ function getViewModel() {
     : [];
   const collectionCards = allCollections.slice(0, state.loadedCount);
   const isMindView = state.primaryFilter === 'Mind';
-  const isMusicView = state.primaryFilter === 'Music';
-  const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName;
+  const isGlobalSearchView = globalSearchActive
+    && !isMindView
+    && state.primaryFilter !== 'Bin'
+    && !activeAlbumName
+    && !state.videoCategoryFilter
+    && !state.privateViewOpen
+    && !albumSelectionTarget
+    && !videoAlbumSelectionTarget
+    && !state.privateSelectionMode;
+  const isMusicView = state.primaryFilter === 'Music' && !isGlobalSearchView;
+  const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName && !isGlobalSearchView;
   const isAlbumPickerMode = Boolean(albumSelectionTarget || videoAlbumSelectionTarget || state.privateSelectionMode);
   const musicItems = isMusicView
     ? filteredItems.filter((item) => item.type === 'audio')
@@ -7149,6 +7164,7 @@ function getViewModel() {
     videoAlbumSelectionTarget,
     isAlbumPickerMode,
     isMindView,
+    isGlobalSearchView,
     isMusicView,
     isCollectionRoot,
     collectionCards,
@@ -7434,19 +7450,21 @@ function render() {
                   activeSectionAnchor: state.activeSectionAnchor
                 })
                 : viewModel.isMindView
-                ? MindChatView({
-                  messages: state.mindMessages,
-                  draft: state.mindDraft,
-                  settingsBusy: state.mindSettingsBusy,
-                  deletingIds: state.mindDeletingIds,
-                  settings: state.mindSettings,
-                  settingsDraft: state.mindSettingsDraft,
-                  settingsOpen: state.mindSettingsOpen,
-                  wallpaperUrl: resolveMindWallpaperUrl(state.mindSettings),
-                  wallpaperDraftUrl: resolveMindWallpaperUrl(state.mindSettingsDraft),
-                  wallpaperPhotoChoices: getMindWallpaperPhotoChoices(),
-                  layoutWidth: state.layoutWidth
-                })
+                ? ((state.mindLoading && !state.mindLastLoadedAt && state.mindMessages.length === 0)
+                  ? MindLoadingView({ contactName: state.mindSettings?.contactName || 'Mind' })
+                  : MindChatView({
+                    messages: state.mindMessages,
+                    draft: state.mindDraft,
+                    settingsBusy: state.mindSettingsBusy,
+                    deletingIds: state.mindDeletingIds,
+                    settings: state.mindSettings,
+                    settingsDraft: state.mindSettingsDraft,
+                    settingsOpen: state.mindSettingsOpen,
+                    wallpaperUrl: resolveMindWallpaperUrl(state.mindSettings),
+                    wallpaperDraftUrl: resolveMindWallpaperUrl(state.mindSettingsDraft),
+                    wallpaperPhotoChoices: getMindWallpaperPhotoChoices(),
+                    layoutWidth: state.layoutWidth
+                  }))
                 : viewModel.isMusicView
                 ? `${MusicSummary({
                     totalCount: viewModel.musicItems.length,
@@ -7474,7 +7492,7 @@ function render() {
                         isLoading: state.isLibraryLoading,
                         mode: 'media'
                       })}`
-                : state.secondaryFilter === 'Documents'
+                : !viewModel.isGlobalSearchView && state.secondaryFilter === 'Documents'
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : state.privateViewOpen && !state.privateRouteUnlocked
                 ? PrivateAlbumGate({ error: state.privatePasswordError, value: state.privatePasswordDraft })

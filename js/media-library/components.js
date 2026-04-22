@@ -1406,10 +1406,13 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
   const subtitle = formatAudioSubtitle(currentItem) || escapeHtml(currentItem?.label || '');
   const resolvedDuration = Math.max(0, Number(duration) || Number(currentItem?.audioDuration) || 0);
   const resolvedCurrentTime = Math.min(Math.max(0, Number(currentTime) || 0), resolvedDuration || Number.MAX_SAFE_INTEGER);
+  const coverUrl = String(currentItem?.thumbnailUrl || currentItem?.posterUrl || '').trim();
   return `
     <section class="cml-sidebar-audio-player" aria-label="Now playing">
-      <div class="cml-sidebar-audio-player__meta">
-        <span class="cml-sidebar-audio-player__cover">${icon('music')}</span>
+      <div class="cml-sidebar-audio-player__meta ${coverUrl ? '' : 'is-coverless'}">
+        ${coverUrl
+          ? `<span class="cml-sidebar-audio-player__cover"><img src="${escapeHtml(coverUrl)}" alt="${title}" class="cml-sidebar-audio-player__cover-image"></span>`
+          : ''}
         <div class="cml-sidebar-audio-player__copy">
           <strong class="cml-sidebar-audio-player__title">${title}</strong>
           <span class="cml-sidebar-audio-player__subtitle">${subtitle}</span>
@@ -1455,12 +1458,26 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
             data-audio-volume
           />
         </div>
-        <button type="button" class="cml-sidebar-audio-player__mode ${mode !== 'queue' ? 'is-active' : ''}" data-action="audio-set-mode" data-mode="${mode === 'shuffle' ? 'repeat-one' : 'shuffle'}" aria-label="${mode === 'shuffle' ? 'Repeat current track' : 'Shuffle'}">
-          ${mode === 'shuffle' ? icon('repeat') : icon('shuffle')}
-        </button>
-        <button type="button" class="cml-sidebar-audio-player__queue" data-primary="Music" aria-label="Queue">
-          ${icon('collections')}
-        </button>
+      </div>
+    </section>
+  `;
+}
+
+export function MindLoadingView({ contactName = 'Mind' } = {}) {
+  const safeName = escapeHtml(contactName || 'Mind');
+  return `
+    <section class="cml-mind cml-mind--loading" aria-label="Loading Mind conversation">
+      <header class="cml-mind-header">
+        <span class="cml-mind-header__avatar cml-mind-header__avatar--fallback">${safeName.charAt(0).toUpperCase() || 'M'}</span>
+        <div class="cml-mind-header__copy">
+          <p class="cml-mind-header__title">${safeName}</p>
+          <p class="cml-mind-header__meta">Loading conversation…</p>
+        </div>
+      </header>
+      <div class="cml-mind-loading">
+        <div class="cml-mind-loading__bubble cml-mind-loading__bubble--wide"></div>
+        <div class="cml-mind-loading__bubble"></div>
+        <div class="cml-mind-loading__bubble cml-mind-loading__bubble--mid"></div>
       </div>
     </section>
   `;
@@ -2614,7 +2631,7 @@ export function EmptyState({ query, isLoading = false, mode = 'media', actionLab
         ? `No albums match \"${escapeHtml(query)}\". Try an album name or related memory.`
         : mode === 'album-picker'
           ? `No uploaded photos match \"${escapeHtml(query)}\" for adding to this album.`
-        : `No memories match \"${escapeHtml(query)}\". Try a place, person or album.`)
+        : `No results match \"${escapeHtml(query)}\". Try a song, album, photo description or document name.`)
       : emptyCopy;
   const illustration = emptyStateIllustrations[mode] || emptyStateIllustrations.media;
   return `

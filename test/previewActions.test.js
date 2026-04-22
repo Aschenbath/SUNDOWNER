@@ -634,9 +634,9 @@ describe('media library download actions', () => {
     assert.match(dockHtml, /data-action="audio-toggle-play"/);
     assert.match(dockHtml, /data-audio-progress/);
     assert.match(dockHtml, /data-audio-volume/);
-    assert.match(dockHtml, /data-action="audio-set-mode"/);
-    assert.match(dockHtml, /cml-sidebar-audio-player__queue/);
-    assert.match(dockHtml, /cml-sidebar-audio-player__mode/);
+    assert.doesNotMatch(dockHtml, /cml-sidebar-audio-player__queue/);
+    assert.doesNotMatch(dockHtml, /cml-sidebar-audio-player__mode/);
+    assert.doesNotMatch(dockHtml, /cml-sidebar-audio-player__cover/);
     assert.match(sidebarHtml, /cml-sidebar-audio-player/);
     assert.match(sidebarHtml, /Storage/);
   });
