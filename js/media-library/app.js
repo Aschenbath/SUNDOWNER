@@ -4044,7 +4044,7 @@ async function fetchListPage(start) {
     start: String(start),
     count: String(API_PAGE_SIZE),
     recursive: 'true',
-    fileType: 'image,video,other'
+    fileType: 'image,video,audio,other'
   });
   const response = await apiFetch(`/api/manage/list?${params.toString()}`, {
     timeoutMs: API_REQUEST_TIMEOUT_MS
@@ -9527,13 +9527,6 @@ function handleClick(event) {
     }
   }
 
-  // Close avatar menu when clicking outside it
-  if (state.avatarMenuOpen && event.target instanceof Element && !event.target.closest('.cml-avatar-wrap')) {
-    state.avatarMenuOpen = false;
-    patchAvatarMenu();
-    return;
-  }
-
   if (actionTarget instanceof HTMLElement) {
     if (actionTarget.dataset.action === 'submit-login') {
       event.preventDefault();
@@ -9699,6 +9692,14 @@ function handleClick(event) {
     if (handleAction(actionTarget)) {
       return;
     }
+  }
+
+  // Close avatar menu when clicking outside it, but don't swallow
+  // actionable sidebar/navigation clicks.
+  if (state.avatarMenuOpen && event.target instanceof Element && !event.target.closest('.cml-avatar-wrap')) {
+    state.avatarMenuOpen = false;
+    patchAvatarMenu();
+    return;
   }
 
   if (shouldCloseThemeMenu) {
