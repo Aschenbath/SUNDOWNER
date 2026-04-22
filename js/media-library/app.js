@@ -23,6 +23,7 @@ import {
   PreviewModal,
   SearchSummary,
   Sidebar,
+  SidebarAudioPlayer,
   StorageCard,
   StoragePanel,
   TopSearchBar,
@@ -31,7 +32,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=64';
+} from './components.js?v=65';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -7330,7 +7331,8 @@ function render() {
   const showMobileBinEntry = viewModel.isCollectionRoot && state.layoutWidth <= 640;
   const showMobileAlbumCreateEntry = viewModel.isCollectionRoot && state.layoutWidth <= 640;
   const hideMobileCollectionSummary = viewModel.isCollectionRoot && state.layoutWidth <= 640;
-  const showDesktopAudioPanel = viewModel.isMusicView && !isMobileLayout();
+  const showDesktopAudioPanel = viewModel.isMusicView && !isMobileLayout() && Boolean(viewModel.currentAudioItem);
+  const showDesktopSidebarAudioDock = !viewModel.isMusicView && !viewModel.isMindView && !isMobileLayout() && Boolean(viewModel.currentAudioItem);
   const showMobileAudioPlayer = !viewModel.isMindView && isMobileLayout() && Boolean(viewModel.currentAudioItem);
   const fullHtml = `
     <div class="cml-app-shell" data-cml-theme="${state.uiTheme}">
@@ -7338,6 +7340,14 @@ function render() {
         navigationModel: viewModel.navigationModel,
         state,
         storageSummary: state.storageSummary,
+        desktopAudioDock: showDesktopSidebarAudioDock
+          ? SidebarAudioPlayer({
+              currentItem: viewModel.currentAudioItem,
+              currentTime: state.audioCurrentTime,
+              duration: state.audioDuration,
+              isPlaying: state.audioPlaying
+            })
+          : '',
         searchQuery: state.searchDraft
       })}
       <div class="cml-main-shell ${showMobileAudioPlayer ? 'has-mobile-audio-player' : ''} ${showDesktopAudioPanel ? 'has-desktop-audio-player' : ''}">

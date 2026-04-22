@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
+import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, SidebarAudioPlayer, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
@@ -591,6 +591,70 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="audio-prev"/);
     assert.match(html, /data-action="audio-next"/);
     assert.match(html, /Darcy’s Letter/);
+  });
+
+  it('renders a desktop sidebar audio dock for non-music routes', () => {
+    const dockHtml = SidebarAudioPlayer({
+      currentItem: {
+        id: 'audio-1',
+        type: 'audio',
+        label: 'track-01.mp3',
+        audioTitle: 'Darcy’s Letter',
+        audioArtist: 'Dario Marianelli',
+        audioAlbum: 'Pride & Prejudice',
+        audioDuration: 238
+      },
+      currentTime: 67,
+      duration: 238,
+      isPlaying: true
+    });
+    const sidebarHtml = Sidebar({
+      navigationModel: {
+        primary: ['Photos', 'Collections', 'Music', 'Mind', 'Private', 'Bin'],
+        secondary: ['TODO', 'Videos', 'Documents', 'Favourites']
+      },
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: '',
+        privateViewOpen: false,
+        storagePanelOpen: false,
+        mindSettings: {}
+      },
+      storageSummary: {
+        usedMb: 131,
+        totalCount: 43,
+        isLoading: false
+      },
+      desktopAudioDock: dockHtml
+    });
+
+    assert.match(dockHtml, /cml-sidebar-audio-player/);
+    assert.match(dockHtml, /data-action="audio-toggle-play"/);
+    assert.match(dockHtml, /data-audio-progress/);
+    assert.match(sidebarHtml, /cml-sidebar-audio-player/);
+    assert.match(sidebarHtml, /Storage/);
+  });
+
+  it('keeps the desktop style control visible in the default topbar at medium desktop widths', () => {
+    const html = TopSearchBar({
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: '',
+        activeAlbumName: '',
+        albumSelectionTarget: '',
+        videoAlbumSelectionTarget: '',
+        privateSelectionMode: false,
+        selectedIds: new Set(),
+        searchDraft: '',
+        searchQuery: '',
+        layoutWidth: 1100,
+        uiThemeMenuOpen: false
+      }
+    });
+
+    assert.match(html, /data-action="toggle-ui-theme-menu"/);
+    assert.match(html, /<span>Style<\/span>/);
+    assert.match(html, /data-action="open-upload"/);
   });
 
   it('renders a dedicated mobile albums header and a first-card create entry on small screens', () => {

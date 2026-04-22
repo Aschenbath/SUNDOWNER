@@ -445,6 +445,7 @@ export function Sidebar({
   navigationModel,
   state,
   storageSummary,
+  desktopAudioDock = '',
   searchQuery = '',
 }) {
   const isPrimaryActive = (label) => {
@@ -502,6 +503,7 @@ export function Sidebar({
         </div>
       ` : ''}
       <div class="cml-sidebar__footer">
+        ${desktopAudioDock}
         ${StorageCard(storageSummary, Boolean(state.storagePanelOpen))}
       </div>
     </aside>
@@ -1390,6 +1392,53 @@ export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentT
           <span class="cml-audio-panel__utility-label">Queue</span>
         </button>
         <button type="button" class="cml-audio-panel__utility" aria-label="More options">${icon('dots')}</button>
+      </div>
+    </section>
+  `;
+}
+
+export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, duration = 0, isPlaying = false }) {
+  if (!currentItem) {
+    return '';
+  }
+  const title = escapeHtml(currentItem?.audioTitle || currentItem?.label || 'Now playing');
+  const subtitle = formatAudioSubtitle(currentItem) || escapeHtml(currentItem?.label || '');
+  const resolvedDuration = Math.max(0, Number(duration) || Number(currentItem?.audioDuration) || 0);
+  const resolvedCurrentTime = Math.min(Math.max(0, Number(currentTime) || 0), resolvedDuration || Number.MAX_SAFE_INTEGER);
+  return `
+    <section class="cml-sidebar-audio-player" aria-label="Now playing">
+      <div class="cml-sidebar-audio-player__meta">
+        <span class="cml-sidebar-audio-player__cover">${icon('music')}</span>
+        <div class="cml-sidebar-audio-player__copy">
+          <strong class="cml-sidebar-audio-player__title">${title}</strong>
+          <span class="cml-sidebar-audio-player__subtitle">${subtitle}</span>
+        </div>
+      </div>
+      <div class="cml-sidebar-audio-player__progress">
+        <input
+          type="range"
+          class="cml-sidebar-audio-player__seek"
+          min="0"
+          max="${Math.max(1, resolvedDuration || 1)}"
+          step="1"
+          value="${Math.min(Math.max(0, resolvedCurrentTime), Math.max(1, resolvedDuration || 1))}"
+          data-audio-progress
+        />
+        <div class="cml-sidebar-audio-player__times">
+          <span data-audio-current-time>${formatAudioDuration(resolvedCurrentTime)}</span>
+          <span data-audio-duration>${formatAudioDuration(resolvedDuration)}</span>
+        </div>
+      </div>
+      <div class="cml-sidebar-audio-player__transport">
+        <button type="button" class="cml-sidebar-audio-player__button" data-action="audio-prev" aria-label="Previous">${icon('previous')}</button>
+        <button
+          type="button"
+          class="cml-sidebar-audio-player__button cml-sidebar-audio-player__button--primary"
+          data-action="audio-toggle-play"
+          aria-label="${isPlaying ? 'Pause' : 'Play'}"
+          data-audio-toggle
+        >${isPlaying ? icon('pause') : icon('play')}</button>
+        <button type="button" class="cml-sidebar-audio-player__button" data-action="audio-next" aria-label="Next">${icon('next')}</button>
       </div>
     </section>
   `;
