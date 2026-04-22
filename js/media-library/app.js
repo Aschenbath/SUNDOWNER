@@ -2306,8 +2306,14 @@ function getVideoAlbumSelectionTarget() {
   return normalizeVideoCategory(state.videoAlbumSelectionTarget);
 }
 
+function getViewportLayoutWidth() {
+  const docWidth = typeof document !== 'undefined' ? Number(document.documentElement?.clientWidth || 0) : 0;
+  const winWidth = typeof window !== 'undefined' ? Number(window.innerWidth || 0) : 0;
+  return Math.max(docWidth, winWidth, Number(state.layoutWidth || 0), 0);
+}
+
 function isMobileLayout() {
-  return Number(state.layoutWidth || 0) <= 960;
+  return getViewportLayoutWidth() <= 960;
 }
 
 function normalizeRoutePrimaryFilter(value) {
