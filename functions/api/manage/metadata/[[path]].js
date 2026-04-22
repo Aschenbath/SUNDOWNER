@@ -87,6 +87,7 @@ export async function onRequest(context) {
         const hasSupportedField = body && (
             typeof body.FileName === 'string'
             || typeof body.FileType === 'string'
+            || typeof body.Title === 'string'
             || typeof body.Description === 'string'
             || typeof body.Directory === 'string'
             || typeof body.DateTaken === 'string'
@@ -97,7 +98,7 @@ export async function onRequest(context) {
         if (!hasSupportedField) {
             return new Response(JSON.stringify({
                 success: false,
-                message: 'At least one of FileName, FileType, Description, Directory, DateTaken, VideoCategory, or PrivateAlbum is required.',
+                message: 'At least one of FileName, FileType, Title, Description, Directory, DateTaken, VideoCategory, or PrivateAlbum is required.',
             }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -167,6 +168,9 @@ export async function onRequest(context) {
         }
         if (typeof body.FileType === 'string') {
             updatedMetadata.FileType = body.FileType;
+        }
+        if (typeof body.Title === 'string') {
+            updatedMetadata.Title = body.Title;
         }
         if (typeof body.Description === 'string') {
             updatedMetadata.Description = body.Description;

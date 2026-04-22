@@ -39,6 +39,7 @@ const icons = {
   sliders: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h4m4 0h8M4 12h10m4 0h2M4 18h2m4 0h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="11" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   'arrow-up': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18V7.5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/><path d="m7.8 11.4 4.2-4.4 4.2 4.4" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5.5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="18.5" r="1.5" fill="currentColor"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.8 17.2 1.2-4 7.7-7.7a1.5 1.5 0 0 1 2.1 0l.7.7a1.5 1.5 0 0 1 0 2.1l-7.7 7.7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13.8 6.9 17 10.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M6.5 17.5h4.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
   folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   'folder-filled': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="#8ab4f8" stroke="#8ab4f8" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   'folder-move': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m10 14 3-3m0 0-3-3m3 3H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -70,6 +71,10 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function normalizeText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
 function safeDisplayLabel(item) {
@@ -1223,9 +1228,13 @@ export function DocumentsListView({ items, state }) {
         ${icon('download')}
         <span>Download</span>
       </button>
+      <button type="button" class="cml-docs-ctx__item" data-action="docs-ctx-rename" data-id="${escapeHtml(state.docsContextMenu.id)}">
+        ${icon('edit')}
+        <span>Rename</span>
+      </button>
       <button type="button" class="cml-docs-ctx__item" data-action="docs-ctx-move" data-id="${escapeHtml(state.docsContextMenu.id)}">
         ${icon('folder-move')}
-        <span>Move to鈥?/span>
+        <span>Move to…</span>
       </button>
       <div class="cml-docs-ctx__divider"></div>
       <button type="button" class="cml-docs-ctx__item cml-docs-ctx__item--danger" data-action="docs-ctx-delete" data-id="${escapeHtml(state.docsContextMenu.id)}">
@@ -1254,26 +1263,78 @@ function formatMusicAddedLabel(item = {}) {
   return escapeHtml(label || 'Just now');
 }
 
-export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = null, queueItems = [], isPlaying = false, mode = 'sequence' }) {
+function renderMusicPlaylistPills({ playlists = [], activePlaylistName = '' } = {}) {
+  return `
+    <div class="cml-music-playlists">
+      <button type="button" class="cml-music-playlists__pill ${activePlaylistName ? '' : 'is-active'}" data-action="${activePlaylistName ? 'close-music-playlist' : 'open-create-playlist'}">
+        <span>${activePlaylistName ? 'All tracks' : 'New playlist'}</span>
+      </button>
+      ${playlists.map((playlist) => `
+        <button
+          type="button"
+          class="cml-music-playlists__pill ${normalizeText(playlist.name).toLowerCase() === normalizeText(activePlaylistName).toLowerCase() ? 'is-active' : ''}"
+          data-action="open-music-playlist"
+          data-playlist-name="${escapeHtml(playlist.name)}"
+        >
+          <span>${escapeHtml(playlist.name)}</span>
+          <span class="cml-music-playlists__count">${playlist.itemCount}</span>
+        </button>
+      `).join('')}
+      <button type="button" class="cml-music-playlists__pill cml-music-playlists__pill--create" data-action="open-create-playlist">
+        ${icon('plus')}
+        <span>Create</span>
+      </button>
+    </div>
+  `;
+}
+
+export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = null, queueItems = [], isPlaying = false, mode = 'sequence', playlists = [], activePlaylistName = '' }) {
   const countLabel = formatItemCount(totalCount);
-  const helper = totalCount === 1 ? '1 local file' : 'Local audio library';
+  const helper = activePlaylistName
+    ? `${countLabel} in this playlist`
+    : (totalCount === 1 ? '1 local file' : 'Local audio library');
+  const title = activePlaylistName || 'Music';
+  const subtitle = currentItem
+    ? `Now ${isPlaying ? 'playing' : 'paused'}: ${escapeHtml(currentItem.audioTitle || currentItem.label || 'Track')}`
+    : escapeHtml(helper);
   return `
     <section class="cml-view-summary cml-view-summary--music cml-music-summary">
       <div class="cml-music-summary__head">
         <div class="cml-music-summary__titles">
           ${isMobile ? '' : '<p class="cml-view-summary__eyebrow">Music</p>'}
-          <h2 class="cml-view-summary__title">Music</h2>
+          <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
           <p class="cml-view-summary__copy cml-view-summary__copy--albums">${countLabel}</p>
         </div>
         <div class="cml-music-summary__meta">
           <span class="cml-music-summary__chip">${escapeHtml(helper)}</span>
+          ${activePlaylistName ? `<button type="button" class="cml-music-summary__action" data-action="close-music-playlist">Back</button>` : ''}
+          ${activePlaylistName ? `<button type="button" class="cml-music-summary__action" data-action="open-rename-playlist">Rename</button>` : ''}
+          ${activePlaylistName ? `<button type="button" class="cml-music-summary__action is-danger" data-action="delete-playlist">Delete</button>` : ''}
         </div>
       </div>
+      <div class="cml-music-summary__hero">
+        <div class="cml-music-summary__spotlight">
+          <p class="cml-music-summary__spotlight-label">${activePlaylistName ? 'Playlist focus' : 'Library focus'}</p>
+          <h3>${escapeHtml(title)}</h3>
+          <p>${subtitle}</p>
+        </div>
+        <div class="cml-music-summary__stack">
+          <div class="cml-music-summary__stat">
+            <span>Queue</span>
+            <strong>${queueItems.length}</strong>
+          </div>
+          <div class="cml-music-summary__stat">
+            <span>Mode</span>
+            <strong>${escapeHtml(mode === 'repeat-one' ? 'Repeat one' : (mode === 'shuffle' ? 'Shuffle' : 'Sequence'))}</strong>
+          </div>
+        </div>
+      </div>
+      ${renderMusicPlaylistPills({ playlists, activePlaylistName })}
     </section>
   `;
 }
 
-export function MusicListView({ items = [], state, audioState = {}, currentItem = null, currentTime = 0, duration = 0, queueItems = [] }) {
+export function MusicListView({ items = [], state, audioState = {}, currentItem = null, currentTime = 0, duration = 0, queueItems = [], playlists = [], activePlaylistName = '' }) {
   if (!items.length) {
     return '';
   }
@@ -1291,20 +1352,23 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
       <section class="cml-music-playlist">
         <div class="cml-music-playlist__head">
           <div>
-            <p class="cml-music-playlist__eyebrow">Library</p>
-            <h3 class="cml-music-playlist__title">Tracks</h3>
+            <p class="cml-music-playlist__eyebrow">${activePlaylistName ? 'Playlist' : 'Library'}</p>
+            <h3 class="cml-music-playlist__title">${escapeHtml(activePlaylistName || 'Tracks')}</h3>
           </div>
-          <span class="cml-music-playlist__count">${formatItemCount(items.length)}</span>
+          <div class="cml-music-playlist__head-actions">
+            <span class="cml-music-playlist__count">${formatItemCount(items.length)}</span>
+            ${!activePlaylistName ? '<button type="button" class="cml-music-playlist__action" data-action="open-create-playlist">New playlist</button>' : ''}
+          </div>
         </div>
         <div class="cml-music-playlist__table" role="table" aria-label="Playlist table">
           <div class="cml-music-playlist__header" role="row">
-            <span aria-hidden="true"></span>
             <span aria-hidden="true"></span>
             <span role="columnheader">Title</span>
             <span role="columnheader">Artist</span>
             <span role="columnheader">Album</span>
             <span role="columnheader">Time</span>
             <span role="columnheader">Added</span>
+            <span role="columnheader">Actions</span>
           </div>
           <div class="cml-music-list">
       ${items.map((item, index) => {
@@ -1313,20 +1377,15 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
         const artist = escapeHtml(item.audioArtist || 'Unknown Artist');
         const album = escapeHtml(item.audioAlbum || 'Unknown Album');
         const playAction = isCurrent ? 'audio-toggle-play' : 'play-audio-item';
-        const playControl = isCurrent
-          ? (isPlaying ? icon('pause') : icon('play'))
-          : escapeHtml(String(index + 1));
         return `
-          <button
-            type="button"
-            class="cml-music-row ${isCurrent ? 'is-current' : ''}"
-            data-action="${playAction}"
-            ${playAction === 'play-audio-item' ? `data-id="${escapeHtml(item.id)}"` : ''}
-            data-audio-row="${escapeHtml(item.id)}"
-            aria-pressed="${isCurrent ? 'true' : 'false'}"
-          >
-            <span class="cml-music-row__index">${playControl}</span>
-            <span class="cml-music-row__cover">${icon('music')}</span>
+          <div class="cml-music-row ${isCurrent ? 'is-current' : ''}" data-audio-row="${escapeHtml(item.id)}" role="row">
+            <button
+              type="button"
+              class="cml-music-row__index"
+              data-action="${playAction}"
+              ${playAction === 'play-audio-item' ? `data-id="${escapeHtml(item.id)}"` : ''}
+              aria-label="${isCurrent && isPlaying ? 'Pause track' : 'Play track'}"
+            >${isCurrent ? (isPlaying ? icon('pause') : icon('play')) : escapeHtml(String(index + 1))}</button>
             <span class="cml-music-row__meta">
               <strong class="cml-music-row__title">${title}</strong>
               <span class="cml-music-row__subtitle">${escapeHtml(item.label || item.sourceId || `Track ${index + 1}`)}</span>
@@ -1335,7 +1394,15 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
             <span class="cml-music-row__album">${album}</span>
             <span class="cml-music-row__duration">${formatAudioDuration(item.audioDuration || 0)}</span>
             <span class="cml-music-row__added">${formatMusicAddedLabel(item)}</span>
-          </button>
+            <span class="cml-music-row__actions">
+              <button type="button" class="cml-music-row__icon-btn" data-action="rename-audio-item" data-id="${escapeHtml(item.id)}" aria-label="Rename track">${icon('edit')}</button>
+              ${activePlaylistName
+                ? `<button type="button" class="cml-music-row__icon-btn" data-action="remove-audio-from-playlist" data-id="${escapeHtml(item.id)}" aria-label="Remove from playlist">${icon('close')}</button>`
+                : (playlists.length
+                  ? `<button type="button" class="cml-music-row__icon-btn" data-action="add-audio-to-playlist" data-id="${escapeHtml(item.id)}" aria-label="Add to playlist">${icon('plus')}</button>`
+                  : '')}
+            </span>
+          </div>
         `;
       }).join('')}</div>
         </div>
@@ -1360,10 +1427,11 @@ export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentT
   const subtitle = formatAudioSubtitle(currentItem) || escapeHtml(currentItem?.label || 'Choose music from the list to start playback.');
   const resolvedDuration = Math.max(0, Number(duration) || Number(currentItem?.audioDuration) || 0);
   const resolvedCurrentTime = Math.min(Math.max(0, Number(currentTime) || 0), resolvedDuration || Number.MAX_SAFE_INTEGER);
+  const coverUrl = String(currentItem?.thumbnailUrl || currentItem?.posterUrl || '').trim();
   return `
     <section class="cml-audio-panel" aria-label="Audio player">
       <div class="cml-audio-panel__left">
-        <span class="cml-audio-panel__cover">${icon('music')}</span>
+        ${coverUrl ? `<span class="cml-audio-panel__cover"><img src="${escapeHtml(coverUrl)}" alt="${title}" class="cml-audio-panel__cover-image"></span>` : ''}
         <div class="cml-audio-panel__copy">
           <strong class="cml-audio-panel__title">${title}</strong>
           <span class="cml-audio-panel__subtitle">${subtitle}</span>
@@ -1392,7 +1460,7 @@ export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentT
           ${icon('collections')}
           <span class="cml-audio-panel__utility-label">Queue</span>
         </button>
-        <button type="button" class="cml-audio-panel__utility" aria-label="More options">${icon('dots')}</button>
+        <span class="cml-audio-panel__queue-size">${queueItems.length} queued</span>
       </div>
     </section>
   `;

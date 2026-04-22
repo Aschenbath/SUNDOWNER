@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=66';
+} from './components.js?v=67';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -60,6 +60,8 @@ const FAVORITES_STORAGE_KEY = 'codex-media-library-favorites';
 const ALBUMS_STORAGE_KEY = 'codex-media-library-albums';
 const ALBUM_ASSIGNMENTS_STORAGE_KEY = 'codex-media-library-album-assignments';
 const ALBUM_COVERS_STORAGE_KEY = 'codex-media-library-album-covers';
+const PLAYLISTS_STORAGE_KEY = 'codex-media-library-playlists';
+const PLAYLIST_ASSIGNMENTS_STORAGE_KEY = 'codex-media-library-playlist-assignments';
 const LEGACY_ALBUM_STORAGE_KEYS = [
   FAVORITES_STORAGE_KEY,
   ALBUMS_STORAGE_KEY,
@@ -288,6 +290,9 @@ const state = {
   albumNames: [],
   albumAssignments: {},
   albumCovers: {},
+  playlistNames: loadStringArray(PLAYLISTS_STORAGE_KEY),
+  playlistAssignments: loadStringRecord(PLAYLIST_ASSIGNMENTS_STORAGE_KEY),
+  activePlaylistName: '',
   albumDialogOpen: false,
   albumDialogMode: 'create',
   albumDialogOrigin: '',
@@ -345,6 +350,7 @@ const state = {
   mindDraft: '',
   mindComposerComposing: false,
   mindLoading: false,
+  mindHydrated: false,
   mindLastLoadedAt: 0,
   mindSettingsBusy: false,
   mindDeletingIds: new Set(),
@@ -390,6 +396,18 @@ const state = {
   renameAlbumDraftName: '',
   renameAlbumError: '',
   renameAlbumBusy: false,
+  renameItemDialogOpen: false,
+  renameItemTargetId: '',
+  renameItemField: 'FileName',
+  renameItemDraftValue: '',
+  renameItemError: '',
+  renameItemBusy: false,
+  playlistDialogOpen: false,
+  playlistDialogMode: 'create',
+  playlistDialogTargetItemId: '',
+  playlistDraftName: '',
+  playlistDialogError: '',
+  playlistDialogBusy: false,
   adminProfileDraft: createEmptyAdminProfileDraft(),
   adminPageDraft: createEmptyAdminPageDraft(),
   adminCloudDraft: createEmptyAdminCloudDraft(),
@@ -431,6 +449,8 @@ let scrollRestoring = false;
 const sectionRangeCache = new Map(); // anchorId → { startIndex, endIndex }
 let persistedAlbumStatePromise = null;
 let pendingPersistedAlbumSnapshot = null;
+let persistedPlaylistStatePromise = null;
+let pendingPersistedPlaylistSnapshot = null;
 let mindStatePromise = null;
 let mindMirrorPromise = null;
 let mindMutationQueue = Promise.resolve();
@@ -512,7 +532,10 @@ function getAudioItemById(itemId, items = getAccessibleItems()) {
 }
 
 function getMusicContextItems(items = getAccessibleItems()) {
-  return getFilteredItems(items).filter((item) => item.type === 'audio');
+  const activePlaylistName = getActivePlaylistName();
+  return getFilteredItems(items)
+    .filter((item) => item.type === 'audio')
+    .filter((item) => !activePlaylistName || itemBelongsToPlaylist(item, activePlaylistName));
 }
 
 function getAudioQueueItems(items = getAccessibleItems()) {
@@ -1804,6 +1827,28 @@ function getAssignedAlbumName(item) {
   return getAssignedAlbumNames(item)[0] || '';
 }
 
+function normalizePlaylistKey(value) {
+  return normalizeText(value).toLowerCase();
+}
+
+function getAssignedPlaylistNames(item) {
+  const key = getPersistentItemKey(item);
+  if (!key) {
+    return [];
+  }
+  const value = state.playlistAssignments[key];
+  if (Array.isArray(value)) {
+    return value.map(normalizeText).filter(Boolean);
+  }
+  const single = normalizeText(value || '');
+  return single ? [single] : [];
+}
+
+function itemBelongsToPlaylist(item, playlistName) {
+  const playlistKey = normalizePlaylistKey(playlistName);
+  return getAssignedPlaylistNames(item).some((name) => normalizePlaylistKey(name) === playlistKey);
+}
+
 function getStoredCollectionAlbum(item) {
   return normalizeText(item?.collectionAlbum || item?.tgAlbumPath || item?.metadataAlbum || '');
 }
@@ -1856,6 +1901,50 @@ function getAvailableAlbumNames(items = getAccessibleItems(state.mediaItems)) {
     if (Array.isArray(value)) { value.forEach(pushAlbum); } else { pushAlbum(value); }
   });
   return names;
+}
+
+function buildMusicPlaylistSummaries(items = getAccessibleItems()) {
+  const groups = new Map();
+  const ensureGroup = (name) => {
+    const normalizedName = normalizeText(name);
+    if (!normalizedName) {
+      return null;
+    }
+    const key = normalizePlaylistKey(normalizedName);
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        name: normalizedName,
+        items: []
+      });
+    }
+    return groups.get(key);
+  };
+
+  state.playlistNames.forEach((playlistName) => ensureGroup(playlistName));
+  items
+    .filter((item) => item?.type === 'audio')
+    .forEach((item) => {
+      getAssignedPlaylistNames(item).forEach((playlistName) => {
+        const group = ensureGroup(playlistName);
+        if (group) {
+          group.items.push(item);
+        }
+      });
+    });
+
+  return [...groups.values()]
+    .map((group) => ({
+      ...group,
+      itemCount: group.items.length,
+      lastModifiedAt: Math.max(0, ...group.items.map((item) => getAlbumSortTimestamp(item)))
+    }))
+    .sort((left, right) => {
+      if (right.lastModifiedAt !== left.lastModifiedAt) {
+        return right.lastModifiedAt - left.lastModifiedAt;
+      }
+      return left.name.localeCompare(right.name);
+    });
 }
 
 function getAvailableVideoAlbumNames(items = getAccessibleItems()) {
@@ -2314,6 +2403,10 @@ function toFiniteNumber(value, fallback = 0) {
 
 function getActiveAlbumName() {
   return state.primaryFilter === 'Collections' ? normalizeText(state.activeAlbumName) : '';
+}
+
+function getActivePlaylistName() {
+  return state.primaryFilter === 'Music' ? normalizeText(state.activePlaylistName) : '';
 }
 
 function getAlbumSelectionTarget() {
@@ -2936,6 +3029,7 @@ function applyMindState(payload) {
       forceRight: isMindMessageStickyForVisit(message, stickyMessages)
     }))
     .filter(Boolean));
+  state.mindHydrated = true;
   syncMindVisitStickyMessages(state.mindMessages);
 }
 
@@ -4757,6 +4851,75 @@ function loadFavoriteSetFromApi(values) {
   return new Set(Array.isArray(values) ? values.map((value) => normalizeText(value)).filter(Boolean) : []);
 }
 
+function hasPersistedPlaylistData(snapshot) {
+  return Boolean(
+    safeArray(snapshot?.playlistNames).length
+    || Object.keys(snapshot?.playlistAssignments || {}).length
+  );
+}
+
+function applyPersistedPlaylistState(payload) {
+  state.playlistNames = loadStringArrayFromApi(payload?.playlistNames);
+  state.playlistAssignments = loadStringRecordFromApi(payload?.playlistAssignments);
+}
+
+function snapshotPersistedPlaylistState() {
+  return {
+    playlistNames: [...state.playlistNames],
+    playlistAssignments: { ...state.playlistAssignments }
+  };
+}
+
+async function flushPersistedPlaylistState() {
+  while (pendingPersistedPlaylistSnapshot) {
+    const nextSnapshot = pendingPersistedPlaylistSnapshot;
+    pendingPersistedPlaylistSnapshot = null;
+    try {
+      const payload = await postJson('/api/manage/playlists', { state: nextSnapshot });
+      if (!pendingPersistedPlaylistSnapshot) {
+        applyPersistedPlaylistState(payload);
+        saveJson(PLAYLISTS_STORAGE_KEY, state.playlistNames);
+        saveJson(PLAYLIST_ASSIGNMENTS_STORAGE_KEY, state.playlistAssignments);
+      }
+    } catch (error) {
+      console.error('[media-library] failed to persist playlist state', error);
+      showToast(error.message || 'Failed to save playlist changes');
+    }
+  }
+}
+
+function queuePersistedPlaylistState() {
+  pendingPersistedPlaylistSnapshot = snapshotPersistedPlaylistState();
+  if (persistedPlaylistStatePromise) {
+    return persistedPlaylistStatePromise;
+  }
+  persistedPlaylistStatePromise = flushPersistedPlaylistState()
+    .finally(() => {
+      persistedPlaylistStatePromise = null;
+      if (pendingPersistedPlaylistSnapshot) {
+        queuePersistedPlaylistState();
+      }
+    });
+  return persistedPlaylistStatePromise;
+}
+
+async function loadPersistedPlaylistState({ forceRender = false } = {}) {
+  try {
+    const payload = await fetchJson('/api/manage/playlists');
+    if (hasPersistedPlaylistData(payload)) {
+      applyPersistedPlaylistState(payload);
+      saveJson(PLAYLISTS_STORAGE_KEY, state.playlistNames);
+      saveJson(PLAYLIST_ASSIGNMENTS_STORAGE_KEY, state.playlistAssignments);
+    }
+  } catch (error) {
+    console.error('[media-library] failed to load playlist state', error);
+  } finally {
+    if (forceRender && refs.root) {
+      render();
+    }
+  }
+}
+
 function snapshotPersistedAlbumState() {
   return {
     albumNames: [...state.albumNames],
@@ -5372,6 +5535,21 @@ function openCollection(albumName) {
   }
 }
 
+function openMusicPlaylist(playlistName) {
+  const normalizedName = normalizeText(playlistName);
+  if (!normalizedName) {
+    return;
+  }
+  state.primaryFilter = 'Music';
+  state.activePlaylistName = normalizedName;
+  resetAddToTargetModes();
+  resetSearchQuery();
+  state.previewId = null;
+  clearSelection({ shouldRender: false });
+  pushNavigationHash();
+  render();
+}
+
 function openVideoAlbum(categoryName) {
   const normalizedCategory = normalizeVideoAlbumRouteValue(categoryName);
   if (!normalizedCategory) {
@@ -5419,6 +5597,18 @@ function closeCollection() {
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
   }
+}
+
+function closeMusicPlaylist() {
+  if (!state.activePlaylistName) {
+    return;
+  }
+  state.activePlaylistName = '';
+  resetSearchQuery();
+  state.previewId = null;
+  clearSelection({ shouldRender: false });
+  pushNavigationHash();
+  render();
 }
 
 function closeVideoAlbum() {
@@ -5763,6 +5953,7 @@ function buildContentViewKey(viewModel) {
   return [
     state.primaryFilter,
     viewModel.activeAlbumName || '',
+    viewModel.activePlaylistName || '',
     state.secondaryFilter || '',
     state.videoCategoryFilter || '',
     state.privateViewOpen ? 'private-view' : '',
@@ -6746,11 +6937,11 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
       default:
         // In Photos view (no secondary filter), exclude documents and audio
         // unless the user explicitly filtered to that media type.
-        if (state.primaryFilter === 'Photos' && item.type === 'document'
+        if (!hasGlobalSearch && state.primaryFilter === 'Photos' && item.type === 'document'
             && searchFilters.type !== 'document') {
           return false;
         }
-        if (state.primaryFilter === 'Photos' && item.type === 'audio'
+        if (!hasGlobalSearch && state.primaryFilter === 'Photos' && item.type === 'audio'
             && searchFilters.type !== 'audio') {
           return false;
         }
@@ -7036,6 +7227,12 @@ function getViewModel() {
     parsedSearch.textQuery
     || countActiveMediaSearchFilters(parsedSearch.filters) > 0
   );
+  if (state.primaryFilter === 'Music' && state.activePlaylistName) {
+    const playlistExists = state.playlistNames.some((name) => normalizePlaylistKey(name) === normalizePlaylistKey(state.activePlaylistName));
+    if (!playlistExists) {
+      state.activePlaylistName = '';
+    }
+  }
   const activeAlbumName = getActiveAlbumName();
   const albumSelectionTarget = getAlbumSelectionTarget();
   const videoAlbumSelectionTarget = getVideoAlbumSelectionTarget();
@@ -7078,6 +7275,7 @@ function getViewModel() {
   const isMusicView = state.primaryFilter === 'Music' && !isGlobalSearchView;
   const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName && !isGlobalSearchView;
   const isAlbumPickerMode = Boolean(albumSelectionTarget || videoAlbumSelectionTarget || state.privateSelectionMode);
+  const musicPlaylists = isMusicView ? buildMusicPlaylistSummaries(accessibleItems) : [];
   const musicItems = isMusicView
     ? filteredItems.filter((item) => item.type === 'audio')
     : [];
@@ -7166,7 +7364,9 @@ function getViewModel() {
     isMindView,
     isGlobalSearchView,
     isMusicView,
+    activePlaylistName: getActivePlaylistName(),
     isCollectionRoot,
+    musicPlaylists,
     collectionCards,
     totalCollectionCount: allCollections.length,
     filteredItems,
@@ -7355,6 +7555,114 @@ function scheduleSelectionChromeSync() {
   });
 }
 
+function renderRenameItemDialog() {
+  if (!state.renameItemDialogOpen) {
+    return '';
+  }
+  const title = state.renameItemField === 'Title' ? 'Rename track' : 'Rename file';
+  const label = state.renameItemField === 'Title' ? 'Track title' : 'File name';
+  return `
+    <div class="cml-dialog" role="dialog" aria-modal="true" aria-label="${title}">
+      <div class="cml-dialog__backdrop" data-action="close-rename-item-dialog"></div>
+      <div class="cml-dialog__panel cml-simple-dialog">
+        <header class="cml-dialog__header">
+          <div>
+            <p class="cml-confirm-dialog__eyebrow">Metadata</p>
+            <h3 class="cml-dialog__title">${title}</h3>
+          </div>
+        </header>
+        <div class="cml-simple-dialog__body">
+          <label class="cml-simple-dialog__field">
+            <span>${label}</span>
+            <input type="text" class="cml-simple-dialog__input" data-rename-item-input value="${escapeHtml(state.renameItemDraftValue || '')}" maxlength="120" autocomplete="off" />
+          </label>
+          ${state.renameItemError ? `<p class="cml-simple-dialog__error">${escapeHtml(state.renameItemError)}</p>` : ''}
+        </div>
+        <footer class="cml-dialog__footer">
+          <button type="button" class="cml-topbar__secondary-button" data-action="close-rename-item-dialog" ${state.renameItemBusy ? 'disabled' : ''}>Cancel</button>
+          <button type="button" class="cml-topbar__secondary-button" data-action="submit-rename-item" ${state.renameItemBusy ? 'disabled' : ''}>${state.renameItemBusy ? 'Saving...' : 'Save'}</button>
+        </footer>
+      </div>
+    </div>
+  `;
+}
+
+function renderPlaylistDialog() {
+  if (!state.playlistDialogOpen) {
+    return '';
+  }
+  const targetItem = state.playlistDialogTargetItemId
+    ? getAllItems().find((entry) => entry.id === state.playlistDialogTargetItemId)
+    : null;
+  const availablePlaylists = buildMusicPlaylistSummaries(getAccessibleItems());
+  const title = state.playlistDialogMode === 'rename'
+    ? 'Rename playlist'
+    : state.playlistDialogMode === 'attach'
+      ? 'Add to playlist'
+      : 'Create playlist';
+  const attachChoicesHtml = state.playlistDialogMode === 'attach' ? `
+    <div class="cml-simple-dialog__body">
+      <p class="cml-simple-dialog__copy">
+        ${targetItem ? `Choose where to save "${escapeHtml(targetItem.audioTitle || targetItem.label || 'this track')}".` : 'Choose a playlist for this track.'}
+      </p>
+      ${availablePlaylists.length ? `
+        <div class="cml-simple-dialog__choices">
+          ${availablePlaylists.map((playlist) => {
+            const isAssigned = targetItem ? itemBelongsToPlaylist(targetItem, playlist.name) : false;
+            return `
+              <button
+                type="button"
+                class="cml-simple-dialog__choice ${isAssigned ? 'is-active' : ''}"
+                data-action="attach-audio-to-playlist"
+                data-playlist-name="${escapeHtml(playlist.name)}"
+                ${state.playlistDialogBusy ? 'disabled' : ''}
+              >
+                <span>${escapeHtml(playlist.name)}</span>
+                <span>${isAssigned ? 'Added' : `${playlist.itemCount} tracks`}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      ` : '<p class="cml-simple-dialog__empty">No playlists yet.</p>'}
+      <button
+        type="button"
+        class="cml-simple-dialog__create"
+        data-action="switch-playlist-dialog-create"
+        ${state.playlistDialogBusy ? 'disabled' : ''}
+      >Create a new playlist</button>
+      ${state.playlistDialogError ? `<p class="cml-simple-dialog__error">${escapeHtml(state.playlistDialogError)}</p>` : ''}
+    </div>
+  ` : `
+    <div class="cml-simple-dialog__body">
+      <label class="cml-simple-dialog__field">
+        <span>Playlist name</span>
+        <input type="text" class="cml-simple-dialog__input" data-playlist-input value="${escapeHtml(state.playlistDraftName || '')}" maxlength="80" autocomplete="off" />
+      </label>
+      ${state.playlistDialogError ? `<p class="cml-simple-dialog__error">${escapeHtml(state.playlistDialogError)}</p>` : ''}
+    </div>
+  `;
+  return `
+    <div class="cml-dialog" role="dialog" aria-modal="true" aria-label="${title}">
+      <div class="cml-dialog__backdrop" data-action="close-playlist-dialog"></div>
+      <div class="cml-dialog__panel cml-simple-dialog">
+        <header class="cml-dialog__header">
+          <div>
+            <p class="cml-confirm-dialog__eyebrow">Music</p>
+            <h3 class="cml-dialog__title">${title}</h3>
+          </div>
+        </header>
+        ${attachChoicesHtml}
+        <footer class="cml-dialog__footer">
+          <button type="button" class="cml-topbar__secondary-button" data-action="close-playlist-dialog" ${state.playlistDialogBusy ? 'disabled' : ''}>Cancel</button>
+          ${state.playlistDialogMode === 'attach'
+            ? ''
+            : `<button type="button" class="cml-topbar__secondary-button" data-action="submit-playlist-dialog" ${state.playlistDialogBusy ? 'disabled' : ''}>${state.playlistDialogBusy ? 'Saving...' : 'Save'}</button>`}
+        </footer>
+      </div>
+    </div>
+  `;
+}
+
 function render() {
   if (!refs.root) {
     return;
@@ -7450,7 +7758,7 @@ function render() {
                   activeSectionAnchor: state.activeSectionAnchor
                 })
                 : viewModel.isMindView
-                ? ((state.mindLoading && !state.mindLastLoadedAt && state.mindMessages.length === 0)
+                ? ((!state.mindHydrated && state.mindLoading)
                   ? MindLoadingView({ contactName: state.mindSettings?.contactName || 'Mind' })
                   : MindChatView({
                     messages: state.mindMessages,
@@ -7472,7 +7780,9 @@ function render() {
                     currentItem: viewModel.currentAudioItem,
                     queueItems: viewModel.audioQueueItems,
                     isPlaying: state.audioPlaying,
-                    mode: state.audioMode
+                    mode: state.audioMode,
+                    playlists: viewModel.musicPlaylists,
+                    activePlaylistName: viewModel.activePlaylistName
                   })}
                   ${viewModel.musicItems.length
                     ? MusicListView({
@@ -7485,7 +7795,9 @@ function render() {
                         currentItem: viewModel.currentAudioItem,
                         currentTime: state.audioCurrentTime,
                         duration: state.audioDuration,
-                        queueItems: viewModel.audioQueueItems
+                        queueItems: viewModel.audioQueueItems,
+                        playlists: viewModel.musicPlaylists,
+                        activePlaylistName: viewModel.activePlaylistName
                       })
                     : EmptyState({
                         query: parsedSearch.textQuery,
@@ -7585,6 +7897,8 @@ function render() {
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
       ${StoragePanel({ state, insights: storageInsights })}
       ${AlbumDialog({ state, albums: getDialogAlbumNames(getAccessibleItems()), target: state.albumDialogTarget })}
+      ${renderPlaylistDialog()}
+      ${renderRenameItemDialog()}
       ${ConfirmDialog({ state })}
       ${state.toastMessage ? `
         <div class="cml-toast cml-toast--${state.toastType}" role="alert" aria-live="polite">
@@ -8223,6 +8537,7 @@ function mount() {
   lockDocumentScroll();
   state.liveSyncAttempts = 0;
   void loadPersistedAlbumState({ forceRender: true });
+  void loadPersistedPlaylistState({ forceRender: true });
   if (state.primaryFilter === 'Mind') {
     void loadMindState({ forceRender: true, mirrorAfterLoad: true });
   }
@@ -8528,6 +8843,210 @@ function applyLocationRouteToMountedUi() {
     void fetchBinItems();
   }
   render();
+}
+
+function openRenameItemDialog(itemId, field = 'FileName') {
+  const item = getAllItems().find((entry) => entry.id === itemId);
+  if (!item?.sourceId) {
+    showToast('Cannot rename this item');
+    return;
+  }
+  state.renameItemDialogOpen = true;
+  state.renameItemTargetId = itemId;
+  state.renameItemField = field === 'Title' ? 'Title' : 'FileName';
+  state.renameItemDraftValue = state.renameItemField === 'Title'
+    ? normalizeText(item.audioTitle || item.label || '')
+    : normalizeText(item.label || item.audioTitle || '');
+  state.renameItemError = '';
+  state.renameItemBusy = false;
+  render();
+}
+
+function closeRenameItemDialog() {
+  state.renameItemDialogOpen = false;
+  state.renameItemTargetId = '';
+  state.renameItemField = 'FileName';
+  state.renameItemDraftValue = '';
+  state.renameItemError = '';
+  state.renameItemBusy = false;
+  render();
+}
+
+async function submitRenameItem() {
+  const item = getAllItems().find((entry) => entry.id === state.renameItemTargetId);
+  if (!item?.sourceId) {
+    state.renameItemError = 'Item not found';
+    render();
+    return;
+  }
+  const nextValue = normalizeText(state.renameItemDraftValue);
+  if (!nextValue) {
+    state.renameItemError = 'Name cannot be empty';
+    render();
+    return;
+  }
+  const payload = state.renameItemField === 'Title'
+    ? { Title: nextValue }
+    : { FileName: nextValue };
+  state.renameItemBusy = true;
+  state.renameItemError = '';
+  render();
+  try {
+    const encodedPath = encodeMetadataPath(item.sourceId);
+    const response = await apiFetch(`/api/manage/metadata/${encodedPath}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || 'Failed to rename item');
+    }
+    const mediaItem = state.mediaItems.find((entry) => entry.id === state.renameItemTargetId);
+    if (mediaItem) {
+      if (state.renameItemField === 'Title') {
+        mediaItem.audioTitle = nextValue;
+      } else {
+        mediaItem.label = nextValue;
+      }
+    }
+    closeRenameItemDialog();
+    render();
+    showToast(state.renameItemField === 'Title' ? 'Track renamed' : 'File renamed', 'success');
+  } catch (error) {
+    state.renameItemError = error.message || 'Failed to rename item';
+    state.renameItemBusy = false;
+    render();
+  }
+}
+
+function openPlaylistDialog(mode = 'create', { itemId = '' } = {}) {
+  state.playlistDialogOpen = true;
+  state.playlistDialogMode = mode;
+  state.playlistDialogTargetItemId = normalizeText(itemId);
+  state.playlistDraftName = mode === 'rename' ? getActivePlaylistName() : '';
+  state.playlistDialogError = '';
+  state.playlistDialogBusy = false;
+  render();
+}
+
+function closePlaylistDialog() {
+  state.playlistDialogOpen = false;
+  state.playlistDialogMode = 'create';
+  state.playlistDialogTargetItemId = '';
+  state.playlistDraftName = '';
+  state.playlistDialogError = '';
+  state.playlistDialogBusy = false;
+  render();
+}
+
+async function submitPlaylistDialog() {
+  if (state.playlistDialogMode === 'attach') {
+    return;
+  }
+  const dialogMode = state.playlistDialogMode;
+  const targetItemId = state.playlistDialogTargetItemId;
+  const nextName = normalizeText(state.playlistDraftName);
+  if (!nextName) {
+    state.playlistDialogError = 'Playlist name cannot be empty';
+    render();
+    return;
+  }
+  state.playlistDialogBusy = true;
+  state.playlistDialogError = '';
+  render();
+  try {
+    let payload = dialogMode === 'rename'
+      ? await apiFetch('/api/manage/playlists', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: getActivePlaylistName(), newName: nextName })
+      }).then((response) => response.json())
+      : await postJson('/api/manage/playlists', { name: nextName });
+    if (payload?.error) {
+      throw new Error(payload.error);
+    }
+    if (dialogMode === 'create' && targetItemId) {
+      const createdItemId = targetItemId;
+      payload = await updatePlaylistMembership(nextName, createdItemId, 'add', { silent: true, returnPayload: true }) || payload;
+    }
+    applyPersistedPlaylistState(payload);
+    saveJson(PLAYLISTS_STORAGE_KEY, state.playlistNames);
+    saveJson(PLAYLIST_ASSIGNMENTS_STORAGE_KEY, state.playlistAssignments);
+    if (dialogMode === 'rename' && getActivePlaylistName()) {
+      state.activePlaylistName = nextName;
+    } else if (dialogMode === 'create') {
+      state.activePlaylistName = nextName;
+    }
+    closePlaylistDialog();
+    render();
+    showToast(
+      dialogMode === 'rename'
+        ? 'Playlist renamed'
+        : (targetItemId ? 'Playlist created and track added' : 'Playlist created'),
+      'success'
+    );
+  } catch (error) {
+    state.playlistDialogError = error.message || 'Failed to save playlist';
+    state.playlistDialogBusy = false;
+    render();
+  }
+}
+
+async function deleteActivePlaylist() {
+  const activePlaylistName = getActivePlaylistName();
+  if (!activePlaylistName) {
+    return;
+  }
+  try {
+    const payload = await apiFetch(`/api/manage/playlists?name=${encodeURIComponent(activePlaylistName)}`, {
+      method: 'DELETE'
+    }).then((response) => response.json());
+    if (payload?.error) {
+      throw new Error(payload.error);
+    }
+    applyPersistedPlaylistState(payload);
+    saveJson(PLAYLISTS_STORAGE_KEY, state.playlistNames);
+    saveJson(PLAYLIST_ASSIGNMENTS_STORAGE_KEY, state.playlistAssignments);
+    state.activePlaylistName = '';
+    render();
+    showToast('Playlist deleted', 'success');
+  } catch (error) {
+    showToast(error.message || 'Failed to delete playlist');
+  }
+}
+
+async function updatePlaylistMembership(playlistName, itemId, action = 'add', { silent = false, returnPayload = false } = {}) {
+  const item = getAllItems().find((entry) => entry.id === itemId);
+  if (!item) {
+    return null;
+  }
+  const fileId = getPersistentItemKey(item);
+  if (!playlistName || !fileId) {
+    return null;
+  }
+  try {
+    const payload = await postJson('/api/manage/playlists', {
+      playlistId: playlistName,
+      action,
+      fileIds: [fileId]
+    });
+    applyPersistedPlaylistState(payload);
+    saveJson(PLAYLISTS_STORAGE_KEY, state.playlistNames);
+    saveJson(PLAYLIST_ASSIGNMENTS_STORAGE_KEY, state.playlistAssignments);
+    if (!returnPayload) {
+      render();
+    }
+    if (!silent) {
+      showToast(action === 'remove' ? 'Removed from playlist' : 'Added to playlist', 'success');
+    }
+    return payload;
+  } catch (error) {
+    if (!silent) {
+      showToast(error.message || 'Failed to update playlist');
+    }
+    throw error;
+  }
 }
 
 function scrollToYear(year) {
@@ -9055,6 +9574,77 @@ function handleAction(actionTarget) {
     case 'submit-rename-album':
       void submitRenameAlbum();
       return true;
+    case 'open-create-playlist':
+      openPlaylistDialog('create');
+      return true;
+    case 'open-rename-playlist':
+      openPlaylistDialog('rename');
+      return true;
+    case 'switch-playlist-dialog-create':
+      openPlaylistDialog('create', { itemId: state.playlistDialogTargetItemId });
+      return true;
+    case 'close-playlist-dialog':
+      closePlaylistDialog();
+      return true;
+    case 'submit-playlist-dialog':
+      void submitPlaylistDialog();
+      return true;
+    case 'attach-audio-to-playlist':
+      if (actionTarget.dataset.playlistName && state.playlistDialogTargetItemId) {
+        state.playlistDialogBusy = true;
+        state.playlistDialogError = '';
+        render();
+        void updatePlaylistMembership(actionTarget.dataset.playlistName, state.playlistDialogTargetItemId, 'add', { silent: true })
+          .then(() => {
+            closePlaylistDialog();
+            render();
+            showToast('Added to playlist', 'success');
+          })
+          .catch((error) => {
+            state.playlistDialogError = error.message || 'Failed to update playlist';
+            state.playlistDialogBusy = false;
+            render();
+          });
+      }
+      return true;
+    case 'open-music-playlist':
+      if (actionTarget.dataset.playlistName) {
+        openMusicPlaylist(actionTarget.dataset.playlistName);
+      }
+      return true;
+    case 'close-music-playlist':
+      closeMusicPlaylist();
+      return true;
+    case 'delete-playlist':
+      void deleteActivePlaylist();
+      return true;
+    case 'rename-audio-item':
+      if (actionTarget.dataset.id) {
+        openRenameItemDialog(actionTarget.dataset.id, 'Title');
+      }
+      return true;
+    case 'add-audio-to-playlist':
+      if (actionTarget.dataset.id) {
+        if (getActivePlaylistName()) {
+          void updatePlaylistMembership(getActivePlaylistName(), actionTarget.dataset.id, 'add');
+        } else if (state.playlistNames.length) {
+          openPlaylistDialog('attach', { itemId: actionTarget.dataset.id });
+        } else {
+          openPlaylistDialog('create', { itemId: actionTarget.dataset.id });
+        }
+      }
+      return true;
+    case 'remove-audio-from-playlist':
+      if (actionTarget.dataset.id && getActivePlaylistName()) {
+        void updatePlaylistMembership(getActivePlaylistName(), actionTarget.dataset.id, 'remove');
+      }
+      return true;
+    case 'close-rename-item-dialog':
+      closeRenameItemDialog();
+      return true;
+    case 'submit-rename-item':
+      void submitRenameItem();
+      return true;
     case 'delete-album':
       if (actionTarget.dataset.albumName) {
         state.confirmDialogOpen = true;
@@ -9164,6 +9754,16 @@ function handleAction(actionTarget) {
       state.docsContextMenu = null;
       if (ctxId) downloadPreviewItem(ctxId);
       render();
+      return true;
+    }
+    case 'docs-ctx-rename': {
+      const ctxId = actionTarget.dataset.id;
+      state.docsContextMenu = null;
+      if (ctxId) {
+        openRenameItemDialog(ctxId, 'FileName');
+      } else {
+        render();
+      }
       return true;
     }
     case 'docs-ctx-move': {
@@ -9643,6 +10243,7 @@ function handleClick(event) {
         && isPrimaryViewDomInSync(nextPrimary)
         && !state.secondaryFilter
         && !state.activeAlbumName
+        && !state.activePlaylistName
         && !state.privateViewOpen
         && !state.albumSelectionTarget
         && !state.videoAlbumSelectionTarget
@@ -9673,6 +10274,7 @@ function handleClick(event) {
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      state.activePlaylistName = '';
       resetAddToTargetModes();
       resetSearchQuery();
       state.previewId = null;
@@ -9895,6 +10497,20 @@ function handleInput(event) {
     }
     return;
   }
+  if (input.hasAttribute('data-rename-item-input')) {
+    state.renameItemDraftValue = input.value;
+    if (state.renameItemError) {
+      state.renameItemError = '';
+    }
+    return;
+  }
+  if (input.hasAttribute('data-playlist-input')) {
+    state.playlistDraftName = input.value;
+    if (state.playlistDialogError) {
+      state.playlistDialogError = '';
+    }
+    return;
+  }
   if (input.hasAttribute('data-docs-folder-input')) {
     return;
   }
@@ -10089,6 +10705,30 @@ function handleKeyDown(event) {
     if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.hasAttribute('data-rename-album-input')) {
       event.preventDefault();
       event.target.blur();
+    }
+    return;
+  }
+
+  if (state.renameItemDialogOpen) {
+    if (event.key === 'Escape') {
+      closeRenameItemDialog();
+      return;
+    }
+    if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.hasAttribute('data-rename-item-input')) {
+      event.preventDefault();
+      void submitRenameItem();
+    }
+    return;
+  }
+
+  if (state.playlistDialogOpen) {
+    if (event.key === 'Escape') {
+      closePlaylistDialog();
+      return;
+    }
+    if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.hasAttribute('data-playlist-input')) {
+      event.preventDefault();
+      void submitPlaylistDialog();
     }
     return;
   }
@@ -10293,7 +10933,9 @@ function buildNavigationHash() {
     return '#/albums';
   }
   if (primary === 'Music') {
-    return '#/music';
+    return getActivePlaylistName()
+      ? '#/music/' + encodeURIComponent(getActivePlaylistName())
+      : '#/music';
   }
   if (primary === 'Mind') {
     return '#/mind';
@@ -10319,6 +10961,7 @@ function restoreNavigationFromHash() {
     state.secondaryFilter = '';
     state.videoCategoryFilter = '';
     state.activeAlbumName = '';
+    state.activePlaylistName = '';
     clearPrivateViewState();
     return;
   }
@@ -10332,6 +10975,7 @@ function restoreNavigationFromHash() {
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      state.activePlaylistName = '';
       if (parts[1] && parts[1].toLowerCase() === PRIVATE_ROUTE_SEGMENT) {
         resetAddToTargetModes();
         state.privateViewOpen = true;
@@ -10347,6 +10991,7 @@ function restoreNavigationFromHash() {
       state.primaryFilter = 'Collections';
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
+      state.activePlaylistName = '';
       clearPrivateViewState();
       if (parts[1]) {
         // Preserve the original album name casing from the hash
@@ -10360,6 +11005,7 @@ function restoreNavigationFromHash() {
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      state.activePlaylistName = '';
       clearPrivateViewState();
       break;
     case 'music':
@@ -10367,6 +11013,7 @@ function restoreNavigationFromHash() {
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      state.activePlaylistName = parts[1] ? parts.slice(1).join('/') : '';
       clearPrivateViewState();
       break;
     case 'bin':
@@ -10374,6 +11021,7 @@ function restoreNavigationFromHash() {
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      state.activePlaylistName = '';
       clearPrivateViewState();
       break;
     case 'videos':
@@ -10381,6 +11029,7 @@ function restoreNavigationFromHash() {
       state.secondaryFilter = 'Videos';
       state.videoCategoryFilter = normalizeVideoAlbumRouteValue(parts.slice(1).join('/'));
       state.activeAlbumName = '';
+      state.activePlaylistName = '';
       clearPrivateViewState();
       break;
     case 'todo':
@@ -10388,6 +11037,7 @@ function restoreNavigationFromHash() {
       state.secondaryFilter = 'TODO';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      state.activePlaylistName = '';
       clearPrivateViewState();
       break;
     case 'documents':
@@ -10395,6 +11045,7 @@ function restoreNavigationFromHash() {
       state.secondaryFilter = 'Documents';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      state.activePlaylistName = '';
       clearPrivateViewState();
       break;
     case 'favourites':
@@ -10402,6 +11053,7 @@ function restoreNavigationFromHash() {
       state.secondaryFilter = 'Favourites';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      state.activePlaylistName = '';
       clearPrivateViewState();
       break;
     default:
@@ -10409,6 +11061,7 @@ function restoreNavigationFromHash() {
       state.secondaryFilter = '';
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
+      state.activePlaylistName = '';
       clearPrivateViewState();
       break;
   }
