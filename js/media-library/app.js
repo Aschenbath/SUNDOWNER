@@ -7187,8 +7187,18 @@ function syncLayoutWidth() {
   if (!refs.contentInner) {
     return;
   }
+  const getLayoutBucket = (width) => {
+    if (width <= 640) return 'phone';
+    if (width <= 960) return 'mobile';
+    if (width <= 1180) return 'compact-desktop';
+    if (width <= 1380) return 'desktop';
+    return 'wide';
+  };
   const nextWidth = Math.max(280, Math.round(refs.contentInner.clientWidth - 4));
-  if (Math.abs(nextWidth - state.layoutWidth) <= 2) {
+  const previousWidth = Math.max(280, Number(state.layoutWidth) || 0);
+  const bucketChanged = getLayoutBucket(nextWidth) !== getLayoutBucket(previousWidth);
+  const widthDelta = Math.abs(nextWidth - previousWidth);
+  if (!bucketChanged && widthDelta <= 80) {
     return;
   }
   state.layoutWidth = nextWidth;

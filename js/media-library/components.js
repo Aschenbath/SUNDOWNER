@@ -1431,7 +1431,6 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
         </div>
       </div>
       <div class="cml-sidebar-audio-player__transport">
-        <button type="button" class="cml-sidebar-audio-player__button ${mode === 'shuffle' ? 'is-active' : ''}" data-action="audio-set-mode" data-mode="shuffle" aria-label="Shuffle">${icon('shuffle')}</button>
         <button type="button" class="cml-sidebar-audio-player__button" data-action="audio-prev" aria-label="Previous">${icon('previous')}</button>
         <button
           type="button"
@@ -1441,7 +1440,6 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
           data-audio-toggle
         >${isPlaying ? icon('pause') : icon('play')}</button>
         <button type="button" class="cml-sidebar-audio-player__button" data-action="audio-next" aria-label="Next">${icon('next')}</button>
-        <button type="button" class="cml-sidebar-audio-player__button ${mode === 'repeat-one' ? 'is-active' : ''}" data-action="audio-set-mode" data-mode="repeat-one" aria-label="Repeat current track">${icon('repeat')}</button>
       </div>
       <div class="cml-sidebar-audio-player__footer">
         <div class="cml-sidebar-audio-player__volume">
@@ -1457,9 +1455,11 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
             data-audio-volume
           />
         </div>
+        <button type="button" class="cml-sidebar-audio-player__mode ${mode !== 'queue' ? 'is-active' : ''}" data-action="audio-set-mode" data-mode="${mode === 'shuffle' ? 'repeat-one' : 'shuffle'}" aria-label="${mode === 'shuffle' ? 'Repeat current track' : 'Shuffle'}">
+          ${mode === 'shuffle' ? icon('repeat') : icon('shuffle')}
+        </button>
         <button type="button" class="cml-sidebar-audio-player__queue" data-primary="Music" aria-label="Queue">
           ${icon('collections')}
-          <span>Queue</span>
         </button>
       </div>
     </section>
