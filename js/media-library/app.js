@@ -595,13 +595,21 @@ function ensureAudioEngine() {
   audioEngine.addEventListener('play', () => {
     state.audioPlaying = true;
     if (refs.root) {
-      render();
+      if (state.primaryFilter === 'Music') {
+        render();
+      } else {
+        scheduleAudioUiSync();
+      }
     }
   });
   audioEngine.addEventListener('pause', () => {
     state.audioPlaying = false;
     if (refs.root) {
-      render();
+      if (state.primaryFilter === 'Music') {
+        render();
+      } else {
+        scheduleAudioUiSync();
+      }
     }
   });
   audioEngine.addEventListener('ended', () => {
@@ -7057,7 +7065,8 @@ function getViewModel() {
     ? filteredItems.filter((item) => item.type === 'audio')
     : [];
   const audioQueueItems = getAudioQueueItems(accessibleItems);
-  const currentAudioItem = getAudioItemById(state.audioCurrentId, accessibleItems);
+  const currentAudioItem = getAudioItemById(state.audioCurrentId, accessibleItems)
+    || getAudioItemById(state.audioCurrentId, getAllItems());
   const timelineItems = isMindView || isMusicView
     ? []
     : state.primaryFilter === 'Bin'
@@ -7270,6 +7279,17 @@ function patchSidebarFooter(nextSidebar) {
   return true;
 }
 
+function getSidebarFooterSignature(sidebar) {
+  if (!(sidebar instanceof HTMLElement)) {
+    return '';
+  }
+  const footer = sidebar.querySelector('.cml-sidebar__footer');
+  if (!(footer instanceof HTMLElement)) {
+    return '';
+  }
+  return `${footer.dataset.hasAudioDock || 'false'}::${footer.dataset.audioDockKey || ''}`;
+}
+
 function getSidebarStructureSignature(sidebar) {
   if (!(sidebar instanceof HTMLElement)) {
     return '';
@@ -7360,12 +7380,16 @@ function render() {
   const showDesktopAudioPanel = viewModel.isMusicView && !isMobileLayout() && Boolean(viewModel.currentAudioItem);
   const showDesktopSidebarAudioDock = !viewModel.isMusicView && !viewModel.isMindView && !isMobileLayout() && Boolean(viewModel.currentAudioItem);
   const showMobileAudioPlayer = !viewModel.isMindView && isMobileLayout() && Boolean(viewModel.currentAudioItem);
+  const desktopAudioDockKey = showDesktopSidebarAudioDock
+    ? `${normalizeText(viewModel.currentAudioItem?.id)}|${state.audioPlaying ? 'playing' : 'paused'}|${normalizeAudioMode(state.audioMode)}`
+    : '';
   const fullHtml = `
     <div class="cml-app-shell" data-cml-theme="${state.uiTheme}">
       ${Sidebar({
         navigationModel: viewModel.navigationModel,
         state,
         storageSummary: state.storageSummary,
+        desktopAudioDockKey,
         desktopAudioDock: showDesktopSidebarAudioDock
           ? SidebarAudioPlayer({
               currentItem: viewModel.currentAudioItem,
@@ -7558,7 +7582,9 @@ function render() {
       if (nextSidebar instanceof HTMLElement) {
         const currentSignature = getSidebarStructureSignature(existingSidebar);
         const nextSignature = getSidebarStructureSignature(nextSidebar);
-        if (currentSignature !== nextSignature) {
+        const currentFooterSignature = getSidebarFooterSignature(existingSidebar);
+        const nextFooterSignature = getSidebarFooterSignature(nextSidebar);
+        if (currentSignature !== nextSignature || currentFooterSignature !== nextFooterSignature) {
           existingSidebar.replaceWith(nextSidebar);
         } else {
           newShell.removeChild(nextSidebar);

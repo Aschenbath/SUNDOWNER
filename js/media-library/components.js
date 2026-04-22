@@ -446,6 +446,7 @@ export function Sidebar({
   state,
   storageSummary,
   desktopAudioDock = '',
+  desktopAudioDockKey = '',
   searchQuery = '',
 }) {
   const isPrimaryActive = (label) => {
@@ -502,7 +503,7 @@ export function Sidebar({
           }).join('')}
         </div>
       ` : ''}
-      <div class="cml-sidebar__footer">
+      <div class="cml-sidebar__footer" data-audio-dock-key="${escapeHtml(desktopAudioDockKey)}" data-has-audio-dock="${desktopAudioDock ? 'true' : 'false'}">
         ${desktopAudioDock}
         ${StorageCard(storageSummary, Boolean(state.storagePanelOpen))}
       </div>
