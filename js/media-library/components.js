@@ -1290,6 +1290,7 @@ function renderMusicPlaylistPills({ playlists = [], activePlaylistName = '' } = 
 
 export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = null, queueItems = [], isPlaying = false, mode = 'sequence', playlists = [], activePlaylistName = '' }) {
   const countLabel = formatItemCount(totalCount);
+  const modeLabel = mode === 'repeat-one' ? 'Repeat one' : (mode === 'shuffle' ? 'Shuffle' : 'Sequence');
   const helper = activePlaylistName
     ? `${countLabel} in this playlist`
     : (totalCount === 1 ? '1 local file' : 'Local audio library');
@@ -1307,26 +1308,28 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
         </div>
         <div class="cml-music-summary__meta">
           <span class="cml-music-summary__chip">${escapeHtml(helper)}</span>
-          ${activePlaylistName ? `<button type="button" class="cml-music-summary__action" data-action="close-music-playlist">Back</button>` : ''}
-          ${activePlaylistName ? `<button type="button" class="cml-music-summary__action" data-action="open-rename-playlist">Rename</button>` : ''}
-          ${activePlaylistName ? `<button type="button" class="cml-music-summary__action is-danger" data-action="delete-playlist">Delete</button>` : ''}
         </div>
       </div>
-      <div class="cml-music-summary__hero">
-        <div class="cml-music-summary__spotlight">
-          <p class="cml-music-summary__spotlight-label">${activePlaylistName ? 'Playlist focus' : 'Library focus'}</p>
-          <h3>${escapeHtml(title)}</h3>
-          <p>${subtitle}</p>
+      <div class="cml-music-summary__toolbar">
+        <div class="cml-music-summary__focus">
+          <span class="cml-music-summary__focus-kicker">${activePlaylistName ? 'Playlist focus' : 'Library focus'}</span>
+          <div class="cml-music-summary__focus-copy">
+            <strong>${escapeHtml(title)}</strong>
+            <span>${subtitle}</span>
+          </div>
         </div>
-        <div class="cml-music-summary__stack">
-          <div class="cml-music-summary__stat">
-            <span>Queue</span>
-            <strong>${queueItems.length}</strong>
+        <div class="cml-music-summary__toolbar-meta">
+          <div class="cml-music-summary__stats">
+            <span class="cml-music-summary__stat-pill"><em>Queue</em><strong>${queueItems.length}</strong></span>
+            <span class="cml-music-summary__stat-pill"><em>Mode</em><strong>${escapeHtml(modeLabel)}</strong></span>
           </div>
-          <div class="cml-music-summary__stat">
-            <span>Mode</span>
-            <strong>${escapeHtml(mode === 'repeat-one' ? 'Repeat one' : (mode === 'shuffle' ? 'Shuffle' : 'Sequence'))}</strong>
-          </div>
+          ${activePlaylistName ? `
+            <div class="cml-music-summary__actions">
+              <button type="button" class="cml-music-summary__action" data-action="close-music-playlist">Back</button>
+              <button type="button" class="cml-music-summary__action" data-action="open-rename-playlist">Rename</button>
+              <button type="button" class="cml-music-summary__action is-danger" data-action="delete-playlist">Delete</button>
+            </div>
+          ` : ''}
         </div>
       </div>
       ${renderMusicPlaylistPills({ playlists, activePlaylistName })}
@@ -1452,15 +1455,17 @@ export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentT
         </div>
       </div>
       <div class="cml-audio-panel__right">
+        <div class="cml-audio-panel__utility-cluster">
+          <button type="button" class="cml-audio-panel__utility cml-audio-panel__utility--queue" data-primary="Music" aria-label="Queue">
+            ${icon('collections')}
+            <span class="cml-audio-panel__utility-label">Queue</span>
+          </button>
+          <span class="cml-audio-panel__queue-size">${queueItems.length} queued</span>
+        </div>
         <div class="cml-audio-panel__volume">
           ${icon('speaker')}
           <input type="range" min="0" max="1" step="0.01" value="${Math.min(1, Math.max(0, Number(volume) || 0))}" data-action="audio-set-volume" data-audio-volume />
         </div>
-        <button type="button" class="cml-audio-panel__utility cml-audio-panel__utility--queue" data-primary="Music" aria-label="Queue">
-          ${icon('collections')}
-          <span class="cml-audio-panel__utility-label">Queue</span>
-        </button>
-        <span class="cml-audio-panel__queue-size">${queueItems.length} queued</span>
       </div>
     </section>
   `;
@@ -1501,18 +1506,18 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
           <span data-audio-duration>${formatAudioDuration(resolvedDuration)}</span>
         </div>
       </div>
-      <div class="cml-sidebar-audio-player__transport">
-        <button type="button" class="cml-sidebar-audio-player__button" data-action="audio-prev" aria-label="Previous">${icon('previous')}</button>
-        <button
-          type="button"
-          class="cml-sidebar-audio-player__button cml-sidebar-audio-player__button--primary"
-          data-action="audio-toggle-play"
-          aria-label="${isPlaying ? 'Pause' : 'Play'}"
-          data-audio-toggle
-        >${isPlaying ? icon('pause') : icon('play')}</button>
-        <button type="button" class="cml-sidebar-audio-player__button" data-action="audio-next" aria-label="Next">${icon('next')}</button>
-      </div>
-      <div class="cml-sidebar-audio-player__footer">
+      <div class="cml-sidebar-audio-player__controls">
+        <div class="cml-sidebar-audio-player__transport">
+          <button type="button" class="cml-sidebar-audio-player__button" data-action="audio-prev" aria-label="Previous">${icon('previous')}</button>
+          <button
+            type="button"
+            class="cml-sidebar-audio-player__button cml-sidebar-audio-player__button--primary"
+            data-action="audio-toggle-play"
+            aria-label="${isPlaying ? 'Pause' : 'Play'}"
+            data-audio-toggle
+          >${isPlaying ? icon('pause') : icon('play')}</button>
+          <button type="button" class="cml-sidebar-audio-player__button" data-action="audio-next" aria-label="Next">${icon('next')}</button>
+        </div>
         <div class="cml-sidebar-audio-player__volume">
           ${icon('speaker')}
           <input
