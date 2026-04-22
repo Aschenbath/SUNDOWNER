@@ -531,6 +531,11 @@ function syncAudioProgressUi() {
   }
   const duration = Math.max(0, Number(state.audioDuration) || 0);
   const currentTime = Math.max(0, Math.min(Number(state.audioCurrentTime) || 0, duration || Number.MAX_SAFE_INTEGER));
+  const progressMax = Math.max(1, Math.round(duration || 1));
+  const progressValue = Math.min(Math.max(0, Math.round(currentTime)), progressMax);
+  const progressFill = progressMax > 0 ? Math.max(0, Math.min(100, (progressValue / progressMax) * 100)) : 0;
+  const volumeValue = Math.min(1, Math.max(0, Number(state.audioVolume) || 0));
+  const volumeFill = Math.max(0, Math.min(100, volumeValue * 100));
   refs.root.querySelectorAll('[data-audio-current-time]').forEach((node) => {
     node.textContent = formatDuration(currentTime);
   });
@@ -539,13 +544,15 @@ function syncAudioProgressUi() {
   });
   refs.root.querySelectorAll('[data-audio-progress]').forEach((input) => {
     if (input instanceof HTMLInputElement) {
-      input.max = String(Math.max(1, Math.round(duration || 1)));
-      input.value = String(Math.min(Math.max(0, Math.round(currentTime)), Math.max(1, Math.round(duration || 1))));
+      input.max = String(progressMax);
+      input.value = String(progressValue);
+      input.style.setProperty('--cml-range-fill', `${progressFill}%`);
     }
   });
   refs.root.querySelectorAll('[data-audio-volume]').forEach((input) => {
     if (input instanceof HTMLInputElement) {
-      input.value = String(Math.min(1, Math.max(0, Number(state.audioVolume) || 0)));
+      input.value = String(volumeValue);
+      input.style.setProperty('--cml-range-fill', `${volumeFill}%`);
     }
   });
   refs.root.querySelectorAll('[data-audio-toggle]').forEach((button) => {
@@ -7250,6 +7257,19 @@ function patchSidebarStorageCard() {
   return true;
 }
 
+function patchSidebarFooter(nextSidebar) {
+  if (!refs.root || !(nextSidebar instanceof HTMLElement)) {
+    return false;
+  }
+  const currentFooter = refs.root.querySelector('.cml-sidebar .cml-sidebar__footer');
+  const nextFooter = nextSidebar.querySelector('.cml-sidebar__footer');
+  if (!(currentFooter instanceof HTMLElement) || !(nextFooter instanceof HTMLElement)) {
+    return false;
+  }
+  currentFooter.replaceWith(nextFooter.cloneNode(true));
+  return true;
+}
+
 function getSidebarStructureSignature(sidebar) {
   if (!(sidebar instanceof HTMLElement)) {
     return '';
@@ -7564,7 +7584,7 @@ function render() {
       refs.root.innerHTML = fullHtml;
     }
     patchSidebarActive();
-    patchSidebarStorageCard();
+    patchSidebarFooter(nextSidebar);
   } else {
     refs.root.innerHTML = fullHtml;
   }

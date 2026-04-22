@@ -607,13 +607,18 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-sidebar-audio-player__seek {
+  --cml-range-fill: 0%;
   width: 100%;
   margin: 0;
   height: 4px;
+  padding: 0;
+  border: 0;
+  display: block;
   appearance: none;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(126, 136, 255, 0.92) 0%, rgba(126, 136, 255, 0.92) 32%, rgba(255, 255, 255, 0.12) 32%, rgba(255, 255, 255, 0.12) 100%);
+  background: linear-gradient(90deg, rgba(126, 136, 255, 0.96) 0%, rgba(126, 136, 255, 0.96) var(--cml-range-fill), rgba(255, 255, 255, 0.18) var(--cml-range-fill), rgba(255, 255, 255, 0.18) 100%);
   outline: none;
+  cursor: pointer;
 }
 
 #codex-media-library-root .cml-sidebar-audio-player__times {
@@ -687,13 +692,19 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-sidebar-audio-player__volume-input {
+  --cml-range-fill: 0%;
   flex: 1 1 auto;
   min-width: 64px;
   height: 4px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  display: block;
   appearance: none;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(52, 211, 153, 0.92) 0%, rgba(52, 211, 153, 0.92) 56%, rgba(255, 255, 255, 0.12) 56%, rgba(255, 255, 255, 0.12) 100%);
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.96) 0%, rgba(52, 211, 153, 0.96) var(--cml-range-fill), rgba(255, 255, 255, 0.18) var(--cml-range-fill), rgba(255, 255, 255, 0.18) 100%);
   outline: none;
+  cursor: pointer;
 }
 
 #codex-media-library-root .cml-sidebar-audio-player__queue {
@@ -7672,11 +7683,17 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-audio-panel__seek {
+  --cml-range-fill: 0%;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  display: block;
   height: 4px;
   appearance: none;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.92) 22%, rgba(255, 255, 255, 0.12) 22%, rgba(255, 255, 255, 0.12) 100%);
+  background: linear-gradient(90deg, rgba(241, 244, 250, 0.96) 0%, rgba(241, 244, 250, 0.96) var(--cml-range-fill), rgba(255, 255, 255, 0.16) var(--cml-range-fill), rgba(255, 255, 255, 0.16) 100%);
   outline: none;
+  cursor: pointer;
 }
 
 #codex-media-library-root .cml-audio-panel__seek,
@@ -7692,11 +7709,17 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-audio-panel__volume input {
+  --cml-range-fill: 0%;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  display: block;
   height: 4px;
   appearance: none;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(52, 211, 153, 0.92) 0%, rgba(52, 211, 153, 0.92) 58%, rgba(255, 255, 255, 0.12) 58%, rgba(255, 255, 255, 0.12) 100%);
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.96) 0%, rgba(52, 211, 153, 0.96) var(--cml-range-fill), rgba(255, 255, 255, 0.16) var(--cml-range-fill), rgba(255, 255, 255, 0.16) 100%);
   outline: none;
+  cursor: pointer;
 }
 
 #codex-media-library-root .cml-audio-panel__right {
