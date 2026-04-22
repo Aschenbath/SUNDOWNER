@@ -568,8 +568,8 @@ describe('media library download actions', () => {
       mode: 'queue'
     });
 
-    assert.match(summaryHtml, /Pick a track and press play/);
-    assert.match(summaryHtml, /Your queue and player controls live below\./);
+    assert.match(summaryHtml, /cml-music-summary/);
+    assert.match(summaryHtml, /Local audio library/);
     assert.match(html, /Select a track/);
   });
 

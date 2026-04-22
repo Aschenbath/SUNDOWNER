@@ -1252,30 +1252,18 @@ function formatMusicAddedLabel(item = {}) {
 }
 
 export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = null, queueItems = [], isPlaying = false, mode = 'sequence' }) {
-  const statusLabel = currentItem
-    ? (isPlaying ? 'Now playing' : 'Paused')
-    : 'Library ready';
-  const currentTitle = escapeHtml(currentItem?.audioTitle || currentItem?.label || 'Pick a track and press play');
-  const currentSubtitle = formatAudioSubtitle(currentItem) || escapeHtml(currentItem?.label || 'Your queue and player controls live below.');
+  const countLabel = formatItemCount(totalCount);
+  const helper = totalCount === 1 ? '1 local file' : 'Local audio library';
   return `
-    <section class="cml-view-summary cml-view-summary--music cml-music-hero">
-      <div class="cml-music-hero__copy">
-        ${isMobile ? '' : '<p class="cml-view-summary__eyebrow">Music</p>'}
-        <h2 class="cml-view-summary__title">Music</h2>
-        <p class="cml-view-summary__copy cml-view-summary__copy--albums">${formatItemCount(totalCount)} ready to play</p>
-        <div class="cml-music-hero__badges">
-          <span class="cml-music-hero__badge">${escapeHtml(statusLabel)}</span>
-          <span class="cml-music-hero__badge">${escapeHtml(mode === 'repeat-one' ? 'Repeat one' : (mode === 'shuffle' ? 'Shuffle on' : 'Queue mode'))}</span>
-          <span class="cml-music-hero__badge">${formatItemCount(queueItems.length)} in queue</span>
+    <section class="cml-view-summary cml-view-summary--music cml-music-summary">
+      <div class="cml-music-summary__head">
+        <div class="cml-music-summary__titles">
+          ${isMobile ? '' : '<p class="cml-view-summary__eyebrow">Music</p>'}
+          <h2 class="cml-view-summary__title">Music</h2>
+          <p class="cml-view-summary__copy cml-view-summary__copy--albums">${countLabel}</p>
         </div>
-      </div>
-      <div class="cml-music-hero__art" aria-hidden="true">
-        <div class="cml-music-hero__orb"></div>
-        <div class="cml-music-hero__headphones">${icon('music')}</div>
-        <div class="cml-music-hero__now">
-          <span class="cml-music-hero__now-label">${escapeHtml(statusLabel)}</span>
-          <strong class="cml-music-hero__now-title">${currentTitle}</strong>
-          <span class="cml-music-hero__now-subtitle">${currentSubtitle}</span>
+        <div class="cml-music-summary__meta">
+          <span class="cml-music-summary__chip">${escapeHtml(helper)}</span>
         </div>
       </div>
     </section>
@@ -1288,38 +1276,20 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
   }
   const currentId = String(audioState.currentId || '');
   const isPlaying = Boolean(audioState.isPlaying);
-  const spotlightItem = currentItem || items[0] || null;
-  const spotlightId = escapeHtml(spotlightItem?.id || '');
-  const spotlightIsCurrent = Boolean(spotlightItem) && currentId === String(spotlightItem.id || '');
-  const spotlightTitle = escapeHtml(spotlightItem?.audioTitle || spotlightItem?.label || 'Audio track');
-  const spotlightSubtitle = formatAudioSubtitle(spotlightItem) || escapeHtml(spotlightItem?.label || 'Queue up a track to start listening');
-  const spotlightDuration = formatAudioDuration(duration || spotlightItem?.audioDuration || 0);
-  const spotlightCurrent = formatAudioDuration(currentTime || 0);
-  const spotlightAction = spotlightIsCurrent ? 'audio-toggle-play' : 'play-audio-item';
-  const visibleQueue = queueItems.length ? queueItems : items;
+  const singleItem = items.length === 1 ? items[0] : null;
+  const singleFileName = escapeHtml(singleItem?.label || singleItem?.sourceId || 'Unknown file');
+  const singleAddedAt = escapeHtml(formatMusicAddedLabel(singleItem || {}));
+  const singleDuration = formatAudioDuration(Number(singleItem?.audioDuration) || 0);
+  const singleSizeLabel = Number(singleItem?.sizeMb) > 0
+    ? formatStorageAmountFromMb(singleItem.sizeMb)
+    : 'Unknown size';
   return `
     <section class="cml-music-library" aria-label="Music library">
-      <section class="cml-music-spotlight ${spotlightIsCurrent ? 'is-current' : ''}">
-        <button
-          type="button"
-          class="cml-music-spotlight__play"
-          data-action="${spotlightAction}"
-          ${spotlightAction === 'play-audio-item' ? `data-id="${spotlightId}"` : ''}
-          aria-label="${spotlightIsCurrent && isPlaying ? 'Pause current track' : 'Play selected track'}"
-        >${spotlightIsCurrent && isPlaying ? icon('pause') : icon('play')}</button>
-        <span class="cml-music-spotlight__cover">${icon('music')}</span>
-        <span class="cml-music-spotlight__meta">
-          <strong class="cml-music-spotlight__title">${spotlightTitle}</strong>
-          <span class="cml-music-spotlight__subtitle">${spotlightSubtitle}</span>
-          <span class="cml-music-spotlight__detail">${escapeHtml(spotlightIsCurrent ? `${spotlightCurrent} / ${spotlightDuration}` : spotlightDuration)}</span>
-        </span>
-        <span class="cml-music-spotlight__queue">${formatItemCount(visibleQueue.length)} queued</span>
-      </section>
       <section class="cml-music-playlist">
         <div class="cml-music-playlist__head">
           <div>
-            <p class="cml-music-playlist__eyebrow">Playlist</p>
-            <h3 class="cml-music-playlist__title">All Tracks</h3>
+            <p class="cml-music-playlist__eyebrow">Library</p>
+            <h3 class="cml-music-playlist__title">Tracks</h3>
           </div>
           <span class="cml-music-playlist__count">${formatItemCount(items.length)}</span>
         </div>
@@ -1340,6 +1310,9 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
         const artist = escapeHtml(item.audioArtist || 'Unknown Artist');
         const album = escapeHtml(item.audioAlbum || 'Unknown Album');
         const playAction = isCurrent ? 'audio-toggle-play' : 'play-audio-item';
+        const playControl = isCurrent
+          ? (isPlaying ? icon('pause') : icon('play'))
+          : escapeHtml(String(index + 1));
         return `
           <button
             type="button"
@@ -1349,11 +1322,11 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
             data-audio-row="${escapeHtml(item.id)}"
             aria-pressed="${isCurrent ? 'true' : 'false'}"
           >
-            <span class="cml-music-row__index">${isCurrent && isPlaying ? icon('pause') : icon('play')}</span>
+            <span class="cml-music-row__index">${playControl}</span>
             <span class="cml-music-row__cover">${icon('music')}</span>
             <span class="cml-music-row__meta">
               <strong class="cml-music-row__title">${title}</strong>
-              <span class="cml-music-row__subtitle">${escapeHtml(isCurrent ? 'Currently selected' : `Track ${index + 1}`)}</span>
+              <span class="cml-music-row__subtitle">${escapeHtml(item.label || item.sourceId || `Track ${index + 1}`)}</span>
             </span>
             <span class="cml-music-row__artist">${artist}</span>
             <span class="cml-music-row__album">${album}</span>
@@ -1363,6 +1336,17 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
         `;
       }).join('')}</div>
         </div>
+        ${singleItem ? `
+          <div class="cml-music-single-file" aria-label="Single file details">
+            <div class="cml-music-single-file__head">File details</div>
+            <dl class="cml-music-single-file__grid">
+              <dt>File</dt><dd>${singleFileName}</dd>
+              <dt>Duration</dt><dd>${singleDuration}</dd>
+              <dt>Added</dt><dd>${singleAddedAt}</dd>
+              <dt>Size</dt><dd>${singleSizeLabel}</dd>
+            </dl>
+          </div>
+        ` : ''}
       </section>
     </section>
   `;
@@ -1373,23 +1357,16 @@ export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentT
   const subtitle = formatAudioSubtitle(currentItem) || escapeHtml(currentItem?.label || 'Choose music from the list to start playback.');
   const resolvedDuration = Math.max(0, Number(duration) || Number(currentItem?.audioDuration) || 0);
   const resolvedCurrentTime = Math.min(Math.max(0, Number(currentTime) || 0), resolvedDuration || Number.MAX_SAFE_INTEGER);
-  const currentQueueIndex = Math.max(0, queueItems.findIndex((item) => currentItem?.id === item.id)) + 1;
   return `
     <section class="cml-audio-panel" aria-label="Audio player">
-      <div class="cml-audio-panel__hero">
+      <div class="cml-audio-panel__left">
         <span class="cml-audio-panel__cover">${icon('music')}</span>
         <div class="cml-audio-panel__copy">
           <strong class="cml-audio-panel__title">${title}</strong>
           <span class="cml-audio-panel__subtitle">${subtitle}</span>
         </div>
-        <button
-          type="button"
-          class="cml-audio-panel__queue-chip"
-          data-primary="Music"
-          aria-label="Open music queue"
-        >${escapeHtml(queueItems.length ? `${currentQueueIndex}/${queueItems.length}` : 'Queue')}</button>
       </div>
-      <div class="cml-audio-panel__controls">
+      <div class="cml-audio-panel__center">
         <div class="cml-audio-panel__transport">
           <button type="button" class="cml-audio-panel__mode ${mode === 'shuffle' ? 'is-active' : ''}" data-action="audio-set-mode" data-mode="shuffle" aria-label="Shuffle">${icon('shuffle')}</button>
           <button type="button" class="cml-audio-panel__button" data-action="audio-prev" aria-label="Previous">${icon('previous')}</button>
@@ -1402,14 +1379,17 @@ export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentT
           <input type="range" class="cml-audio-panel__seek" min="0" max="${Math.max(1, resolvedDuration || 1)}" step="1" value="${Math.min(Math.max(0, resolvedCurrentTime), Math.max(1, resolvedDuration || 1))}" data-audio-progress />
           <span class="cml-audio-panel__time" data-audio-duration>${formatAudioDuration(resolvedDuration)}</span>
         </div>
+      </div>
+      <div class="cml-audio-panel__right">
         <div class="cml-audio-panel__volume">
           ${icon('speaker')}
           <input type="range" min="0" max="1" step="0.01" value="${Math.min(1, Math.max(0, Number(volume) || 0))}" data-action="audio-set-volume" data-audio-volume />
         </div>
-      </div>
-      <div class="cml-audio-panel__queue">
-        <span class="cml-audio-panel__queue-label">Queue</span>
-        <span class="cml-audio-panel__queue-value">${formatItemCount(queueItems.length)}</span>
+        <button type="button" class="cml-audio-panel__utility cml-audio-panel__utility--queue" data-primary="Music" aria-label="Queue">
+          ${icon('collections')}
+          <span class="cml-audio-panel__utility-label">Queue</span>
+        </button>
+        <button type="button" class="cml-audio-panel__utility" aria-label="More options">${icon('dots')}</button>
       </div>
     </section>
   `;
