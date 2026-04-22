@@ -671,3 +671,10 @@ pm; git diff --check passed.
 - Added the matching layout rules in `css/media-library.css` so the back button stays fixed-width while the title or rename field takes the remaining space without wrapping under it.
 - Bumped cache versions to `components.js?v=63` in `js/media-library/app.js`, plus `app.js?v=133` and `media-library.css?v=117` in `index.html`.
 - Validation: `node --check js/media-library/app.js`, `node --check js/media-library/components.js`, `node .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`34 passing`), and `git diff --check` (CRLF warnings only).
+
+### 2026-04-22 11:43 Asia/Shanghai
+
+- Started the requested high-freedom UI redesign on the `ui-overrides` side instead of the media-library routes. `js/ui-overrides.js` now owns a real six-theme registry (`Clover`, `Horizon`, `Lily`, `Marigold`, `Royal`, `Violet`) with a persistent theme key in `localStorage` (`sundowner-ui-theme`) and an `html[data-ui-theme]` bridge instead of relying on the old one-bit dark toggle.
+- Added a shared theme switcher into both `patchUploadHomeV2()` and `patchDashboard()`, with in-place active-state syncing so Home and Dashboard stay on the same palette after route changes or DOM preservation. Dashboard click delegation was widened to `[data-action], [data-href]` so the new theme controls are actually interactive there, not just visually present.
+- Reworked `css/ui-overrides.css` from a mostly hard-coded light/dark skin into a tokenized shell layer for Home/Dashboard: new semantic variables cover typography, page atmosphere, panel surfaces, inputs, nav active state, cards, and announcement styling; the route-specific shell now uses an editorial glass-panel layout with serif display headings and sans UI text. Cache versions were bumped to `ui-overrides.js?v=8` and `ui-overrides.css?v=6` in `index.html`.
+- Validation: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/ui-overrides.js`, `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`34 passing`), and `git diff --check` (CRLF warnings only).

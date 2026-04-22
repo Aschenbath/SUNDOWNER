@@ -1,6 +1,16 @@
 (function () {
   const BRAND_NAME = 'SUNDOWNER';
   const LOGO_PATH = '/logo-sundowner.png';
+  const THEME_STORAGE_KEY = 'sundowner-ui-theme';
+  const DEFAULT_UI_THEME = 'horizon';
+  const UI_THEMES = [
+    { key: 'clover', label: 'Clover' },
+    { key: 'horizon', label: 'Horizon' },
+    { key: 'lily', label: 'Lily' },
+    { key: 'marigold', label: 'Marigold' },
+    { key: 'royal', label: 'Royal' },
+    { key: 'violet', label: 'Violet' }
+  ];
   const ROUTE_CLASSES = ['codex-route-login', 'codex-route-home', 'codex-route-dashboard', 'codex-route-browse'];
   const BLOCKED_URL_PATTERNS = [
     /cfbed\.sanyue\.de/i,
@@ -42,6 +52,76 @@
       value = value.replace(pattern, replacement);
     }
     return value.replace(/\s{2,}/g, ' ').trim();
+  }
+
+  function getThemeConfig(themeKey) {
+    return UI_THEMES.find((theme) => theme.key === themeKey) || UI_THEMES.find((theme) => theme.key === DEFAULT_UI_THEME) || UI_THEMES[0];
+  }
+
+  function getStoredUiTheme() {
+    try {
+      const value = window.localStorage.getItem(THEME_STORAGE_KEY);
+      return getThemeConfig(value).key;
+    } catch (error) {
+      return DEFAULT_UI_THEME;
+    }
+  }
+
+  function closeThemeMenus(except) {
+    document.querySelectorAll('.codex-theme-switcher.is-open').forEach((menu) => {
+      if (except && menu === except) {
+        return;
+      }
+      menu.classList.remove('is-open');
+      const trigger = menu.querySelector('.codex-theme-switcher__button');
+      if (trigger instanceof HTMLElement) {
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  function syncThemeControls() {
+    const activeTheme = getThemeConfig(document.documentElement.dataset.uiTheme || DEFAULT_UI_THEME);
+    document.querySelectorAll('.codex-theme-switcher').forEach((switcher) => {
+      switcher.querySelectorAll('.codex-theme-option').forEach((option) => {
+        const isActive = option.getAttribute('data-theme-key') === activeTheme.key;
+        option.classList.toggle('is-active', isActive);
+        option.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+      const currentLabel = switcher.querySelector('.codex-theme-switcher__current');
+      if (currentLabel instanceof HTMLElement) {
+        currentLabel.textContent = activeTheme.label;
+      }
+    });
+  }
+
+  function applyUiTheme(themeKey) {
+    const theme = getThemeConfig(themeKey);
+    document.documentElement.dataset.uiTheme = theme.key;
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme.key);
+    } catch (error) {
+      // Ignore storage failures and keep the runtime theme only.
+    }
+    syncThemeControls();
+  }
+
+  function buildThemeSwitcherMarkup() {
+    const options = UI_THEMES.map((theme) => `
+      <button type="button" class="codex-theme-option" data-action="theme-select" data-theme-key="${theme.key}" aria-pressed="false">
+        <span class="codex-theme-option__swatch" aria-hidden="true"></span>
+        <span class="codex-theme-option__label">${theme.label}</span>
+      </button>`).join('');
+    return `
+      <div class="codex-theme-switcher" data-codex-theme-switcher>
+        <button type="button" class="codex-theme-switcher__button" data-action="theme-toggle" aria-expanded="false" aria-haspopup="true">
+          <span class="codex-theme-switcher__label">Theme</span>
+          <span class="codex-theme-switcher__current">${getThemeConfig(getStoredUiTheme()).label}</span>
+        </button>
+        <div class="codex-theme-switcher__menu" role="menu">
+          ${options}
+        </div>
+      </div>`;
   }
 
   function normalizedText(el) {
@@ -281,6 +361,7 @@
     let shell = home.querySelector('.codex-home-shell');
     if (!(shell instanceof HTMLElement)) {
       const brandMarkup = buildBrandLockup({ className: 'codex-home-brand', compact: true }).outerHTML;
+      const themeMarkup = buildThemeSwitcherMarkup();
       shell = document.createElement('section');
       shell.className = 'codex-home-shell';
       shell.innerHTML = `
@@ -506,6 +587,7 @@
             <span class="codex-home-googlebar__search-text">Search photos</span>
           </button>
           <div class="codex-home-googlebar__actions">
+            ${themeMarkup}
             <button type="button" class="codex-home-googlebar__upload" data-action="upload" aria-label="Upload" title="Upload">
               <span class="codex-home-googlebar__upload-plus">+</span>
               <span>Upload</span>
@@ -540,14 +622,33 @@
           return;
         }
         if (target.dataset.href) {
+          closeThemeMenus();
           window.location.assign(target.dataset.href);
           return;
         }
+        if (target.dataset.action === 'theme-toggle') {
+          const switcher = target.closest('.codex-theme-switcher');
+          if (!(switcher instanceof HTMLElement)) {
+            return;
+          }
+          const willOpen = !switcher.classList.contains('is-open');
+          closeThemeMenus(willOpen ? switcher : null);
+          switcher.classList.toggle('is-open', willOpen);
+          target.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+          return;
+        }
+        if (target.dataset.action === 'theme-select') {
+          applyUiTheme(target.getAttribute('data-theme-key') || DEFAULT_UI_THEME);
+          closeThemeMenus();
+          return;
+        }
         if (target.dataset.action === 'upload') {
+          closeThemeMenus();
           openUpload();
           return;
         }
         if (target.dataset.action === 'more') {
+          closeThemeMenus();
           const more = home.querySelector('.more-dropdown .more-button[data-v-66491cac], .mobile-more-button[data-v-66491cac], .more-dropdown .more-button, .mobile-more-button');
           if (more instanceof HTMLElement) {
             more.click();
@@ -702,6 +803,7 @@
     let shell = view.querySelector('.codex-dashboard-shell-v2');
     if (!(shell instanceof HTMLElement)) {
       const brandMarkup = buildBrandLockup({ className: 'codex-dashboard-brand-v2', compact: true }).outerHTML;
+      const themeMarkup = buildThemeSwitcherMarkup();
       shell = document.createElement('section');
       shell.className = 'codex-dashboard-shell-v2';
       shell.innerHTML = `
@@ -712,6 +814,7 @@
             <span class="codex-dashboard-googlebar__search-text">Search photos</span>
           </button>
           <div class="codex-dashboard-googlebar__actions">
+            ${themeMarkup}
             <button type="button" class="codex-dashboard-googlebar__upload" data-href="/?cmlUpload=1" aria-label="Upload" title="Upload">
               <span class="codex-dashboard-googlebar__upload-plus">+</span>
               <span>Upload</span>
@@ -732,9 +835,29 @@
     if (!shell.dataset.codexBound) {
       shell.dataset.codexBound = 'true';
       shell.addEventListener('click', (event) => {
-        const target = event.target instanceof Element ? event.target.closest('[data-href]') : null;
-        if (target instanceof HTMLElement && target.dataset.href) {
+        const target = event.target instanceof Element ? event.target.closest('[data-action], [data-href]') : null;
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+        if (target.dataset.href) {
+          closeThemeMenus();
           window.location.assign(target.dataset.href);
+          return;
+        }
+        if (target.dataset.action === 'theme-toggle') {
+          const switcher = target.closest('.codex-theme-switcher');
+          if (!(switcher instanceof HTMLElement)) {
+            return;
+          }
+          const willOpen = !switcher.classList.contains('is-open');
+          closeThemeMenus(willOpen ? switcher : null);
+          switcher.classList.toggle('is-open', willOpen);
+          target.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+          return;
+        }
+        if (target.dataset.action === 'theme-select') {
+          applyUiTheme(target.getAttribute('data-theme-key') || DEFAULT_UI_THEME);
+          closeThemeMenus();
         }
       });
     }
@@ -931,6 +1054,7 @@
     patchEmptyStates(root);
     pruneCredits(root);
     simplifyShareTabs(root);
+    syncThemeControls();
   }
 
   const rawWindowOpen = window.open;
@@ -942,7 +1066,14 @@
   };
 
   function boot() {
+    applyUiTheme(getStoredUiTheme());
     patchRoot(document);
+    document.addEventListener('click', (event) => {
+      const target = event.target instanceof Element ? event.target.closest('.codex-theme-switcher') : null;
+      if (!(target instanceof HTMLElement)) {
+        closeThemeMenus();
+      }
+    });
     const observer = new MutationObserver((records) => {
       applyRouteClass();
       records.forEach((record) => {
@@ -950,6 +1081,7 @@
       });
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
+    syncThemeControls();
   }
 
   if (document.readyState === 'loading') {
