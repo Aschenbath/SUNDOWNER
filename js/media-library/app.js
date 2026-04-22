@@ -174,6 +174,7 @@ const AUDIO_MODE_REPEAT_ONE = 'repeat-one';
 const AUDIO_MODE_SHUFFLE = 'shuffle';
 const MEDIA_LIBRARY_THEME_STORAGE_KEY = 'codex-media-library-theme';
 const MEDIA_LIBRARY_THEME_KEYS = ['editorial-dark', 'clover', 'horizon', 'lily', 'marigold', 'royal', 'violet'];
+const MIND_STATE_FRESH_MS = 30000;
 
 function normalizeMediaLibraryTheme(value) {
   const normalized = normalizeText(value).toLowerCase();
@@ -342,6 +343,7 @@ const state = {
   mindDraft: '',
   mindComposerComposing: false,
   mindLoading: false,
+  mindLastLoadedAt: 0,
   mindSettingsBusy: false,
   mindDeletingIds: new Set(),
   mindSettings: createDefaultMindSettings(),
@@ -2935,6 +2937,7 @@ async function loadMindState({ forceRender = false, mirrorAfterLoad = false } = 
   mindStatePromise = fetchJson('/api/manage/mind')
     .then((payload) => {
       applyMindState(payload);
+      state.mindLastLoadedAt = Date.now();
       return payload;
     })
     .then((payload) => {
@@ -2952,12 +2955,22 @@ async function loadMindState({ forceRender = false, mirrorAfterLoad = false } = 
     .finally(() => {
       state.mindLoading = false;
       mindStatePromise = null;
-      if (forceRender && refs.root) {
+      if (forceRender && refs.root && state.primaryFilter === 'Mind') {
         render();
         scrollMindToBottom({ force: false });
       }
     });
   return mindStatePromise;
+}
+
+function shouldRefreshMindOnEnter() {
+  if (mindStatePromise || state.mindLoading) {
+    return false;
+  }
+  if (!state.mindLastLoadedAt) {
+    return true;
+  }
+  return (Date.now() - state.mindLastLoadedAt) > MIND_STATE_FRESH_MS;
 }
 
 function scrollMindToBottom({ force = false } = {}) {
@@ -3264,7 +3277,12 @@ function handleMindViewTransition(nextPrimary, nextSecondary = state.secondaryFi
     clearMindVisitStickyMessages();
   }
   if (enteringMind) {
-    void loadMindState({ forceRender: true, mirrorAfterLoad: true });
+    const shouldForceMindRender = state.mindMessages.length === 0;
+    if (shouldRefreshMindOnEnter()) {
+      void loadMindState({ forceRender: shouldForceMindRender, mirrorAfterLoad: true });
+    } else if (hasFreshMindMessages()) {
+      void mirrorMindMessagesIfNeeded();
+    }
     window.setTimeout(() => scrollMindToBottom({ force: true }), 40);
   }
 }

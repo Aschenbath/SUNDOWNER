@@ -709,3 +709,9 @@ pm; git diff --check passed.
 - Removed the remaining dark capsule under each timeline date after the user said it still looked bad. In `css/media-library.css`, `.cml-timeline-section__heading` no longer paints its own background, blur, or rounded pill, so the date now sits directly on the page without that extra dark slab behind it.
 - Bumped the CSS cache version in `index.html` to `media-library.css?v=120` so the visual cleanup shows up immediately after refresh.
 - Validation: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`.
+
+### 2026-04-22 15:59 Asia/Shanghai
+
+- Followed up on two more regressions the user hit right after that visual polish. First, selecting a photo still looked like it “flashed” because the selected state was shrinking the image and fading in the dark scrim together; `css/media-library.css` now keeps the image at full scale on selection and no longer applies the scrim opacity change for selected tiles, so selecting feels immediate instead of like a blink.
+- Second, route changes out of `Mind` still felt sticky and `Music` could seem unresponsive while Mind was refreshing. In `js/media-library/app.js`, Mind state loads now record `mindLastLoadedAt`, only force a blocking-style rerender when there is no local conversation yet, skip needless reloads for 30 seconds, and only run the deferred `forceRender` callback if the current route is still actually `Mind`.
+- Bumped cache versions in `index.html` to `app.js?v=137` and `media-library.css?v=121`. Validation: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`.

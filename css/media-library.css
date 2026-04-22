@@ -1947,7 +1947,6 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-media-tile:hover .cml-media-tile__scrim,
 #codex-media-library-root .cml-media-tile:hover .cml-media-tile__select,
 #codex-media-library-root .cml-media-tile:hover .cml-media-tile__video-badge,
-#codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__scrim,
 #codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__select,
 #codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__video-badge {
   opacity: 1;
@@ -3850,7 +3849,7 @@ body.codex-media-library-active #app {
 
 /* Google Photos-style: selected photo shrinks inward */
 #codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__image {
-  transform: translateZ(0) scale(0.985);
+  transform: translateZ(0) scale(1);
 }
 
 #codex-media-library-root .cml-media-tile,
