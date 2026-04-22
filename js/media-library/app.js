@@ -426,6 +426,7 @@ const state = {
 };
 
 let dimensionPatchTimer = 0;
+let dimensionPatchRenderRaf = 0;
 
 const refs = {
   root: null,
@@ -1172,12 +1173,14 @@ function captureDimension(img, tile) {
 
 function applyDimensionPatch() {
   if (state.dimensionCache.size === 0) return;
+  let changed = false;
   state.dimensionCache.forEach(({ width, height }, id) => {
     const mediaIdx = state.mediaItems.findIndex((m) => m.id === id);
     if (mediaIdx !== -1) {
       const current = state.mediaItems[mediaIdx];
       if (current.width !== width || current.height !== height) {
         state.mediaItems[mediaIdx] = { ...current, width, height };
+        changed = true;
       }
     }
     const binIdx = state.binItems.findIndex((m) => m.id === id);
@@ -1185,10 +1188,50 @@ function applyDimensionPatch() {
       const current = state.binItems[binIdx];
       if (current.width !== width || current.height !== height) {
         state.binItems[binIdx] = { ...current, width, height };
+        changed = true;
       }
     }
   });
   state.dimensionCache.clear();
+  if (changed && refs.root && !dimensionPatchRenderRaf) {
+    dimensionPatchRenderRaf = window.requestAnimationFrame(() => {
+      dimensionPatchRenderRaf = 0;
+      if (refs.root) {
+        render();
+      }
+    });
+  }
+}
+
+function swapTileToFullImage(img, tile, fullSrc) {
+  if (!(img instanceof HTMLImageElement) || !fullSrc) {
+    return;
+  }
+  const applyLoadedFullImage = (source) => {
+    if (!refs.root || !tile?.isConnected || !img.isConnected) {
+      return;
+    }
+    img.classList.remove('is-blur-placeholder');
+    img.src = fullSrc;
+    tile.classList.add('is-full-loaded');
+    if (source?.naturalWidth && source?.naturalHeight) {
+      captureDimension(source, tile);
+    } else {
+      captureDimension(img, tile);
+    }
+  };
+  const full = new Image();
+  full.decoding = 'async';
+  full.addEventListener('load', () => applyLoadedFullImage(full), { once: true });
+  full.addEventListener('error', () => {
+    // Keep the blur thumbnail visible when the full image fails, but still try
+    // to reconcile the tile with whatever dimensions are currently available.
+    captureDimension(img, tile);
+  }, { once: true });
+  full.src = fullSrc;
+  if (full.complete && full.naturalWidth > 0) {
+    applyLoadedFullImage(full);
+  }
 }
 
 function setupImageLoadAnimations() {
@@ -1209,10 +1252,10 @@ function setupImageLoadAnimations() {
       img.style.transition = 'none';
       tile.classList.add('is-img-loaded');
       if (fullSrc && img.src !== fullSrc) {
-        // Blur thumb cached — swap to full immediately
-        img.classList.remove('is-blur-placeholder');
-        img.src = fullSrc;
-        tile.classList.add('is-full-loaded');
+        // Do not read dimensions from the blur thumbnail; wait for the real
+        // image so portrait photos do not get patched as landscape tiles.
+        swapTileToFullImage(img, tile, fullSrc);
+        return;
       } else if (fullSrc) {
         tile.classList.add('is-full-loaded');
       }
@@ -1232,18 +1275,7 @@ function setupImageLoadAnimations() {
       // Blur-up: load tiny thumbnail first, then swap to full
       img.addEventListener('load', function onBlurLoad() {
         tile.classList.add('is-img-loaded');
-        const full = new Image();
-        full.src = fullSrc;
-        full.addEventListener('load', () => {
-          img.classList.remove('is-blur-placeholder');
-          img.src = fullSrc;
-          tile.classList.add('is-full-loaded');
-          captureDimension(img, tile);
-        }, { once: true });
-        full.addEventListener('error', () => {
-          // Full load failed — keep blur thumbnail visible
-          captureDimension(img, tile);
-        }, { once: true });
+        swapTileToFullImage(img, tile, fullSrc);
       }, { once: true });
       img.addEventListener('error', () => tile.classList.add('is-img-loaded'), { once: true });
     } else {
