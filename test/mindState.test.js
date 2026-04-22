@@ -12,4 +12,11 @@ describe('mind visit-side persistence', () => {
     assert.match(appSource, /const leavingMind = state\.primaryFilter === 'Mind'/);
     assert.match(appSource, /if \(state\.primaryFilter !== 'Mind'\) \{\s*clearMindVisitStickyMessages\(\);/);
   });
+
+  it('serializes the next-visit mirror behind the same Mind mutation queue', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /function enqueueMindMutation\(task\)/);
+    assert.match(appSource, /mindMirrorPromise = enqueueMindMutation\(\(\) => postJson\('\/api\/manage\/mind', \{ action: 'mirror' \}\)\)/);
+  });
 });

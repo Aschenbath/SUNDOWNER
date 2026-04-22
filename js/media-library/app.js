@@ -3238,7 +3238,7 @@ async function mirrorMindMessagesIfNeeded() {
   if (mindMirrorPromise || !hasFreshMindMessages()) {
     return mindMirrorPromise;
   }
-  mindMirrorPromise = postJson('/api/manage/mind', { action: 'mirror' })
+  mindMirrorPromise = enqueueMindMutation(() => postJson('/api/manage/mind', { action: 'mirror' }))
     .then((payload) => {
       applyMindState(payload);
       return payload;
