@@ -7589,8 +7589,9 @@ function render() {
     const tpl = document.createElement('template');
     tpl.innerHTML = fullHtml;
     const newShell = tpl.content.querySelector('.cml-app-shell');
+    let nextSidebar = null;
     if (newShell) {
-      const nextSidebar = newShell.querySelector('.cml-sidebar');
+      nextSidebar = newShell.querySelector('.cml-sidebar');
       if (nextSidebar instanceof HTMLElement) {
         const currentSignature = getSidebarStructureSignature(existingSidebar);
         const nextSignature = getSidebarStructureSignature(nextSidebar);
