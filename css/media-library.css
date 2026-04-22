@@ -1657,11 +1657,6 @@ body.codex-media-library-active #app {
   gap: 4px 10px;
   min-width: 0;
   flex: 1 1 auto;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(18, 21, 28, 0.28);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 
 #codex-media-library-root .cml-timeline-section__select {

@@ -703,3 +703,9 @@ pm; git diff --check passed.
 - Followed up immediately after the user found a navigation regression: clicking the main sidebar `Music` entry from another route could light up the sidebar without actually switching the content area. Root cause was a state/DOM desync window around the earlier low-flicker patch path.
 - Updated `js/media-library/app.js` so primary and secondary sidebar route switches now call `render()` immediately instead of deferring through `scheduleRender()`, and added `isPrimaryViewDomInSync()` to block the `alreadyOnPrimary` fast-path when the live DOM is still showing a different surface (for example `Mind` content while `state.primaryFilter` already says `Music`).
 - Validation: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`.
+
+### 2026-04-22 16:00 Asia/Shanghai
+
+- Removed the remaining dark capsule under each timeline date after the user said it still looked bad. In `css/media-library.css`, `.cml-timeline-section__heading` no longer paints its own background, blur, or rounded pill, so the date now sits directly on the page without that extra dark slab behind it.
+- Bumped the CSS cache version in `index.html` to `media-library.css?v=120` so the visual cleanup shows up immediately after refresh.
+- Validation: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`.
