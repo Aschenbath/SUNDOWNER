@@ -990,21 +990,23 @@ function captureDimension(img, tile) {
 
 function applyDimensionPatch() {
   if (state.dimensionCache.size === 0) return;
-  let changed = false;
   state.dimensionCache.forEach(({ width, height }, id) => {
     const mediaIdx = state.mediaItems.findIndex((m) => m.id === id);
     if (mediaIdx !== -1) {
-      state.mediaItems[mediaIdx] = { ...state.mediaItems[mediaIdx], width, height };
-      changed = true;
+      const current = state.mediaItems[mediaIdx];
+      if (current.width !== width || current.height !== height) {
+        state.mediaItems[mediaIdx] = { ...current, width, height };
+      }
     }
     const binIdx = state.binItems.findIndex((m) => m.id === id);
     if (binIdx !== -1) {
-      state.binItems[binIdx] = { ...state.binItems[binIdx], width, height };
-      changed = true;
+      const current = state.binItems[binIdx];
+      if (current.width !== width || current.height !== height) {
+        state.binItems[binIdx] = { ...current, width, height };
+      }
     }
   });
   state.dimensionCache.clear();
-  if (changed) render();
 }
 
 function setupImageLoadAnimations() {
