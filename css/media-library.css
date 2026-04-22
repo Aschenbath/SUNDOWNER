@@ -784,6 +784,7 @@ body.codex-media-library-active #app {
   grid-template-rows: auto 1fr;
   min-width: 0;
   height: var(--cml-app-height);
+  overflow: hidden;
 }
 
 #codex-media-library-root .cml-main-shell.has-desktop-audio-player {
@@ -7419,11 +7420,18 @@ body.codex-media-library-active #app {
   align-items: center;
   gap: 16px;
   margin: 0 20px 14px;
+  width: auto;
+  max-width: calc(100% - 40px);
+  min-width: 0;
   padding: 10px 12px;
+  box-sizing: border-box;
+  justify-self: stretch;
+  align-self: stretch;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(17, 20, 24, 0.96);
   box-shadow: 0 14px 28px rgba(5, 7, 10, 0.25);
+  overflow: hidden;
 }
 
 #codex-media-library-root .cml-audio-panel__left,
@@ -7582,6 +7590,26 @@ body.codex-media-library-active #app {
   gap: 8px;
   width: min(26%, 300px);
   flex: 0 1 26%;
+}
+
+@media (max-width: 1380px) and (min-width: 961px) {
+  #codex-media-library-root .cml-audio-panel {
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  #codex-media-library-root .cml-audio-panel__left,
+  #codex-media-library-root .cml-audio-panel__right {
+    width: auto;
+    flex: 1 1 240px;
+  }
+
+  #codex-media-library-root .cml-audio-panel__center {
+    order: 3;
+    width: 100%;
+    flex: 1 1 100%;
+  }
 }
 
 #codex-media-library-root .cml-audio-preview,
