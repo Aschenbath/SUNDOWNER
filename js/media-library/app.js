@@ -460,6 +460,8 @@ let stableAppViewportWidth = 0;
 let lockedDocumentScrollY = 0;
 let audioEngine = null;
 let audioUiRaf = 0;
+const AUDIO_PLAY_ICON_HTML = '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"></path></svg></span>';
+const AUDIO_PAUSE_ICON_HTML = '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.2h2.8v11.6H8Zm5.2 0H16v11.6h-2.8Z" fill="currentColor"></path></svg></span>';
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
 const MIND_BACKGROUND_PRESETS = ['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper'];
 const MIND_BACKGROUND_POSITIONS = [
@@ -581,7 +583,7 @@ function syncAudioProgressUi() {
   });
   refs.root.querySelectorAll('[data-audio-toggle]').forEach((button) => {
     if (button instanceof HTMLElement) {
-      button.innerHTML = state.audioPlaying ? '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.2h2.8v11.6H8Zm5.2 0H16v11.6h-2.8Z" fill="currentColor"></path></svg></span>' : '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"></path></svg></span>';
+      button.innerHTML = state.audioPlaying ? AUDIO_PAUSE_ICON_HTML : AUDIO_PLAY_ICON_HTML;
       button.setAttribute('aria-label', state.audioPlaying ? 'Pause' : 'Play');
     }
   });
@@ -597,12 +599,171 @@ function scheduleAudioUiSync() {
   });
 }
 
+function getAudioRenderModel() {
+  const viewModel = getViewModel();
+  return {
+    viewModel,
+    showDesktopAudioPanel: viewModel.isMusicView && !isMobileLayout() && Boolean(viewModel.currentAudioItem),
+    showDesktopSidebarAudioDock: !viewModel.isMusicView && !viewModel.isMindView && !isMobileLayout() && Boolean(viewModel.currentAudioItem),
+    showMobileAudioPlayer: !viewModel.isMindView && isMobileLayout() && Boolean(viewModel.currentAudioItem)
+  };
+}
+
+function patchMusicAudioRows(viewModel) {
+  if (!refs.root || !viewModel?.isMusicView) {
+    return false;
+  }
+  const rows = [...refs.root.querySelectorAll('.cml-music-row[data-audio-row]')];
+  const currentId = normalizeText(state.audioCurrentId);
+  rows.forEach((row, index) => {
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+    const rowId = normalizeText(row.dataset.audioRow || '');
+    const isCurrent = Boolean(currentId) && rowId === currentId;
+    row.classList.toggle('is-current', isCurrent);
+    const trigger = row.querySelector('.cml-music-row__index');
+    if (!(trigger instanceof HTMLElement)) {
+      return;
+    }
+    if (isCurrent) {
+      trigger.dataset.action = 'audio-toggle-play';
+      delete trigger.dataset.id;
+      trigger.innerHTML = state.audioPlaying ? AUDIO_PAUSE_ICON_HTML : AUDIO_PLAY_ICON_HTML;
+      trigger.setAttribute('aria-label', state.audioPlaying ? 'Pause track' : 'Play track');
+      return;
+    }
+    const sourceId = row.dataset.audioRow || '';
+    trigger.dataset.action = 'play-audio-item';
+    if (sourceId) {
+      trigger.dataset.id = sourceId;
+    }
+    trigger.textContent = String(index + 1);
+    trigger.setAttribute('aria-label', 'Play track');
+  });
+  return true;
+}
+
+function buildSidebarMarkupForAudio(viewModel, { showDesktopSidebarAudioDock = false } = {}) {
+  const desktopAudioDockKey = showDesktopSidebarAudioDock
+    ? `${normalizeText(viewModel.currentAudioItem?.id)}|${state.audioPlaying ? 'playing' : 'paused'}|${normalizeAudioMode(state.audioMode)}`
+    : '';
+  return Sidebar({
+    navigationModel: viewModel.navigationModel,
+    state,
+    storageSummary: state.storageSummary,
+    desktopAudioDockKey,
+    desktopAudioDock: showDesktopSidebarAudioDock
+      ? SidebarAudioPlayer({
+          currentItem: viewModel.currentAudioItem,
+          currentTime: state.audioCurrentTime,
+          duration: state.audioDuration,
+          isPlaying: state.audioPlaying,
+          mode: state.audioMode,
+          volume: state.audioVolume
+        })
+      : '',
+    searchQuery: state.searchDraft
+  });
+}
+
+function patchAudioUi({ allowFullRender = true } = {}) {
+  if (!refs.root) {
+    return false;
+  }
+  const audioModel = getAudioRenderModel();
+  const { viewModel, showDesktopAudioPanel, showDesktopSidebarAudioDock, showMobileAudioPlayer } = audioModel;
+  const hasDesktopPanel = refs.root.querySelector('.cml-audio-panel') instanceof HTMLElement;
+  const hasSidebarDock = refs.root.querySelector('.cml-sidebar-audio-player') instanceof HTMLElement;
+  const hasMobilePlayer = refs.root.querySelector('.cml-mobile-audio-player') instanceof HTMLElement;
+  const structureChanged = hasDesktopPanel !== showDesktopAudioPanel
+    || hasSidebarDock !== showDesktopSidebarAudioDock
+    || hasMobilePlayer !== showMobileAudioPlayer;
+
+  if (structureChanged) {
+    if (allowFullRender) {
+      render();
+      return true;
+    }
+    return false;
+  }
+
+  if (showDesktopAudioPanel) {
+    const currentPanel = refs.root.querySelector('.cml-audio-panel');
+    if (currentPanel instanceof HTMLElement) {
+      const template = document.createElement('template');
+      template.innerHTML = AudioPlayerPanel({
+        currentItem: viewModel.currentAudioItem,
+        queueItems: viewModel.audioQueueItems,
+        currentTime: state.audioCurrentTime,
+        duration: state.audioDuration,
+        isPlaying: state.audioPlaying,
+        mode: state.audioMode,
+        volume: state.audioVolume
+      }).trim();
+      const nextPanel = template.content.firstElementChild;
+      if (nextPanel instanceof HTMLElement) {
+        currentPanel.replaceWith(nextPanel);
+      }
+    }
+  }
+
+  if (showDesktopSidebarAudioDock) {
+    const template = document.createElement('template');
+    template.innerHTML = buildSidebarMarkupForAudio(viewModel, { showDesktopSidebarAudioDock }).trim();
+    const nextSidebar = template.content.querySelector('.cml-sidebar');
+    if (nextSidebar instanceof HTMLElement) {
+      patchSidebarFooter(nextSidebar);
+    }
+  }
+
+  if (showMobileAudioPlayer) {
+    const currentMiniPlayer = refs.root.querySelector('.cml-mobile-audio-player');
+    if (currentMiniPlayer instanceof HTMLElement) {
+      const template = document.createElement('template');
+      template.innerHTML = MobileAudioMiniPlayer({
+        currentItem: viewModel.currentAudioItem,
+        isPlaying: state.audioPlaying
+      }).trim();
+      const nextMiniPlayer = template.content.firstElementChild;
+      if (nextMiniPlayer instanceof HTMLElement) {
+        currentMiniPlayer.replaceWith(nextMiniPlayer);
+      }
+    }
+  }
+
+  if (viewModel.isMusicView) {
+    const currentSummary = refs.root.querySelector('.cml-music-summary');
+    if (currentSummary instanceof HTMLElement) {
+      const template = document.createElement('template');
+      template.innerHTML = MusicSummary({
+        totalCount: viewModel.musicItems.length,
+        isMobile: isMobileLayout(),
+        currentItem: viewModel.currentAudioItem,
+        queueItems: viewModel.audioQueueItems,
+        isPlaying: state.audioPlaying,
+        mode: state.audioMode,
+        playlists: viewModel.musicPlaylists,
+        activePlaylistName: viewModel.activePlaylistName
+      }).trim();
+      const nextSummary = template.content.firstElementChild;
+      if (nextSummary instanceof HTMLElement) {
+        currentSummary.replaceWith(nextSummary);
+      }
+    }
+    patchMusicAudioRows(viewModel);
+  }
+
+  scheduleAudioUiSync();
+  return true;
+}
+
 function ensureAudioEngine() {
   if (audioEngine instanceof HTMLAudioElement) {
     return audioEngine;
   }
   audioEngine = new Audio();
-  audioEngine.preload = 'metadata';
+  audioEngine.preload = 'auto';
   audioEngine.volume = Math.min(1, Math.max(0, Number(state.audioVolume) || 0));
   audioEngine.addEventListener('loadedmetadata', () => {
     state.audioDuration = Number.isFinite(audioEngine.duration) ? audioEngine.duration : 0;
@@ -619,21 +780,13 @@ function ensureAudioEngine() {
   audioEngine.addEventListener('play', () => {
     state.audioPlaying = true;
     if (refs.root) {
-      if (state.primaryFilter === 'Music') {
-        render();
-      } else {
-        scheduleAudioUiSync();
-      }
+      patchAudioUi();
     }
   });
   audioEngine.addEventListener('pause', () => {
     state.audioPlaying = false;
     if (refs.root) {
-      if (state.primaryFilter === 'Music') {
-        render();
-      } else {
-        scheduleAudioUiSync();
-      }
+      patchAudioUi();
     }
   });
   audioEngine.addEventListener('ended', () => {
@@ -674,21 +827,26 @@ async function playAudioItemById(itemId, { queueItems = null, autoplay = true } 
   state.audioDuration = Number(item.audioDuration) || 0;
   if (engine.src !== item.sourceUrl) {
     engine.src = item.sourceUrl;
-    engine.load();
   } else {
     engine.currentTime = 0;
+  }
+  if (refs.root) {
+    patchAudioUi();
   }
   if (autoplay) {
     try {
       await engine.play();
     } catch {
       state.audioPlaying = false;
+      if (refs.root) {
+        patchAudioUi();
+      }
     }
   } else {
     engine.pause();
-  }
-  if (refs.root) {
-    render();
+    if (refs.root) {
+      patchAudioUi();
+    }
   }
 }
 
@@ -768,7 +926,7 @@ function handleAudioEnded() {
 function setAudioMode(mode) {
   const normalizedMode = normalizeAudioMode(mode);
   state.audioMode = state.audioMode === normalizedMode ? AUDIO_MODE_SEQUENCE : normalizedMode;
-  render();
+  patchAudioUi();
 }
 
 function setAudioVolume(value) {
