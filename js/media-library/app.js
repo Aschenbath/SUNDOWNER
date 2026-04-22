@@ -7340,7 +7340,7 @@ function render() {
         storageSummary: state.storageSummary,
         searchQuery: state.searchDraft
       })}
-      <div class="cml-main-shell ${showMobileAudioPlayer ? 'has-mobile-audio-player' : ''}">
+      <div class="cml-main-shell ${showMobileAudioPlayer ? 'has-mobile-audio-player' : ''} ${showDesktopAudioPanel ? 'has-desktop-audio-player' : ''}">
         ${TopSearchBar({
           state,
           canDeleteSelection: viewModel.canDeleteSelection,
@@ -7376,7 +7376,11 @@ function render() {
                 : viewModel.isMusicView
                 ? `${MusicSummary({
                     totalCount: viewModel.musicItems.length,
-                    isMobile: isMobileLayout()
+                    isMobile: isMobileLayout(),
+                    currentItem: viewModel.currentAudioItem,
+                    queueItems: viewModel.audioQueueItems,
+                    isPlaying: state.audioPlaying,
+                    mode: state.audioMode
                   })}
                   ${viewModel.musicItems.length
                     ? MusicListView({
@@ -7385,7 +7389,11 @@ function render() {
                         audioState: {
                           currentId: state.audioCurrentId,
                           isPlaying: state.audioPlaying
-                        }
+                        },
+                        currentItem: viewModel.currentAudioItem,
+                        currentTime: state.audioCurrentTime,
+                        duration: state.audioDuration,
+                        queueItems: viewModel.audioQueueItems
                       })
                     : EmptyState({
                         query: parsedSearch.textQuery,
@@ -7463,22 +7471,23 @@ function render() {
                     }))}`}
             </div>
           </main>
-          ${showDesktopAudioPanel
-            ? AudioPlayerPanel({
-                currentItem: viewModel.currentAudioItem,
-                queueItems: viewModel.audioQueueItems,
-                currentTime: state.audioCurrentTime,
-                duration: state.audioDuration,
-                isPlaying: state.audioPlaying,
-                mode: state.audioMode,
-                volume: state.audioVolume
-              })
-            : (!viewModel.isMindView && !viewModel.isMusicView && !viewModel.isCollectionRoot && state.secondaryFilter !== 'Documents' ? YearScroller({
+          ${!showDesktopAudioPanel && !viewModel.isMindView && !viewModel.isMusicView && !viewModel.isCollectionRoot && state.secondaryFilter !== 'Documents' ? YearScroller({
             scrubberSections: viewModel.scrubberSections,
             activeSectionAnchor: state.activeSectionAnchor,
             activeScrubberLabel: state.activeScrubberLabel
-          }) : '')}
+          }) : ''}
         </div>
+        ${showDesktopAudioPanel
+          ? AudioPlayerPanel({
+              currentItem: viewModel.currentAudioItem,
+              queueItems: viewModel.audioQueueItems,
+              currentTime: state.audioCurrentTime,
+              duration: state.audioDuration,
+              isPlaying: state.audioPlaying,
+              mode: state.audioMode,
+              volume: state.audioVolume
+            })
+          : ''}
       </div>
       ${PreviewModal(getPreviewOverlayModel())}
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
