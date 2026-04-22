@@ -691,3 +691,15 @@ pm; git diff --check passed.
 - Continued the Mind follow-up after the user reported one conversation path still felt stuck. `js/media-library/app.js` now sends the next-visit `mirror` request through `enqueueMindMutation(...)` instead of firing it outside the existing Mind write queue, so re-entering Mind can no longer race a pending send/delete/settings write against the same `manage@sysConfig@mind` record and leave stale state behind.
 - Added a regression check in `test/mindState.test.js` to lock that serialization contract, and bumped `index.html` to `app.js?v=135` so the queued Mind fix is not hidden behind an old browser cache.
 - Validation: `node --check js/media-library/app.js`, `node .\node_modules\mocha\bin\mocha.js test\mindState.test.js`, and `git diff --check`.
+
+### 2026-04-22 15:49 Asia/Shanghai
+
+- Polished the Photos timeline after the user called out the ugly black strip behind every date header and the way images visibly refreshed when clicking unrelated UI. In `css/media-library.css`, the sticky date header no longer paints a full-width dark gradient; instead the strip is transparent and the date text sits on a much lighter compact pill, so the timeline keeps separation without the heavy black band.
+- Reduced unnecessary image re-mounts in `js/media-library/app.js` by patching topbar-only UI locally instead of forcing a whole-library `render()`. Closing the avatar menu on outside click now uses `patchAvatarMenu()`, and the desktop `Style` menu open/close/theme-select path now uses a new `patchThemeSwitcher()` plus a live `.cml-app-shell[data-cml-theme]` update, so already-loaded tiles do not get torn down just because the user clicked a menu.
+- Bumped cache versions in `index.html` to `app.js?v=136` and `media-library.css?v=119`. Validation: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`, `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/components.js`, and `git diff --check` (CRLF warnings only).
+
+### 2026-04-22 15:56 Asia/Shanghai
+
+- Followed up immediately after the user found a navigation regression: clicking the main sidebar `Music` entry from another route could light up the sidebar without actually switching the content area. Root cause was a state/DOM desync window around the earlier low-flicker patch path.
+- Updated `js/media-library/app.js` so primary and secondary sidebar route switches now call `render()` immediately instead of deferring through `scheduleRender()`, and added `isPrimaryViewDomInSync()` to block the `alreadyOnPrimary` fast-path when the live DOM is still showing a different surface (for example `Mind` content while `state.primaryFilter` already says `Music`).
+- Validation: `C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe --check js/media-library/app.js`.

@@ -5015,6 +5015,47 @@ function patchAvatarMenu() {
   }
 }
 
+function patchThemeSwitcher() {
+  if (!refs.root) {
+    return false;
+  }
+  const currentTopbar = refs.root.querySelector('.cml-topbar');
+  if (!(currentTopbar instanceof HTMLElement)) {
+    return false;
+  }
+  const selectedItems = getSelectedItems();
+  const markup = TopSearchBar({
+    state,
+    canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item)),
+    canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
+    canSetAlbumCover: false
+  }).trim();
+  if (!markup) {
+    return false;
+  }
+  const template = document.createElement('template');
+  template.innerHTML = markup;
+  const nextTopbar = template.content.firstElementChild;
+  if (!(nextTopbar instanceof HTMLElement)) {
+    return false;
+  }
+  const currentSwitcher = currentTopbar.querySelector('.cml-theme-switcher');
+  const nextSwitcher = nextTopbar.querySelector('.cml-theme-switcher');
+  if (currentSwitcher instanceof HTMLElement && nextSwitcher instanceof HTMLElement) {
+    currentSwitcher.replaceWith(nextSwitcher);
+    return true;
+  }
+  if (currentSwitcher instanceof HTMLElement && !(nextSwitcher instanceof HTMLElement)) {
+    currentSwitcher.remove();
+    return true;
+  }
+  if (!(currentSwitcher instanceof HTMLElement) && nextSwitcher instanceof HTMLElement) {
+    currentTopbar.querySelector('.cml-topbar__actions')?.prepend(nextSwitcher);
+    return true;
+  }
+  return false;
+}
+
 function patchToastDom() {
   if (!refs.root) { return false; }
   const existing = refs.root.querySelector('.cml-toast');
@@ -7151,6 +7192,19 @@ function patchSidebarActive() {
     btn.classList.toggle('is-active', active);
     btn.setAttribute('aria-current', active ? 'page' : 'false');
   });
+}
+
+function isPrimaryViewDomInSync(primary) {
+  if (!(refs.root instanceof HTMLElement)) {
+    return true;
+  }
+  if (primary === 'Music') {
+    return refs.root.querySelector('.cml-main-content__inner.is-music-view') instanceof HTMLElement;
+  }
+  if (primary === 'Mind') {
+    return refs.root.querySelector('.cml-main-content__inner.is-mind-view') instanceof HTMLElement;
+  }
+  return true;
 }
 
 function patchSidebarStorageCard() {
@@ -9438,7 +9492,7 @@ function handleClick(event) {
   // Close avatar menu when clicking outside it
   if (state.avatarMenuOpen && event.target instanceof Element && !event.target.closest('.cml-avatar-wrap')) {
     state.avatarMenuOpen = false;
-    render();
+    patchAvatarMenu();
     return;
   }
 
@@ -9451,6 +9505,7 @@ function handleClick(event) {
       const nextPrimary = actionTarget.dataset.primary;
       const alreadyOnPrimary = nextPrimary !== 'Private'
         && state.primaryFilter === nextPrimary
+        && isPrimaryViewDomInSync(nextPrimary)
         && !state.secondaryFilter
         && !state.activeAlbumName
         && !state.privateViewOpen
@@ -9491,8 +9546,7 @@ function handleClick(event) {
       resetLoadedCount();
       state.uiThemeMenuOpen = false;
       pushNavigationHash();
-      patchSidebarActive();
-      scheduleRender();
+      render();
       if (state.primaryFilter === 'Bin') {
         void fetchBinItems();
       }
@@ -9531,8 +9585,7 @@ function handleClick(event) {
       resetLoadedCount();
       state.uiThemeMenuOpen = false;
       pushNavigationHash();
-      patchSidebarActive();
-      scheduleRender();
+      render();
       return;
     }
 
@@ -9555,7 +9608,9 @@ function handleClick(event) {
     if (actionTarget.dataset.action === 'toggle-ui-theme-menu') {
       state.avatarMenuOpen = false;
       state.uiThemeMenuOpen = !state.uiThemeMenuOpen;
-      render();
+      if (!patchThemeSwitcher()) {
+        render();
+      }
       return;
     }
 
@@ -9564,7 +9619,10 @@ function handleClick(event) {
       state.uiTheme = nextTheme;
       state.uiThemeMenuOpen = false;
       persistMediaLibraryTheme(nextTheme);
-      render();
+      refs.root.querySelector('.cml-app-shell')?.setAttribute('data-cml-theme', nextTheme);
+      if (!patchThemeSwitcher()) {
+        render();
+      }
       return;
     }
 
@@ -9606,7 +9664,9 @@ function handleClick(event) {
   }
 
   if (shouldCloseThemeMenu) {
-    render();
+    if (!patchThemeSwitcher()) {
+      render();
+    }
   }
 }
 
