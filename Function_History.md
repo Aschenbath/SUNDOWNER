@@ -157,3 +157,4 @@
 26-04-23 by codex: Fix remaining mojibake separators (`·` instead of `路`) and smooth the selection experience by preferring local selection patching over full renders and reducing the visual weight of selected states
 26-04-23 by codex: Extend local selection patching to Documents rows as well, so selecting files no longer falls back to a full-page rerender, and add a light topbar selection-shell transition for smoother mode changes
 26-04-23 by codex: Push the desktop shell farther toward the p2 reference by rounding the topbar search, right-side scrubber badge, and tool buttons into a more consistent pill language
+26-04-23 by codex: Complete the surrounding shell pass by turning the collection secondary rail into its own rounded group, making Storage read like a pill-shaped info card, and grouping top-right desktop tools into a more unified control strip
