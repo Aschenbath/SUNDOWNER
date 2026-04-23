@@ -8621,7 +8621,19 @@ function syncTopbarSelectionState() {
   template.innerHTML = markup;
   const nextTopbar = template.content.firstElementChild;
   if (nextTopbar instanceof HTMLElement) {
+    nextTopbar.classList.add('is-selection-transitioning');
+    nextTopbar.style.minHeight = `${Math.max(currentTopbar.offsetHeight, 40)}px`;
     currentTopbar.replaceWith(nextTopbar);
+    requestAnimationFrame(() => {
+      if (!(nextTopbar instanceof HTMLElement)) {
+        return;
+      }
+      nextTopbar.classList.add('is-selection-transition-settled');
+      window.setTimeout(() => {
+        nextTopbar.classList.remove('is-selection-transitioning', 'is-selection-transition-settled');
+        nextTopbar.style.minHeight = '';
+      }, 170);
+    });
   }
 }
 
@@ -8634,6 +8646,17 @@ function syncSelectionTileState(tile, selected) {
   if (selectButton instanceof HTMLElement) {
     selectButton.innerHTML = selected ? TILE_SELECTION_CHECK_MARKUP : TILE_SELECTION_RING_MARKUP;
     selectButton.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  }
+}
+
+function syncDocsRowSelectionState(row, selected) {
+  if (!(row instanceof HTMLElement)) {
+    return;
+  }
+  row.classList.toggle('is-selected', selected);
+  const checkbox = row.querySelector('.cml-docs-row__checkbox');
+  if (checkbox instanceof HTMLElement) {
+    checkbox.innerHTML = selected ? TILE_SELECTION_CHECK_MARKUP : '';
   }
 }
 
@@ -8656,7 +8679,8 @@ function syncSelectionUi(changedItemIds = []) {
     return false;
   }
   const visibleTiles = [...refs.root.querySelectorAll('.cml-media-tile[data-tile-id]')];
-  if (!visibleTiles.length) {
+  const visibleDocRows = [...refs.root.querySelectorAll('.cml-docs-row[data-id]')];
+  if (!visibleTiles.length && !visibleDocRows.length) {
     return false;
   }
   const changedSet = new Set(changedItemIds.filter(Boolean));
@@ -8669,7 +8693,16 @@ function syncSelectionUi(changedItemIds = []) {
     patchedTiles += 1;
     syncSelectionTileState(tile, state.selectedIds.has(itemId));
   });
-  if (changedSet.size && patchedTiles === 0) {
+  let patchedRows = 0;
+  visibleDocRows.forEach((row) => {
+    const itemId = row.getAttribute('data-id') || '';
+    if (changedSet.size && !changedSet.has(itemId)) {
+      return;
+    }
+    patchedRows += 1;
+    syncDocsRowSelectionState(row, state.selectedIds.has(itemId));
+  });
+  if (changedSet.size && patchedTiles === 0 && patchedRows === 0) {
     return false;
   }
   refs.root.classList.toggle('has-selection', state.selectedIds.size > 0);

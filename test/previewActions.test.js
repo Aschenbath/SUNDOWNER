@@ -1168,12 +1168,14 @@ describe('media library download actions', () => {
     assert.match(appSource, /function saveJson\(key, value\)/);
     assert.match(appSource, /function hasActiveSearchUiState\(\)/);
     assert.match(appSource, /function savePreviewTags\(itemId, tagInput, previousItem = null\)/);
+    assert.match(appSource, /function syncDocsRowSelectionState\(row, selected\)/);
     assert.match(appSource, /&& !hasActiveSearchUiState\(\)\s*&& !state\.secondaryFilter/);
     assert.match(appSource, /&& !hasActiveSearchUiState\(\)\s*&& !state\.activeAlbumName/);
     assert.match(appSource, /data-search-view="\$\{viewModel\.isGlobalSearchView \? '1' : '0'\}"/);
     assert.match(appSource, /const domSearchView = contentInner instanceof HTMLElement/);
     assert.match(appSource, /pushNavigationHash\(\);\s*applyLocationRouteToMountedUi\(\);/);
     assert.match(appSource, /if \(!syncSelectionUi\(changedIds\)\) \{\s*render\(\);\s*\}/);
+    assert.match(appSource, /const visibleDocRows = \[\.\.\.refs\.root\.querySelectorAll\('\.cml-docs-row\[data-id\]'\)\];/);
   });
 
   it('renders storage usage numbers once the summary has loaded', () => {
