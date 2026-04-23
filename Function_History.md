@@ -149,3 +149,4 @@
 26-04-22 by codex: Serialize Mind's next-visit `mirror` action behind the same mutation queue as send/delete/settings so re-entering Mind cannot race a pending write and leave the conversation looking stuck
 26-04-23 by codex: Rework desktop media-library search into a global grouped results view (Photos/Videos/Music/Files/Albums), expand search matching to albums/files/path metadata, and strip redundant top-level hero headers from Albums/Music/Documents/Bin so the content starts sooner and uses more horizontal space
 26-04-23 by codex: Fix desktop sidebar route desync by tagging the live main-content route in DOM and refusing primary-nav short-circuit unless DOM and state agree, so Albums no longer stays visually stuck on stale Bin content
+26-04-23 by codex: Finish the desktop search/header closure by making nav fast-paths search-aware, adding stable grouped-search section markers/copy, and moving the Bin root onto the same plain summary treatment as Albums

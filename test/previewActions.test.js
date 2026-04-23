@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, Sidebar, SidebarAudioPlayer, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
+import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
@@ -569,7 +569,8 @@ describe('media library download actions', () => {
     });
 
     assert.match(summaryHtml, /cml-music-summary/);
-    assert.match(summaryHtml, /Local audio library/);
+    assert.match(summaryHtml, /<p class="cml-view-summary__eyebrow">Music<\/p>/);
+    assert.match(summaryHtml, /0 items in library/);
     assert.match(html, /Select a track/);
   });
 
@@ -792,6 +793,105 @@ describe('media library download actions', () => {
     assert.doesNotMatch(rootHtml, /Albums now show album categories first/);
   });
 
+  it('renders grouped desktop search results without surfacing Bin or Mind sections', () => {
+    const photoItem = {
+      id: 'photo-1',
+      type: 'photo',
+      label: 'Sunset.jpg',
+      sourceUrl: '/file/photo-1.jpg',
+      thumbnailUrl: '/file/photo-1.jpg',
+      width: 1200,
+      height: 900
+    };
+    const videoItem = {
+      id: 'video-1',
+      type: 'video',
+      label: 'Trip.mp4',
+      sourceUrl: '/file/video-1.mp4',
+      thumbnailUrl: '/file/video-1.mp4?preview=1',
+      posterUrl: '/file/video-1.mp4?preview=1',
+      width: 1280,
+      height: 720
+    };
+    const timelineSection = (anchorId, label, item) => ({
+      anchorId,
+      year: '2026',
+      label,
+      scrubberLabel: '2026',
+      metaLine: '1 item',
+      items: [item],
+      visibleRows: [{
+        items: [{
+          item,
+          width: 260,
+          height: 180
+        }]
+      }],
+      topSpacerHeight: 0,
+      bottomSpacerHeight: 0
+    });
+    const html = SearchResultsView({
+      query: 'trip',
+      totalCount: 5,
+      photoSections: [timelineSection('search-photo-1', 'Today', photoItem)],
+      photoCount: 1,
+      videoSections: [timelineSection('search-video-1', 'This week', videoItem)],
+      videoCount: 1,
+      audioItems: [{
+        id: 'audio-1',
+        type: 'audio',
+        label: 'midnight-demo.m4a',
+        audioTitle: 'Midnight Demo',
+        audioArtist: 'Will',
+        audioAlbum: 'Night drive',
+        audioDuration: 126,
+        takenAt: '2026-04-23T10:00:00.000Z'
+      }],
+      audioCount: 1,
+      fileItems: [{
+        id: 'file-1',
+        type: 'document',
+        isDocumentLike: true,
+        label: 'Notes.pdf',
+        directory: 'Trips/2026',
+        takenAt: '2026-04-23T09:00:00.000Z',
+        sizeMb: 1.2
+      }],
+      fileCount: 1,
+      albumCards: [{
+        name: 'April',
+        itemCount: 3,
+        createdAt: '2026-04-20T00:00:00.000Z',
+        lastModifiedAt: 1713830400000,
+        coverItem: photoItem
+      }],
+      albumCount: 1,
+      state: {
+        selectedIds: new Set(),
+        favoriteIds: new Set(),
+        activeSectionAnchor: '',
+        layoutWidth: 1280
+      },
+      layoutWidth: 1280,
+      audioState: {
+        currentId: '',
+        isPlaying: false
+      },
+      playlists: [],
+      activePlaylistName: ''
+    });
+
+    assert.match(html, /data-search-results-view="global"/);
+    assert.match(html, /data-search-group="photos"/);
+    assert.match(html, /data-search-group="videos"/);
+    assert.match(html, /data-search-group="music"/);
+    assert.match(html, /data-search-group="files"/);
+    assert.match(html, /data-search-group="albums"/);
+    assert.doesNotMatch(html, /data-search-group="bin"/);
+    assert.doesNotMatch(html, /data-search-group="mind"/);
+    assert.match(html, /Grouped results across photos, videos, music, files, and albums\./);
+  });
+
   it('renders album renaming inline at the title position instead of a dialog overlay', () => {
     const inlineHtml = CollectionSummary({
       activeAlbumName: 'scenery',
@@ -866,6 +966,32 @@ describe('media library download actions', () => {
     assert.match(html, /aria-label="Select item with 45 days left remaining"/);
   });
 
+  it('keeps the bin root on the shared plain-summary header treatment', () => {
+    const html = BinGrid({
+      items: [{
+        id: 'bin-2',
+        type: 'photo',
+        label: 'old-photo.jpg',
+        sourceUrl: '/file/bin/old-photo.jpg',
+        thumbnailUrl: '/file/bin/old-photo.jpg',
+        width: 1200,
+        height: 900,
+        daysLeft: 12,
+        year: 2026,
+        timelineLabel: 'Today'
+      }],
+      binSelectedIds: new Set(),
+      isBinLoading: false,
+      layoutWidth: 1280,
+      activeSectionAnchor: '',
+      sections: []
+    });
+
+    assert.match(html, /cml-view-summary cml-view-summary--plain cml-bin-view__summary/);
+    assert.match(html, />Recently deleted</);
+    assert.match(html, /waiting to expire from the library/);
+  });
+
   it('shows Albums and Private in the sidebar, keeps secondary filters visible in Bin, and uses the text wordmark', () => {
     const html = Sidebar({
       navigationModel: {
@@ -895,6 +1021,16 @@ describe('media library download actions', () => {
     assert.match(html, /data-secondary="Videos"/);
     assert.match(html, /data-secondary="Favourites"/);
     assert.doesNotMatch(html, /logo-sundowner\.svg/);
+  });
+
+  it('keeps primary and secondary nav fast-paths aware of active desktop search state', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /function hasActiveSearchUiState\(\)/);
+    assert.match(appSource, /&& !hasActiveSearchUiState\(\)\s*&& !state\.secondaryFilter/);
+    assert.match(appSource, /&& !hasActiveSearchUiState\(\)\s*&& !state\.activeAlbumName/);
+    assert.match(appSource, /data-search-view="\$\{viewModel\.isGlobalSearchView \? '1' : '0'\}"/);
+    assert.match(appSource, /const domSearchView = contentInner instanceof HTMLElement/);
   });
 
   it('renders storage usage numbers once the summary has loaded', () => {

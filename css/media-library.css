@@ -1392,10 +1392,27 @@ body.codex-media-library-active #app {
   padding-top: 4px;
 }
 
+#codex-media-library-root .cml-search-summary__eyebrow {
+  margin-bottom: 4px;
+}
+
+#codex-media-library-root .cml-search-summary__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 #codex-media-library-root .cml-search-summary__title {
   margin: 0;
   font-size: clamp(24px, 3vw, 34px);
   letter-spacing: -0.03em;
+}
+
+#codex-media-library-root .cml-search-summary__copy {
+  margin: 0;
+  max-width: 680px;
+  color: var(--cml-theme-text-soft);
+  font-size: 13px;
 }
 
 #codex-media-library-root .cml-view-summary {
@@ -1451,6 +1468,12 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-search-group__count {
   font-size: 13px;
   color: var(--cml-theme-text-muted);
+}
+
+#codex-media-library-root .cml-search-group__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 #codex-media-library-root .cml-search-file__title {
@@ -3710,14 +3733,12 @@ body.codex-media-library-active #app {
   padding: 0 4px 48px;
 }
 
-#codex-media-library-root .cml-bin-view__header {
+#codex-media-library-root .cml-bin-view__summary {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  padding: 12px 0 24px;
-  color: #7f8796;
-  font-size: 13px;
+  padding: 12px 0 20px;
 }
 
 #codex-media-library-root .cml-bin-view__actions {
@@ -3728,24 +3749,18 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-bin-view__meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 
-#codex-media-library-root .cml-bin-view__label {
-  color: var(--cml-theme-text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+#codex-media-library-root .cml-bin-view__summary .cml-view-summary__title {
+  font-size: clamp(28px, 4vw, 42px);
 }
 
-#codex-media-library-root .cml-bin-view__count {
-  color: var(--cml-theme-text);
-  font-size: 16px;
-  font-weight: 620;
+#codex-media-library-root .cml-bin-view__summary .cml-view-summary__copy {
+  max-width: 620px;
 }
 
 #codex-media-library-root .cml-bin-grid {
@@ -3827,7 +3842,7 @@ body.codex-media-library-active #app {
 }
 
 @media (max-width: 640px) {
-  #codex-media-library-root .cml-bin-view__header {
+  #codex-media-library-root .cml-bin-view__summary {
     flex-direction: column;
     align-items: stretch;
   }

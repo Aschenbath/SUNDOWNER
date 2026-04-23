@@ -2737,20 +2737,28 @@ export function SearchSummary({ query, resultCount, filterParts = [], hasActiveF
   if (!query && !hasActiveFilters) {
     return '';
   }
+  const normalizedQuery = escapeHtml(query);
+  const summaryCopy = query
+    ? 'Grouped results across photos, videos, music, files, and albums.'
+    : 'Filtered results across photos, videos, music, files, and albums.';
   return `
-    <section class="cml-search-summary">
-      <h2 class="cml-search-summary__title">${resultCount} match${resultCount === 1 ? '' : 'es'}${query ? ` for \"${escapeHtml(query)}\"` : ''}</h2>
+    <section class="cml-search-summary" data-search-summary="global">
+      <p class="cml-search-summary__eyebrow">Search</p>
+      <div class="cml-search-summary__head">
+        <h2 class="cml-search-summary__title">${resultCount} match${resultCount === 1 ? '' : 'es'}${query ? ` for \"${normalizedQuery}\"` : ''}</h2>
+        <p class="cml-search-summary__copy">${summaryCopy}</p>
+      </div>
     </section>
   `;
 }
 
-function SearchResultSection({ title = '', count = 0, body = '', sectionClassName = '' } = {}) {
+function SearchResultSection({ title = '', count = 0, body = '', sectionClassName = '', groupKey = '' } = {}) {
   if (!body) {
     return '';
   }
   const sectionClass = ['cml-search-group', sectionClassName].filter(Boolean).join(' ');
   return `
-    <section class="${sectionClass}" aria-label="${escapeHtml(title)} search results">
+    <section class="${sectionClass}" data-search-group="${escapeHtml(groupKey || title.toLowerCase())}" aria-label="${escapeHtml(title)} search results">
       <header class="cml-search-group__header">
         <h3 class="cml-search-group__title">${escapeHtml(title)}</h3>
         <span class="cml-search-group__count">${formatItemCount(count)}</span>
@@ -2899,36 +2907,41 @@ export function SearchResultsView({
 
   return `
     ${summary}
-    <div class="cml-search-results">
+    <div class="cml-search-results" data-search-results-view="global">
       ${SearchResultSection({
         title: 'Photos',
         count: photoCount,
         body: photoSections.map((section) => MediaTimelineSection({ section, state, layoutWidth })).join(''),
-        sectionClassName: 'cml-search-group--photos'
+        sectionClassName: 'cml-search-group--photos',
+        groupKey: 'photos'
       })}
       ${SearchResultSection({
         title: 'Videos',
         count: videoCount,
         body: videoSections.map((section) => MediaTimelineSection({ section, state, layoutWidth })).join(''),
-        sectionClassName: 'cml-search-group--videos'
+        sectionClassName: 'cml-search-group--videos',
+        groupKey: 'videos'
       })}
       ${SearchResultSection({
         title: 'Music',
         count: audioCount,
         body: SearchMusicRows({ items: audioItems, audioState, playlists, activePlaylistName }),
-        sectionClassName: 'cml-search-group--music'
+        sectionClassName: 'cml-search-group--music',
+        groupKey: 'music'
       })}
       ${SearchResultSection({
         title: 'Files',
         count: fileCount,
         body: SearchFileRows({ items: fileItems, state }),
-        sectionClassName: 'cml-search-group--files'
+        sectionClassName: 'cml-search-group--files',
+        groupKey: 'files'
       })}
       ${SearchResultSection({
         title: 'Albums',
         count: albumCount,
         body: albumCards.length ? CollectionGrid({ collections: albumCards }) : '',
-        sectionClassName: 'cml-search-group--albums'
+        sectionClassName: 'cml-search-group--albums',
+        groupKey: 'albums'
       })}
     </div>
   `;
@@ -3039,6 +3052,11 @@ function BinTimelineSection({ section, binSelectedIds, layoutWidth }) {
 export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutWidth, activeSectionAnchor = '' }) {
   const selectedCount = binSelectedIds.size;
   const hasItems = items.length > 0;
+  const summaryCopy = selectedCount > 0
+    ? `${selectedCount} selected for restore or permanent removal.`
+    : hasItems
+      ? `${items.length} item${items.length === 1 ? '' : 's'} waiting to expire from the library.`
+      : 'Items you delete will appear here for up to 45 days before permanent removal.';
 
   const headerActions = selectedCount > 0
     ? `
@@ -3075,14 +3093,11 @@ export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutW
 
   return `
     <div class="cml-bin-view">
-      <header class="cml-bin-view__header">
+      <header class="cml-view-summary cml-view-summary--plain cml-bin-view__summary">
         <div class="cml-bin-view__meta">
-          <span class="cml-bin-view__label">Bin</span>
-          ${selectedCount > 0
-            ? `<span class="cml-bin-view__count">${selectedCount} selected</span>`
-            : hasItems
-              ? `<span class="cml-bin-view__count">${items.length} item${items.length === 1 ? '' : 's'}</span>`
-              : `<span class="cml-bin-view__count">Empty</span>`}
+          <p class="cml-view-summary__eyebrow">Bin</p>
+          <h2 class="cml-view-summary__title">Recently deleted</h2>
+          <p class="cml-view-summary__copy cml-view-summary__copy--albums">${escapeHtml(summaryCopy)}</p>
         </div>
         <div class="cml-bin-view__actions">${headerActions}</div>
       </header>

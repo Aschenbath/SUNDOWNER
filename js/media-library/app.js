@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=71';
+} from './components.js?v=72';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -6177,8 +6177,14 @@ function buildContentViewKey(viewModel) {
     state.secondaryFilter || '',
     state.videoCategoryFilter || '',
     state.privateViewOpen ? 'private-view' : '',
-    viewModel.isVideoAlbumRoot ? 'video-album-root' : ''
+    viewModel.isVideoAlbumRoot ? 'video-album-root' : '',
+    viewModel.isGlobalSearchView ? 'global-search' : '',
+    normalizeText(state.searchQuery || '')
   ].join('|');
+}
+
+function hasActiveSearchUiState() {
+  return Boolean(normalizeText(state.searchQuery || '') || normalizeText(state.searchDraft || ''));
 }
 
 function animateContentViewTransition() {
@@ -7759,11 +7765,15 @@ function isPrimaryViewDomInSync(primary) {
   const domPlaylist = contentInner instanceof HTMLElement
     ? normalizeText(contentInner.dataset.activePlaylist || '')
     : '';
+  const domSearchView = contentInner instanceof HTMLElement
+    ? contentInner.dataset.searchView === '1'
+    : false;
   if (primary === 'Music') {
     return domPrimary === 'Music'
       && !domSecondary
       && !domPrivate
       && !domAlbum
+      && !domSearchView
       && (refs.root.querySelector('.cml-main-content__inner.is-music-view') instanceof HTMLElement)
       && domPlaylist === normalizeText(state.activePlaylistName || '');
   }
@@ -7772,12 +7782,14 @@ function isPrimaryViewDomInSync(primary) {
       && !domSecondary
       && !domPrivate
       && !domAlbum
+      && !domSearchView
       && (refs.root.querySelector('.cml-main-content__inner.is-mind-view') instanceof HTMLElement);
   }
   return domPrimary === normalizeText(primary)
     && domSecondary === normalizeText(state.secondaryFilter || '')
     && domPrivate === Boolean(state.privateViewOpen)
     && domAlbum === normalizeText(state.activeAlbumName || '')
+    && !domSearchView
     && domPlaylist === normalizeText(state.activePlaylistName || '');
 }
 
@@ -8048,6 +8060,8 @@ function render() {
               data-private-view="${state.privateViewOpen ? '1' : '0'}"
               data-active-album="${normalizeText(state.activeAlbumName || '')}"
               data-active-playlist="${normalizeText(state.activePlaylistName || '')}"
+              data-search-view="${viewModel.isGlobalSearchView ? '1' : '0'}"
+              data-search-query="${escapeHtml(normalizeText(state.searchQuery || ''))}"
             >
               ${state.primaryFilter === 'Bin'
                 ? BinGrid({
@@ -10560,6 +10574,7 @@ function handleClick(event) {
       const alreadyOnPrimary = nextPrimary !== 'Private'
         && state.primaryFilter === nextPrimary
         && isPrimaryViewDomInSync(nextPrimary)
+        && !hasActiveSearchUiState()
         && !state.secondaryFilter
         && !state.activeAlbumName
         && !state.activePlaylistName
@@ -10613,6 +10628,7 @@ function handleClick(event) {
       const nextSecondary = actionTarget.dataset.secondary === state.secondaryFilter ? '' : actionTarget.dataset.secondary;
       const alreadyOnSecondary = state.primaryFilter === 'Photos'
         && state.secondaryFilter === nextSecondary
+        && !hasActiveSearchUiState()
         && !state.activeAlbumName
         && !state.privateViewOpen
         && !state.albumSelectionTarget
