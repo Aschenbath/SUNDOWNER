@@ -10944,10 +10944,7 @@ function handleClick(event) {
       resetLoadedCount();
       state.uiThemeMenuOpen = false;
       pushNavigationHash();
-      render();
-      if (state.primaryFilter === 'Bin') {
-        void fetchBinItems();
-      }
+      applyLocationRouteToMountedUi();
       return;
     }
 
@@ -10984,7 +10981,7 @@ function handleClick(event) {
       resetLoadedCount();
       state.uiThemeMenuOpen = false;
       pushNavigationHash();
-      render();
+      applyLocationRouteToMountedUi();
       return;
     }
 

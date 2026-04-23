@@ -1137,6 +1137,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /&& !hasActiveSearchUiState\(\)\s*&& !state\.activeAlbumName/);
     assert.match(appSource, /data-search-view="\$\{viewModel\.isGlobalSearchView \? '1' : '0'\}"/);
     assert.match(appSource, /const domSearchView = contentInner instanceof HTMLElement/);
+    assert.match(appSource, /pushNavigationHash\(\);\s*applyLocationRouteToMountedUi\(\);/);
   });
 
   it('renders storage usage numbers once the summary has loaded', () => {
