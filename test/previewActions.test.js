@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
+import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
@@ -1096,6 +1096,41 @@ describe('media library download actions', () => {
     assert.match(html, /waiting to expire from the library/);
   });
 
+  it('uses a clean metadata separator in documents header copy instead of mojibake', () => {
+    const html = DocumentsListView({
+      items: [
+        {
+          id: 'doc-1',
+          type: 'document',
+          isDocumentLike: true,
+          label: 'VPN基本原理.pdf',
+          directory: '',
+          takenAt: '2026-04-23T09:00:00.000Z',
+          sizeMb: 40.3,
+        },
+        {
+          id: 'doc-2',
+          type: 'document',
+          isDocumentLike: true,
+          label: '.claude.zip',
+          directory: '',
+          takenAt: '2026-04-23T09:30:00.000Z',
+          sizeMb: 0,
+        }
+      ],
+      state: {
+        docsCurrentDir: '',
+        layoutWidth: 1280,
+        docsNewFolderOpen: false,
+        docsFolders: new Set(),
+        selectedIds: new Set(),
+      }
+    });
+
+    assert.match(html, /2 files · 40\.3 MB/);
+    assert.doesNotMatch(html, /2 files 路 40\.3 MB/);
+  });
+
   it('shows Albums and Private in the sidebar, keeps secondary filters visible in Bin, and uses the text wordmark', () => {
     const html = Sidebar({
       navigationModel: {
@@ -1138,6 +1173,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /data-search-view="\$\{viewModel\.isGlobalSearchView \? '1' : '0'\}"/);
     assert.match(appSource, /const domSearchView = contentInner instanceof HTMLElement/);
     assert.match(appSource, /pushNavigationHash\(\);\s*applyLocationRouteToMountedUi\(\);/);
+    assert.match(appSource, /if \(!syncSelectionUi\(changedIds\)\) \{\s*render\(\);\s*\}/);
   });
 
   it('renders storage usage numbers once the summary has loaded', () => {

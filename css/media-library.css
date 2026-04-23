@@ -1092,10 +1092,11 @@ body.codex-media-library-active #app {
   display: inline-flex;
   align-items: center;
   gap: 14px;
-  min-height: 46px;
-  color: #8ab4f8;
-  font-size: 26px;
-  font-weight: 700;
+  min-height: 40px;
+  color: #d6dee9;
+  font-size: 18px;
+  font-weight: 620;
+  letter-spacing: -0.02em;
 }
 
 #codex-media-library-root .cml-topbar__clear-button,
@@ -2162,6 +2163,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-media-tile.is-selected {
   background: #202124;
+  box-shadow: inset 0 0 0 1px rgba(168, 199, 250, 0.16);
 }
 
 #codex-media-library-root .cml-media-tile__image {
@@ -4345,13 +4347,13 @@ body.codex-media-library-active #app {
   background: #1a73e8;
   color: #ffffff;
   opacity: 1;
-  transform: scale(1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transform: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
-/* Google Photos-style: selected photo shrinks inward */
 #codex-media-library-root .cml-media-tile.is-selected .cml-media-tile__image {
-  transform: translateZ(0) scale(1);
+  transform: none;
+  transition: opacity 120ms ease;
 }
 
 #codex-media-library-root .cml-media-tile,
@@ -4998,7 +5000,7 @@ body.codex-media-library-active #app {
   height: 56px;
   border-radius: 14px;
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -5008,6 +5010,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-docs-row.is-selected {
   background: rgba(138, 180, 248, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(168, 199, 250, 0.18);
 }
 
 #codex-media-library-root .cml-docs-row.is-selected:hover {

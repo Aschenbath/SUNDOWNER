@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=75';
+} from './components.js?v=76';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -11046,8 +11046,16 @@ function handleClick(event) {
         if (fromIdx >= 0 && toIdx >= 0) {
           const lo = Math.min(fromIdx, toIdx);
           const hi = Math.max(fromIdx, toIdx);
-          items.slice(lo, hi + 1).forEach(item => state.selectedIds.add(item.id));
-          render();
+          const changedIds = [];
+          items.slice(lo, hi + 1).forEach(item => {
+            if (!state.selectedIds.has(item.id)) {
+              state.selectedIds.add(item.id);
+              changedIds.push(item.id);
+            }
+          });
+          if (!syncSelectionUi(changedIds)) {
+            render();
+          }
           return;
         }
       }

@@ -1037,7 +1037,7 @@ export function DocumentsListView({ items, state }) {
       ${isDesktop && isRootView ? '' : `
         <div class="cml-docs-header__top">
           <h2 class="cml-docs-header__title">Files</h2>
-          <span class="cml-docs-header__meta">${hasSelection ? `${selectedInView.length} selected` : `${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` 路 ${formatFileSize(totalSize)}` : ''}`}</span>
+          <span class="cml-docs-header__meta">${hasSelection ? `${selectedInView.length} selected` : `${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` · ${formatFileSize(totalSize)}` : ''}`}</span>
         </div>
       `}
       ${isDesktop && isRootView ? '' : breadcrumbHtml}
@@ -1066,7 +1066,7 @@ export function DocumentsListView({ items, state }) {
           </button>
         `}
         ${isDesktop && isRootView && !hasSelection
-          ? `<span class="cml-docs-header__meta cml-docs-header__meta--inline">${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` 路 ${formatFileSize(totalSize)}` : ''}</span>`
+          ? `<span class="cml-docs-header__meta cml-docs-header__meta--inline">${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` · ${formatFileSize(totalSize)}` : ''}</span>`
           : ''}
       </div>
     </div>
@@ -3370,7 +3370,7 @@ export function AdminPanel({ state, storageSummary }) {
             <article class="cml-admin-panel__migration-card">
               <span class="cml-admin-panel__migration-label">Database mode</span>
               <strong class="cml-admin-panel__migration-value">${escapeHtml(getDatabaseModeLabel(migrationDatabase))}</strong>
-              <span class="cml-admin-panel__migration-meta">Bindings: KV ${migrationDatabase?.hasKV ? 'on' : 'off'} 路 D1 ${migrationDatabase?.hasD1 ? 'on' : 'off'}</span>
+              <span class="cml-admin-panel__migration-meta">Bindings: KV ${migrationDatabase?.hasKV ? 'on' : 'off'} · D1 ${migrationDatabase?.hasD1 ? 'on' : 'off'}</span>
             </article>
             <article class="cml-admin-panel__migration-card">
               <span class="cml-admin-panel__migration-label">Next cursor</span>
@@ -3401,7 +3401,7 @@ export function AdminPanel({ state, storageSummary }) {
                 ${orphanFiles.map((file) => `
                   <article class="cml-admin-panel__scan-item">
                     <strong class="cml-admin-panel__scan-id">${escapeHtml(file.id || '')}</strong>
-                    <span class="cml-admin-panel__scan-meta">${escapeHtml(file.channelName || file.channel || 'Telegram')} 路 ${escapeHtml(file.directory || '/')}</span>
+                    <span class="cml-admin-panel__scan-meta">${escapeHtml(file.channelName || file.channel || 'Telegram')} · ${escapeHtml(file.directory || '/')}</span>
                     <span class="cml-admin-panel__scan-meta">${escapeHtml(file.reason || 'Missing Telegram recovery metadata')}</span>
                   </article>
                 `).join('')}
