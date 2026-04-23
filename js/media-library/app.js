@@ -22,7 +22,7 @@ import {
   PrivateAlbumSummary,
   renderMediaRows,
   PreviewModal,
-  SearchSummary,
+  SearchResultsView,
   Sidebar,
   SidebarAudioPlayer,
   StorageCard,
@@ -33,12 +33,11 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=69';
+} from './components.js?v=71';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
   parseMediaSearchQuery,
-  summarizeMediaSearch,
 } from './search-filters.js?v=3';
 import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
 import { findPreviewMatch } from './preview-resolution.js';
@@ -2982,11 +2981,19 @@ function matchesSearchQuery(item, query) {
     return true;
   }
 
+  const fileName = normalizeText(item.label);
+  const fileExt = fileName.includes('.') ? fileName.split('.').pop() : '';
+  const directory = normalizeText(item.directory || '');
+  const directoryParts = directory ? directory.split('/').filter(Boolean) : [];
+  const albumNames = resolveCollectionAlbums(item);
   const haystack = [
     item.type,
     item.videoCategory,
     item.album,
+    ...albumNames,
     item.label,
+    fileExt,
+    item.sourceId,
     item.audioTitle,
     item.audioArtist,
     item.audioAlbum,
@@ -2996,6 +3003,8 @@ function matchesSearchQuery(item, query) {
     item.day,
     item.timelineLabel,
     item.description,
+    directory,
+    ...directoryParts,
     ...item.tags,
     ...item.personLabels
   ].join(' ').toLowerCase();
@@ -7111,7 +7120,7 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
       return false;
     }
 
-    if (state.primaryFilter === 'Collections' && !activeAlbumName) {
+    if (!hasGlobalSearch && state.primaryFilter === 'Collections' && !activeAlbumName) {
       return false;
     }
 
@@ -7367,6 +7376,7 @@ function buildCollectionSummaries(items) {
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const query = parsedSearch.textQuery.toLowerCase();
   const searchFilters = parsedSearch.filters;
+  const hasSearchFilters = countActiveMediaSearchFilters(searchFilters) > 0;
   const ensureGroup = (name) => {
     const normalizedName = normalizeText(name);
     if (!normalizedName) {
@@ -7395,13 +7405,16 @@ function buildCollectionSummaries(items) {
 
   return [...groups.values()]
     .filter((group) => {
-      if (!query) {
+      const matchingItems = group.items.filter((item) => (
+        matchesSearchQuery(item, query) && matchesMediaSearchFilters(item, searchFilters)
+      ));
+      if (!query && !hasSearchFilters) {
         return group.items.length > 0 || state.albumNames.some((albumName) => albumName.toLowerCase() === group.key);
       }
-      if (group.name.toLowerCase().includes(query)) {
+      if (query && group.name.toLowerCase().includes(query) && !hasSearchFilters) {
         return true;
       }
-      return group.items.some((item) => matchesSearchQuery(item, query) && matchesMediaSearchFilters(item, searchFilters));
+      return matchingItems.length > 0;
     })
     .map((group) => {
       const { item: coverItem, isCustom } = findAlbumCoverItem(group.name, group.items);
@@ -7448,6 +7461,27 @@ function getViewModel() {
   const albumSelectionTarget = getAlbumSelectionTarget();
   const videoAlbumSelectionTarget = getVideoAlbumSelectionTarget();
   const filteredItems = getFilteredItems(accessibleItems);
+  const searchPhotoItems = globalSearchActive
+    ? filteredItems.filter((item) => item?.type === 'photo')
+    : [];
+  const searchVideoItems = globalSearchActive
+    ? filteredItems.filter((item) => item?.type === 'video')
+    : [];
+  const searchAudioItems = globalSearchActive
+    ? filteredItems.filter((item) => item?.type === 'audio')
+    : [];
+  const searchFileItems = globalSearchActive
+    ? filteredItems.filter((item) => item?.isDocumentLike)
+    : [];
+  const searchAlbumCards = globalSearchActive
+    ? buildCollectionSummaries(accessibleItems)
+    : [];
+  const searchPhotoSections = globalSearchActive
+    ? buildSearchTimelineSections(searchPhotoItems, 'search-photo')
+    : [];
+  const searchVideoSections = globalSearchActive
+    ? buildSearchTimelineSections(searchVideoItems, 'search-video')
+    : [];
   const videoCategoryScopeItems = state.secondaryFilter === 'Videos'
     ? getFilteredItems(accessibleItems, { ignoreVideoCategoryFilter: true })
     : [];
@@ -7469,7 +7503,7 @@ function getViewModel() {
   const activeAlbumCover = activeAlbumName
     ? findAlbumCoverItem(activeAlbumName, activeAlbumItems)
     : { item: null, isCustom: false };
-  const allCollections = state.primaryFilter === 'Collections' && !activeAlbumName
+  const allCollections = (state.primaryFilter === 'Collections' && !activeAlbumName) || globalSearchActive
     ? buildCollectionSummaries(accessibleItems)
     : [];
   const collectionCards = allCollections.slice(0, state.loadedCount);
@@ -7483,10 +7517,17 @@ function getViewModel() {
     && !albumSelectionTarget
     && !videoAlbumSelectionTarget
     && !state.privateSelectionMode;
+  const globalSearchResultCount = isGlobalSearchView
+    ? searchPhotoItems.length
+      + searchVideoItems.length
+      + searchAudioItems.length
+      + searchFileItems.length
+      + searchAlbumCards.length
+    : 0;
   const isMusicView = state.primaryFilter === 'Music' && !isGlobalSearchView;
   const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName && !isGlobalSearchView;
   const isAlbumPickerMode = Boolean(albumSelectionTarget || videoAlbumSelectionTarget || state.privateSelectionMode);
-  const musicPlaylists = isMusicView ? buildMusicPlaylistSummaries(accessibleItems) : [];
+  const musicPlaylists = (isMusicView || isGlobalSearchView) ? buildMusicPlaylistSummaries(accessibleItems) : [];
   const musicItems = isMusicView
     ? filteredItems.filter((item) => item.type === 'audio')
     : [];
@@ -7574,6 +7615,7 @@ function getViewModel() {
     isAlbumPickerMode,
     isMindView,
     isGlobalSearchView,
+    globalSearchResultCount,
     isMusicView,
     activePlaylistName: getActivePlaylistName(),
     isCollectionRoot,
@@ -7581,6 +7623,13 @@ function getViewModel() {
     collectionCards,
     totalCollectionCount: allCollections.length,
     filteredItems,
+    searchPhotoItems,
+    searchVideoItems,
+    searchAudioItems,
+    searchFileItems,
+    searchAlbumCards,
+    searchPhotoSections,
+    searchVideoSections,
     musicItems,
     currentAudioItem,
     audioQueueItems,
@@ -7672,6 +7721,22 @@ function patchSidebarActive() {
     btn.classList.toggle('is-active', active);
     btn.setAttribute('aria-current', active ? 'page' : 'false');
   });
+}
+
+function buildSearchTimelineSections(items = [], anchorPrefix = 'search') {
+  if (!items.length) {
+    return [];
+  }
+  return buildTimelineLayoutSections(buildSections(items, { anchorPrefix }), {
+    sectionGap: TIMELINE_SECTION_GAP
+  }).map((section) => ({
+    ...section,
+    startIndex: section.rows.length ? 0 : -1,
+    endIndex: section.rows.length ? section.rows.length - 1 : -1,
+    topSpacerHeight: 0,
+    bottomSpacerHeight: 0,
+    visibleRows: section.rows
+  }));
 }
 
 function isPrimaryViewDomInSync(primary) {
@@ -7904,18 +7969,7 @@ function render() {
   lastContentViewKey = contentViewKey;
   const storageInsights = buildStorageInsights();
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
-  const hasSeparateVideoCategoryChip = (
-    state.secondaryFilter === 'Videos'
-    && state.videoCategoryFilter
-    && normalizeVideoCategory(parsedSearch.filters.categoryQuery).toLowerCase() !== normalizeVideoCategory(state.videoCategoryFilter).toLowerCase()
-  );
-  const activeSearchFilterCount = countActiveMediaSearchFilters(parsedSearch.filters)
-    + (hasSeparateVideoCategoryChip ? 1 : 0);
-  const activeSearchFilterParts = summarizeMediaSearch(parsedSearch.filters);
   const activeVideoAlbumLabel = getVideoAlbumDisplayName(state.videoCategoryFilter);
-  if (hasSeparateVideoCategoryChip) {
-    activeSearchFilterParts.push(`Category: ${activeVideoAlbumLabel}`);
-  }
 
   // ── Incremental render: preserve the sidebar DOM to avoid flicker ──
   const existingSidebar = refs.root.querySelector('.cml-sidebar');
@@ -7958,7 +8012,7 @@ function render() {
         })}
         <div class="cml-main-content-shell ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'cml-main-content-shell--music' : ''}">
           <main class="cml-main-content ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'cml-main-content--music' : ''}" tabindex="-1">
-            <div class="cml-main-content__inner ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'is-music-view' : ''}">
+            <div class="cml-main-content__inner ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'is-music-view' : ''} ${viewModel.isGlobalSearchView ? 'is-search-view' : ''}">
               ${state.primaryFilter === 'Bin'
                 ? BinGrid({
                   items: viewModel.binItems,
@@ -7968,6 +8022,29 @@ function render() {
                   layoutWidth: state.layoutWidth,
                   activeSectionAnchor: state.activeSectionAnchor
                 })
+                : viewModel.isGlobalSearchView
+                ? SearchResultsView({
+                    query: parsedSearch.textQuery,
+                    totalCount: viewModel.globalSearchResultCount,
+                    photoSections: viewModel.searchPhotoSections,
+                    photoCount: viewModel.searchPhotoItems.length,
+                    videoSections: viewModel.searchVideoSections,
+                    videoCount: viewModel.searchVideoItems.length,
+                    audioItems: viewModel.searchAudioItems,
+                    audioCount: viewModel.searchAudioItems.length,
+                    fileItems: viewModel.searchFileItems,
+                    fileCount: viewModel.searchFileItems.length,
+                    albumCards: viewModel.searchAlbumCards,
+                    albumCount: viewModel.searchAlbumCards.length,
+                    state,
+                    layoutWidth: state.layoutWidth,
+                    audioState: {
+                      currentId: state.audioCurrentId,
+                      isPlaying: state.audioPlaying
+                    },
+                    playlists: viewModel.musicPlaylists,
+                    activePlaylistName: viewModel.activePlaylistName
+                  })
                 : viewModel.isMindView
                 ? ((!state.mindHydrated && state.mindLoading)
                   ? MindLoadingView({
@@ -8022,7 +8099,7 @@ function render() {
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : state.privateViewOpen && !state.privateRouteUnlocked
                 ? PrivateAlbumGate({ error: state.privatePasswordError, value: state.privatePasswordDraft })
-                : `${state.primaryFilter === 'Collections' && !hideMobileCollectionSummary
+                : `${state.primaryFilter === 'Collections' && (viewModel.activeAlbumName || !isDesktopLayout()) && !hideMobileCollectionSummary
                   ? CollectionSummary({
                     activeAlbumName: viewModel.activeAlbumName,
                     collectionCount: viewModel.totalCollectionCount,
@@ -8035,18 +8112,10 @@ function render() {
                     renameAlbumBusy: state.renameAlbumBusy
                   })
                   : ''}
-                ${state.privateViewOpen
+                ${state.privateViewOpen && !isDesktopLayout()
                   ? PrivateAlbumSummary({ itemCount: viewModel.filteredItems.length, locked: false })
                   : ''}
-                ${viewModel.isMindView || hideMobileCollectionSummary || viewModel.activeAlbumName || state.videoCategoryFilter ? '' : SearchSummary({
-                  query: parsedSearch.textQuery,
-                  resultCount: viewModel.isCollectionRoot
-                    ? viewModel.totalCollectionCount
-                    : (viewModel.isVideoAlbumRoot ? viewModel.videoAlbumCount : viewModel.filteredItems.length),
-                  filterParts: activeSearchFilterParts,
-                  hasActiveFilters: activeSearchFilterCount > 0
-                })}
-                ${state.secondaryFilter === 'Videos' && (viewModel.isVideoAlbumRoot || state.videoCategoryFilter)
+                ${state.secondaryFilter === 'Videos' && (state.videoCategoryFilter || !isDesktopLayout())
                   ? VideoAlbumSummary({
                       activeCategory: activeVideoAlbumLabel,
                       albumCount: viewModel.videoAlbumCount,
@@ -8089,7 +8158,7 @@ function render() {
                     }))}`}
             </div>
           </main>
-          ${!showDesktopAudioPanel && !viewModel.isMindView && !viewModel.isMusicView && !viewModel.isCollectionRoot && state.secondaryFilter !== 'Documents' ? YearScroller({
+          ${!showDesktopAudioPanel && !viewModel.isMindView && !viewModel.isMusicView && !viewModel.isCollectionRoot && !viewModel.isGlobalSearchView && state.secondaryFilter !== 'Documents' ? YearScroller({
             scrubberSections: viewModel.scrubberSections,
             activeSectionAnchor: state.activeSectionAnchor,
             activeScrubberLabel: state.activeScrubberLabel

@@ -673,7 +673,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   ` : '';
   const searchPlaceholder = state.primaryFilter === 'Music'
     ? 'Search music, artist, album, type:audio'
-    : 'Search photos, descriptions, type:video, category:travel';
+    : 'Search library, albums, files, type:video, category:travel';
   if (selectedCount) {
     if (isAlbumPickerMode) {
       return `
@@ -933,6 +933,8 @@ function getFileExtIcon(fileName) {
 export function DocumentsListView({ items, state }) {
   const currentDir = state.docsCurrentDir || '';
   const dirPrefix = currentDir ? currentDir + '/' : '';
+  const isDesktop = Number(state.layoutWidth || 0) > 960;
+  const isRootView = !currentDir;
 
   // Find subfolders and files in current directory
   const childFolders = new Set();
@@ -1015,11 +1017,13 @@ export function DocumentsListView({ items, state }) {
 
   const headerHtml = `
     <div class="cml-docs-header">
-      <div class="cml-docs-header__top">
-        <h2 class="cml-docs-header__title">Files</h2>
-        <span class="cml-docs-header__meta">${hasSelection ? `${selectedInView.length} selected` : `${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` 路 ${formatFileSize(totalSize)}` : ''}`}</span>
-      </div>
-      ${breadcrumbHtml}
+      ${isDesktop && isRootView ? '' : `
+        <div class="cml-docs-header__top">
+          <h2 class="cml-docs-header__title">Files</h2>
+          <span class="cml-docs-header__meta">${hasSelection ? `${selectedInView.length} selected` : `${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` 路 ${formatFileSize(totalSize)}` : ''}`}</span>
+        </div>
+      `}
+      ${isDesktop && isRootView ? '' : breadcrumbHtml}
       <div class="cml-docs-header__actions">
         ${hasSelection ? `
           <button type="button" class="cml-docs-action-btn" data-action="docs-move-selected">
@@ -1044,6 +1048,9 @@ export function DocumentsListView({ items, state }) {
             <span>New folder</span>
           </button>
         `}
+        ${isDesktop && isRootView && !hasSelection
+          ? `<span class="cml-docs-header__meta cml-docs-header__meta--inline">${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` 路 ${formatFileSize(totalSize)}` : ''}</span>`
+          : ''}
       </div>
     </div>
   `;
@@ -1293,42 +1300,35 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
   const modeLabel = mode === 'repeat-one' ? 'Repeat one' : (mode === 'shuffle' ? 'Shuffle' : 'Sequence');
   const helper = activePlaylistName
     ? `${countLabel} in this playlist`
-    : (totalCount === 1 ? '1 local file' : 'Local audio library');
+    : (totalCount === 1 ? '1 local file' : `${countLabel} in library`);
   const title = activePlaylistName || 'Music';
   const subtitle = currentItem
-    ? `Now ${isPlaying ? 'playing' : 'paused'}: ${escapeHtml(currentItem.audioTitle || currentItem.label || 'Track')}`
-    : escapeHtml(helper);
+    ? `Now ${isPlaying ? 'playing' : 'paused'}: ${currentItem.audioTitle || currentItem.label || 'Track'}`
+    : helper;
   return `
     <section class="cml-view-summary cml-view-summary--music cml-music-summary">
       <div class="cml-music-summary__head">
         <div class="cml-music-summary__titles">
-          ${isMobile ? '' : '<p class="cml-view-summary__eyebrow">Music</p>'}
-          <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
-          <p class="cml-view-summary__copy cml-view-summary__copy--albums">${countLabel}</p>
+          ${activePlaylistName ? `
+            <div class="cml-music-summary__title-row">
+              <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-music-playlist">
+                ${icon('previous')}
+              </button>
+              <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
+            </div>
+          ` : `
+            ${isMobile ? '' : '<p class="cml-view-summary__eyebrow">Music</p>'}
+            <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
+          `}
+          <p class="cml-view-summary__copy cml-view-summary__copy--albums">${escapeHtml(subtitle)}</p>
         </div>
         <div class="cml-music-summary__meta">
-          <span class="cml-music-summary__chip">${escapeHtml(helper)}</span>
-        </div>
-      </div>
-      <div class="cml-music-summary__toolbar">
-        <div class="cml-music-summary__focus">
-          <span class="cml-music-summary__focus-kicker">${activePlaylistName ? 'Playlist focus' : 'Library focus'}</span>
-          <div class="cml-music-summary__focus-copy">
-            <strong>${escapeHtml(title)}</strong>
-            <span>${subtitle}</span>
-          </div>
-        </div>
-        <div class="cml-music-summary__toolbar-meta">
-          <div class="cml-music-summary__stats">
-            <span class="cml-music-summary__stat-pill"><em>Queue</em><strong>${queueItems.length}</strong></span>
-            <span class="cml-music-summary__stat-pill"><em>Mode</em><strong>${escapeHtml(modeLabel)}</strong></span>
-          </div>
+          <span class="cml-music-summary__chip">${countLabel}</span>
+          <span class="cml-music-summary__chip">${queueItems.length} queued</span>
+          <span class="cml-music-summary__chip">${escapeHtml(modeLabel)}</span>
           ${activePlaylistName ? `
-            <div class="cml-music-summary__actions">
-              <button type="button" class="cml-music-summary__action" data-action="close-music-playlist">Back</button>
-              <button type="button" class="cml-music-summary__action" data-action="open-rename-playlist">Rename</button>
-              <button type="button" class="cml-music-summary__action is-danger" data-action="delete-playlist">Delete</button>
-            </div>
+            <button type="button" class="cml-music-summary__action" data-action="open-rename-playlist">Rename</button>
+            <button type="button" class="cml-music-summary__action is-danger" data-action="delete-playlist">Delete</button>
           ` : ''}
         </div>
       </div>
@@ -1350,12 +1350,13 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
   const singleSizeLabel = Number(singleItem?.sizeMb) > 0
     ? formatStorageAmountFromMb(singleItem.sizeMb)
     : 'Unknown size';
+  const showPlaylistHeader = Boolean(activePlaylistName);
   return `
     <section class="cml-music-library" aria-label="Music library">
       <section class="cml-music-playlist">
-        <div class="cml-music-playlist__head">
+        <div class="cml-music-playlist__head ${showPlaylistHeader ? '' : 'is-root'}">
           <div>
-            <p class="cml-music-playlist__eyebrow">${activePlaylistName ? 'Playlist' : 'Library'}</p>
+            ${showPlaylistHeader ? `<p class="cml-music-playlist__eyebrow">Playlist</p>` : ''}
             <h3 class="cml-music-playlist__title">${escapeHtml(activePlaylistName || 'Tracks')}</h3>
           </div>
           <div class="cml-music-playlist__head-actions">
@@ -2743,6 +2744,196 @@ export function SearchSummary({ query, resultCount, filterParts = [], hasActiveF
   `;
 }
 
+function SearchResultSection({ title = '', count = 0, body = '', sectionClassName = '' } = {}) {
+  if (!body) {
+    return '';
+  }
+  const sectionClass = ['cml-search-group', sectionClassName].filter(Boolean).join(' ');
+  return `
+    <section class="${sectionClass}" aria-label="${escapeHtml(title)} search results">
+      <header class="cml-search-group__header">
+        <h3 class="cml-search-group__title">${escapeHtml(title)}</h3>
+        <span class="cml-search-group__count">${formatItemCount(count)}</span>
+      </header>
+      <div class="cml-search-group__body">
+        ${body}
+      </div>
+    </section>
+  `;
+}
+
+function SearchMusicRows({ items = [], audioState = {}, playlists = [], activePlaylistName = '' } = {}) {
+  if (!items.length) {
+    return '';
+  }
+  const currentId = String(audioState.currentId || '');
+  const isPlaying = Boolean(audioState.isPlaying);
+  return `
+    <div class="cml-music-playlist__table cml-music-playlist__table--search" role="table" aria-label="Music search results">
+      <div class="cml-music-playlist__header" role="row">
+        <span aria-hidden="true"></span>
+        <span role="columnheader">Title</span>
+        <span role="columnheader">Artist</span>
+        <span role="columnheader">Album</span>
+        <span role="columnheader">Time</span>
+        <span role="columnheader">Added</span>
+        <span role="columnheader">Actions</span>
+      </div>
+      <div class="cml-music-list">
+        ${items.map((item, index) => {
+          const isCurrent = currentId === String(item.id || '');
+          const title = escapeHtml(item.audioTitle || item.label || 'Audio track');
+          const artist = escapeHtml(item.audioArtist || 'Unknown Artist');
+          const album = escapeHtml(item.audioAlbum || 'Unknown Album');
+          const playAction = isCurrent ? 'audio-toggle-play' : 'play-audio-item';
+          return `
+            <div class="cml-music-row ${isCurrent ? 'is-current' : ''}" data-audio-row="${escapeHtml(item.id)}" role="row">
+              <button
+                type="button"
+                class="cml-music-row__index"
+                data-action="${playAction}"
+                ${playAction === 'play-audio-item' ? `data-id="${escapeHtml(item.id)}"` : ''}
+                aria-label="${isCurrent && isPlaying ? 'Pause track' : 'Play track'}"
+              >${isCurrent ? (isPlaying ? icon('pause') : icon('play')) : escapeHtml(String(index + 1))}</button>
+              <span class="cml-music-row__meta">
+                <strong class="cml-music-row__title">${title}</strong>
+                <span class="cml-music-row__subtitle">${escapeHtml(item.label || item.sourceId || `Track ${index + 1}`)}</span>
+              </span>
+              <span class="cml-music-row__artist">${artist}</span>
+              <span class="cml-music-row__album">${album}</span>
+              <span class="cml-music-row__duration">${formatAudioDuration(item.audioDuration || 0)}</span>
+              <span class="cml-music-row__added">${formatMusicAddedLabel(item)}</span>
+              <span class="cml-music-row__actions">
+                <button type="button" class="cml-music-row__icon-btn" data-action="rename-audio-item" data-id="${escapeHtml(item.id)}" aria-label="Rename track">${icon('edit')}</button>
+                ${activePlaylistName
+                  ? `<button type="button" class="cml-music-row__icon-btn" data-action="remove-audio-from-playlist" data-id="${escapeHtml(item.id)}" aria-label="Remove from playlist">${icon('close')}</button>`
+                  : (playlists.length
+                    ? `<button type="button" class="cml-music-row__icon-btn" data-action="add-audio-to-playlist" data-id="${escapeHtml(item.id)}" aria-label="Add to playlist">${icon('plus')}</button>`
+                    : '')}
+              </span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function SearchFileRows({ items = [], state }) {
+  if (!items.length) {
+    return '';
+  }
+  const rowsHtml = [...items]
+    .sort((a, b) => new Date(b.takenAt || 0).getTime() - new Date(a.takenAt || 0).getTime())
+    .map((item) => {
+      const { ext, color } = getFileExtIcon(item.label);
+      const name = escapeHtml(item.label || item.description || 'Unnamed file');
+      const date = formatFileDate(item.takenAt);
+      const size = formatFileSize(item.sizeMb);
+      const selected = state.selectedIds.has(item.id) ? 'is-selected' : '';
+      const directory = escapeHtml(String(item.directory || '').replace(/\/+$/, '') || 'Root');
+      return `
+        <div class="cml-docs-row ${selected}" data-action="toggle-select" data-id="${escapeHtml(item.id)}">
+          <div class="cml-docs-row__check">
+            <span class="cml-docs-row__checkbox">${selected ? icon('check') : ''}</span>
+          </div>
+          <div class="cml-docs-row__icon" style="--doc-color: ${color}">
+            <span class="cml-docs-row__ext">${escapeHtml(ext)}</span>
+          </div>
+          <div class="cml-docs-row__name">
+            <strong class="cml-search-file__title">${name}</strong>
+            <span class="cml-search-file__path">${directory}</span>
+          </div>
+          <div class="cml-docs-row__date">${date}</div>
+          <div class="cml-docs-row__size">${size}</div>
+          <button type="button" class="cml-docs-row__more" data-action="docs-row-menu" data-id="${escapeHtml(item.id)}" title="More actions">
+            ${icon('dots')}
+          </button>
+        </div>
+      `;
+    }).join('');
+  return `
+    <div class="cml-docs-table cml-docs-table--search">
+      <div class="cml-docs-table__body">
+        ${rowsHtml}
+      </div>
+    </div>
+  `;
+}
+
+export function SearchResultsView({
+  query = '',
+  totalCount = 0,
+  photoSections = [],
+  photoCount = 0,
+  videoSections = [],
+  videoCount = 0,
+  audioItems = [],
+  audioCount = 0,
+  fileItems = [],
+  fileCount = 0,
+  albumCards = [],
+  albumCount = 0,
+  state,
+  layoutWidth = 0,
+  audioState = {},
+  playlists = [],
+  activePlaylistName = ''
+} = {}) {
+  const summary = SearchSummary({
+    query,
+    resultCount: totalCount,
+    hasActiveFilters: true
+  });
+  const hasResults = photoCount || videoCount || audioCount || fileCount || albumCount;
+  if (!hasResults) {
+    return `
+      ${summary}
+      ${EmptyState({
+        query,
+        isLoading: false,
+        mode: 'media'
+      })}
+    `;
+  }
+
+  return `
+    ${summary}
+    <div class="cml-search-results">
+      ${SearchResultSection({
+        title: 'Photos',
+        count: photoCount,
+        body: photoSections.map((section) => MediaTimelineSection({ section, state, layoutWidth })).join(''),
+        sectionClassName: 'cml-search-group--photos'
+      })}
+      ${SearchResultSection({
+        title: 'Videos',
+        count: videoCount,
+        body: videoSections.map((section) => MediaTimelineSection({ section, state, layoutWidth })).join(''),
+        sectionClassName: 'cml-search-group--videos'
+      })}
+      ${SearchResultSection({
+        title: 'Music',
+        count: audioCount,
+        body: SearchMusicRows({ items: audioItems, audioState, playlists, activePlaylistName }),
+        sectionClassName: 'cml-search-group--music'
+      })}
+      ${SearchResultSection({
+        title: 'Files',
+        count: fileCount,
+        body: SearchFileRows({ items: fileItems, state }),
+        sectionClassName: 'cml-search-group--files'
+      })}
+      ${SearchResultSection({
+        title: 'Albums',
+        count: albumCount,
+        body: albumCards.length ? CollectionGrid({ collections: albumCards }) : '',
+        sectionClassName: 'cml-search-group--albums'
+      })}
+    </div>
+  `;
+}
+
 export function VideoCategoryBar({ categories = [], activeCategory = '', totalCount = 0 }) {
   if (!categories.length && !activeCategory) {
     return '';
@@ -2885,13 +3076,13 @@ export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutW
   return `
     <div class="cml-bin-view">
       <header class="cml-bin-view__header">
-        <div class="cml-bin-view__meta cml-view-summary cml-view-summary--plain">
-          <p class="cml-view-summary__eyebrow">Recycle bin</p>
+        <div class="cml-bin-view__meta">
+          <span class="cml-bin-view__label">Bin</span>
           ${selectedCount > 0
-            ? `<h2 class="cml-view-summary__title">${selectedCount} selected</h2><p class="cml-view-summary__copy">Restore or permanently delete the selected items.</p>`
+            ? `<span class="cml-bin-view__count">${selectedCount} selected</span>`
             : hasItems
-              ? `<h2 class="cml-view-summary__title">${items.length} item${items.length === 1 ? '' : 's'} in bin</h2><p class="cml-view-summary__copy">Deleted items stay here for up to 45 days before permanent removal.</p>`
-              : ''}
+              ? `<span class="cml-bin-view__count">${items.length} item${items.length === 1 ? '' : 's'}</span>`
+              : `<span class="cml-bin-view__count">Empty</span>`}
         </div>
         <div class="cml-bin-view__actions">${headerActions}</div>
       </header>
