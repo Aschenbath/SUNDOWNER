@@ -4214,20 +4214,9 @@ body.codex-media-library-active #app {
 
 /* ── Tile shimmer skeleton ─────────────────────────────────────── */
 
-@keyframes cml-shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
-}
-
 #codex-media-library-root .cml-media-tile:not(.is-img-loaded) {
-  background: linear-gradient(
-    90deg,
-    #2a2a2a 25%,
-    #353535 50%,
-    #2a2a2a 75%
-  );
-  background-size: 200% 100%;
-  animation: cml-shimmer 1.6s ease-in-out infinite;
+  background: color-mix(in srgb, var(--cml-theme-card) 84%, #262626 16%);
+  animation: none;
 }
 
 /* ── Blur-up progressive loading ───────────────────────────────── */

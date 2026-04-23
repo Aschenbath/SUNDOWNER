@@ -435,6 +435,33 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="toggle-select"/);
   });
 
+  it('renders remembered full-loaded tiles without falling back to blur placeholders again', () => {
+    const html = MediaTile({
+      item: {
+        id: 'managed-7b',
+        type: 'photo',
+        label: 'river.jpg',
+        sourceUrl: '/file/scenery/river.jpg',
+        thumbnailUrl: '/file/scenery/river.jpg?preview=1',
+        blurThumbUrl: '/file/scenery/river.jpg?preview=tiny',
+        width: 1200,
+        height: 900,
+        displayTakenAt: 'April 8, 2026 21:42',
+      },
+      selected: false,
+      layout: { width: 240, height: 180 },
+      state: {
+        loadedMediaIds: new Set(['managed-7b']),
+        fullLoadedMediaIds: new Set(['managed-7b'])
+      }
+    });
+
+    assert.match(html, /class="cml-media-tile is-img-loaded is-full-loaded"/);
+    assert.match(html, /src="\/file\/scenery\/river\.jpg\?preview=1"/);
+    assert.doesNotMatch(html, /is-blur-placeholder/);
+    assert.doesNotMatch(html, /data-full-src=/);
+  });
+
   it('keeps collection cards on date-only metadata, uses clickable album titles, and omits the cover summary line', () => {
     const summaryHtml = CollectionSummary({
       activeAlbumName: 'scenery',
@@ -1026,6 +1053,7 @@ describe('media library download actions', () => {
   it('keeps primary and secondary nav fast-paths aware of active desktop search state', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
+    assert.match(appSource, /function saveJson\(key, value\)/);
     assert.match(appSource, /function hasActiveSearchUiState\(\)/);
     assert.match(appSource, /&& !hasActiveSearchUiState\(\)\s*&& !state\.secondaryFilter/);
     assert.match(appSource, /&& !hasActiveSearchUiState\(\)\s*&& !state\.activeAlbumName/);

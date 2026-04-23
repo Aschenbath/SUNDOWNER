@@ -341,7 +341,7 @@ export function buildJustifiedRows(items, options = {}) {
   return rows;
 }
 
-function renderMediaAsset(item, className, withControls = false, { noAction = false } = {}) {
+function renderMediaAsset(item, className, withControls = false, { noAction = false, preferFullImage = false } = {}) {
   const sourceUrl = item.sourceUrl || item.thumbnailUrl;
   const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
   const mediaUrl = escapeHtml((item.type === 'video' || item.type === 'audio') ? sourceUrl : imageUrl);
@@ -411,7 +411,7 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
     : '';
   const errorAttr = genericErrorHandler ? ` onerror="${escapeHtml(genericErrorHandler)}"` : '';
   // Blur-up: load tiny Telegram thumbnail first, then swap to full image
-  const blurThumb = !withControls && item.blurThumbUrl && item.blurThumbUrl !== imageUrl
+  const blurThumb = !preferFullImage && !withControls && item.blurThumbUrl && item.blurThumbUrl !== imageUrl
     ? item.blurThumbUrl : '';
   if (blurThumb) {
     const fullSrcAttr = ` data-full-src="${mediaUrl}"`;
@@ -816,18 +816,26 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   `;
 }
 
-export function MediaTile({ item, selected, layout, isCover = false }) {
+export function MediaTile({ item, selected, layout, isCover = false, state = null }) {
   if (!shouldDisplayMediaItem(item)) {
     return '';
   }
   const previewLabel = `${safeDisplayLabel(item)} - ${formatTakenAt(item)}`;
   const style = `width:${layout.width}px;height:${layout.height}px;`;
+  const tileId = String(item.id || '');
+  const loadedMediaIds = state?.loadedMediaIds instanceof Set ? state.loadedMediaIds : null;
+  const fullLoadedMediaIds = state?.fullLoadedMediaIds instanceof Set ? state.fullLoadedMediaIds : null;
+  const isImgLoaded = Boolean(tileId && loadedMediaIds?.has(tileId));
+  const isFullLoaded = Boolean(tileId && fullLoadedMediaIds?.has(tileId));
+  const tileClassName = ['cml-media-tile', selected ? 'is-selected' : '', isImgLoaded ? 'is-img-loaded' : '', isFullLoaded ? 'is-full-loaded' : '']
+    .filter(Boolean)
+    .join(' ');
   return `
-    <article class="cml-media-tile ${selected ? 'is-selected' : ''}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}">
+    <article class="${tileClassName}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}">
       <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
-      ${renderMediaAsset(item, 'cml-media-tile__image')}
+      ${renderMediaAsset(item, 'cml-media-tile__image', false, { preferFullImage: isFullLoaded })}
       ${item.type === 'video' ? `<span class="cml-media-tile__video-badge" aria-hidden="true">${icon('play')}</span>` : ''}
       ${isCover ? `<span class="cml-media-tile__cover-badge" aria-label="Album cover">${icon('star')}</span>` : ''}
       <div class="cml-media-tile__scrim"></div>
@@ -847,7 +855,8 @@ export function renderMediaRows(rows, state, coverItemId = '') {
           item: layout.item,
           layout,
           selected: state.selectedIds.has(layout.item.id),
-          isCover: coverItemId && layout.item.id === coverItemId
+          isCover: coverItemId && layout.item.id === coverItemId,
+          state
         })).join('')}
       </div>
     `;

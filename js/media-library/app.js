@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=72';
+} from './components.js?v=73';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -210,6 +210,14 @@ function loadJson(key, fallback) {
   }
 }
 
+function saveJson(key, value) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    // Ignore local persistence failures and keep the UI responsive.
+  }
+}
+
 function loadStringSet(key) {
   const values = loadJson(key, []);
   return new Set(Array.isArray(values) ? values.map(String) : []);
@@ -288,6 +296,8 @@ const state = {
   searchDraft: '',
   selectedIds: new Set(),
   favoriteIds: new Set(),
+  loadedMediaIds: new Set(),
+  fullLoadedMediaIds: new Set(),
   albumNames: [],
   albumAssignments: {},
   albumCovers: {},
@@ -1231,6 +1241,11 @@ function swapTileToFullImage(img, tile, fullSrc) {
     img.classList.remove('is-blur-placeholder');
     img.src = fullSrc;
     tile.classList.add('is-full-loaded');
+    const tileId = normalizeText(tile.dataset?.tileId || tile.dataset?.id || '');
+    if (tileId) {
+      state.loadedMediaIds.add(tileId);
+      state.fullLoadedMediaIds.add(tileId);
+    }
     if (source?.naturalWidth && source?.naturalHeight) {
       captureDimension(source, tile);
     } else {
@@ -1263,11 +1278,22 @@ function setupImageLoadAnimations() {
     if (!tile) {
       return;
     }
+    const tileId = normalizeText(tile.dataset?.tileId || tile.dataset?.id || '');
+    const rememberLoaded = ({ fullLoaded = false } = {}) => {
+      if (!tileId) {
+        return;
+      }
+      state.loadedMediaIds.add(tileId);
+      if (fullLoaded) {
+        state.fullLoadedMediaIds.add(tileId);
+      }
+    };
     const fullSrc = img.dataset.fullSrc || '';
     if (img.complete && img.naturalWidth > 0) {
       // Skip fade-in for already-cached images (avoids flash on every render)
       img.style.transition = 'none';
       tile.classList.add('is-img-loaded');
+      rememberLoaded({ fullLoaded: !fullSrc || img.src === fullSrc });
       if (fullSrc && img.src !== fullSrc) {
         // Do not read dimensions from the blur thumbnail; wait for the real
         // image so portrait photos do not get patched as landscape tiles.
@@ -1292,15 +1318,23 @@ function setupImageLoadAnimations() {
       // Blur-up: load tiny thumbnail first, then swap to full
       img.addEventListener('load', function onBlurLoad() {
         tile.classList.add('is-img-loaded');
+        rememberLoaded();
         swapTileToFullImage(img, tile, fullSrc);
       }, { once: true });
-      img.addEventListener('error', () => tile.classList.add('is-img-loaded'), { once: true });
+      img.addEventListener('error', () => {
+        tile.classList.add('is-img-loaded');
+        rememberLoaded();
+      }, { once: true });
     } else {
       img.addEventListener('load', () => {
         tile.classList.add('is-img-loaded');
+        rememberLoaded({ fullLoaded: true });
         captureDimension(img, tile);
       }, { once: true });
-      img.addEventListener('error', () => tile.classList.add('is-img-loaded'), { once: true });
+      img.addEventListener('error', () => {
+        tile.classList.add('is-img-loaded');
+        rememberLoaded();
+      }, { once: true });
     }
   });
   // Apply cached mismatches synchronously — render() runs before the browser
@@ -1316,7 +1350,13 @@ function setupImageLoadAnimations() {
     if (!tile) {
       return;
     }
-    const markLoaded = () => tile.classList.add('is-img-loaded');
+    const tileId = normalizeText(tile.dataset?.tileId || tile.dataset?.id || '');
+    const markLoaded = () => {
+      tile.classList.add('is-img-loaded');
+      if (tileId) {
+        state.loadedMediaIds.add(tileId);
+      }
+    };
     if (video.readyState >= 2) {
       markLoaded();
       return;
