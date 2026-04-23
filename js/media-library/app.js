@@ -7743,13 +7743,42 @@ function isPrimaryViewDomInSync(primary) {
   if (!(refs.root instanceof HTMLElement)) {
     return true;
   }
+  const contentInner = refs.root.querySelector('.cml-main-content__inner');
+  const domPrimary = contentInner instanceof HTMLElement
+    ? normalizeText(contentInner.dataset.primaryView)
+    : '';
+  const domSecondary = contentInner instanceof HTMLElement
+    ? normalizeText(contentInner.dataset.secondaryView)
+    : '';
+  const domPrivate = contentInner instanceof HTMLElement
+    ? contentInner.dataset.privateView === '1'
+    : false;
+  const domAlbum = contentInner instanceof HTMLElement
+    ? normalizeText(contentInner.dataset.activeAlbum || '')
+    : '';
+  const domPlaylist = contentInner instanceof HTMLElement
+    ? normalizeText(contentInner.dataset.activePlaylist || '')
+    : '';
   if (primary === 'Music') {
-    return refs.root.querySelector('.cml-main-content__inner.is-music-view') instanceof HTMLElement;
+    return domPrimary === 'Music'
+      && !domSecondary
+      && !domPrivate
+      && !domAlbum
+      && (refs.root.querySelector('.cml-main-content__inner.is-music-view') instanceof HTMLElement)
+      && domPlaylist === normalizeText(state.activePlaylistName || '');
   }
   if (primary === 'Mind') {
-    return refs.root.querySelector('.cml-main-content__inner.is-mind-view') instanceof HTMLElement;
+    return domPrimary === 'Mind'
+      && !domSecondary
+      && !domPrivate
+      && !domAlbum
+      && (refs.root.querySelector('.cml-main-content__inner.is-mind-view') instanceof HTMLElement);
   }
-  return true;
+  return domPrimary === normalizeText(primary)
+    && domSecondary === normalizeText(state.secondaryFilter || '')
+    && domPrivate === Boolean(state.privateViewOpen)
+    && domAlbum === normalizeText(state.activeAlbumName || '')
+    && domPlaylist === normalizeText(state.activePlaylistName || '');
 }
 
 function patchSidebarStorageCard() {
@@ -8012,7 +8041,14 @@ function render() {
         })}
         <div class="cml-main-content-shell ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'cml-main-content-shell--music' : ''}">
           <main class="cml-main-content ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'cml-main-content--music' : ''}" tabindex="-1">
-            <div class="cml-main-content__inner ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'is-music-view' : ''} ${viewModel.isGlobalSearchView ? 'is-search-view' : ''}">
+            <div
+              class="cml-main-content__inner ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'is-music-view' : ''} ${viewModel.isGlobalSearchView ? 'is-search-view' : ''}"
+              data-primary-view="${normalizeText(state.primaryFilter || 'Photos')}"
+              data-secondary-view="${normalizeText(state.secondaryFilter || '')}"
+              data-private-view="${state.privateViewOpen ? '1' : '0'}"
+              data-active-album="${normalizeText(state.activeAlbumName || '')}"
+              data-active-playlist="${normalizeText(state.activePlaylistName || '')}"
+            >
               ${state.primaryFilter === 'Bin'
                 ? BinGrid({
                   items: viewModel.binItems,
