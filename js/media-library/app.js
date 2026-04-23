@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=68';
+} from './components.js?v=69';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -177,6 +177,7 @@ const AUDIO_MODE_SEQUENCE = 'queue';
 const AUDIO_MODE_REPEAT_ONE = 'repeat-one';
 const AUDIO_MODE_SHUFFLE = 'shuffle';
 const MEDIA_LIBRARY_THEME_STORAGE_KEY = 'codex-media-library-theme';
+const MIND_SETTINGS_STORAGE_KEY = 'codex-media-library-mind-settings';
 const MEDIA_LIBRARY_THEME_KEYS = ['editorial-dark', 'clover', 'horizon', 'lily', 'marigold', 'royal', 'violet'];
 const MIND_STATE_FRESH_MS = 30000;
 
@@ -270,6 +271,7 @@ function clearLegacyAlbumState() {
 }
 
 const legacyAlbumState = readLegacyAlbumState();
+const initialMindSettings = loadPersistedMindSettings();
 
 const state = {
   primaryFilter: 'Photos',
@@ -354,8 +356,8 @@ const state = {
   mindLastLoadedAt: 0,
   mindSettingsBusy: false,
   mindDeletingIds: new Set(),
-  mindSettings: createDefaultMindSettings(),
-  mindSettingsDraft: createMindSettingsDraft(),
+  mindSettings: initialMindSettings,
+  mindSettingsDraft: createMindSettingsDraft(initialMindSettings),
   mindSettingsOpen: false,
   uiTheme: loadMediaLibraryTheme(),
   uiThemeMenuOpen: false,
@@ -848,6 +850,18 @@ async function playAudioItemById(itemId, { queueItems = null, autoplay = true } 
     if (refs.root) {
       patchAudioUi();
     }
+  }
+}
+
+function loadPersistedMindSettings() {
+  return normalizeMindSettings(loadJson(MIND_SETTINGS_STORAGE_KEY, createDefaultMindSettings()));
+}
+
+function persistMindSettings(settings = {}) {
+  try {
+    window.localStorage.setItem(MIND_SETTINGS_STORAGE_KEY, JSON.stringify(normalizeMindSettings(settings)));
+  } catch {
+    // Ignore persistence failures and keep the UI responsive.
   }
 }
 
@@ -3214,6 +3228,7 @@ function applyMindState(payload) {
   const stickyMessages = mindVisitStickyMessages.slice();
   state.mindSettings = normalizeMindSettings(payload?.settings || {});
   state.mindSettingsDraft = createMindSettingsDraft(state.mindSettings);
+  persistMindSettings(state.mindSettings);
   state.mindMessages = sortMindMessages(safeArray(payload?.messages)
     .map((message) => normalizeMindMessage(message, {
       forceRight: isMindMessageStickyForVisit(message, stickyMessages)
@@ -3380,6 +3395,7 @@ async function saveMindSettings() {
   const optimisticSettings = normalizeMindSettings(state.mindSettingsDraft);
   state.mindSettings = optimisticSettings;
   state.mindSettingsDraft = createMindSettingsDraft(optimisticSettings);
+  persistMindSettings(state.mindSettings);
   state.mindSettingsOpen = false;
   state.mindSettingsBusy = true;
   if (refs.root) {
@@ -3394,6 +3410,7 @@ async function saveMindSettings() {
   } catch (error) {
     state.mindSettings = previousSettings;
     state.mindSettingsDraft = attemptedDraft;
+    persistMindSettings(state.mindSettings);
     state.mindSettingsOpen = true;
     showToast(error.message || 'Failed to save Mind settings');
   } finally {
@@ -7949,7 +7966,10 @@ function render() {
                 })
                 : viewModel.isMindView
                 ? ((!state.mindHydrated && state.mindLoading)
-                  ? MindLoadingView({ contactName: state.mindSettings?.contactName || 'Mind' })
+                  ? MindLoadingView({
+                      settings: state.mindSettings,
+                      wallpaperUrl: resolveMindWallpaperUrl(state.mindSettings)
+                    })
                   : MindChatView({
                     messages: state.mindMessages,
                     draft: state.mindDraft,

@@ -1389,6 +1389,22 @@ body.codex-media-library-active #app {
   padding: 12px 4px 0;
 }
 
+#codex-media-library-root .cml-view-summary--plain {
+  background: transparent;
+  box-shadow: none;
+  border-color: transparent;
+  padding-inline: 0;
+}
+
+#codex-media-library-root .cml-view-summary--plain .cml-view-summary__title {
+  font-size: clamp(28px, 4vw, 46px);
+  letter-spacing: -0.03em;
+}
+
+#codex-media-library-root .cml-view-summary--plain .cml-view-summary__copy {
+  color: var(--cml-theme-text-soft);
+}
+
 #codex-media-library-root .cml-view-summary__back {
   align-self: flex-start;
 }

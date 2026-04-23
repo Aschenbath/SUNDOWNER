@@ -1536,14 +1536,25 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
   `;
 }
 
-export function MindLoadingView({ contactName = 'Mind' } = {}) {
-  const safeName = escapeHtml(contactName || 'Mind');
+export function MindLoadingView({ settings = {}, wallpaperUrl = '' } = {}) {
+  const contactName = escapeHtml(settings.contactName || 'Mind');
+  const contactAvatarData = escapeHtml(settings.contactAvatarData || '');
+  const allowedBackgroundPresets = new Set(['ios-sky', 'sunset-glow', 'seafoam', 'midnight', 'paper']);
+  const allowedSendButtonColors = new Set(['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'black']);
+  const backgroundPreset = allowedBackgroundPresets.has(settings.backgroundPreset) ? settings.backgroundPreset : 'ios-sky';
+  const sendButtonColor = allowedSendButtonColors.has(settings.sendButtonColor) ? settings.sendButtonColor : 'green';
+  const wallpaperStyle = wallpaperUrl
+    ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(wallpaperUrl)}');--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`
+    : ` style="--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`;
+  const avatarHtml = contactAvatarData
+    ? `<span class="cml-mind-header__avatar"><img src="${contactAvatarData}" alt="${contactName}" class="cml-mind-header__avatar-image"></span>`
+    : `<span class="cml-mind-header__avatar cml-mind-header__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`;
   return `
-    <section class="cml-mind cml-mind--loading" aria-label="Loading Mind conversation">
+    <section class="cml-mind cml-mind--loading cml-mind--${backgroundPreset} cml-mind--send-${sendButtonColor}" aria-label="Loading Mind conversation"${wallpaperStyle}>
       <header class="cml-mind-header">
-        <span class="cml-mind-header__avatar cml-mind-header__avatar--fallback">${safeName.charAt(0).toUpperCase() || 'M'}</span>
+        ${avatarHtml}
         <div class="cml-mind-header__copy">
-          <p class="cml-mind-header__title">${safeName}</p>
+          <p class="cml-mind-header__title">${contactName}</p>
           <p class="cml-mind-header__meta">Loading conversation…</p>
         </div>
       </header>
@@ -1622,7 +1633,7 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
         </div>
       ` : '';
   return `
-    <section class="cml-view-summary">
+    <section class="cml-view-summary cml-view-summary--plain">
       ${activeHeaderHtml}
       ${hasActiveAlbum ? '' : `<p class="cml-view-summary__eyebrow">Albums</p>`}
       ${hasActiveAlbum ? '' : `<h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>`}
@@ -2874,7 +2885,7 @@ export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutW
   return `
     <div class="cml-bin-view">
       <header class="cml-bin-view__header">
-        <div class="cml-bin-view__meta cml-view-summary">
+        <div class="cml-bin-view__meta cml-view-summary cml-view-summary--plain">
           <p class="cml-view-summary__eyebrow">Recycle bin</p>
           ${selectedCount > 0
             ? `<h2 class="cml-view-summary__title">${selectedCount} selected</h2><p class="cml-view-summary__copy">Restore or permanently delete the selected items.</p>`
