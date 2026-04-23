@@ -467,46 +467,50 @@ export function Sidebar({
           <span class="cml-sidebar__brand-name" style="font-family: 'Times New Roman', Times, serif !important;">SUNDOWNER</span>
         </div>
       </div>
-      <div class="cml-sidebar__nav" role="navigation" aria-label="Primary navigation">
-        ${navigationModel.primary.map((label) => {
-          const key = label.toLowerCase();
-          const active = isPrimaryActive(label) ? 'is-active' : '';
-  const iconName = key === 'photos'
-    ? 'photos'
-    : key === 'music'
-      ? 'music'
-    : key === 'bin'
-      ? 'trash'
-      : key === 'mind'
-        ? 'memory'
-      : key === 'private'
-        ? 'lock'
-        : 'albums';
-          const displayLabel = label === 'Collections'
-            ? 'Albums'
-            : (label === 'Mind' ? (state.mindSettings?.contactName || 'Mind') : label);
-          return `
-            <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}" aria-current="${isPrimaryActive(label) ? 'page' : 'false'}">
-              ${icon(iconName)}
-              <span class="cml-sidebar__nav-label">${escapeHtml(displayLabel)}</span>
-            </button>
-          `;
-        }).join('')}
-      </div>
-      ${navigationModel.secondary.length ? `
-        <div class="cml-sidebar__section-label">collection</div>
-        <div class="cml-sidebar__subnav">
-          ${navigationModel.secondary.map((label) => {
-            const active = state.secondaryFilter === label ? 'is-active' : '';
+      <section class="cml-sidebar__section cml-sidebar__section--primary">
+        <div class="cml-sidebar__nav" role="navigation" aria-label="Primary navigation">
+          ${navigationModel.primary.map((label) => {
+            const key = label.toLowerCase();
+            const active = isPrimaryActive(label) ? 'is-active' : '';
+    const iconName = key === 'photos'
+      ? 'photos'
+      : key === 'music'
+        ? 'music'
+      : key === 'bin'
+        ? 'trash'
+        : key === 'mind'
+          ? 'memory'
+        : key === 'private'
+          ? 'lock'
+          : 'albums';
+            const displayLabel = label === 'Collections'
+              ? 'Albums'
+              : (label === 'Mind' ? (state.mindSettings?.contactName || 'Mind') : label);
             return `
-              <button type="button" class="cml-sidebar__subnav-item ${active}" data-secondary="${escapeHtml(label)}" aria-current="${state.secondaryFilter === label ? 'page' : 'false'}">
-                <span class="cml-sidebar__subnav-arrow">&#9656;</span>
-                ${icon(secondaryIconMap[label])}
-                <span class="cml-sidebar__subnav-label">${escapeHtml(label)}</span>
+              <button type="button" class="cml-sidebar__nav-item ${active}" data-primary="${escapeHtml(label)}" aria-current="${isPrimaryActive(label) ? 'page' : 'false'}">
+                ${icon(iconName)}
+                <span class="cml-sidebar__nav-label">${escapeHtml(displayLabel)}</span>
               </button>
             `;
           }).join('')}
         </div>
+      </section>
+      ${navigationModel.secondary.length ? `
+        <section class="cml-sidebar__section cml-sidebar__section--secondary">
+          <div class="cml-sidebar__section-label">collection</div>
+          <div class="cml-sidebar__subnav">
+            ${navigationModel.secondary.map((label) => {
+              const active = state.secondaryFilter === label ? 'is-active' : '';
+              return `
+                <button type="button" class="cml-sidebar__subnav-item ${active}" data-secondary="${escapeHtml(label)}" aria-current="${state.secondaryFilter === label ? 'page' : 'false'}">
+                  <span class="cml-sidebar__subnav-arrow">&#9656;</span>
+                  ${icon(secondaryIconMap[label])}
+                  <span class="cml-sidebar__subnav-label">${escapeHtml(label)}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </section>
       ` : ''}
       <div class="cml-sidebar__footer" data-audio-dock-key="${escapeHtml(desktopAudioDockKey)}" data-has-audio-dock="${desktopAudioDock ? 'true' : 'false'}">
         ${desktopAudioDock}
@@ -750,13 +754,16 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   }
   return `
       <header class="cml-topbar">
-      <label class="cml-topbar__search" aria-label="Search">
-        ${icon('search', 'cml-topbar__search-icon')}
-        <input type="search" class="cml-topbar__search-input" placeholder="${escapeHtml(searchPlaceholder)}" value="${searchValue}" />
-      </label>
-      <div class="cml-topbar__actions">
-        ${themeMenu}
-        ${isAlbumPickerMode ? `
+      <div class="cml-topbar__lead">
+        <label class="cml-topbar__search" aria-label="Search">
+          ${icon('search', 'cml-topbar__search-icon')}
+          <input type="search" class="cml-topbar__search-input" placeholder="${escapeHtml(searchPlaceholder)}" value="${searchValue}" />
+        </label>
+      </div>
+      <div class="cml-topbar__trailing">
+        <div class="cml-topbar__actions">
+          ${themeMenu}
+          ${isAlbumPickerMode ? `
           <button type="button" class="cml-topbar__secondary-button" data-action="cancel-add-to-current-album">
             ${icon('previous')}
             <span>Back to ${escapeHtml(pickerTargetLabel || 'album')}</span>
@@ -805,13 +812,14 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
         ${activeAlbumName ? `
           <button type="button" class="cml-topbar__secondary-button is-destructive" data-action="delete-album" data-album-name="${escapeHtml(activeAlbumName)}">${icon('trash')}<span>Delete album</span></button>
         ` : ''}
+        </div>
+        ${AvatarButton({
+          adminUsername: state.adminUsername,
+          adminDisplayName: state.adminDisplayName,
+          adminAvatarData: state.adminAvatarData,
+          avatarMenuOpen: state.avatarMenuOpen
+        })}
       </div>
-      ${AvatarButton({
-        adminUsername: state.adminUsername,
-        adminDisplayName: state.adminDisplayName,
-        adminAvatarData: state.adminAvatarData,
-        avatarMenuOpen: state.avatarMenuOpen
-      })}
     </header>
   `;
 }
@@ -2405,9 +2413,9 @@ export function PreviewModal({
           <button type="button" class="cml-preview__info-close" data-action="toggle-info" aria-label="Close details">${icon('close')}</button>
           <h4 class="cml-preview__info-toolbar-title">Info</h4>
         </div>
-        ${renderPreviewCaptureTimeSection(item)}
-        ${renderPreviewVideoCategorySection(item)}
-        <section class="cml-preview__info-section cml-preview__info-section--description" data-action="edit-description">
+        ${renderPreviewCaptureTimeSection(item).replace('cml-preview__info-section cml-preview__info-section--capture-time', 'cml-preview__info-section cml-preview__info-section--capture-time cml-preview__info-section--editable')}
+        ${renderPreviewVideoCategorySection(item).replace('cml-preview__info-section cml-preview__info-section--video-category', 'cml-preview__info-section cml-preview__info-section--video-category cml-preview__info-section--editable')}
+        <section class="cml-preview__info-section cml-preview__info-section--description cml-preview__info-section--editable" data-action="edit-description">
           <p class="cml-preview__info-description ${item.description ? 'has-content' : ''}">${item.description ? escapeHtml(item.description) : 'Add a description'}</p>
         </section>
         ${item.personLabels && item.personLabels.length ? `
@@ -2420,14 +2428,14 @@ export function PreviewModal({
             </div>
           </section>
         ` : ''}
-        <section class="cml-preview__info-section">
+        <section class="cml-preview__info-section cml-preview__info-section--passive">
           <h5 class="cml-preview__info-heading">Details</h5>
           <div class="cml-preview__info-list">
             ${detailItems}
           </div>
         </section>
         ${cameraRows.length ? `
-          <section class="cml-preview__info-section cml-preview__info-section--camera">
+          <section class="cml-preview__info-section cml-preview__info-section--camera cml-preview__info-section--passive">
             <h5 class="cml-preview__info-heading">Camera</h5>
             <dl class="cml-preview__info-meta">
               ${cameraRows.map((row) => `
@@ -2437,7 +2445,7 @@ export function PreviewModal({
             </dl>
           </section>
         ` : ''}
-        <section class="cml-preview__info-section cml-preview__info-section--tags" data-action="edit-tags">
+        <section class="cml-preview__info-section cml-preview__info-section--tags cml-preview__info-section--editable" data-action="edit-tags">
           <h5 class="cml-preview__info-heading">Tags</h5>
           <div class="cml-preview__info-tags-wrap">
             <div class="cml-preview__info-tags">

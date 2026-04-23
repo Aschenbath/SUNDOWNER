@@ -21,6 +21,8 @@ describe('media library download actions', () => {
 
     assert.match(html, /class="cml-sidebar__brand-name"[^>]*>SUNDOWNER</);
     assert.doesNotMatch(html, /cml-sidebar__brand-logo/);
+    assert.match(html, /cml-sidebar__section cml-sidebar__section--primary/);
+    assert.match(html, /cml-sidebar__section cml-sidebar__section--secondary/);
   });
 
   it('renders a selection download action without replacing delete/add-to-album controls', () => {
@@ -1148,6 +1150,68 @@ describe('media library download actions', () => {
     assert.match(html, /1\.5 GB \/ INFINITE/);
     assert.match(html, />27 items</);
     assert.doesNotMatch(html, /Calculating\.\.\./);
+  });
+
+  it('wraps the default desktop topbar into lead and trailing clusters for a calmer shell layout', () => {
+    const html = TopSearchBar({
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: '',
+        activeAlbumName: '',
+        albumSelectionTarget: '',
+        videoAlbumSelectionTarget: '',
+        privateSelectionMode: false,
+        selectedIds: new Set(),
+        searchDraft: '',
+        searchQuery: '',
+        layoutWidth: 1280,
+        uiThemeMenuOpen: false,
+        uiTheme: 'editorial-dark',
+        adminUsername: 'admin',
+        adminDisplayName: 'Admin',
+        adminAvatarData: '',
+        avatarMenuOpen: false,
+        mindSettings: { contactName: 'Mind' },
+      },
+      canDeleteSelection: false,
+      canDownloadSelection: false,
+      canSetAlbumCover: false,
+    });
+
+    assert.match(html, /cml-topbar__lead/);
+    assert.match(html, /cml-topbar__trailing/);
+    assert.match(html, /cml-topbar__search/);
+    assert.match(html, /cml-avatar-wrap/);
+  });
+
+  it('marks preview editable metadata blocks with dedicated editable section classes', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'managed-preview-structure',
+        type: 'photo',
+        label: 'memoir.jpg',
+        sourceId: 'photos/memoir.jpg',
+        sourceUrl: '/file/photos/memoir.jpg',
+        thumbnailUrl: '/file/photos/memoir.jpg',
+        width: 1080,
+        height: 1440,
+        displayTakenAt: 'April 8, 2026 18:42',
+        mimeType: 'image/jpeg',
+        description: 'A quiet frame.',
+        explicitTags: ['memoir'],
+        tags: ['memoir'],
+      },
+      selected: false,
+      favorited: false,
+      currentIndex: 1,
+      totalCount: 5,
+      infoOpen: true,
+      immersive: false,
+    });
+
+    assert.match(html, /cml-preview__info-section--description cml-preview__info-section--editable/);
+    assert.match(html, /cml-preview__info-section--tags cml-preview__info-section--editable/);
+    assert.match(html, /cml-preview__info-section--passive/);
   });
 
   it('renders a video category filter rail with active chips and counts', () => {

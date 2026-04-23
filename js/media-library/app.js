@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=74';
+} from './components.js?v=75';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
