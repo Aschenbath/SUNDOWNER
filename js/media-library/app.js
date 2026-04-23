@@ -271,7 +271,7 @@ function clearLegacyAlbumState() {
 }
 
 const legacyAlbumState = readLegacyAlbumState();
-const initialMindSettings = loadPersistedMindSettings();
+const initialMindSettings = loadPersistedMindSettingsSeed();
 
 const state = {
   primaryFilter: 'Photos',
@@ -853,8 +853,12 @@ async function playAudioItemById(itemId, { queueItems = null, autoplay = true } 
   }
 }
 
-function loadPersistedMindSettings() {
-  return normalizeMindSettings(loadJson(MIND_SETTINGS_STORAGE_KEY, createDefaultMindSettings()));
+function loadPersistedMindSettingsSeed() {
+  const stored = loadJson(MIND_SETTINGS_STORAGE_KEY, {});
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) {
+    return {};
+  }
+  return stored;
 }
 
 function persistMindSettings(settings = {}) {
