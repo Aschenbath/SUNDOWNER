@@ -8390,7 +8390,7 @@ function render() {
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : state.privateViewOpen && !state.privateRouteUnlocked
                 ? PrivateAlbumGate({ error: state.privatePasswordError, value: state.privatePasswordDraft })
-                : `${state.primaryFilter === 'Collections' && (viewModel.activeAlbumName || !isDesktopLayout()) && !hideMobileCollectionSummary
+                : `${state.primaryFilter === 'Collections' && (viewModel.activeAlbumName || isMobileLayout()) && !hideMobileCollectionSummary
                   ? CollectionSummary({
                     activeAlbumName: viewModel.activeAlbumName,
                     collectionCount: viewModel.totalCollectionCount,
@@ -8403,10 +8403,10 @@ function render() {
                     renameAlbumBusy: state.renameAlbumBusy
                   })
                   : ''}
-                ${state.privateViewOpen && !isDesktopLayout()
+                ${state.privateViewOpen && isMobileLayout()
                   ? PrivateAlbumSummary({ itemCount: viewModel.filteredItems.length, locked: false })
                   : ''}
-                ${state.secondaryFilter === 'Videos' && (state.videoCategoryFilter || !isDesktopLayout())
+                ${state.secondaryFilter === 'Videos' && (state.videoCategoryFilter || isMobileLayout())
                   ? VideoAlbumSummary({
                       activeCategory: activeVideoAlbumLabel,
                       albumCount: viewModel.videoAlbumCount,
