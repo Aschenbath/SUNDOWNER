@@ -2,6 +2,9 @@ const MEDIA_TYPE_FACETS = new Set(['all', 'photo', 'video', 'audio', 'document']
 const TYPE_PREFIXES = new Set(['type', 't', '\u7c7b\u578b']);
 const LOCATION_PREFIXES = new Set(['loc', 'location', 'place', '\u5730\u70b9', '\u4f4d\u7f6e']);
 const CATEGORY_PREFIXES = new Set(['category', 'cat', '\u5206\u7c7b', '\u89c6\u9891\u5206\u7c7b']);
+const CAMERA_PREFIXES = new Set(['camera', 'cam', 'device', '\u76f8\u673a']);
+const TAG_PREFIXES = new Set(['tag', 'tags', '\u6807\u7b7e']);
+const HAS_PREFIXES = new Set(['has', 'with']);
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -49,6 +52,9 @@ export function createEmptyMediaSearchFilters() {
     type: 'all',
     locationQuery: '',
     categoryQuery: '',
+    cameraQuery: '',
+    tagQuery: '',
+    hasLocation: false,
   };
 }
 
@@ -57,6 +63,9 @@ export function normalizeMediaSearchFilters(input = {}) {
     type: normalizeTypeFacet(input.type) || 'all',
     locationQuery: normalizeText(input.locationQuery),
     categoryQuery: normalizeText(input.categoryQuery),
+    cameraQuery: normalizeText(input.cameraQuery),
+    tagQuery: normalizeText(input.tagQuery),
+    hasLocation: input.hasLocation === true || normalizeLowerText(input.hasLocation) === 'location',
   };
 }
 
@@ -102,6 +111,28 @@ export function parseMediaSearchQuery(input = '') {
       return;
     }
 
+    if (CAMERA_PREFIXES.has(prefix)) {
+      filters.cameraQuery = filters.cameraQuery
+        ? `${filters.cameraQuery} ${value}`
+        : value;
+      return;
+    }
+
+    if (TAG_PREFIXES.has(prefix)) {
+      filters.tagQuery = filters.tagQuery
+        ? `${filters.tagQuery} ${value}`
+        : value;
+      return;
+    }
+
+    if (HAS_PREFIXES.has(prefix)) {
+      const normalizedValue = normalizeLowerText(value);
+      if (['location', 'loc', 'gps', 'place', '\u4f4d\u7f6e', '\u5730\u70b9'].includes(normalizedValue)) {
+        filters.hasLocation = true;
+        return;
+      }
+    }
+
     plainTerms.push(stripWrappingQuotes(token));
   });
 
@@ -122,6 +153,15 @@ export function countActiveMediaSearchFilters(input = {}) {
     count += 1;
   }
   if (filters.categoryQuery) {
+    count += 1;
+  }
+  if (filters.cameraQuery) {
+    count += 1;
+  }
+  if (filters.tagQuery) {
+    count += 1;
+  }
+  if (filters.hasLocation) {
     count += 1;
   }
   return count;
@@ -163,6 +203,34 @@ export function matchesMediaSearchFilters(item, input = {}) {
     }
   }
 
+  if (filters.cameraQuery) {
+    const cameraNeedle = filters.cameraQuery.toLowerCase();
+    const cameraHaystack = [
+      item?.exif?.camera?.make,
+      item?.exif?.camera?.model,
+      item?.exif?.camera?.lens,
+    ].join(' ').toLowerCase();
+    if (!cameraHaystack.includes(cameraNeedle)) {
+      return false;
+    }
+  }
+
+  if (filters.tagQuery) {
+    const tagNeedle = filters.tagQuery.toLowerCase();
+    const tagHaystack = (Array.isArray(item?.tags) ? item.tags : []).join(' ').toLowerCase();
+    if (!tagHaystack.includes(tagNeedle)) {
+      return false;
+    }
+  }
+
+  if (filters.hasLocation) {
+    const hasGps = Boolean(item?.exif?.gps?.latitude != null && item?.exif?.gps?.longitude != null);
+    const hasLocationText = Boolean(normalizeText(item?.location));
+    if (!hasGps && !hasLocationText) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -183,6 +251,15 @@ export function summarizeMediaSearch(filtersInput = {}) {
   }
   if (filters.categoryQuery) {
     parts.push(`Category: ${filters.categoryQuery}`);
+  }
+  if (filters.cameraQuery) {
+    parts.push(`Camera: ${filters.cameraQuery}`);
+  }
+  if (filters.tagQuery) {
+    parts.push(`Tag: ${filters.tagQuery}`);
+  }
+  if (filters.hasLocation) {
+    parts.push('Has location');
   }
   return parts;
 }

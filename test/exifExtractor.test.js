@@ -76,6 +76,22 @@ describe('extractExifData', () => {
     assert.equal(parseCalls, 1);
   });
 
+  it('falls back to CreateDate when DateTimeOriginal is missing', async () => {
+    exifr.parse = async () => ({
+      CreateDate: new Date('2024-07-12T10:11:12.000Z'),
+      Model: 'iPhone 15 Pro',
+    });
+
+    const result = await extractExifData(JPEG_BUFFER, 'image/jpeg');
+
+    assert.deepEqual(result, {
+      dateTime: '2024-07-12T10:11:12.000Z',
+      camera: {
+        model: 'iPhone 15 Pro',
+      },
+    });
+  });
+
   it('returns null for unsupported formats without invoking the EXIF parser', async () => {
     let parseCalls = 0;
     exifr.parse = async () => {

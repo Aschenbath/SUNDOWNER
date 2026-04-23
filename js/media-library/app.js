@@ -33,12 +33,13 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=73';
+} from './components.js?v=74';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
   parseMediaSearchQuery,
-} from './search-filters.js?v=3';
+  summarizeMediaSearch,
+} from './search-filters.js?v=4';
 import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
@@ -398,6 +399,16 @@ const state = {
   adminOrphanScanLoading: false,
   adminOrphanScanError: '',
   adminOrphanScanResult: null,
+  adminRecoveryTargetChatId: '',
+  adminRecoverCaptureTimesLoading: false,
+  adminRecoverCaptureTimesError: '',
+  adminRecoverCaptureTimesResult: null,
+  adminRecoverTgFileIdsLoading: false,
+  adminRecoverTgFileIdsError: '',
+  adminRecoverTgFileIdsResult: null,
+  adminRecoverTgThumbnailsLoading: false,
+  adminRecoverTgThumbnailsError: '',
+  adminRecoverTgThumbnailsResult: null,
   adminTelegramChannels: [],
   adminTelegramLoading: false,
   adminTelegramError: '',
@@ -3038,6 +3049,9 @@ function matchesSearchQuery(item, query) {
     item.audioArtist,
     item.audioAlbum,
     item.location,
+    item.exif?.camera?.make,
+    item.exif?.camera?.model,
+    item.exif?.camera?.lens,
     item.year,
     item.monthLabel,
     item.day,
@@ -3938,6 +3952,76 @@ async function performStorageSummarySync({ forceRender = false } = {}) {
   }
 }
 
+async function runAdminRecoveryTask(kind, { dryRun = false } = {}) {
+  const configs = {
+    captureTimes: {
+      loadingKey: 'adminRecoverCaptureTimesLoading',
+      errorKey: 'adminRecoverCaptureTimesError',
+      resultKey: 'adminRecoverCaptureTimesResult',
+      endpoint: '/api/manage/migrate/recover-capture-times',
+      buildBody: () => ({ limit: 20, dryRun }),
+      successLabel: dryRun ? 'Capture-time dry run finished' : 'Capture-time recovery finished',
+    },
+    tgFileIds: {
+      loadingKey: 'adminRecoverTgFileIdsLoading',
+      errorKey: 'adminRecoverTgFileIdsError',
+      resultKey: 'adminRecoverTgFileIdsResult',
+      endpoint: '/api/manage/migrate/recover-tg-file-ids',
+      buildBody: () => ({
+        limit: 20,
+        dryRun,
+        targetChatId: normalizeText(state.adminRecoveryTargetChatId),
+      }),
+      validate: () => normalizeText(state.adminRecoveryTargetChatId) ? true : 'Target chat ID is required for Telegram file ID recovery',
+      successLabel: dryRun ? 'Telegram file ID dry run finished' : 'Telegram file ID recovery finished',
+    },
+    tgThumbnails: {
+      loadingKey: 'adminRecoverTgThumbnailsLoading',
+      errorKey: 'adminRecoverTgThumbnailsError',
+      resultKey: 'adminRecoverTgThumbnailsResult',
+      endpoint: '/api/manage/migrate/recover-tg-thumbnails',
+      buildBody: () => ({
+        limit: 20,
+        dryRun,
+        targetChatId: normalizeText(state.adminRecoveryTargetChatId),
+      }),
+      validate: () => normalizeText(state.adminRecoveryTargetChatId) ? true : 'Target chat ID is required for Telegram thumbnail recovery',
+      successLabel: dryRun ? 'Telegram thumbnail dry run finished' : 'Telegram thumbnail recovery finished',
+    },
+  };
+
+  const config = configs[kind];
+  if (!config || state[config.loadingKey]) {
+    return;
+  }
+
+  if (typeof config.validate === 'function') {
+    const validationResult = config.validate();
+    if (validationResult !== true && validationResult) {
+      state[config.errorKey] = validationResult;
+      patchAdminOverlays();
+      showToast(validationResult);
+      return;
+    }
+  }
+
+  state[config.loadingKey] = true;
+  state[config.errorKey] = '';
+  patchAdminOverlays();
+
+  try {
+    state[config.resultKey] = await postJson(config.endpoint, config.buildBody());
+    const summary = state[config.resultKey] || {};
+    showToast(`${config.successLabel}: ${summary.recovered || 0} recovered, ${summary.failed?.length || 0} failed`, 'success');
+  } catch (error) {
+    state[config.errorKey] = error.message || `Failed to run ${kind} recovery`;
+    showToast(state[config.errorKey], 'error');
+  } finally {
+    state[config.loadingKey] = false;
+    patchAdminOverlays();
+  }
+}
+
 function syncStorageSummary(options = {}) {
   if (storageSyncPromise) {
     return storageSyncPromise;
@@ -4357,6 +4441,9 @@ function buildIndexedMediaItem(record, domLookup, index) {
   const date = new Date(timestamp);
   const dateParts = createDatePartsFromDate(date);
   const sourceUrl = buildFileRoute(fileId);
+  const explicitTags = safeArray(metadata.Tags)
+    .map((tag) => normalizeText(tag).toLowerCase())
+    .filter(Boolean);
   const tags = inferTagsFromMetadata(metadata, fileName, type);
   const videoCategory = inferVideoCategory(metadata, type);
   const isPrivateAlbum = inferPrivateAlbum(metadata, type);
@@ -4392,6 +4479,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     monthLabel: dateParts.monthLabel,
     album: inferAlbumFromFileId(fileId, metadata),
     collectionAlbum: normalizeText(metadata.TgAlbumPath || metadata.Album || ''),
+    explicitTags,
     tags,
     videoCategory,
     isPrivateAlbum,
@@ -6691,6 +6779,59 @@ function patchPrivateAlbumDisplay(section, item) {
   section.append(heading, wrapper);
 }
 
+function normalizeExplicitTags(tags = []) {
+  return [...new Set(
+    safeArray(tags)
+      .map((tag) => normalizeText(tag).toLowerCase().replace(/^#+/, ''))
+      .filter(Boolean)
+  )];
+}
+
+function parsePreviewTagsInput(input = '') {
+  return normalizeExplicitTags(
+    String(input || '')
+      .split(/[\n,]+/)
+      .flatMap((part) => part.split(/\s+/))
+  );
+}
+
+function formatPreviewTagsValue(tags = []) {
+  return normalizeExplicitTags(tags).join(', ');
+}
+
+function patchTagsDisplay(section, tags = []) {
+  const normalizedTags = normalizeExplicitTags(tags);
+  section.textContent = '';
+  section.setAttribute('data-action', 'edit-tags');
+  const heading = document.createElement('h5');
+  heading.className = 'cml-preview__info-heading';
+  heading.textContent = 'Tags';
+  const wrapper = document.createElement('div');
+  wrapper.className = 'cml-preview__info-tags-wrap';
+  const tagsNode = document.createElement('div');
+  tagsNode.className = 'cml-preview__info-tags';
+  if (normalizedTags.length) {
+    normalizedTags.forEach((tag) => {
+      const pill = document.createElement('span');
+      pill.className = 'cml-preview__info-tag';
+      pill.textContent = tag;
+      tagsNode.appendChild(pill);
+    });
+  } else {
+    const empty = document.createElement('p');
+    empty.className = 'cml-preview__info-category-value';
+    empty.textContent = 'Add tags';
+    tagsNode.appendChild(empty);
+  }
+  const meta = document.createElement('p');
+  meta.className = 'cml-preview__info-category-meta';
+  meta.textContent = normalizedTags.length
+    ? 'Click to edit tags for search and organization'
+    : 'Add tags to organize this item and find it faster later';
+  wrapper.append(tagsNode, meta);
+  section.append(heading, wrapper);
+}
+
 function applyPatchedCaptureTime(mediaItem, metadata) {
   if (!mediaItem || !metadata || typeof metadata !== 'object') {
     return;
@@ -6720,6 +6861,18 @@ function applyPatchedPrivateAlbum(mediaItem, metadata) {
     return;
   }
   mediaItem.isPrivateAlbum = inferPrivateAlbum(metadata, mediaItem.type);
+}
+
+function applyPatchedTags(mediaItem, metadata = {}) {
+  if (!mediaItem || !metadata || typeof metadata !== 'object') {
+    return;
+  }
+  mediaItem.explicitTags = normalizeExplicitTags(metadata.Tags);
+  mediaItem.tags = inferTagsFromMetadata(
+    metadata,
+    mediaItem.label || mediaItem.sourceId || '',
+    mediaItem.type,
+  );
 }
 
 function sortMediaItemsInPlace(items) {
@@ -6883,6 +7036,51 @@ async function savePreviewPrivateAlbum(itemId, nextPrivate, previousItem = null)
       patchPrivateAlbumDisplay(privateSection, previousItem);
     }
     showToast(error.message || 'Failed to update hidden album');
+  }
+}
+
+async function savePreviewTags(itemId, tagInput, previousItem = null) {
+  const item = getAllItems().find((entry) => entry.id === itemId);
+  if (!item || !item.sourceId) {
+    showToast('Cannot save tags for this item');
+    return;
+  }
+
+  const encodedPath = encodeMetadataPath(item.sourceId);
+  const nextTags = parsePreviewTagsInput(tagInput);
+
+  try {
+    const response = await apiFetch(`/api/manage/tags/${encodedPath}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set', tags: nextTags })
+    });
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || 'Failed to save tags');
+    }
+
+    const patchedMetadata = {
+      ...(item.exif ? { Exif: item.exif } : {}),
+      ...(typeof data.metadata === 'object' && data.metadata ? data.metadata : {}),
+      Tags: normalizeExplicitTags(data.tags),
+    };
+
+    const mediaItem = state.mediaItems.find((entry) => entry.id === itemId);
+    if (mediaItem) {
+      applyPatchedTags(mediaItem, patchedMetadata);
+    }
+
+    if (!(state.previewId && renderPreviewTransientLayers())) {
+      render();
+    }
+    showToast(nextTags.length ? 'Tags saved' : 'Tags cleared', 'success');
+  } catch (error) {
+    const tagSection = refs.root?.querySelector('.cml-preview__info-section--tags');
+    if (tagSection && previousItem) {
+      patchTagsDisplay(tagSection, previousItem.explicitTags || previousItem.tags || []);
+    }
+    showToast(error.message || 'Failed to save tags');
   }
 }
 
@@ -8051,6 +8249,7 @@ function render() {
   const storageInsights = buildStorageInsights();
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const activeVideoAlbumLabel = getVideoAlbumDisplayName(state.videoCategoryFilter);
+  const searchFilterParts = summarizeMediaSearch(parsedSearch.filters);
 
   // ── Incremental render: preserve the sidebar DOM to avoid flicker ──
   const existingSidebar = refs.root.querySelector('.cml-sidebar');
@@ -8116,6 +8315,8 @@ function render() {
                 ? SearchResultsView({
                     query: parsedSearch.textQuery,
                     totalCount: viewModel.globalSearchResultCount,
+                    filterParts: searchFilterParts,
+                    hasActiveFilters: Boolean(searchFilterParts.length),
                     photoSections: viewModel.searchPhotoSections,
                     photoCount: viewModel.searchPhotoItems.length,
                     videoSections: viewModel.searchVideoSections,
@@ -10436,6 +10637,74 @@ function handleAction(actionTarget) {
       input.focus();
       return true;
     }
+    case 'edit-tags': {
+      const tagsSection = refs.root.querySelector('.cml-preview__info-section--tags');
+      if (!tagsSection) { return true; }
+      const currentItem = getAllItems().find((entry) => entry.id === state.previewId);
+      if (!currentItem) { return true; }
+      const currentTags = normalizeExplicitTags(currentItem.explicitTags || currentItem.tags || []);
+      tagsSection.textContent = '';
+      tagsSection.removeAttribute('data-action');
+      const heading = document.createElement('h5');
+      heading.className = 'cml-preview__info-heading';
+      heading.textContent = 'Tags';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'cml-preview__info-tags-input';
+      input.setAttribute('data-focus-key', 'tags-edit');
+      input.placeholder = 'night, river, canon';
+      input.value = formatPreviewTagsValue(currentTags);
+      const hint = document.createElement('p');
+      hint.className = 'cml-preview__info-tags-hint';
+      hint.textContent = 'Separate tags with commas or spaces. Press Enter to save or Esc to cancel.';
+      const actions = document.createElement('div');
+      actions.className = 'cml-preview__info-editor-actions';
+      const cancelButton = document.createElement('button');
+      cancelButton.type = 'button';
+      cancelButton.className = 'cml-topbar__secondary-button';
+      cancelButton.textContent = 'Cancel';
+      const clearButton = document.createElement('button');
+      clearButton.type = 'button';
+      clearButton.className = 'cml-topbar__secondary-button';
+      clearButton.textContent = 'Clear';
+      const saveButton = document.createElement('button');
+      saveButton.type = 'button';
+      saveButton.className = 'cml-topbar__secondary-button';
+      saveButton.textContent = 'Save';
+      const previousItem = { ...currentItem, explicitTags: [...currentTags], tags: [...(currentItem.tags || [])] };
+      const restoreTags = () => patchTagsDisplay(tagsSection, previousItem.explicitTags || previousItem.tags || []);
+      const commitEdit = (mode = 'save') => {
+        if (mode === 'cancel') {
+          restoreTags();
+          return;
+        }
+        const nextValue = mode === 'clear' ? '' : input.value;
+        const nextTags = parsePreviewTagsInput(nextValue);
+        patchTagsDisplay(tagsSection, nextTags);
+        void savePreviewTags(state.previewId, nextValue, previousItem);
+      };
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commitEdit('save');
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          commitEdit('cancel');
+        }
+      });
+      cancelButton.addEventListener('click', () => commitEdit('cancel'));
+      clearButton.addEventListener('click', () => commitEdit('clear'));
+      saveButton.addEventListener('click', () => commitEdit('save'));
+      if (currentTags.length) {
+        actions.appendChild(clearButton);
+      }
+      actions.append(cancelButton, saveButton);
+      tagsSection.append(heading, input, hint, actions);
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      return true;
+    }
     case 'save-description': {
       const textarea = refs.root.querySelector('.cml-preview__info-description-input');
       const value = textarea ? textarea.value.trim() : '';
@@ -10507,6 +10776,24 @@ function handleAction(actionTarget) {
       return true;
     case 'scan-admin-orphan-files':
       void runAdminOrphanScan();
+      return true;
+    case 'run-admin-recover-capture-times':
+      void runAdminRecoveryTask('captureTimes', { dryRun: false });
+      return true;
+    case 'dry-run-admin-recover-capture-times':
+      void runAdminRecoveryTask('captureTimes', { dryRun: true });
+      return true;
+    case 'run-admin-recover-tg-file-ids':
+      void runAdminRecoveryTask('tgFileIds', { dryRun: false });
+      return true;
+    case 'dry-run-admin-recover-tg-file-ids':
+      void runAdminRecoveryTask('tgFileIds', { dryRun: true });
+      return true;
+    case 'run-admin-recover-tg-thumbnails':
+      void runAdminRecoveryTask('tgThumbnails', { dryRun: false });
+      return true;
+    case 'dry-run-admin-recover-tg-thumbnails':
+      void runAdminRecoveryTask('tgThumbnails', { dryRun: true });
       return true;
     case 'refresh-admin-telegram':
       void refreshAdminTelegram();
@@ -10891,6 +11178,12 @@ function handleInput(event) {
   }
   if (input.hasAttribute('data-docs-move-create-input')) {
     state.docsMoveCreateName = input.value;
+    return;
+  }
+  if (input.hasAttribute('data-admin-recovery-target-chat')) {
+    state.adminRecoveryTargetChatId = input.value;
+    state.adminRecoverTgFileIdsError = '';
+    state.adminRecoverTgThumbnailsError = '';
     return;
   }
   if (input.dataset.adminField && input.dataset.adminSection) {

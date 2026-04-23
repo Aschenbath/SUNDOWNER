@@ -23,6 +23,9 @@ describe('media search filters', () => {
       type: 'video',
       locationQuery: 'guangzhou riverside',
       categoryQuery: '',
+      cameraQuery: '',
+      tagQuery: '',
+      hasLocation: false,
     });
   });
 
@@ -86,6 +89,9 @@ describe('media search filters', () => {
       type: 'video',
       locationQuery: '',
       categoryQuery: 'travel vlog',
+      cameraQuery: '',
+      tagQuery: '',
+      hasLocation: false,
     });
 
     assert.equal(matchesMediaSearchFilters({
@@ -111,5 +117,59 @@ describe('media search filters', () => {
       'Category: travel vlog',
     ]);
     assert.equal(countActiveMediaSearchFilters(parsed.filters), 2);
+  });
+
+  it('supports camera, tag, and has:location facets for richer metadata search', () => {
+    const parsed = parseMediaSearchQuery('camera:"Canon EOS" tag:night has:location');
+
+    assert.equal(parsed.textQuery, '');
+    assert.deepEqual(parsed.filters, {
+      type: 'all',
+      locationQuery: '',
+      categoryQuery: '',
+      cameraQuery: 'Canon EOS',
+      tagQuery: 'night',
+      hasLocation: true,
+    });
+
+    assert.equal(matchesMediaSearchFilters({
+      type: 'photo',
+      location: 'Guangzhou',
+      isDocumentLike: false,
+      tags: ['night', 'river'],
+      personLabels: [],
+      exif: {
+        camera: {
+          make: 'Canon',
+          model: 'EOS R6',
+          lens: 'RF24-70mm'
+        },
+        gps: {
+          latitude: 23.1,
+          longitude: 113.2,
+        },
+      },
+    }, parsed.filters), true);
+
+    assert.equal(matchesMediaSearchFilters({
+      type: 'photo',
+      location: '',
+      isDocumentLike: false,
+      tags: ['night'],
+      personLabels: [],
+      exif: {
+        camera: {
+          make: 'Canon',
+          model: 'EOS R6',
+        },
+      },
+    }, parsed.filters), false);
+
+    assert.deepEqual(summarizeMediaSearch(parsed.filters), [
+      'Camera: Canon EOS',
+      'Tag: night',
+      'Has location',
+    ]);
+    assert.equal(countActiveMediaSearchFilters(parsed.filters), 3);
   });
 });

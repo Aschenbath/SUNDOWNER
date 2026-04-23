@@ -673,7 +673,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   ` : '';
   const searchPlaceholder = state.primaryFilter === 'Music'
     ? 'Search music, artist, album, type:audio'
-    : 'Search library, albums, files, type:video, category:travel';
+    : 'Search library, albums, files, camera:canon, tag:night, has:location';
   if (selectedCount) {
     if (isAlbumPickerMode) {
       return `
@@ -2306,7 +2306,10 @@ function renderPreviewVideoCategorySection(item) {
 
 function getMeaningfulPreviewTags(item) {
   const genericTags = new Set(['photo', 'video', 'image', 'jpeg', 'jpg', 'png']);
-  return (item?.tags || [])
+  const sourceTags = Array.isArray(item?.explicitTags) && item.explicitTags.length
+    ? item.explicitTags
+    : (item?.tags || []);
+  return sourceTags
     .map((tag) => normalizePreviewMetaText(tag))
     .filter((tag) => tag && !genericTags.has(tag.toLowerCase()));
 }
@@ -2434,14 +2437,17 @@ export function PreviewModal({
             </dl>
           </section>
         ` : ''}
-        ${meaningfulTags.length ? `
-          <section class="cml-preview__info-section">
-            <h5 class="cml-preview__info-heading">Tags</h5>
+        <section class="cml-preview__info-section cml-preview__info-section--tags" data-action="edit-tags">
+          <h5 class="cml-preview__info-heading">Tags</h5>
+          <div class="cml-preview__info-tags-wrap">
             <div class="cml-preview__info-tags">
-              ${meaningfulTags.map((tag) => `<span class="cml-preview__info-tag">${escapeHtml(tag)}</span>`).join('')}
+              ${meaningfulTags.length
+                ? meaningfulTags.map((tag) => `<span class="cml-preview__info-tag">${escapeHtml(tag)}</span>`).join('')
+                : '<p class="cml-preview__info-category-value">Add tags</p>'}
             </div>
-          </section>
-        ` : ''}
+            <p class="cml-preview__info-category-meta">${meaningfulTags.length ? 'Click to edit tags for search and organization' : 'Add tags to organize this item and find it faster later'}</p>
+          </div>
+        </section>
       </div>
     </aside>
   `;
@@ -2757,6 +2763,11 @@ export function SearchSummary({ query, resultCount, filterParts = [], hasActiveF
         <h2 class="cml-search-summary__title">${resultCount} match${resultCount === 1 ? '' : 'es'}${query ? ` for \"${normalizedQuery}\"` : ''}</h2>
         <p class="cml-search-summary__copy">${summaryCopy}</p>
       </div>
+      ${filterParts.length ? `
+        <div class="cml-search-summary__tags">
+          ${filterParts.map((part) => `<span class="cml-search-summary__tag">${escapeHtml(part)}</span>`).join('')}
+        </div>
+      ` : ''}
     </section>
   `;
 }
@@ -2881,6 +2892,8 @@ function SearchFileRows({ items = [], state }) {
 export function SearchResultsView({
   query = '',
   totalCount = 0,
+  filterParts = [],
+  hasActiveFilters = false,
   photoSections = [],
   photoCount = 0,
   videoSections = [],
@@ -2900,7 +2913,8 @@ export function SearchResultsView({
   const summary = SearchSummary({
     query,
     resultCount: totalCount,
-    hasActiveFilters: true
+    filterParts,
+    hasActiveFilters,
   });
   const hasResults = photoCount || videoCount || audioCount || fileCount || albumCount;
   if (!hasResults) {
@@ -3199,6 +3213,17 @@ export function AdminPanel({ state, storageSummary }) {
   const orphanScanSummary = orphanScanResult
     ? `Showing ${escapeHtml(String(orphanScanResult.returned || orphanFiles.length || 0))} of ${escapeHtml(String(orphanScanResult.total || 0))}${orphanScanResult.truncated ? ' candidates' : ' candidates'}`
     : '';
+  const renderRecoverySummary = (result, emptyCopy) => {
+    if (!result) {
+      return `<p class="cml-admin-panel__scan-empty">${escapeHtml(emptyCopy)}</p>`;
+    }
+    return `
+      <div class="cml-admin-panel__scan-summary">
+        <strong>Processed ${escapeHtml(String(result.processed || 0))} of ${escapeHtml(String(result.total || 0))}</strong>
+        <span>Recovered ${escapeHtml(String(result.recovered || 0))} · Failed ${escapeHtml(String(result.failed?.length || 0))} · Skipped ${escapeHtml(String(result.skipped?.length || 0))}${result.dryRun ? ' · Dry run' : ''}</span>
+      </div>
+    `;
+  };
 
   const accountBody = `
     <section class="cml-admin-panel__section">
@@ -3379,6 +3404,60 @@ export function AdminPanel({ state, storageSummary }) {
           ` : `
             <p class="cml-admin-panel__scan-empty">No scan has been run in this browser session yet.</p>
           `}
+        </section>
+        <section class="cml-admin-panel__subsection">
+          <div class="cml-admin-panel__subheader">
+            <div>
+              <p class="cml-admin-panel__eyebrow">Metadata</p>
+              <h4 class="cml-admin-panel__subheading">Capture-time backfill</h4>
+              <p class="cml-admin-panel__copy">Use the EXIF recovery route to backfill missing capture dates for older images without touching files that already have a stable timeline date.</p>
+            </div>
+            <div class="cml-admin-panel__subactions cml-admin-panel__subactions--stack">
+              <button type="button" class="cml-admin-panel__inline-link" data-action="dry-run-admin-recover-capture-times" ${state.adminRecoverCaptureTimesLoading ? 'disabled' : ''}>${state.adminRecoverCaptureTimesLoading ? 'Running...' : 'Dry run'}</button>
+              <button type="button" class="cml-admin-panel__inline-link" data-action="run-admin-recover-capture-times" ${state.adminRecoverCaptureTimesLoading ? 'disabled' : ''}>Recover 20</button>
+            </div>
+          </div>
+          ${state.adminRecoverCaptureTimesError ? `<p class="cml-admin-panel__status is-error">${escapeHtml(state.adminRecoverCaptureTimesError)}</p>` : ''}
+          ${renderRecoverySummary(state.adminRecoverCaptureTimesResult, 'No capture-time recovery run has been started in this browser session yet.')}
+        </section>
+        <section class="cml-admin-panel__subsection">
+          <div class="cml-admin-panel__subheader">
+            <div>
+              <p class="cml-admin-panel__eyebrow">Telegram repair</p>
+              <h4 class="cml-admin-panel__subheading">File IDs and thumbnails</h4>
+              <p class="cml-admin-panel__copy">These Telegram repair routes are manual-first. Provide a temporary target chat that the bot can forward messages into while recovering file IDs or thumbnail IDs.</p>
+            </div>
+          </div>
+          <label class="cml-admin-panel__field cml-admin-panel__field--compact">
+            <span>Target chat ID</span>
+            <input type="text" value="${escapeHtml(state.adminRecoveryTargetChatId || '')}" data-admin-recovery-target-chat class="cml-admin-panel__input" placeholder="123456789 or -100..." autocomplete="off">
+          </label>
+          <div class="cml-admin-panel__recovery-grid">
+            <article class="cml-admin-panel__recovery-card">
+              <div class="cml-admin-panel__recovery-copy">
+                <strong>Recover Telegram file IDs</strong>
+                <span>Fix records that still have only <code>file_unique_id</code>-style references and cannot resolve the original download file.</span>
+              </div>
+              <div class="cml-admin-panel__subactions cml-admin-panel__subactions--stack">
+                <button type="button" class="cml-admin-panel__inline-link" data-action="dry-run-admin-recover-tg-file-ids" ${state.adminRecoverTgFileIdsLoading ? 'disabled' : ''}>${state.adminRecoverTgFileIdsLoading ? 'Running...' : 'Dry run'}</button>
+                <button type="button" class="cml-admin-panel__inline-link" data-action="run-admin-recover-tg-file-ids" ${state.adminRecoverTgFileIdsLoading ? 'disabled' : ''}>Recover 20</button>
+              </div>
+              ${state.adminRecoverTgFileIdsError ? `<p class="cml-admin-panel__status is-error">${escapeHtml(state.adminRecoverTgFileIdsError)}</p>` : ''}
+              ${renderRecoverySummary(state.adminRecoverTgFileIdsResult, 'No Telegram file-ID recovery run yet.')}
+            </article>
+            <article class="cml-admin-panel__recovery-card">
+              <div class="cml-admin-panel__recovery-copy">
+                <strong>Recover Telegram thumbnails</strong>
+                <span>Backfill Telegram thumbnail metadata for HEIC or other preview-hostile images so the library can keep lightweight previews.</span>
+              </div>
+              <div class="cml-admin-panel__subactions cml-admin-panel__subactions--stack">
+                <button type="button" class="cml-admin-panel__inline-link" data-action="dry-run-admin-recover-tg-thumbnails" ${state.adminRecoverTgThumbnailsLoading ? 'disabled' : ''}>${state.adminRecoverTgThumbnailsLoading ? 'Running...' : 'Dry run'}</button>
+                <button type="button" class="cml-admin-panel__inline-link" data-action="run-admin-recover-tg-thumbnails" ${state.adminRecoverTgThumbnailsLoading ? 'disabled' : ''}>Recover 20</button>
+              </div>
+              ${state.adminRecoverTgThumbnailsError ? `<p class="cml-admin-panel__status is-error">${escapeHtml(state.adminRecoverTgThumbnailsError)}</p>` : ''}
+              ${renderRecoverySummary(state.adminRecoverTgThumbnailsResult, 'No Telegram thumbnail recovery run yet.')}
+            </article>
+          </div>
         </section>
       </div>
       <div class="cml-admin-panel__form-grid">

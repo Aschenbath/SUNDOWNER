@@ -15,6 +15,16 @@ function createBaseState() {
     adminOrphanScanLoading: false,
     adminOrphanScanError: '',
     adminOrphanScanResult: null,
+    adminRecoveryTargetChatId: '',
+    adminRecoverCaptureTimesLoading: false,
+    adminRecoverCaptureTimesError: '',
+    adminRecoverCaptureTimesResult: null,
+    adminRecoverTgFileIdsLoading: false,
+    adminRecoverTgFileIdsError: '',
+    adminRecoverTgFileIdsResult: null,
+    adminRecoverTgThumbnailsLoading: false,
+    adminRecoverTgThumbnailsError: '',
+    adminRecoverTgThumbnailsResult: null,
     adminDisplayName: 'Admin',
     adminUsername: 'admin',
     adminProfileDraft: {
@@ -115,5 +125,44 @@ describe('AdminPanel migration surfaces', () => {
     assert.match(html, /1775628424666_city-kiss\.jpg/);
     assert.match(html, /Telegram_env/);
     assert.match(html, /The API truncated the result set/);
+  });
+
+  it('renders metadata recovery actions for capture times and Telegram repairs', () => {
+    const state = createBaseState();
+    state.adminRecoveryTargetChatId = '123456789';
+    state.adminRecoverCaptureTimesResult = {
+      total: 10,
+      processed: 10,
+      recovered: 4,
+      failed: [],
+      skipped: [{ id: 'photo-1' }],
+      dryRun: true,
+    };
+    state.adminRecoverTgFileIdsResult = {
+      total: 5,
+      processed: 5,
+      recovered: 2,
+      failed: [{ id: 'tg-1' }],
+      skipped: [],
+      dryRun: false,
+    };
+
+    const html = AdminPanel({
+      state,
+      storageSummary: {
+        usedMb: 64,
+        totalCount: 2,
+        totalQuotaGb: 10,
+      },
+    });
+
+    assert.match(html, /Capture-time backfill/);
+    assert.match(html, /Recover 20/);
+    assert.match(html, /Recover Telegram file IDs/);
+    assert.match(html, /Recover Telegram thumbnails/);
+    assert.match(html, /Target chat ID/);
+    assert.match(html, /Processed 10 of 10/);
+    assert.match(html, /Recovered 4 · Failed 0 · Skipped 1 · Dry run/);
+    assert.match(html, /Processed 5 of 5/);
   });
 });

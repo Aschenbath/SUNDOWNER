@@ -165,6 +165,36 @@ describe('media library download actions', () => {
     assert.match(html, /Click to switch video album/);
   });
 
+  it('renders preview tags as an editable metadata section instead of passive chips only', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'managed-tags-1',
+        type: 'photo',
+        label: 'night-walk.jpg',
+        sourceId: 'photos/night-walk.jpg',
+        sourceUrl: '/file/photos/night-walk.jpg',
+        thumbnailUrl: '/file/photos/night-walk.jpg',
+        width: 1080,
+        height: 1440,
+        displayTakenAt: 'April 8, 2026 18:42',
+        mimeType: 'image/jpeg',
+        explicitTags: ['night', 'guangzhou'],
+        tags: ['night', 'guangzhou'],
+      },
+      selected: false,
+      favorited: false,
+      currentIndex: 1,
+      totalCount: 5,
+      infoOpen: true,
+      immersive: false,
+    });
+
+    assert.match(html, /cml-preview__info-section--tags/);
+    assert.match(html, /data-action="edit-tags"/);
+    assert.match(html, />night</);
+    assert.match(html, /Click to edit tags for search and organization/);
+  });
+
   it('hides default source albums and library path from preview details', () => {
     const html = PreviewModal({
       item: {
@@ -919,6 +949,51 @@ describe('media library download actions', () => {
     assert.match(html, /Grouped results across photos, videos, music, files, and albums\./);
   });
 
+  it('renders structured search filter chips for metadata facets', () => {
+    const html = SearchResultsView({
+      query: '',
+      totalCount: 2,
+      filterParts: ['Camera: Canon', 'Tag: night', 'Has location'],
+      hasActiveFilters: true,
+      photoSections: [],
+      photoCount: 0,
+      videoSections: [],
+      videoCount: 0,
+      audioItems: [],
+      audioCount: 0,
+      fileItems: [{
+        id: 'file-1',
+        type: 'document',
+        isDocumentLike: true,
+        label: 'Notes.pdf',
+        directory: 'Trips/2026',
+        takenAt: '2026-04-23T09:00:00.000Z',
+        sizeMb: 1.2
+      }],
+      fileCount: 1,
+      albumCards: [],
+      albumCount: 0,
+      state: {
+        selectedIds: new Set(),
+        favoriteIds: new Set(),
+        activeSectionAnchor: '',
+        layoutWidth: 1280
+      },
+      layoutWidth: 1280,
+      audioState: {
+        currentId: '',
+        isPlaying: false
+      },
+      playlists: [],
+      activePlaylistName: ''
+    });
+
+    assert.match(html, /cml-search-summary__tags/);
+    assert.match(html, /Camera: Canon/);
+    assert.match(html, /Tag: night/);
+    assert.match(html, /Has location/);
+  });
+
   it('renders album renaming inline at the title position instead of a dialog overlay', () => {
     const inlineHtml = CollectionSummary({
       activeAlbumName: 'scenery',
@@ -1055,6 +1130,7 @@ describe('media library download actions', () => {
 
     assert.match(appSource, /function saveJson\(key, value\)/);
     assert.match(appSource, /function hasActiveSearchUiState\(\)/);
+    assert.match(appSource, /function savePreviewTags\(itemId, tagInput, previousItem = null\)/);
     assert.match(appSource, /&& !hasActiveSearchUiState\(\)\s*&& !state\.secondaryFilter/);
     assert.match(appSource, /&& !hasActiveSearchUiState\(\)\s*&& !state\.activeAlbumName/);
     assert.match(appSource, /data-search-view="\$\{viewModel\.isGlobalSearchView \? '1' : '0'\}"/);
