@@ -8,7 +8,7 @@ import {
   formatThemeSummary,
   loadThemePreference,
   persistThemePreference,
-} from './theme-system.js';
+} from './theme-system.js?v=2';
 
 (function () {
   const BRAND_NAME = 'SUNDOWNER';

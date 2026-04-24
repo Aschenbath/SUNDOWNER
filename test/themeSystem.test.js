@@ -4,6 +4,8 @@ import {
   THEME_COLOR_STORAGE_KEY,
   THEME_MODE_STORAGE_KEY,
   applyThemeToDocument,
+  formatThemeModeLabel,
+  formatThemeSummary,
   loadThemePreference,
   normalizeThemeColor,
   normalizeThemeMode,
@@ -75,6 +77,11 @@ describe('theme system', () => {
   it('falls back to safe defaults for invalid color and mode values', () => {
     assert.equal(normalizeThemeColor('???'), 'horizon');
     assert.equal(normalizeThemeMode('???'), 'auto');
+  });
+
+  it('formats theme labels with a stable separator instead of mojibake', () => {
+    assert.equal(formatThemeModeLabel('auto', 'light'), 'Auto · Light');
+    assert.equal(formatThemeSummary('horizon', 'auto', 'light'), 'Horizon · Auto · Light');
   });
 
   it('applies resolved theme attributes and meta theme-color to the document root', () => {

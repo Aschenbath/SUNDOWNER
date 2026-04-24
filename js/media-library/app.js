@@ -52,7 +52,7 @@ import {
   dispatchThemeChange,
   loadThemePreference,
   persistThemePreference,
-} from '../theme-system.js';
+} from '../theme-system.js?v=2';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',

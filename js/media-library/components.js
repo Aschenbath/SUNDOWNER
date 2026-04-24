@@ -1,7 +1,7 @@
 ﻿import { shouldDisplayMediaItem } from './media-support.js';
 
 
-import { THEME_COLOR_OPTIONS, THEME_MODE_OPTIONS, formatThemeModeLabel } from '../theme-system.js';
+import { THEME_COLOR_OPTIONS, THEME_MODE_OPTIONS, formatThemeModeLabel } from '../theme-system.js?v=2';
 
 const icons = {
   photos: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5a2.5 2.5 0 0 1 2.5-2.5h11A2.5 2.5 0 0 1 20 6.5v11A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m7 15 3.2-3.6 2.6 2.8 2.4-2.2L18 15.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="8.3" r="1.4" fill="currentColor"/></svg>',

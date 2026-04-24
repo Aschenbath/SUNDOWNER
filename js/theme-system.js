@@ -194,4 +194,3 @@ export function dispatchThemeChange(preference, { target = globalThis } = {}) {
   }
   target.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: preference }));
 }
-
