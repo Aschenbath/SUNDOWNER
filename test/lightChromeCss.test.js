@@ -39,6 +39,13 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-main-content-shell \{[\s\S]*border-radius: 28px;[\s\S]*background: var\(--cml-theme-content-panel-bg, transparent\);/);
   });
 
+  it('keeps light mode accent-aware instead of hard-coding Google blue for all theme colors', () => {
+    assert.match(css, /--cml-theme-nav-active-bg: color-mix\(in srgb, white 72%, var\(--cml-theme-accent\) 28%\);/);
+    assert.match(css, /--cml-theme-search-bg: color-mix\(in srgb, white 84%, var\(--cml-theme-accent\) 16%\);/);
+    assert.match(css, /--cml-theme-scrubber-dot-active: var\(--cml-theme-accent\);/);
+    assert.match(css, /--cml-theme-avatar-btn-hover-bg: color-mix\(in srgb, white 74%, var\(--cml-theme-accent\) 26%\);/);
+  });
+
   it('uses readable light-mode avatar menu tokens instead of hard-coded dark dropdown colors', () => {
     assert.match(css, /--cml-theme-avatar-menu-bg:/);
     assert.match(css, /#codex-media-library-root \.cml-avatar-menu \{[\s\S]*background: var\(--cml-theme-avatar-menu-bg\);/);
