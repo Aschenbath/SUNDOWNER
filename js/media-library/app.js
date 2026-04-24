@@ -47,6 +47,7 @@ import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-sup
 import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   THEME_CHANGE_EVENT,
+  applyThemeToDocument,
   applyThemeToElement,
   dispatchThemeChange,
   loadThemePreference,
