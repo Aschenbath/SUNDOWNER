@@ -32,4 +32,17 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-scrubber__dot \{[\s\S]*background: var\(--cml-theme-scrubber-dot\);/);
     assert.match(css, /#codex-media-library-root \.cml-scrubber__year-label \{[\s\S]*color: var\(--cml-theme-scrubber-year\);/);
   });
+
+  it('builds the Google-Photos-like light shell with a shared outer surface and an inner rounded content panel', () => {
+    assert.match(css, /--cml-theme-content-panel-bg:/);
+    assert.match(css, /#codex-media-library-root \.cml-main-shell \{[\s\S]*background: var\(--cml-theme-page-bg\);/);
+    assert.match(css, /#codex-media-library-root \.cml-main-content-shell \{[\s\S]*border-radius: 28px;[\s\S]*background: var\(--cml-theme-content-panel-bg, transparent\);/);
+  });
+
+  it('uses readable light-mode avatar menu tokens instead of hard-coded dark dropdown colors', () => {
+    assert.match(css, /--cml-theme-avatar-menu-bg:/);
+    assert.match(css, /#codex-media-library-root \.cml-avatar-menu \{[\s\S]*background: var\(--cml-theme-avatar-menu-bg\);/);
+    assert.match(css, /#codex-media-library-root \.cml-avatar-menu__name \{[\s\S]*color: var\(--cml-theme-avatar-menu-name\);/);
+    assert.match(css, /#codex-media-library-root \.cml-avatar-menu__item \{[\s\S]*color: var\(--cml-theme-avatar-menu-item\);/);
+  });
 });
