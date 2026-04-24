@@ -262,6 +262,10 @@ function formatAudioSubtitle(item) {
   return parts.join(' · ');
 }
 
+function getAudioDisplayTitle(item, fallback = 'Audio track') {
+  return escapeHtml(item?.audioTitle || fallback);
+}
+
 function getLayoutConfig(containerWidth, denseGrid) {
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
   const isMobile = viewportWidth <= 640;
@@ -1336,7 +1340,7 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
     : (totalCount === 1 ? '1 local file' : `${countLabel} in library`);
   const title = activePlaylistName || 'Music';
   const subtitle = currentItem
-    ? `Now ${isPlaying ? 'playing' : 'paused'}: ${currentItem.audioTitle || currentItem.label || 'Track'}`
+    ? `Now ${isPlaying ? 'playing' : 'paused'}: ${currentItem.audioTitle || 'Track'}`
     : helper;
   return `
     <section class="cml-view-summary cml-view-summary--music cml-music-summary">
@@ -1410,9 +1414,10 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
           <div class="cml-music-list">
       ${items.map((item, index) => {
         const isCurrent = currentId === String(item.id || '');
-        const title = escapeHtml(item.audioTitle || item.label || 'Audio track');
+        const title = getAudioDisplayTitle(item);
         const artist = escapeHtml(item.audioArtist || 'Unknown Artist');
         const album = escapeHtml(item.audioAlbum || 'Unknown Album');
+        const secondaryMeta = formatAudioSubtitle(item);
         const playAction = isCurrent ? 'audio-toggle-play' : 'play-audio-item';
         return `
           <div class="cml-music-row ${isCurrent ? 'is-current' : ''}" data-audio-row="${escapeHtml(item.id)}" role="row">
@@ -1425,7 +1430,7 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
             >${isCurrent ? (isPlaying ? icon('pause') : icon('play')) : escapeHtml(String(index + 1))}</button>
             <span class="cml-music-row__meta">
               <strong class="cml-music-row__title">${title}</strong>
-              <span class="cml-music-row__subtitle">${escapeHtml(item.label || item.sourceId || `Track ${index + 1}`)}</span>
+              ${secondaryMeta ? `<span class="cml-music-row__subtitle">${secondaryMeta}</span>` : ''}
             </span>
             <span class="cml-music-row__artist">${artist}</span>
             <span class="cml-music-row__album">${album}</span>
@@ -1460,8 +1465,8 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
 }
 
 export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentTime = 0, duration = 0, isPlaying = false, mode = 'queue', volume = 1 }) {
-  const title = escapeHtml(currentItem?.audioTitle || currentItem?.label || 'Select a track');
-  const subtitle = formatAudioSubtitle(currentItem) || escapeHtml(currentItem?.label || 'Choose music from the list to start playback.');
+  const title = getAudioDisplayTitle(currentItem, 'Select a track');
+  const subtitle = formatAudioSubtitle(currentItem) || 'Choose music from the list to start playback.';
   const resolvedDuration = Math.max(0, Number(duration) || Number(currentItem?.audioDuration) || 0);
   const resolvedCurrentTime = Math.min(Math.max(0, Number(currentTime) || 0), resolvedDuration || Number.MAX_SAFE_INTEGER);
   const coverUrl = String(currentItem?.thumbnailUrl || currentItem?.posterUrl || '').trim();
@@ -1509,8 +1514,8 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
   if (!currentItem) {
     return '';
   }
-  const title = escapeHtml(currentItem?.audioTitle || currentItem?.label || 'Now playing');
-  const subtitle = formatAudioSubtitle(currentItem) || escapeHtml(currentItem?.label || '');
+  const title = getAudioDisplayTitle(currentItem, 'Now playing');
+  const subtitle = formatAudioSubtitle(currentItem);
   const resolvedDuration = Math.max(0, Number(duration) || Number(currentItem?.audioDuration) || 0);
   const resolvedCurrentTime = Math.min(Math.max(0, Number(currentTime) || 0), resolvedDuration || Number.MAX_SAFE_INTEGER);
   const coverUrl = String(currentItem?.thumbnailUrl || currentItem?.posterUrl || '').trim();
@@ -1522,7 +1527,7 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
           : ''}
         <div class="cml-sidebar-audio-player__copy">
           <strong class="cml-sidebar-audio-player__title">${title}</strong>
-          <span class="cml-sidebar-audio-player__subtitle">${subtitle}</span>
+          ${subtitle ? `<span class="cml-sidebar-audio-player__subtitle">${subtitle}</span>` : ''}
         </div>
       </div>
       <div class="cml-sidebar-audio-player__progress">
@@ -1605,15 +1610,15 @@ export function MobileAudioMiniPlayer({ currentItem = null, isPlaying = false })
   if (!currentItem) {
     return '';
   }
-  const title = escapeHtml(currentItem.audioTitle || currentItem.label || 'Now playing');
-  const subtitle = formatAudioSubtitle(currentItem) || escapeHtml(currentItem.label || '');
+  const title = getAudioDisplayTitle(currentItem, 'Now playing');
+  const subtitle = formatAudioSubtitle(currentItem);
   return `
     <div class="cml-mobile-audio-player" aria-label="Now playing">
       <button type="button" class="cml-mobile-audio-player__meta" data-primary="Music">
         <span class="cml-mobile-audio-player__cover">${icon('music')}</span>
         <span class="cml-mobile-audio-player__copy">
           <strong>${title}</strong>
-          <span>${subtitle}</span>
+          ${subtitle ? `<span>${subtitle}</span>` : ''}
         </span>
       </button>
       <div class="cml-mobile-audio-player__actions">
