@@ -601,12 +601,25 @@ describe('media library download actions', () => {
     assert.match(listHtml, /data-action="play-audio-item"/);
     assert.match(listHtml, /Darcy’s Letter/);
     assert.match(listHtml, /Dario Marianelli/);
+    assert.match(listHtml, /data-action="rename-audio-artist"/);
+    assert.match(listHtml, /data-action="rename-audio-album"/);
+    assert.doesNotMatch(listHtml, /role="columnheader">Time</);
+    assert.doesNotMatch(listHtml, /track-01\.mp3/);
     assert.match(panelHtml, /Audio player/);
     assert.match(panelHtml, /Queue/);
     assert.match(panelHtml, /data-action="audio-toggle-play"/);
     assert.match(panelHtml, /data-action="audio-set-mode"/);
     assert.match(panelHtml, /data-audio-progress/);
     assert.match(panelHtml, /data-audio-volume/);
+  });
+
+  it('renders metadata-specific rename dialog copy for track title, artist, and album edits', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /state\.renameItemField === 'Artist'[\s\S]*'Edit artist'/);
+    assert.match(appSource, /state\.renameItemField === 'Album'[\s\S]*'Edit album'/);
+    assert.match(appSource, /state\.renameItemField === 'Artist'[\s\S]*'Artist'/);
+    assert.match(appSource, /state\.renameItemField === 'Album'[\s\S]*'Album'/);
   });
 
   it('keeps the music summary renderable before any track is selected', () => {

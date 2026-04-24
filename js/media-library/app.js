@@ -8138,8 +8138,20 @@ function renderRenameItemDialog() {
   if (!state.renameItemDialogOpen) {
     return '';
   }
-  const title = state.renameItemField === 'Title' ? 'Rename track' : 'Rename file';
-  const label = state.renameItemField === 'Title' ? 'Track title' : 'File name';
+  const title = state.renameItemField === 'Title'
+    ? 'Rename track'
+    : state.renameItemField === 'Artist'
+      ? 'Edit artist'
+      : state.renameItemField === 'Album'
+        ? 'Edit album'
+        : 'Rename file';
+  const label = state.renameItemField === 'Title'
+    ? 'Track title'
+    : state.renameItemField === 'Artist'
+      ? 'Artist'
+      : state.renameItemField === 'Album'
+        ? 'Album'
+        : 'File name';
   return `
     <div class="cml-dialog" role="dialog" aria-modal="true" aria-label="${title}">
       <div class="cml-dialog__backdrop" data-action="close-rename-item-dialog"></div>
