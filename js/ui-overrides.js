@@ -1,16 +1,18 @@
+import {
+  THEME_CHANGE_EVENT,
+  THEME_COLOR_OPTIONS,
+  THEME_MODE_OPTIONS,
+  applyThemeToDocument,
+  dispatchThemeChange,
+  formatThemeModeLabel,
+  formatThemeSummary,
+  loadThemePreference,
+  persistThemePreference,
+} from './theme-system.js';
+
 (function () {
   const BRAND_NAME = 'SUNDOWNER';
   const LOGO_PATH = '/logo-sundowner.png';
-  const THEME_STORAGE_KEY = 'sundowner-ui-theme';
-  const DEFAULT_UI_THEME = 'horizon';
-  const UI_THEMES = [
-    { key: 'clover', label: 'Clover' },
-    { key: 'horizon', label: 'Horizon' },
-    { key: 'lily', label: 'Lily' },
-    { key: 'marigold', label: 'Marigold' },
-    { key: 'royal', label: 'Royal' },
-    { key: 'violet', label: 'Violet' }
-  ];
   const ROUTE_CLASSES = ['codex-route-login', 'codex-route-home', 'codex-route-dashboard', 'codex-route-browse'];
   const BLOCKED_URL_PATTERNS = [
     /cfbed\.sanyue\.de/i,
@@ -54,17 +56,23 @@
     return value.replace(/\s{2,}/g, ' ').trim();
   }
 
-  function getThemeConfig(themeKey) {
-    return UI_THEMES.find((theme) => theme.key === themeKey) || UI_THEMES.find((theme) => theme.key === DEFAULT_UI_THEME) || UI_THEMES[0];
+  let themePreference = loadThemePreference();
+  const systemThemeQuery = typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-color-scheme: dark)')
+    : null;
+
+  function getCurrentThemePreference() {
+    return themePreference;
   }
 
-  function getStoredUiTheme() {
-    try {
-      const value = window.localStorage.getItem(THEME_STORAGE_KEY);
-      return getThemeConfig(value).key;
-    } catch (error) {
-      return DEFAULT_UI_THEME;
+  function commitThemePreference(nextPreference, { dispatch = true } = {}) {
+    const persisted = persistThemePreference(nextPreference);
+    themePreference = applyThemeToDocument(persisted);
+    if (dispatch) {
+      dispatchThemeChange(themePreference);
     }
+    syncThemeControls();
+    return themePreference;
   }
 
   function closeThemeMenus(except) {
@@ -81,45 +89,61 @@
   }
 
   function syncThemeControls() {
-    const activeTheme = getThemeConfig(document.documentElement.dataset.uiTheme || DEFAULT_UI_THEME);
+    const activeTheme = getCurrentThemePreference();
     document.querySelectorAll('.codex-theme-switcher').forEach((switcher) => {
       switcher.querySelectorAll('.codex-theme-option').forEach((option) => {
-        const isActive = option.getAttribute('data-theme-key') === activeTheme.key;
+        const themeColor = option.getAttribute('data-theme-color');
+        const themeMode = option.getAttribute('data-theme-mode');
+        const isActive = themeColor
+          ? themeColor === activeTheme.themeColor
+          : themeMode === activeTheme.themeMode;
         option.classList.toggle('is-active', isActive);
-        option.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        option.setAttribute('aria-checked', isActive ? 'true' : 'false');
       });
       const currentLabel = switcher.querySelector('.codex-theme-switcher__current');
       if (currentLabel instanceof HTMLElement) {
-        currentLabel.textContent = activeTheme.label;
+        currentLabel.textContent = formatThemeSummary(activeTheme.themeColor, activeTheme.themeMode, activeTheme.resolvedThemeMode);
       }
     });
   }
 
-  function applyUiTheme(themeKey) {
-    const theme = getThemeConfig(themeKey);
-    document.documentElement.dataset.uiTheme = theme.key;
-    try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, theme.key);
-    } catch (error) {
-      // Ignore storage failures and keep the runtime theme only.
-    }
-    syncThemeControls();
+  function toggleUiThemeModeQuick() {
+    const currentTheme = getCurrentThemePreference();
+    const nextMode = currentTheme.resolvedThemeMode === 'dark' ? 'light' : 'dark';
+    commitThemePreference({
+      themeColor: currentTheme.themeColor,
+      themeMode: nextMode
+    });
   }
 
   function buildThemeSwitcherMarkup() {
-    const options = UI_THEMES.map((theme) => `
-      <button type="button" class="codex-theme-option" data-action="theme-select" data-theme-key="${theme.key}" aria-pressed="false">
-        <span class="codex-theme-option__swatch" aria-hidden="true"></span>
+    const currentTheme = getCurrentThemePreference();
+    const colorOptions = THEME_COLOR_OPTIONS.map((theme) => `
+      <button type="button" class="codex-theme-option ${currentTheme.themeColor === theme.key ? 'is-active' : ''}" data-action="theme-color-select" data-theme-color="${theme.key}" role="menuitemradio" aria-checked="${currentTheme.themeColor === theme.key ? 'true' : 'false'}">
+        <span class="codex-theme-option__swatch" style="--codex-theme-swatch:${theme.swatch}" aria-hidden="true"></span>
         <span class="codex-theme-option__label">${theme.label}</span>
+      </button>`).join('');
+    const modeOptions = THEME_MODE_OPTIONS.map((mode) => `
+      <button type="button" class="codex-theme-option ${currentTheme.themeMode === mode.key ? 'is-active' : ''}" data-action="theme-mode-select" data-theme-mode="${mode.key}" role="menuitemradio" aria-checked="${currentTheme.themeMode === mode.key ? 'true' : 'false'}">
+        <span class="codex-theme-option__mode">${mode.key === 'auto' ? 'A' : mode.label.charAt(0)}</span>
+        <span class="codex-theme-option__label">${mode.label}</span>
+        ${mode.key === 'auto' ? `<span class="codex-theme-option__meta">${formatThemeModeLabel(currentTheme.themeMode, currentTheme.resolvedThemeMode)}</span>` : ''}
       </button>`).join('');
     return `
       <div class="codex-theme-switcher" data-codex-theme-switcher>
         <button type="button" class="codex-theme-switcher__button" data-action="theme-toggle" aria-expanded="false" aria-haspopup="true">
           <span class="codex-theme-switcher__label">Theme</span>
-          <span class="codex-theme-switcher__current">${getThemeConfig(getStoredUiTheme()).label}</span>
+          <span class="codex-theme-switcher__current">${formatThemeSummary(currentTheme.themeColor, currentTheme.themeMode, currentTheme.resolvedThemeMode)}</span>
         </button>
         <div class="codex-theme-switcher__menu" role="menu">
-          ${options}
+          <div class="codex-theme-switcher__section" role="none">
+            <p class="codex-theme-switcher__section-label" role="presentation">Theme color</p>
+            ${colorOptions}
+          </div>
+          <div class="codex-theme-switcher__section" role="none">
+            <p class="codex-theme-switcher__section-label" role="presentation">Mode</p>
+            ${modeOptions}
+          </div>
         </div>
       </div>`;
   }
@@ -441,10 +465,7 @@
           return;
         }
         if (action === 'theme') {
-          const toggle = home.querySelector('.toggle-dark-button[data-v-66491cac], .toggle-dark-button');
-          if (toggle instanceof HTMLElement) {
-            toggle.click();
-          }
+          toggleUiThemeModeQuick();
           return;
         }
         if (action === 'settings') {
@@ -637,8 +658,21 @@
           target.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
           return;
         }
-        if (target.dataset.action === 'theme-select') {
-          applyUiTheme(target.getAttribute('data-theme-key') || DEFAULT_UI_THEME);
+        if (target.dataset.action === 'theme-color-select') {
+          const currentTheme = getCurrentThemePreference();
+          commitThemePreference({
+            themeColor: target.getAttribute('data-theme-color') || currentTheme.themeColor,
+            themeMode: currentTheme.themeMode
+          });
+          closeThemeMenus();
+          return;
+        }
+        if (target.dataset.action === 'theme-mode-select') {
+          const currentTheme = getCurrentThemePreference();
+          commitThemePreference({
+            themeColor: currentTheme.themeColor,
+            themeMode: target.getAttribute('data-theme-mode') || currentTheme.themeMode
+          });
           closeThemeMenus();
           return;
         }
@@ -855,9 +889,23 @@
           target.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
           return;
         }
-        if (target.dataset.action === 'theme-select') {
-          applyUiTheme(target.getAttribute('data-theme-key') || DEFAULT_UI_THEME);
+        if (target.dataset.action === 'theme-color-select') {
+          const currentTheme = getCurrentThemePreference();
+          commitThemePreference({
+            themeColor: target.getAttribute('data-theme-color') || currentTheme.themeColor,
+            themeMode: currentTheme.themeMode
+          });
           closeThemeMenus();
+          return;
+        }
+        if (target.dataset.action === 'theme-mode-select') {
+          const currentTheme = getCurrentThemePreference();
+          commitThemePreference({
+            themeColor: currentTheme.themeColor,
+            themeMode: target.getAttribute('data-theme-mode') || currentTheme.themeMode
+          });
+          closeThemeMenus();
+          return;
         }
       });
     }
@@ -1066,7 +1114,7 @@
   };
 
   function boot() {
-    applyUiTheme(getStoredUiTheme());
+    commitThemePreference(themePreference, { dispatch: false });
     patchRoot(document);
     document.addEventListener('click', (event) => {
       const target = event.target instanceof Element ? event.target.closest('.codex-theme-switcher') : null;
@@ -1074,6 +1122,26 @@
         closeThemeMenus();
       }
     });
+    window.addEventListener(THEME_CHANGE_EVENT, (event) => {
+      if (!event.detail) {
+        return;
+      }
+      themePreference = event.detail;
+      syncThemeControls();
+    });
+    if (systemThemeQuery?.addEventListener) {
+      systemThemeQuery.addEventListener('change', () => {
+        if (getCurrentThemePreference().themeMode === 'auto') {
+          commitThemePreference(getCurrentThemePreference());
+        }
+      });
+    } else if (systemThemeQuery?.addListener) {
+      systemThemeQuery.addListener(() => {
+        if (getCurrentThemePreference().themeMode === 'auto') {
+          commitThemePreference(getCurrentThemePreference());
+        }
+      });
+    }
     const observer = new MutationObserver((records) => {
       applyRouteClass();
       records.forEach((record) => {

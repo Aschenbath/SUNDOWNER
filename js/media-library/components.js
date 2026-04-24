@@ -1,5 +1,8 @@
 ﻿import { shouldDisplayMediaItem } from './media-support.js';
 
+
+import { THEME_COLOR_OPTIONS, THEME_MODE_OPTIONS, formatThemeModeLabel } from '../theme-system.js';
+
 const icons = {
   photos: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5a2.5 2.5 0 0 1 2.5-2.5h11A2.5 2.5 0 0 1 20 6.5v11A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m7 15 3.2-3.6 2.6 2.8 2.4-2.2L18 15.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="8.3" r="1.4" fill="currentColor"/></svg>',
   updates: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M12 16v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M4 12h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M16 12h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
@@ -53,16 +56,6 @@ const secondaryIconMap = {
   Documents: 'documents',
   Favourites: 'favourites'
 };
-
-const MEDIA_LIBRARY_THEME_OPTIONS = [
-  { key: 'editorial-dark', label: 'Editorial', swatch: '#8ea0d9' },
-  { key: 'clover', label: 'Clover', swatch: '#5bbd8a' },
-  { key: 'horizon', label: 'Horizon', swatch: '#78aaf8' },
-  { key: 'lily', label: 'Lily', swatch: '#d96bc8' },
-  { key: 'marigold', label: 'Marigold', swatch: '#e19a24' },
-  { key: 'royal', label: 'Royal', swatch: '#5371ff' },
-  { key: 'violet', label: 'Violet', swatch: '#9a4dff' }
-];
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -644,6 +637,9 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
   const addToAlbumLabel = state.secondaryFilter === 'Videos' ? 'Add to video album' : 'Add to album';
   const isMobileAlbumsRoot = state.primaryFilter === 'Collections' && !activeAlbumName && !isAlbumPickerMode && Number(state.layoutWidth || 0) <= 640;
   const showThemeControl = Number(state.layoutWidth || 0) > 960 && !isAlbumPickerMode;
+  const activeThemeColor = normalizeText(state.uiThemeColor || state.uiTheme || 'horizon').toLowerCase();
+  const activeThemeMode = normalizeText(state.uiThemeMode || 'auto').toLowerCase();
+  const resolvedThemeMode = normalizeText(state.uiResolvedThemeMode || state.resolvedThemeMode || 'light').toLowerCase();
   const themeMenu = showThemeControl ? `
     <div class="cml-theme-switcher">
       <button
@@ -658,19 +654,39 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
       </button>
       ${state.uiThemeMenuOpen ? `
         <div class="cml-theme-menu" role="menu" aria-label="Theme options">
-          ${MEDIA_LIBRARY_THEME_OPTIONS.map((theme) => `
-            <button
-              type="button"
-              class="cml-theme-menu__item ${state.uiTheme === theme.key ? 'is-active' : ''}"
-              data-action="set-ui-theme"
-              data-theme-key="${escapeHtml(theme.key)}"
-              role="menuitemradio"
-              aria-checked="${state.uiTheme === theme.key ? 'true' : 'false'}"
-            >
-              <span class="cml-theme-menu__swatch" style="--cml-theme-swatch:${theme.swatch}"></span>
-              <span class="cml-theme-menu__label">${escapeHtml(theme.label)}</span>
-            </button>
-          `).join('')}
+          <div class="cml-theme-menu__section" role="none">
+            <p class="cml-theme-menu__section-label" role="presentation">Theme color</p>
+            ${THEME_COLOR_OPTIONS.map((theme) => `
+              <button
+                type="button"
+                class="cml-theme-menu__item ${activeThemeColor === theme.key ? 'is-active' : ''}"
+                data-action="set-ui-theme-color"
+                data-theme-color="${escapeHtml(theme.key)}"
+                role="menuitemradio"
+                aria-checked="${activeThemeColor === theme.key ? 'true' : 'false'}"
+              >
+                <span class="cml-theme-menu__swatch" style="--cml-theme-swatch:${theme.swatch}"></span>
+                <span class="cml-theme-menu__label">${escapeHtml(theme.label)}</span>
+              </button>
+            `).join('')}
+          </div>
+          <div class="cml-theme-menu__section" role="none">
+            <p class="cml-theme-menu__section-label" role="presentation">Mode</p>
+            ${THEME_MODE_OPTIONS.map((mode) => `
+              <button
+                type="button"
+                class="cml-theme-menu__item ${activeThemeMode === mode.key ? 'is-active' : ''}"
+                data-action="set-ui-theme-mode"
+                data-theme-mode="${escapeHtml(mode.key)}"
+                role="menuitemradio"
+                aria-checked="${activeThemeMode === mode.key ? 'true' : 'false'}"
+              >
+                <span class="cml-theme-menu__mode-badge">${escapeHtml(mode.key === 'auto' ? 'A' : mode.label.charAt(0))}</span>
+                <span class="cml-theme-menu__label">${escapeHtml(mode.label)}</span>
+                ${mode.key === 'auto' ? `<span class="cml-theme-menu__meta">${escapeHtml(formatThemeModeLabel(activeThemeMode, resolvedThemeMode))}</span>` : ''}
+              </button>
+            `).join('')}
+          </div>
         </div>
       ` : ''}
     </div>
@@ -3649,5 +3665,3 @@ export function StoragePanel({ state, insights }) {
     </div>
   `;
 }
-
-

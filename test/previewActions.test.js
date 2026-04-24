@@ -714,6 +714,10 @@ describe('media library download actions', () => {
         searchDraft: '',
         searchQuery: '',
         layoutWidth: 1100,
+        uiTheme: 'horizon',
+        uiThemeColor: 'horizon',
+        uiThemeMode: 'auto',
+        uiResolvedThemeMode: 'light',
         uiThemeMenuOpen: false
       }
     });
@@ -721,6 +725,34 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="toggle-ui-theme-menu"/);
     assert.match(html, /<span>Style<\/span>/);
     assert.match(html, /data-action="open-upload"/);
+  });
+
+  it('renders separate theme color and mode sections inside the desktop style menu', () => {
+    const html = TopSearchBar({
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: '',
+        activeAlbumName: '',
+        albumSelectionTarget: '',
+        videoAlbumSelectionTarget: '',
+        privateSelectionMode: false,
+        selectedIds: new Set(),
+        searchDraft: '',
+        searchQuery: '',
+        layoutWidth: 1280,
+        uiTheme: 'horizon',
+        uiThemeColor: 'horizon',
+        uiThemeMode: 'auto',
+        uiResolvedThemeMode: 'light',
+        uiThemeMenuOpen: true
+      }
+    });
+
+    assert.match(html, /Theme color/);
+    assert.match(html, /Mode/);
+    assert.match(html, /data-action="set-ui-theme-color"/);
+    assert.match(html, /data-action="set-ui-theme-mode"/);
+    assert.match(html, /Auto · Light/);
   });
 
   it('renders a dedicated mobile albums header and a first-card create entry on small screens', () => {

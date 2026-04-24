@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=76';
+} from './components.js?v=77';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -45,6 +45,13 @@ import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
 import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js';
 import { resolveMediaCaptureTimestamp } from './time-resolution.js';
+import {
+  THEME_CHANGE_EVENT,
+  applyThemeToElement,
+  dispatchThemeChange,
+  loadThemePreference,
+  persistThemePreference,
+} from '../theme-system.js';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -176,31 +183,8 @@ const DOCUMENT_HINT_PATTERN = /\b(document|documents|scan|receipt|invoice|contra
 const AUDIO_MODE_SEQUENCE = 'queue';
 const AUDIO_MODE_REPEAT_ONE = 'repeat-one';
 const AUDIO_MODE_SHUFFLE = 'shuffle';
-const MEDIA_LIBRARY_THEME_STORAGE_KEY = 'codex-media-library-theme';
 const MIND_SETTINGS_STORAGE_KEY = 'codex-media-library-mind-settings';
-const MEDIA_LIBRARY_THEME_KEYS = ['editorial-dark', 'clover', 'horizon', 'lily', 'marigold', 'royal', 'violet'];
 const MIND_STATE_FRESH_MS = 30000;
-
-function normalizeMediaLibraryTheme(value) {
-  const normalized = normalizeText(value).toLowerCase();
-  return MEDIA_LIBRARY_THEME_KEYS.includes(normalized) ? normalized : 'editorial-dark';
-}
-
-function loadMediaLibraryTheme() {
-  try {
-    return normalizeMediaLibraryTheme(window.localStorage.getItem(MEDIA_LIBRARY_THEME_STORAGE_KEY));
-  } catch {
-    return 'editorial-dark';
-  }
-}
-
-function persistMediaLibraryTheme(value) {
-  try {
-    window.localStorage.setItem(MEDIA_LIBRARY_THEME_STORAGE_KEY, normalizeMediaLibraryTheme(value));
-  } catch {
-    // Ignore persistence failures and keep the UI responsive.
-  }
-}
 
 function loadJson(key, fallback) {
   try {
@@ -280,6 +264,7 @@ function clearLegacyAlbumState() {
 
 const legacyAlbumState = readLegacyAlbumState();
 const initialMindSettings = loadPersistedMindSettingsSeed();
+const initialThemePreference = loadThemePreference();
 
 const state = {
   primaryFilter: 'Photos',
@@ -369,7 +354,10 @@ const state = {
   mindSettings: initialMindSettings,
   mindSettingsDraft: createMindSettingsDraft(initialMindSettings),
   mindSettingsOpen: false,
-  uiTheme: loadMediaLibraryTheme(),
+  uiTheme: initialThemePreference.themeColor,
+  uiThemeColor: initialThemePreference.themeColor,
+  uiThemeMode: initialThemePreference.themeMode,
+  uiResolvedThemeMode: initialThemePreference.resolvedThemeMode,
   uiThemeMenuOpen: false,
   audioCurrentId: '',
   audioQueueIds: [],
@@ -460,6 +448,41 @@ const refs = {
   timelineVirtualSignature: '',
   timelineVirtualEnabled: false
 };
+
+function getThemeState() {
+  return {
+    themeColor: state.uiThemeColor || state.uiTheme || initialThemePreference.themeColor,
+    themeMode: state.uiThemeMode || initialThemePreference.themeMode,
+    resolvedThemeMode: state.uiResolvedThemeMode || initialThemePreference.resolvedThemeMode
+  };
+}
+
+function syncThemeState(nextTheme) {
+  state.uiTheme = nextTheme.themeColor;
+  state.uiThemeColor = nextTheme.themeColor;
+  state.uiThemeMode = nextTheme.themeMode;
+  state.uiResolvedThemeMode = nextTheme.resolvedThemeMode;
+}
+
+function commitThemeState(nextTheme, { dispatch = true } = {}) {
+  const persisted = persistThemePreference(nextTheme);
+  syncThemeState(persisted);
+  applyThemeToDocument(persisted);
+  if (dispatch) {
+    dispatchThemeChange(persisted);
+  }
+  return persisted;
+}
+
+function applyThemeToLiveShell(nextTheme) {
+  if (!refs.root) {
+    return;
+  }
+  const shell = refs.root.querySelector('.cml-app-shell');
+  if (shell instanceof HTMLElement) {
+    applyThemeToElement(shell, nextTheme);
+  }
+}
 
 let mounted = false;
 let historyPatched = false;
@@ -8243,6 +8266,7 @@ function render() {
       || document.activeElement.classList.contains('cml-sidebar__search-input')
     );
   const viewModel = getViewModel();
+  const themeState = getThemeState();
   const contentViewKey = buildContentViewKey(viewModel);
   const shouldAnimateContentView = Boolean(lastContentViewKey) && lastContentViewKey !== contentViewKey;
   lastContentViewKey = contentViewKey;
@@ -8265,7 +8289,7 @@ function render() {
     ? `${normalizeText(viewModel.currentAudioItem?.id)}|${state.audioPlaying ? 'playing' : 'paused'}|${normalizeAudioMode(state.audioMode)}`
     : '';
   const fullHtml = `
-    <div class="cml-app-shell" data-cml-theme="${state.uiTheme}">
+    <div class="cml-app-shell" data-cml-theme-color="${themeState.themeColor}" data-cml-theme-mode="${themeState.resolvedThemeMode}" data-cml-theme-mode-preference="${themeState.themeMode}">
       ${Sidebar({
         navigationModel: viewModel.navigationModel,
         state,
@@ -8536,7 +8560,7 @@ function render() {
 
   const liveShell = refs.root.querySelector('.cml-app-shell');
   if (liveShell instanceof HTMLElement) {
-    liveShell.dataset.cmlTheme = state.uiTheme;
+    applyThemeToElement(liveShell, themeState);
   }
 
   if (state.renameAlbumDialogOpen) {
@@ -11043,12 +11067,26 @@ function handleClick(event) {
       return;
     }
 
-    if (actionTarget.dataset.action === 'set-ui-theme') {
-      const nextTheme = normalizeMediaLibraryTheme(actionTarget.dataset.themeKey || '');
-      state.uiTheme = nextTheme;
+    if (actionTarget.dataset.action === 'set-ui-theme-color') {
+      const nextTheme = commitThemeState({
+        ...getThemeState(),
+        themeColor: actionTarget.dataset.themeColor || getThemeState().themeColor
+      });
       state.uiThemeMenuOpen = false;
-      persistMediaLibraryTheme(nextTheme);
-      refs.root.querySelector('.cml-app-shell')?.setAttribute('data-cml-theme', nextTheme);
+      applyThemeToLiveShell(nextTheme);
+      if (!patchThemeSwitcher()) {
+        render();
+      }
+      return;
+    }
+
+    if (actionTarget.dataset.action === 'set-ui-theme-mode') {
+      const nextTheme = commitThemeState({
+        ...getThemeState(),
+        themeMode: actionTarget.dataset.themeMode || getThemeState().themeMode
+      });
+      state.uiThemeMenuOpen = false;
+      applyThemeToLiveShell(nextTheme);
       if (!patchThemeSwitcher()) {
         render();
       }
@@ -11778,12 +11816,40 @@ function restoreNavigationFromHash() {
 
 function boot() {
   window.__cmlOpenPreview = openPreviewFromEvent;
+  commitThemeState(getThemeState(), { dispatch: false });
   patchHistory();
   restoreNavigationFromHash();
   syncMount();
   window.addEventListener('hashchange', () => {
     applyLocationRouteToMountedUi();
   });
+  window.addEventListener(THEME_CHANGE_EVENT, (event) => {
+    if (!event.detail) {
+      return;
+    }
+    syncThemeState(event.detail);
+    applyThemeToLiveShell(event.detail);
+    if (!patchThemeSwitcher() && refs.root) {
+      render();
+    }
+  });
+  if (typeof window.matchMedia === 'function') {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemThemeChange = () => {
+      if (getThemeState().themeMode === 'auto') {
+        const nextTheme = commitThemeState(getThemeState());
+        applyThemeToLiveShell(nextTheme);
+        if (!patchThemeSwitcher() && refs.root) {
+          render();
+        }
+      }
+    };
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleSystemThemeChange);
+    } else if (mediaQuery.addListener) {
+      mediaQuery.addListener(handleSystemThemeChange);
+    }
+  }
 }
 
 if (document.readyState === 'loading') {
