@@ -189,12 +189,12 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-app-shell[data-cml-theme-mode="dark"] {
+  --cml-theme-shell-base: color-mix(in srgb, #1f2024 90%, var(--cml-theme-accent) 10%);
   --cml-theme-page-bg:
-    radial-gradient(circle at top right, rgba(var(--cml-theme-accent-rgb), 0.16) 0%, transparent 26%),
-    linear-gradient(165deg, #181a20 0%, color-mix(in srgb, #181a20 90%, var(--cml-theme-accent) 10%) 100%);
-  --cml-theme-surface: #1d2028;
-  --cml-theme-surface-elevated: rgba(22, 25, 33, 0.92);
-  --cml-theme-sidebar-bg: linear-gradient(180deg, color-mix(in srgb, #12151c 88%, var(--cml-theme-accent) 12%) 0%, #0e1016 100%);
+    linear-gradient(180deg, var(--cml-theme-shell-base) 0%, var(--cml-theme-shell-base) 100%);
+  --cml-theme-surface: #191b20;
+  --cml-theme-surface-elevated: rgba(24, 26, 31, 0.96);
+  --cml-theme-sidebar-bg: linear-gradient(180deg, var(--cml-theme-shell-base) 0%, var(--cml-theme-shell-base) 100%);
   --cml-theme-sidebar-edge: transparent;
   --cml-theme-text: #eef2f7;
   --cml-theme-text-soft: #c2cad7;
@@ -205,7 +205,17 @@ body.codex-media-library-active #app {
   --cml-theme-card-border: rgba(255, 255, 255, 0.08);
   --cml-theme-input: rgba(255, 255, 255, 0.06);
   --cml-theme-input-border: rgba(255, 255, 255, 0.10);
-  --cml-theme-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  --cml-theme-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+  --cml-theme-topbar-bg: linear-gradient(180deg, var(--cml-theme-shell-base) 0%, var(--cml-theme-shell-base) 100%);
+  --cml-theme-topbar-border: transparent;
+  --cml-theme-topbar-shadow: none;
+  --cml-theme-content-panel-bg: #15171b;
+  --cml-theme-content-panel-border: rgba(255, 255, 255, 0.04);
+  --cml-theme-content-panel-shadow: none;
+  --cml-theme-nav-hover-bg: rgba(255, 255, 255, 0.06);
+  --cml-theme-nav-hover-border: transparent;
+  --cml-theme-nav-active-bg: color-mix(in srgb, var(--cml-theme-accent) 52%, #10151d 48%);
+  --cml-theme-nav-active-border: rgba(var(--cml-theme-accent-rgb), 0.28);
 }
 
 #codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] {
