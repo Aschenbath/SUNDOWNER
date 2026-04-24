@@ -1333,12 +1333,6 @@ body.codex-media-library-active #app {
   color: var(--cml-theme-text-muted);
 }
 
-#codex-media-library-root .cml-sidebar .cml-sidebar__nav-item,
-#codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item {
-  background: var(--cml-theme-card) !important;
-  color: var(--cml-theme-text-soft);
-}
-
 #codex-media-library-root .cml-sidebar .cml-sidebar__nav-item.is-active,
 #codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item.is-active {
   background: var(--cml-theme-nav-active-bg, var(--cml-theme-accent-soft)) !important;
@@ -2723,7 +2717,6 @@ body.codex-media-library-active #app {
   background: color-mix(in srgb, var(--cml-theme-scrubber-dot) 64%, var(--cml-theme-scrubber-dot-active) 36%);
 }
 
-#codex-media-library-root .cml-scrubber.has-active-badge .cml-scrubber__badge,
 #codex-media-library-root .cml-scrubber:hover .cml-scrubber__badge,
 #codex-media-library-root .cml-scrubber.is-scrubbing .cml-scrubber__badge {
   opacity: 0.74;
