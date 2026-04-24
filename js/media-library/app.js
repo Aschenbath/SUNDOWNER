@@ -9485,10 +9485,14 @@ function openRenameItemDialog(itemId, field = 'FileName') {
   }
   state.renameItemDialogOpen = true;
   state.renameItemTargetId = itemId;
-  state.renameItemField = field === 'Title' ? 'Title' : 'FileName';
+  state.renameItemField = ['Title', 'Artist', 'Album'].includes(field) ? field : 'FileName';
   state.renameItemDraftValue = state.renameItemField === 'Title'
     ? normalizeText(item.audioTitle || item.label || '')
-    : normalizeText(item.label || item.audioTitle || '');
+    : state.renameItemField === 'Artist'
+      ? normalizeText(item.audioArtist || '')
+      : state.renameItemField === 'Album'
+        ? normalizeText(item.audioAlbum || '')
+        : normalizeText(item.label || item.audioTitle || '');
   state.renameItemError = '';
   state.renameItemBusy = false;
   render();
@@ -9519,7 +9523,11 @@ async function submitRenameItem() {
   }
   const payload = state.renameItemField === 'Title'
     ? { Title: nextValue }
-    : { FileName: nextValue };
+    : state.renameItemField === 'Artist'
+      ? { Artist: nextValue }
+      : state.renameItemField === 'Album'
+        ? { Album: nextValue }
+        : { FileName: nextValue };
   state.renameItemBusy = true;
   state.renameItemError = '';
   render();
@@ -9538,13 +9546,26 @@ async function submitRenameItem() {
     if (mediaItem) {
       if (state.renameItemField === 'Title') {
         mediaItem.audioTitle = nextValue;
+      } else if (state.renameItemField === 'Artist') {
+        mediaItem.audioArtist = nextValue;
+      } else if (state.renameItemField === 'Album') {
+        mediaItem.audioAlbum = nextValue;
       } else {
         mediaItem.label = nextValue;
       }
     }
     closeRenameItemDialog();
     render();
-    showToast(state.renameItemField === 'Title' ? 'Track renamed' : 'File renamed', 'success');
+    showToast(
+      state.renameItemField === 'Title'
+        ? 'Track renamed'
+        : state.renameItemField === 'Artist'
+          ? 'Artist updated'
+          : state.renameItemField === 'Album'
+            ? 'Album updated'
+            : 'File renamed',
+      'success'
+    );
   } catch (error) {
     state.renameItemError = error.message || 'Failed to rename item';
     state.renameItemBusy = false;
@@ -10253,6 +10274,16 @@ function handleAction(actionTarget) {
     case 'rename-audio-item':
       if (actionTarget.dataset.id) {
         openRenameItemDialog(actionTarget.dataset.id, 'Title');
+      }
+      return true;
+    case 'rename-audio-artist':
+      if (actionTarget.dataset.id) {
+        openRenameItemDialog(actionTarget.dataset.id, 'Artist');
+      }
+      return true;
+    case 'rename-audio-album':
+      if (actionTarget.dataset.id) {
+        openRenameItemDialog(actionTarget.dataset.id, 'Album');
       }
       return true;
     case 'add-audio-to-playlist':

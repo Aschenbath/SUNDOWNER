@@ -1407,7 +1407,6 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
             <span role="columnheader">Title</span>
             <span role="columnheader">Artist</span>
             <span role="columnheader">Album</span>
-            <span role="columnheader">Time</span>
             <span role="columnheader">Added</span>
             <span role="columnheader">Actions</span>
           </div>
@@ -1432,9 +1431,8 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
               <strong class="cml-music-row__title">${title}</strong>
               ${secondaryMeta ? `<span class="cml-music-row__subtitle">${secondaryMeta}</span>` : ''}
             </span>
-            <span class="cml-music-row__artist">${artist}</span>
-            <span class="cml-music-row__album">${album}</span>
-            <span class="cml-music-row__duration">${formatAudioDuration(item.audioDuration || 0)}</span>
+            <button type="button" class="cml-music-row__artist cml-music-row__editable" data-action="rename-audio-artist" data-id="${escapeHtml(item.id)}" aria-label="Edit artist">${artist}</button>
+            <button type="button" class="cml-music-row__album cml-music-row__editable" data-action="rename-audio-album" data-id="${escapeHtml(item.id)}" aria-label="Edit album">${album}</button>
             <span class="cml-music-row__added">${formatMusicAddedLabel(item)}</span>
             <span class="cml-music-row__actions">
               <button type="button" class="cml-music-row__icon-btn" data-action="rename-audio-item" data-id="${escapeHtml(item.id)}" aria-label="Rename track">${icon('edit')}</button>
@@ -2832,16 +2830,16 @@ function SearchMusicRows({ items = [], audioState = {}, playlists = [], activePl
         <span role="columnheader">Title</span>
         <span role="columnheader">Artist</span>
         <span role="columnheader">Album</span>
-        <span role="columnheader">Time</span>
         <span role="columnheader">Added</span>
         <span role="columnheader">Actions</span>
       </div>
       <div class="cml-music-list">
         ${items.map((item, index) => {
           const isCurrent = currentId === String(item.id || '');
-          const title = escapeHtml(item.audioTitle || item.label || 'Audio track');
+          const title = getAudioDisplayTitle(item);
           const artist = escapeHtml(item.audioArtist || 'Unknown Artist');
           const album = escapeHtml(item.audioAlbum || 'Unknown Album');
+          const secondaryMeta = formatAudioSubtitle(item);
           const playAction = isCurrent ? 'audio-toggle-play' : 'play-audio-item';
           return `
             <div class="cml-music-row ${isCurrent ? 'is-current' : ''}" data-audio-row="${escapeHtml(item.id)}" role="row">
@@ -2854,11 +2852,10 @@ function SearchMusicRows({ items = [], audioState = {}, playlists = [], activePl
               >${isCurrent ? (isPlaying ? icon('pause') : icon('play')) : escapeHtml(String(index + 1))}</button>
               <span class="cml-music-row__meta">
                 <strong class="cml-music-row__title">${title}</strong>
-                <span class="cml-music-row__subtitle">${escapeHtml(item.label || item.sourceId || `Track ${index + 1}`)}</span>
+                ${secondaryMeta ? `<span class="cml-music-row__subtitle">${secondaryMeta}</span>` : ''}
               </span>
-              <span class="cml-music-row__artist">${artist}</span>
-              <span class="cml-music-row__album">${album}</span>
-              <span class="cml-music-row__duration">${formatAudioDuration(item.audioDuration || 0)}</span>
+              <button type="button" class="cml-music-row__artist cml-music-row__editable" data-action="rename-audio-artist" data-id="${escapeHtml(item.id)}" aria-label="Edit artist">${artist}</button>
+              <button type="button" class="cml-music-row__album cml-music-row__editable" data-action="rename-audio-album" data-id="${escapeHtml(item.id)}" aria-label="Edit album">${album}</button>
               <span class="cml-music-row__added">${formatMusicAddedLabel(item)}</span>
               <span class="cml-music-row__actions">
                 <button type="button" class="cml-music-row__icon-btn" data-action="rename-audio-item" data-id="${escapeHtml(item.id)}" aria-label="Rename track">${icon('edit')}</button>
