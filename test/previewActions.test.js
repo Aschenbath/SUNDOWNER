@@ -1663,6 +1663,17 @@ describe('media library download actions', () => {
     assert.match(appSource, /window\.requestAnimationFrame\(\(\) => \{\s*restoreSearchInputFocus\(selectionStart, selectionEnd\);/);
   });
 
+  it('renders an inline clear affordance inside populated search fields', () => {
+    const componentsSource = fs.readFileSync(new URL('../js/media-library/components.js', import.meta.url), 'utf8');
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(componentsSource, /function renderInlineSearchClearButton\(rawValue = ''\) \{/);
+    assert.match(componentsSource, /data-action="clear-search-input"/);
+    assert.match(appSource, /function clearSearchInputAndFocus\(\) \{/);
+    assert.match(appSource, /case 'clear-search-input':/);
+    assert.match(appSource, /clearSearchInputAndFocus\(\);/);
+  });
+
   it('opens document rows on double-click without changing the single-click selection contract', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 

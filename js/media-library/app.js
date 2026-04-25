@@ -5474,6 +5474,19 @@ async function flushPersistedPlaylistState() {
   }
 }
 
+function clearSearchInputAndFocus() {
+  resetSearchQuery();
+  clearSelection({ shouldRender: false });
+  resetLoadedCount();
+  render();
+  window.requestAnimationFrame(() => {
+    const searchInput = refs.root?.querySelector('.cml-topbar__search-input, .cml-sidebar__search-input');
+    if (searchInput instanceof HTMLInputElement) {
+      searchInput.focus({ preventScroll: true });
+    }
+  });
+}
+
 function queuePersistedPlaylistState() {
   pendingPersistedPlaylistSnapshot = snapshotPersistedPlaylistState();
   if (persistedPlaylistStatePromise) {
@@ -11242,6 +11255,9 @@ function handleAction(actionTarget) {
       resetLoadedCount();
       pushNavigationHash();
       render();
+      return true;
+    case 'clear-search-input':
+      clearSearchInputAndFocus();
       return true;
     case 'focus-search-input':
       focusSearchInput();

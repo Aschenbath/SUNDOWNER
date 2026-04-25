@@ -84,6 +84,12 @@ function icon(name, extraClass = '') {
   return `<span class="cml-icon ${extraClass}">${icons[name] || ''}</span>`;
 }
 
+function renderInlineSearchClearButton(rawValue = '') {
+  return normalizeText(rawValue)
+    ? `<button type="button" class="cml-search-clear" data-action="clear-search-input" aria-label="Clear search">${icon('close')}</button>`
+    : '';
+}
+
 function renderAvatarVisual({ displayName = '', username = '', avatarData = '', large = false } = {}) {
   const initialSource = displayName || username || '?';
   const initial = escapeHtml(initialSource.charAt(0).toUpperCase() || '?');
@@ -771,6 +777,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
           <label class="cml-topbar__search cml-topbar__search--mobile-panel" aria-label="Search albums">
             ${icon('search', 'cml-topbar__search-icon')}
             <input type="search" class="cml-topbar__search-input" placeholder="Search albums" value="${searchValue}" />
+            ${renderInlineSearchClearButton(searchValue)}
           </label>
         ` : ''}
       </header>
@@ -782,6 +789,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
         <label class="cml-topbar__search" aria-label="Search">
           ${icon('search', 'cml-topbar__search-icon')}
           <input type="search" class="cml-topbar__search-input" placeholder="${escapeHtml(searchPlaceholder)}" value="${searchValue}" />
+          ${renderInlineSearchClearButton(searchValue)}
         </label>
       </div>
       <div class="cml-topbar__trailing">

@@ -1198,6 +1198,34 @@ body.codex-media-library-active #app {
   display: none;
 }
 
+#codex-media-library-root .cml-search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cml-theme-card) 82%, transparent 18%);
+  color: var(--cml-theme-text-muted);
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+#codex-media-library-root .cml-search-clear:hover,
+#codex-media-library-root .cml-search-clear:focus-visible {
+  background: color-mix(in srgb, var(--cml-theme-accent-soft) 82%, transparent 18%);
+  color: var(--cml-theme-text);
+  transform: scale(1.04);
+}
+
+#codex-media-library-root .cml-search-clear .cml-icon {
+  width: 14px;
+  height: 14px;
+}
+
 #codex-media-library-root .cml-topbar__actions,
 #codex-media-library-root .cml-topbar__selection-actions {
   display: flex;
