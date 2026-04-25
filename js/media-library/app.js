@@ -9795,7 +9795,6 @@ function restorePreviewPosition(itemId) {
 
 function closePreview() {
   const previewId = state.previewId;
-  const restoredPosition = restorePreviewPosition(previewId);
   const finalizeClosePreview = () => {
     state.previewId = null;
     state.previewTransitionRect = null;
@@ -9818,13 +9817,12 @@ function closePreview() {
     if (!renderPreviewTransientLayers()) {
       render();
     }
+    if (previewId) {
+      window.requestAnimationFrame(() => {
+        restorePreviewPosition(previewId);
+      });
+    }
   };
-  if (restoredPosition) {
-    window.setTimeout(() => {
-      animatePreviewCloseToTile(finalizeClosePreview);
-    }, 90);
-    return;
-  }
   animatePreviewCloseToTile(finalizeClosePreview);
 }
 

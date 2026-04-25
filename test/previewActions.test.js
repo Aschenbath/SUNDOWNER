@@ -1414,8 +1414,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /function restorePreviewPosition\(itemId\) \{/);
     assert.match(appSource, /tile\.scrollIntoView\(\{ block: 'center', inline: 'nearest', behavior: 'smooth' \}\);/);
     assert.match(appSource, /scrollToYear\(targetAnchor\);\s*scheduleTimelineRender\(\);/);
-    assert.match(appSource, /const restoredPosition = restorePreviewPosition\(previewId\);/);
     assert.match(appSource, /animatePreviewCloseToTile\(finalizeClosePreview\);/);
+    assert.match(appSource, /window\.requestAnimationFrame\(\(\) => \{\s*restorePreviewPosition\(previewId\);/);
   });
 
   it('closes the confirm dialog immediately before background delete work starts', () => {
