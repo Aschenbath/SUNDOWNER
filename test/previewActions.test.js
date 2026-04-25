@@ -993,7 +993,7 @@ describe('media library download actions', () => {
     assert.match(html, /data-search-group="albums"/);
     assert.doesNotMatch(html, /data-search-group="bin"/);
     assert.doesNotMatch(html, /data-search-group="mind"/);
-    assert.match(html, /Grouped results across photos, videos, music, files, and albums\./);
+    assert.match(html, /Grouped results across photos, videos, music, files, and albums while browsing Library\./);
   });
 
   it('renders structured search filter chips for metadata facets', () => {
@@ -1039,6 +1039,91 @@ describe('media library download actions', () => {
     assert.match(html, /Camera: Canon/);
     assert.match(html, /Tag: night/);
     assert.match(html, /Has location/);
+  });
+
+  it('renders search summary affordances for clear, refine, jump, and limited-result messaging', () => {
+    const html = SearchResultsView({
+      query: 'river',
+      totalCount: 3,
+      filterParts: ['Tag: night'],
+      hasActiveFilters: true,
+      photoSections: [{
+        anchorId: '2026-apr-1',
+        year: '2026',
+        label: 'April 2026',
+        items: [{
+          id: 'photo-1',
+          type: 'photo',
+          label: 'river.jpg',
+          sourceUrl: '/file/river.jpg',
+          thumbnailUrl: '/file/river.jpg',
+          width: 1200,
+          height: 900,
+          displayTakenAt: 'April 23, 2026 09:00',
+          takenAt: '2026-04-23T09:00:00.000Z'
+        }],
+        visibleRows: [{
+          items: [{
+            item: {
+              id: 'photo-1',
+              type: 'photo',
+              label: 'river.jpg',
+              sourceUrl: '/file/river.jpg',
+              thumbnailUrl: '/file/river.jpg',
+              width: 1200,
+              height: 900,
+              displayTakenAt: 'April 23, 2026 09:00',
+              takenAt: '2026-04-23T09:00:00.000Z'
+            },
+            width: 240,
+            height: 180
+          }]
+        }],
+        topSpacerHeight: 0,
+        bottomSpacerHeight: 0
+      }],
+      photoCount: 1,
+      videoSections: [],
+      videoCount: 0,
+      audioItems: [{
+        id: 'audio-1',
+        type: 'audio',
+        label: 'river-demo.m4a',
+        audioTitle: 'River demo',
+        audioArtist: 'Will',
+        audioAlbum: 'Night drive',
+        audioDuration: 126,
+        takenAt: '2026-04-23T10:00:00.000Z'
+      }],
+      audioCount: 1,
+      fileItems: [],
+      fileCount: 0,
+      albumCards: [],
+      albumCount: 0,
+      state: {
+        selectedIds: new Set(),
+        favoriteIds: new Set(),
+        activeSectionAnchor: '',
+        layoutWidth: 1280
+      },
+      layoutWidth: 1280,
+      audioState: {
+        currentId: '',
+        isPlaying: false
+      },
+      playlists: [],
+      activePlaylistName: '',
+      contextLabel: 'Photos',
+      resultsLimited: true,
+      resultSource: 'indexed'
+    });
+
+    assert.match(html, /Grouped results across photos, videos, music, files, and albums while browsing Photos\./);
+    assert.match(html, /data-action="clear-search-filters"/);
+    assert.match(html, /data-action="focus-search-input"/);
+    assert.match(html, /data-action="jump-search-group"/);
+    assert.match(html, /Heads up/);
+    assert.match(html, /older items may be missing from search/);
   });
 
   it('renders album renaming inline at the title position instead of a dialog overlay', () => {
@@ -1221,6 +1306,11 @@ describe('media library download actions', () => {
     assert.match(appSource, /pushNavigationHash\(\);\s*applyLocationRouteToMountedUi\(\);/);
     assert.match(appSource, /if \(!syncSelectionUi\(changedIds\)\) \{\s*render\(\);\s*\}/);
     assert.match(appSource, /const visibleDocRows = \[\.\.\.refs\.root\.querySelectorAll\('\.cml-docs-row\[data-id\]'\)\];/);
+    assert.match(appSource, /function scrollToSearchGroup\(groupKey\)/);
+    assert.match(appSource, /case 'focus-search-input':/);
+    assert.match(appSource, /case 'jump-search-group':/);
+    assert.match(appSource, /state\.librarySyncMeta = \{/);
+    assert.doesNotMatch(appSource, /if \(normalizedType === 'success'\) \{/);
   });
 
   it('renders storage usage numbers once the summary has loaded', () => {

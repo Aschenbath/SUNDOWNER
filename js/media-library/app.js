@@ -389,6 +389,7 @@ const state = {
   adminOrphanScanError: '',
   adminOrphanScanResult: null,
   adminRecoveryTargetChatId: '',
+  adminRecoveryMatchesText: '',
   adminRecoverCaptureTimesLoading: false,
   adminRecoverCaptureTimesError: '',
   adminRecoverCaptureTimesResult: null,
@@ -425,6 +426,12 @@ const state = {
   adminPageConfigSource: [],
   adminOthersConfigSource: null,
   storagePanelOpen: false,
+  librarySyncMeta: {
+    source: 'indexed',
+    totalCount: 0,
+    loadedCount: 0,
+    isTruncated: false
+  },
   dimensionCache: new Map(),
   docsCurrentDir: '',
   docsNewFolderOpen: false,
@@ -1840,6 +1847,39 @@ function ensureRoot() {
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function parseAdminRecoveryMatches(input = '') {
+  const lines = String(input || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const matches = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const parts = lines[index].split('|').map((part) => normalizeText(part));
+    if (parts.length < 2) {
+      throw new Error(`Recovery match line ${index + 1} must include at least key and message ID or file ID.`);
+    }
+
+    const [key, messageId, chatId, channelName, fileId] = parts;
+    if (!key) {
+      throw new Error(`Recovery match line ${index + 1} is missing the file key.`);
+    }
+    if (!messageId && !fileId) {
+      throw new Error(`Recovery match line ${index + 1} must include either a message ID or a file ID.`);
+    }
+
+    matches.push({
+      key,
+      ...(messageId ? { messageId } : {}),
+      ...(chatId ? { chatId } : {}),
+      ...(channelName ? { channelName } : {}),
+      ...(fileId ? { fileId } : {}),
+    });
+  }
+
+  return matches;
 }
 
 function formatScrubberLabel(dateLike) {
@@ -3995,8 +4035,22 @@ async function runAdminRecoveryTask(kind, { dryRun = false } = {}) {
         limit: 20,
         dryRun,
         targetChatId: normalizeText(state.adminRecoveryTargetChatId),
+        ...(() => {
+          const matches = parseAdminRecoveryMatches(state.adminRecoveryMatchesText);
+          return matches.length ? { matches } : {};
+        })(),
       }),
-      validate: () => normalizeText(state.adminRecoveryTargetChatId) ? true : 'Target chat ID is required for Telegram file ID recovery',
+      validate: () => {
+        if (!normalizeText(state.adminRecoveryTargetChatId)) {
+          return 'Target chat ID is required for Telegram file ID recovery';
+        }
+        try {
+          parseAdminRecoveryMatches(state.adminRecoveryMatchesText);
+          return true;
+        } catch (error) {
+          return error.message || 'Recovery match lines are invalid';
+        }
+      },
       successLabel: dryRun ? 'Telegram file ID dry run finished' : 'Telegram file ID recovery finished',
     },
     tgThumbnails: {
@@ -4552,6 +4606,7 @@ async function fetchIndexedMediaItems(domItems) {
   const domLookup = buildDomLookup(domItems);
   const files = [];
   let start = 0;
+  let totalCount = 0;
 
   while (start < API_MAX_ITEMS) {
     const payload = await fetchListPage(start);
@@ -4562,7 +4617,7 @@ async function fetchIndexedMediaItems(domItems) {
 
     files.push(...pageFiles);
     const returnedCount = toPositiveNumber(payload?.returnedCount, pageFiles.length);
-    const totalCount = toPositiveNumber(payload?.totalCount, files.length);
+    totalCount = Math.max(totalCount, toPositiveNumber(payload?.totalCount, files.length));
     const shouldStop = returnedCount < API_PAGE_SIZE || files.length >= totalCount || files.length >= API_MAX_ITEMS;
     if (shouldStop) {
       break;
@@ -4571,7 +4626,7 @@ async function fetchIndexedMediaItems(domItems) {
     start += returnedCount;
   }
 
-  return files
+  const items = files
     .slice(0, API_MAX_ITEMS)
     .map((record, index) => buildIndexedMediaItem(record, domLookup, index))
     .filter(Boolean)
@@ -4582,6 +4637,14 @@ async function fetchIndexedMediaItems(domItems) {
       return left.label.localeCompare(right.label);
     })
     .map(({ sortOrder, domIndex, ...item }) => item);
+
+  const effectiveTotalCount = Math.max(totalCount, items.length);
+  return {
+    items,
+    totalCount: effectiveTotalCount,
+    loadedCount: items.length,
+    isTruncated: effectiveTotalCount > items.length
+  };
 }
 
 function getAllItems() {
@@ -5667,12 +5730,6 @@ function patchToastDom() {
 
 function showToast(message, type = 'error') {
   const normalizedType = String(type || 'error');
-  if (normalizedType === 'success') {
-    if (state.toastType === 'success' && state.toastMessage) {
-      dismissToast();
-    }
-    return;
-  }
   if (state.toastTimeoutId) {
     window.clearTimeout(state.toastTimeoutId);
   }
@@ -5684,6 +5741,35 @@ function showToast(message, type = 'error') {
     state.toastTimeoutId = 0;
     patchToastDom();
   }, 4500);
+}
+
+function getSearchContextLabel() {
+  if (state.privateViewOpen) {
+    return 'Private';
+  }
+  if (state.activeAlbumName) {
+    return state.activeAlbumName;
+  }
+  if (state.primaryFilter === 'Collections') {
+    return 'Albums';
+  }
+  if (state.secondaryFilter) {
+    return state.secondaryFilter;
+  }
+  return state.primaryFilter || 'Library';
+}
+
+function scrollToSearchGroup(groupKey) {
+  const normalizedGroupKey = normalizeText(groupKey).toLowerCase();
+  if (!normalizedGroupKey || !refs.root) {
+    return false;
+  }
+  const target = refs.root.querySelector(`[data-search-group="${normalizedGroupKey}"]`);
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  return true;
 }
 
 function dismissToast() {
@@ -8371,7 +8457,10 @@ function render() {
                       isPlaying: state.audioPlaying
                     },
                     playlists: viewModel.musicPlaylists,
-                    activePlaylistName: viewModel.activePlaylistName
+                    activePlaylistName: viewModel.activePlaylistName,
+                    contextLabel: getSearchContextLabel(),
+                    resultsLimited: Boolean(state.librarySyncMeta?.isTruncated || state.librarySyncMeta?.source === 'dom'),
+                    resultSource: state.librarySyncMeta?.source || 'indexed'
                   })
                 : viewModel.isMindView
                 ? ((!state.mindHydrated && state.mindLoading)
@@ -9044,13 +9133,25 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
   let surfaceReady = hasUnderlyingSurface();
 
   try {
-    const indexedItems = await fetchIndexedMediaItems(domItems);
-    if (indexedItems.length) {
-      items = indexedItems;
+    const indexedResult = await fetchIndexedMediaItems(domItems);
+    state.librarySyncMeta = {
+      source: 'indexed',
+      totalCount: indexedResult.totalCount,
+      loadedCount: indexedResult.loadedCount,
+      isTruncated: indexedResult.isTruncated
+    };
+    if (indexedResult.items.length) {
+      items = indexedResult.items;
       surfaceReady = true;
     }
   } catch (error) {
     console.warn('[media-library] falling back to DOM extraction', error);
+    state.librarySyncMeta = {
+      source: 'dom',
+      totalCount: domItems.length,
+      loadedCount: domItems.length,
+      isTruncated: false
+    };
   }
 
   const visibleSecondaryFilters = getVisibleSecondaryFilters(items);
@@ -10834,6 +10935,14 @@ function handleAction(actionTarget) {
       pushNavigationHash();
       render();
       return true;
+    case 'focus-search-input':
+      focusSearchInput();
+      return true;
+    case 'jump-search-group':
+      if (actionTarget.dataset.searchGroup) {
+        scrollToSearchGroup(actionTarget.dataset.searchGroup);
+      }
+      return true;
     case 'toggle-avatar':
       state.avatarMenuOpen = !state.avatarMenuOpen;
       patchAvatarMenu();
@@ -11304,6 +11413,11 @@ function handleInput(event) {
     state.adminRecoveryTargetChatId = input.value;
     state.adminRecoverTgFileIdsError = '';
     state.adminRecoverTgThumbnailsError = '';
+    return;
+  }
+  if (input.hasAttribute('data-admin-recovery-matches')) {
+    state.adminRecoveryMatchesText = input.value;
+    state.adminRecoverTgFileIdsError = '';
     return;
   }
   if (input.dataset.adminField && input.dataset.adminSection) {

@@ -2775,21 +2775,60 @@ export function EmptyState({ query, isLoading = false, mode = 'media', actionLab
   `;
 }
 
-export function SearchSummary({ query, resultCount, filterParts = [], hasActiveFilters = false }) {
+export function SearchSummary({
+  query,
+  resultCount,
+  filterParts = [],
+  hasActiveFilters = false,
+  contextLabel = '',
+  resultsLimited = false,
+  resultSource = 'indexed',
+  jumpGroups = []
+}) {
   if (!query && !hasActiveFilters) {
     return '';
   }
   const normalizedQuery = escapeHtml(query);
+  const safeContextLabel = escapeHtml(contextLabel || 'Library');
   const summaryCopy = query
-    ? 'Grouped results across photos, videos, music, files, and albums.'
-    : 'Filtered results across photos, videos, music, files, and albums.';
+    ? `Grouped results across photos, videos, music, files, and albums while browsing ${safeContextLabel}.`
+    : `Filtered results across photos, videos, music, files, and albums while browsing ${safeContextLabel}.`;
+  const limitationCopy = resultsLimited
+    ? (resultSource === 'dom'
+      ? 'Results are currently based on visible live DOM media only, so search may be incomplete.'
+      : 'This library snapshot hit the current indexed item cap, so older items may be missing from search.')
+    : '';
   return `
     <section class="cml-search-summary" data-search-summary="global">
       <p class="cml-search-summary__eyebrow">Search</p>
       <div class="cml-search-summary__head">
-        <h2 class="cml-search-summary__title">${resultCount} match${resultCount === 1 ? '' : 'es'}${query ? ` for \"${normalizedQuery}\"` : ''}</h2>
-        <p class="cml-search-summary__copy">${summaryCopy}</p>
+        <div class="cml-search-summary__titles">
+          <h2 class="cml-search-summary__title">${resultCount} match${resultCount === 1 ? '' : 'es'}${query ? ` for \"${normalizedQuery}\"` : ''}</h2>
+          <p class="cml-search-summary__copy">${summaryCopy}</p>
+        </div>
+        <div class="cml-search-summary__actions">
+          <button type="button" class="cml-search-summary__clear" data-action="clear-search-filters">Clear search</button>
+          <button type="button" class="cml-search-summary__clear cml-search-summary__clear--quiet" data-action="focus-search-input">Refine query</button>
+        </div>
       </div>
+      ${resultsLimited ? `
+        <div class="cml-search-summary__notice" role="status">
+          <strong>Heads up</strong>
+          <span>${escapeHtml(limitationCopy)}</span>
+        </div>
+      ` : ''}
+      ${jumpGroups.length ? `
+        <div class="cml-search-summary__jump-list" aria-label="Jump to search result groups">
+          ${jumpGroups.map((group) => `
+            <button
+              type="button"
+              class="cml-search-summary__jump"
+              data-action="jump-search-group"
+              data-search-group="${escapeHtml(group.key)}"
+            >${escapeHtml(group.label)} <span>${escapeHtml(formatItemCount(group.count))}</span></button>
+          `).join('')}
+        </div>
+      ` : ''}
       ${filterParts.length ? `
         <div class="cml-search-summary__tags">
           ${filterParts.map((part) => `<span class="cml-search-summary__tag">${escapeHtml(part)}</span>`).join('')}
@@ -2934,13 +2973,27 @@ export function SearchResultsView({
   layoutWidth = 0,
   audioState = {},
   playlists = [],
-  activePlaylistName = ''
+  activePlaylistName = '',
+  contextLabel = '',
+  resultsLimited = false,
+  resultSource = 'indexed'
 } = {}) {
+  const jumpGroups = [
+    photoCount ? { key: 'photos', label: 'Photos', count: photoCount } : null,
+    videoCount ? { key: 'videos', label: 'Videos', count: videoCount } : null,
+    audioCount ? { key: 'music', label: 'Music', count: audioCount } : null,
+    fileCount ? { key: 'files', label: 'Files', count: fileCount } : null,
+    albumCount ? { key: 'albums', label: 'Albums', count: albumCount } : null
+  ].filter(Boolean);
   const summary = SearchSummary({
     query,
     resultCount: totalCount,
     filterParts,
     hasActiveFilters,
+    contextLabel,
+    resultsLimited,
+    resultSource,
+    jumpGroups
   });
   const hasResults = photoCount || videoCount || audioCount || fileCount || albumCount;
   if (!hasResults) {
@@ -3457,6 +3510,11 @@ export function AdminPanel({ state, storageSummary }) {
           <label class="cml-admin-panel__field cml-admin-panel__field--compact">
             <span>Target chat ID</span>
             <input type="text" value="${escapeHtml(state.adminRecoveryTargetChatId || '')}" data-admin-recovery-target-chat class="cml-admin-panel__input" placeholder="123456789 or -100..." autocomplete="off">
+          </label>
+          <label class="cml-admin-panel__field">
+            <span>Orphan match lines</span>
+            <textarea data-admin-recovery-matches class="cml-admin-panel__textarea" placeholder="path/to/file.jpg | 42 | -100123 | Telegram_env&#10;path/to/file-2.heic | 77 |  | Telegram_env | AgAC...">${escapeHtml(state.adminRecoveryMatchesText || '')}</textarea>
+            <small class="cml-admin-panel__hint">One line per orphan file: <code>key | messageId | chatId | channelName | fileId</code>. Leave trailing fields blank if the route can infer them.</small>
           </label>
           <div class="cml-admin-panel__recovery-grid">
             <article class="cml-admin-panel__recovery-card">
