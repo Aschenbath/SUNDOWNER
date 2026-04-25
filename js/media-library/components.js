@@ -57,6 +57,10 @@ const secondaryIconMap = {
   Favourites: 'favourites'
 };
 
+const secondaryLabelMap = {
+  TODO: 'Unsorted'
+};
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -498,10 +502,11 @@ export function Sidebar({
           <div class="cml-sidebar__subnav">
             ${navigationModel.secondary.map((label) => {
               const active = state.secondaryFilter === label ? 'is-active' : '';
+              const displayLabel = secondaryLabelMap[label] || label;
               return `
                 <button type="button" class="cml-sidebar__subnav-item ${active}" data-secondary="${escapeHtml(label)}" aria-current="${state.secondaryFilter === label ? 'page' : 'false'}">
                   ${icon(secondaryIconMap[label])}
-                  <span class="cml-sidebar__subnav-label">${escapeHtml(label)}</span>
+                  <span class="cml-sidebar__subnav-label">${escapeHtml(displayLabel)}</span>
                 </button>
               `;
             }).join('')}

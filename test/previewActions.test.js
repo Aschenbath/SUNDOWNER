@@ -1320,6 +1320,7 @@ describe('media library download actions', () => {
     assert.match(html, /Times New Roman/);
     assert.match(html, />Albums</);
     assert.match(html, />Private</);
+    assert.doesNotMatch(html, />TODO</);
     assert.match(html, /data-secondary="Videos"/);
     assert.match(html, /data-secondary="Favourites"/);
     assert.doesNotMatch(html, /cml-sidebar__subnav-accent/);
@@ -1618,6 +1619,36 @@ describe('media library download actions', () => {
     assert.match(appSource, /const isCurrentPreviewItem = Boolean\(state\.previewId\)/);
     assert.match(appSource, /if \(isCurrentPreviewItem && syncPreviewFavoriteButton\(itemId\)\) \{\s*return;\s*\}/);
     assert.match(appSource, /const displayTotalCount = resolvedPreviewItems\.length \|\| \(resolvedPreviewItem \? 1 : 0\)/);
+  });
+
+  it('keeps the TODO filter internal while exposing Unsorted and hides Bin-only shortcut leaks', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const componentsSource = fs.readFileSync(new URL('../js/media-library/components.js', import.meta.url), 'utf8');
+    const sidebarHtml = Sidebar({
+      navigationModel: {
+        primary: ['Photos'],
+        secondary: ['TODO', 'Videos']
+      },
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: 'TODO',
+        privateViewOpen: false,
+        mindSettings: { contactName: 'Mind' }
+      },
+      storageSummary: null,
+      searchQuery: ''
+    });
+
+    assert.match(componentsSource, /const secondaryLabelMap = \{\s*TODO: 'Unsorted'/);
+    assert.match(sidebarHtml, />Unsorted</);
+    assert.doesNotMatch(sidebarHtml, />TODO</);
+    assert.match(appSource, /function getVisibleSecondaryFilters\(items\) \{\s*return navigationModel\.secondary\.filter\(\(label\) => \{/);
+    assert.match(appSource, /if \(label === 'TODO'\) \{\s*return items\.some\(\(item\) => isTodoPhotoItem\(item\)\);/);
+    assert.match(appSource, /const isBinPreview = state\.primaryFilter === 'Bin';/);
+    assert.match(appSource, /else if \(!isBinPreview && \(event\.key === 'f' \|\| event\.key === 'F'\)\) \{/);
+    assert.match(appSource, /else if \(!isBinPreview && \(event\.key === 'e' \|\| event\.key === 'E'\)\) \{/);
+    assert.match(appSource, /else if \(!isBinPreview && \(event\.key === 'r' \|\| event\.key === 'R'\)\) \{/);
+    assert.match(appSource, /else if \(isBinPreview && \(event\.key === 'Backspace' \|\| event\.key === 'Delete'\)\) \{/);
   });
 
   it('exposes picker actions for video albums and Private media', () => {

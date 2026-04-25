@@ -7630,7 +7630,12 @@ function patchDescriptionDisplay(section, text) {
 }
 
 function getVisibleSecondaryFilters(items) {
-  return [...navigationModel.secondary];
+  return navigationModel.secondary.filter((label) => {
+    if (label === 'TODO') {
+      return items.some((item) => isTodoPhotoItem(item));
+    }
+    return true;
+  });
 }
 
 function isTodoPhotoItem(item) {
@@ -11988,6 +11993,7 @@ function handleKeyDown(event) {
   }
 
   if (state.previewId) {
+    const isBinPreview = state.primaryFilter === 'Bin';
     if (event.key === 'Escape') {
       if (state.previewImmersive) {
         state.previewImmersive = false;
@@ -12001,16 +12007,19 @@ function handleKeyDown(event) {
       movePreview(1);
     } else if (event.key === 'ArrowLeft') {
       movePreview(-1);
-    } else if (event.key === 'f' || event.key === 'F') {
+    } else if (!isBinPreview && (event.key === 'f' || event.key === 'F')) {
       toggleFavorite(state.previewId);
     } else if (event.key === 'i' || event.key === 'I') {
       setPreviewInfoOpen(!state.infoOpen, { allowRenderFallback: false });
-    } else if (event.key === 'e' || event.key === 'E') {
+    } else if (!isBinPreview && (event.key === 'e' || event.key === 'E')) {
       state.previewImmersive = !state.previewImmersive;
       if (!renderPreviewTransientLayers()) { render(); }
-    } else if (event.key === 'r' || event.key === 'R') {
+    } else if (!isBinPreview && (event.key === 'r' || event.key === 'R')) {
       state.previewRotation = (state.previewRotation + 90) % 360;
       applyPreviewRotation();
+    } else if (isBinPreview && (event.key === 'Backspace' || event.key === 'Delete')) {
+      event.preventDefault();
+      requestDeleteBinPreviewPermanently(state.previewId);
     }
     return;
   }
