@@ -1400,9 +1400,9 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
                 ${icon('previous')}
               </button>
               <div class="cml-music-summary__playlist-copy">
-                <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
-                <p class="cml-view-summary__copy cml-view-summary__copy--albums">${escapeHtml(`${helper} · ${queueSummary}`)}</p>
-              </div>
+            <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
+            <p class="cml-view-summary__copy cml-view-summary__copy--albums">${escapeHtml(`${helper} · ${queueSummary}`)}</p>
+          </div>
             </div>
           ` : `
             ${isMobile ? '' : '<p class="cml-view-summary__eyebrow">Music</p>'}
@@ -1450,6 +1450,7 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
           </div>
           <div class="cml-music-playlist__head-actions">
             <span class="cml-music-playlist__count">${formatItemCount(items.length)}</span>
+            ${activePlaylistName ? `<span class="cml-music-playlist__hint">Queue follows this playlist order.</span>` : `<span class="cml-music-playlist__hint">Queue follows the visible track order.</span>`}
             ${!activePlaylistName ? '<button type="button" class="cml-music-playlist__action" data-action="open-create-playlist">New playlist</button>' : ''}
           </div>
         </div>
@@ -1545,7 +1546,7 @@ export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentT
       </div>
       <div class="cml-audio-panel__right">
         <div class="cml-audio-panel__utility-cluster">
-          <button type="button" class="cml-audio-panel__utility cml-audio-panel__utility--queue" data-primary="Music" aria-label="Queue">
+          <button type="button" class="cml-audio-panel__utility cml-audio-panel__utility--queue" data-primary="Music" aria-label="Open queue" aria-controls="cml-music-library">
             ${icon('collections')}
             <span class="cml-audio-panel__utility-label">Queue</span>
           </button>
