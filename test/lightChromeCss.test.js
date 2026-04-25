@@ -23,10 +23,10 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-storage-panel__panel \{[\s\S]*background: var\(--cml-theme-storage-panel-bg\);/);
     assert.match(css, /#codex-media-library-root \.cml-storage-panel__summary-card \{[\s\S]*var\(--cml-theme-surface-elevated\)/);
     assert.match(css, /#codex-media-library-root \.cml-preview__backdrop \{[\s\S]*background: var\(--cml-theme-overlay-scrim\);/);
-    assert.match(css, /#codex-media-library-root \.cml-preview__header \{[\s\S]*background: var\(--cml-theme-preview-header-bg\);/);
-    assert.match(css, /#codex-media-library-root \.cml-preview__info-toolbar \{[\s\S]*background: var\(--cml-theme-preview-info-toolbar-bg\);/);
-    assert.match(css, /#codex-media-library-root \.cml-preview__info-section--editable \{[\s\S]*background: var\(--cml-theme-preview-info-card-bg\);/);
-    assert.match(css, /#codex-media-library-root \.cml-preview__info-category-value,[\s\S]*color: var\(--cml-theme-preview-info-value\);/);
+    assert.match(css, /#codex-media-library-root \.cml-preview__header \{[\s\S]*background: var\(--cml-theme-preview-header-bg, linear-gradient/);
+    assert.match(css, /#codex-media-library-root \.cml-preview__info-toolbar \{[\s\S]*background: var\(--cml-theme-preview-info-toolbar-bg, rgba/);
+    assert.match(css, /#codex-media-library-root \.cml-preview__info-section--editable \{[\s\S]*background: var\(--cml-theme-preview-info-card-bg, rgba/);
+    assert.match(css, /#codex-media-library-root \.cml-preview__info-category-value,[\s\S]*color: var\(--cml-theme-preview-info-value, #f3f6fb\)/);
   });
 
   it('uses dedicated scrubber tokens so light timeline chrome does not fall back to dark pills', () => {
