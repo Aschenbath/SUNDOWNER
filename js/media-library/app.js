@@ -9548,6 +9548,7 @@ function mount() {
 
   if (!mounted && refs.root) {
     refs.root.addEventListener('click', handleClick, true);
+    refs.root.addEventListener('dblclick', handleDoubleClick, true);
     refs.root.addEventListener('input', handleInput);
     refs.root.addEventListener('change', handleChange);
     refs.root.addEventListener('compositionstart', handleCompositionStart);
@@ -11611,6 +11612,25 @@ function handleClick(event) {
       render();
     }
   }
+}
+
+function handleDoubleClick(event) {
+  if (!(event.target instanceof Element) || !refs.root) {
+    return;
+  }
+  const docsRow = event.target.closest('.cml-docs-row[data-id]');
+  const clickedControl = event.target.closest('button, a, input, textarea, select, label');
+  if (!(docsRow instanceof HTMLElement) || clickedControl instanceof HTMLElement) {
+    return;
+  }
+  const itemId = normalizeText(docsRow.getAttribute('data-id'));
+  if (!itemId || state.secondaryFilter !== 'Documents') {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  state.docsContextMenu = null;
+  downloadPreviewItem(itemId);
 }
 
 function handleInput(event) {
