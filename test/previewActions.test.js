@@ -1651,6 +1651,18 @@ describe('media library download actions', () => {
     assert.match(appSource, /else if \(isBinPreview && \(event\.key === 'Backspace' \|\| event\.key === 'Delete'\)\) \{/);
   });
 
+  it('applies library search on a debounced live path instead of requiring Enter only', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /const SEARCH_INPUT_DEBOUNCE_MS = 160;/);
+    assert.match(appSource, /let pendingSearchApplyTimer = 0;/);
+    assert.match(appSource, /function restoreSearchInputFocus\(selectionStart = null, selectionEnd = null\) \{/);
+    assert.match(appSource, /function scheduleSearchQueryApply\(nextQuery, \{ selectionStart = null, selectionEnd = null \} = \{\}\) \{/);
+    assert.match(appSource, /scheduleSearchQueryApply\(input\.value, \{\s*selectionStart: input\.selectionStart,\s*selectionEnd: input\.selectionEnd\s*\}\);/);
+    assert.match(appSource, /applySearchQuery\(nextQuery, \{\s*preserveFocus: true,\s*selectionStart,\s*selectionEnd\s*\}\);/);
+    assert.match(appSource, /window\.requestAnimationFrame\(\(\) => \{\s*restoreSearchInputFocus\(selectionStart, selectionEnd\);/);
+  });
+
   it('exposes picker actions for video albums and Private media', () => {
     const videoRootHtml = TopSearchBar({
       state: {

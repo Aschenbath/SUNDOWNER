@@ -80,6 +80,7 @@ const API_PAGE_SIZE = 400;
 const API_MAX_ITEMS = 1600;
 const API_REQUEST_TIMEOUT_MS = 8000;
 const STORAGE_REQUEST_TIMEOUT_MS = 5000;
+const SEARCH_INPUT_DEBOUNCE_MS = 160;
 const MEDIA_LIBRARY_UPLOAD_ACCEPT = 'image/*,video/*,audio/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
 const COLLECTION_PAGE_SIZE = 24;
 const TIMELINE_ROW_GAP = 2;
@@ -1802,6 +1803,7 @@ function hitYearButton(scroller, clientY) {
 }
 
 let storageSyncPromise = null;
+let pendingSearchApplyTimer = 0;
 
 function shouldMount(pathname = window.location.pathname, search = window.location.search) {
   if (window.sessionStorage.getItem('cmlSkipMount') === '1') {
@@ -3073,12 +3075,31 @@ function leaveMobileMindView() {
 }
 
 function resetSearchQuery() {
+  if (pendingSearchApplyTimer) {
+    window.clearTimeout(pendingSearchApplyTimer);
+    pendingSearchApplyTimer = 0;
+  }
   state.searchQuery = '';
   state.searchDraft = '';
   state.mobileAlbumSearchOpen = false;
 }
 
-function applySearchQuery(nextQuery) {
+function restoreSearchInputFocus(selectionStart = null, selectionEnd = null) {
+  const searchInput = refs.root?.querySelector('.cml-sidebar__search-input, .cml-topbar__search-input');
+  if (!(searchInput instanceof HTMLInputElement)) {
+    return;
+  }
+  searchInput.focus({ preventScroll: true });
+  if (Number.isInteger(selectionStart) && Number.isInteger(selectionEnd)) {
+    searchInput.setSelectionRange(selectionStart, selectionEnd);
+  }
+}
+
+function applySearchQuery(nextQuery, { preserveFocus = false, selectionStart = null, selectionEnd = null } = {}) {
+  if (pendingSearchApplyTimer) {
+    window.clearTimeout(pendingSearchApplyTimer);
+    pendingSearchApplyTimer = 0;
+  }
   state.searchQuery = normalizeText(nextQuery);
   state.searchDraft = nextQuery;
   // When searching inside Documents view, reset directory so results
@@ -3089,6 +3110,25 @@ function applySearchQuery(nextQuery) {
   clearSelection({ shouldRender: false });
   resetLoadedCount();
   render();
+  if (preserveFocus) {
+    window.requestAnimationFrame(() => {
+      restoreSearchInputFocus(selectionStart, selectionEnd);
+    });
+  }
+}
+
+function scheduleSearchQueryApply(nextQuery, { selectionStart = null, selectionEnd = null } = {}) {
+  if (pendingSearchApplyTimer) {
+    window.clearTimeout(pendingSearchApplyTimer);
+  }
+  pendingSearchApplyTimer = window.setTimeout(() => {
+    pendingSearchApplyTimer = 0;
+    applySearchQuery(nextQuery, {
+      preserveFocus: true,
+      selectionStart,
+      selectionEnd
+    });
+  }, SEARCH_INPUT_DEBOUNCE_MS);
 }
 
 function matchesSearchQuery(item, query) {
@@ -11619,6 +11659,10 @@ function handleInput(event) {
   }
   if (input.classList.contains('cml-topbar__search-input') || input.classList.contains('cml-sidebar__search-input')) {
     state.searchDraft = input.value;
+    scheduleSearchQueryApply(input.value, {
+      selectionStart: input.selectionStart,
+      selectionEnd: input.selectionEnd
+    });
     return;
   }
   if (input.dataset.focusKey === 'album-search') {
