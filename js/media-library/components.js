@@ -521,9 +521,24 @@ export function Sidebar({
       ` : ''}
       <div class="cml-sidebar__footer" data-audio-dock-key="${escapeHtml(desktopAudioDockKey)}" data-has-audio-dock="${desktopAudioDock ? 'true' : 'false'}">
         ${desktopAudioDock}
-        ${StorageCard(storageSummary, Boolean(state.storagePanelOpen))}
       </div>
     </aside>
+  `;
+}
+
+export function StorageTrigger(storage, isActive = false) {
+  const usedMb = Math.max(0, Number(storage?.usedMb) || 0);
+  const totalCount = Math.max(0, Number(storage?.totalCount) || 0);
+  const isLoading = Boolean(storage?.isLoading);
+  const usageLine = isLoading ? 'Calculating...' : formatStorageAmountFromMb(usedMb);
+  return `
+    <button type="button" class="cml-storage-trigger ${isActive ? 'is-active' : ''}" data-action="open-storage-panel" aria-label="Storage usage" aria-pressed="${isActive}">
+      ${icon('cloud')}
+      <span class="cml-storage-trigger__copy">
+        <span class="cml-storage-trigger__label">Storage</span>
+        <span class="cml-storage-trigger__meta">${usageLine} · ${formatItemCount(totalCount)}</span>
+      </span>
+    </button>
   `;
 }
 
@@ -606,7 +621,7 @@ function AvatarButton({
   `;
 }
 
-export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSelection = false, canSetAlbumCover = false }) {
+export function TopSearchBar({ state, storageSummary = null, canDeleteSelection = false, canDownloadSelection = false, canSetAlbumCover = false }) {
   if (state.primaryFilter === 'Mind') {
     const contactName = escapeHtml(state.mindSettings?.contactName || 'Mind');
     const avatarData = escapeHtml(state.mindSettings?.contactAvatarData || '');
@@ -625,10 +640,13 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
             <p class="cml-mind-header__title">${contactName}</p>
           </div>
         </div>
-        <button type="button" class="cml-topbar__secondary-button ${state.mindSettingsOpen ? 'is-selected' : ''}" data-action="toggle-mind-settings" aria-pressed="${state.mindSettingsOpen ? 'true' : 'false'}">
-          ${icon('sliders')}
-          <span>Style</span>
-        </button>
+        <div class="cml-topbar__actions">
+          ${StorageTrigger(storageSummary, Boolean(state.storagePanelOpen))}
+          <button type="button" class="cml-topbar__secondary-button ${state.mindSettingsOpen ? 'is-selected' : ''}" data-action="toggle-mind-settings" aria-pressed="${state.mindSettingsOpen ? 'true' : 'false'}">
+            ${icon('sliders')}
+            <span>Style</span>
+          </button>
+        </div>
       </header>
     `;
   }
@@ -794,6 +812,7 @@ export function TopSearchBar({ state, canDeleteSelection = false, canDownloadSel
       </div>
       <div class="cml-topbar__trailing">
         <div class="cml-topbar__actions">
+          ${StorageTrigger(storageSummary, Boolean(state.storagePanelOpen))}
           ${themeMenu}
           ${isAlbumPickerMode ? `
           <button type="button" class="cml-topbar__secondary-button" data-action="cancel-add-to-current-album">

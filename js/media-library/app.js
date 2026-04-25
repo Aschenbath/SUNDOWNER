@@ -4036,10 +4036,10 @@ async function performStorageSummarySync({ forceRender = false } = {}) {
   if (!sameStorageSummary(state.storageSummary, nextSummary)) {
     state.storageSummary = nextSummary;
     if (refs.root) {
-      const sidebarPatched = patchSidebarStorageCard();
+      const topbarPatched = patchTopbarStorageTrigger();
       if (state.adminPanelOpen || state.storagePanelOpen) {
         patchAdminOverlays();
-      } else if (!sidebarPatched) {
+      } else if (!topbarPatched) {
         render();
       }
     }
@@ -4047,10 +4047,10 @@ async function performStorageSummarySync({ forceRender = false } = {}) {
   }
 
   if (forceRender && refs.root) {
-    const sidebarPatched = patchSidebarStorageCard();
+    const topbarPatched = patchTopbarStorageTrigger();
     if (state.adminPanelOpen || state.storagePanelOpen) {
       patchAdminOverlays();
-    } else if (!sidebarPatched) {
+    } else if (!topbarPatched) {
       render();
     }
   }
@@ -5831,6 +5831,7 @@ function patchThemeSwitcher() {
   const selectedItems = getSelectedItems();
   const markup = TopSearchBar({
     state,
+    storageSummary: state.storageSummary,
     canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item)),
     canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
     canSetAlbumCover: false
@@ -8415,21 +8416,44 @@ function isPrimaryViewDomInSync(primary) {
     && domPlaylist === normalizeText(state.activePlaylistName || '');
 }
 
-function patchSidebarStorageCard() {
+function patchTopbarStorageTrigger() {
   if (!refs.root) return false;
-  const currentCard = refs.root.querySelector('.cml-sidebar .cml-storage-strip');
-  if (!(currentCard instanceof HTMLElement)) {
+  const currentTrigger = refs.root.querySelector('.cml-topbar .cml-storage-trigger');
+  if (!(currentTrigger instanceof HTMLElement)) {
     return false;
   }
-
+  const currentTopbar = currentTrigger.closest('.cml-topbar');
+  if (!(currentTopbar instanceof HTMLElement)) {
+    return false;
+  }
+  const selectedItems = getSelectedItems();
+  const activeAlbumName = getActiveAlbumName();
+  const canSetAlbumCover = Boolean(
+    activeAlbumName
+    && selectedItems.length === 1
+    && itemBelongsToAlbum(selectedItems[0], activeAlbumName)
+  );
+  const markup = TopSearchBar({
+    state,
+    storageSummary: state.storageSummary,
+    canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item)),
+    canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
+    canSetAlbumCover
+  }).trim();
+  if (!markup) {
+    return false;
+  }
   const template = document.createElement('template');
-  template.innerHTML = StorageCard(state.storageSummary, Boolean(state.storagePanelOpen)).trim();
-  const nextCard = template.content.firstElementChild;
-  if (!(nextCard instanceof HTMLElement)) {
+  template.innerHTML = markup;
+  const nextTopbar = template.content.firstElementChild;
+  if (!(nextTopbar instanceof HTMLElement)) {
     return false;
   }
-
-  currentCard.replaceWith(nextCard);
+  const nextTrigger = nextTopbar.querySelector('.cml-storage-trigger');
+  if (!(nextTrigger instanceof HTMLElement)) {
+    return false;
+  }
+  currentTrigger.replaceWith(nextTrigger);
   return true;
 }
 
@@ -8683,6 +8707,7 @@ function render() {
       <div class="cml-main-shell ${showMobileAudioPlayer ? 'has-mobile-audio-player' : ''} ${showDesktopAudioPanel ? 'has-desktop-audio-player' : ''}">
         ${TopSearchBar({
           state,
+          storageSummary: state.storageSummary,
           canDeleteSelection: viewModel.canDeleteSelection,
           canDownloadSelection: viewModel.canDownloadSelection,
           canSetAlbumCover: viewModel.canSetAlbumCover
@@ -9010,6 +9035,7 @@ function syncTopbarSelectionState() {
   );
   const markup = TopSearchBar({
     state,
+    storageSummary: state.storageSummary,
     canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item)),
     canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
     canSetAlbumCover

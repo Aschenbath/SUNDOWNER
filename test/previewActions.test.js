@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
+import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
@@ -744,7 +744,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(dockHtml, /cml-sidebar-audio-player__mode/);
     assert.doesNotMatch(dockHtml, /cml-sidebar-audio-player__cover/);
     assert.match(sidebarHtml, /cml-sidebar-audio-player/);
-    assert.match(sidebarHtml, /Storage/);
+    assert.doesNotMatch(sidebarHtml, /cml-storage-strip/);
   });
 
   it('keeps the desktop style control visible in the default topbar at medium desktop widths', () => {
@@ -1435,6 +1435,68 @@ describe('media library download actions', () => {
     assert.match(html, /1\.5 GB \/ INFINITE/);
     assert.match(html, />27 items</);
     assert.doesNotMatch(html, /Calculating\.\.\./);
+  });
+
+  it('renders a compact storage trigger in the topbar instead of keeping storage in the sidebar footer', () => {
+    const triggerHtml = StorageTrigger({
+      usedMb: 1536,
+      totalCount: 27,
+      isLoading: false
+    });
+    const topbarHtml = TopSearchBar({
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: '',
+        activeAlbumName: '',
+        albumSelectionTarget: '',
+        videoAlbumSelectionTarget: '',
+        privateSelectionMode: false,
+        selectedIds: new Set(),
+        searchDraft: '',
+        searchQuery: '',
+        layoutWidth: 1280,
+        uiThemeMenuOpen: false,
+        uiTheme: 'editorial-dark',
+        adminUsername: 'admin',
+        adminDisplayName: 'Admin',
+        adminAvatarData: '',
+        avatarMenuOpen: false,
+        mindSettings: { contactName: 'Mind' },
+        storagePanelOpen: false,
+      },
+      storageSummary: {
+        usedMb: 1536,
+        totalCount: 27,
+        isLoading: false
+      },
+      canDeleteSelection: false,
+      canDownloadSelection: false,
+      canSetAlbumCover: false,
+    });
+    const sidebarHtml = Sidebar({
+      navigationModel: {
+        primary: ['Photos', 'Collections'],
+        secondary: ['Videos']
+      },
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: '',
+        privateViewOpen: false,
+        storagePanelOpen: false,
+        mindSettings: { contactName: 'Mind' }
+      },
+      storageSummary: {
+        usedMb: 1536,
+        totalCount: 27,
+        isLoading: false
+      },
+      searchQuery: ''
+    });
+
+    assert.match(triggerHtml, /cml-storage-trigger/);
+    assert.match(triggerHtml, /1\.5 GB · 27 items/);
+    assert.match(topbarHtml, /cml-storage-trigger/);
+    assert.doesNotMatch(sidebarHtml, /cml-storage-strip/);
   });
 
   it('wraps the default desktop topbar into lead and trailing clusters for a calmer shell layout', () => {
