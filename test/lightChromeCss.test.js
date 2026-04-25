@@ -59,8 +59,9 @@ describe('light chrome CSS', () => {
   it('keeps preview chrome neutral in light mode so photos still inspect on dark surfaces', () => {
     assert.match(css, /--cml-theme-preview-header-bg: linear-gradient\(180deg, rgba\(8, 9, 11, 0\.86\), rgba\(8, 9, 11, 0\)\);/);
     assert.match(css, /--cml-theme-preview-info-toolbar-bg: rgba\(21, 22, 25, 0\.92\);/);
-    assert.match(css, /--cml-theme-preview-info-card-bg: rgba\(255, 255, 255, 0\.025\);/);
-    assert.match(css, /--cml-theme-preview-info-value: #e8eaed;/);
+    assert.match(css, /--cml-theme-preview-info-card-bg: rgba\(255, 255, 255, 0\.055\);/);
+    assert.match(css, /--cml-theme-preview-info-value: #f3f6fb;/);
+    assert.match(css, /--cml-theme-preview-info-meta: #c2cad6;/);
   });
 
   it('uses readable light-mode avatar menu tokens instead of hard-coded dark dropdown colors', () => {
