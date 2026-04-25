@@ -62,6 +62,8 @@ describe('light chrome CSS', () => {
     assert.match(css, /--cml-theme-preview-info-card-bg: rgba\(255, 255, 255, 0\.055\);/);
     assert.match(css, /--cml-theme-preview-info-value: #f3f6fb;/);
     assert.match(css, /--cml-theme-preview-info-meta: #c2cad6;/);
+    assert.doesNotMatch(css, /--cml-theme-preview-info-card-bg: rgba\(255, 255, 255, 0\.025\);/);
+    assert.doesNotMatch(css, /--cml-theme-preview-info-value: #e8eaed;/);
   });
 
   it('uses readable light-mode avatar menu tokens instead of hard-coded dark dropdown colors', () => {
