@@ -24,6 +24,9 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-storage-panel__summary-card \{[\s\S]*var\(--cml-theme-surface-elevated\)/);
     assert.match(css, /#codex-media-library-root \.cml-preview__backdrop \{[\s\S]*background: var\(--cml-theme-overlay-scrim\);/);
     assert.match(css, /#codex-media-library-root \.cml-preview__header \{[\s\S]*background: var\(--cml-theme-preview-header-bg\);/);
+    assert.match(css, /#codex-media-library-root \.cml-preview__info-toolbar \{[\s\S]*background: var\(--cml-theme-preview-info-toolbar-bg\);/);
+    assert.match(css, /#codex-media-library-root \.cml-preview__info-section--editable \{[\s\S]*background: var\(--cml-theme-preview-info-card-bg\);/);
+    assert.match(css, /#codex-media-library-root \.cml-preview__info-category-value,[\s\S]*color: var\(--cml-theme-preview-info-value\);/);
   });
 
   it('uses dedicated scrubber tokens so light timeline chrome does not fall back to dark pills', () => {
@@ -46,6 +49,9 @@ describe('light chrome CSS', () => {
   it('keeps light mode accent-aware instead of hard-coding Google blue for all theme colors', () => {
     assert.match(css, /--cml-theme-nav-active-bg: color-mix\(in srgb, white 72%, var\(--cml-theme-accent\) 28%\);/);
     assert.match(css, /--cml-theme-search-bg: color-mix\(in srgb, white 84%, var\(--cml-theme-accent\) 16%\);/);
+    assert.match(css, /--cml-theme-preview-header-bg: color-mix\(in srgb, white 82%, var\(--cml-theme-accent\) 18%\);/);
+    assert.match(css, /--cml-theme-preview-info-toolbar-bg: color-mix\(in srgb, white 86%, var\(--cml-theme-accent\) 14%\);/);
+    assert.match(css, /--cml-theme-preview-info-chip-active-bg: rgba\(var\(--cml-theme-accent-rgb\), 0\.14\);/);
     assert.match(css, /--cml-theme-storage-strip-bg: color-mix\(in srgb, white 74%, var\(--cml-theme-accent\) 26%\);/);
     assert.match(css, /--cml-theme-storage-panel-bg: color-mix\(in srgb, white 84%, var\(--cml-theme-accent\) 16%\);/);
     assert.match(css, /#codex-media-library-root \.cml-storage-strip__meter span \{[\s\S]*var\(--cml-theme-accent\)/);
