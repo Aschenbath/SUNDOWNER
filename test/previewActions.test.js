@@ -1322,6 +1322,9 @@ describe('media library download actions', () => {
     assert.match(html, />Private</);
     assert.match(html, /data-secondary="Videos"/);
     assert.match(html, /data-secondary="Favourites"/);
+    assert.match(html, /cml-sidebar__subnav-accent/);
+    assert.match(html, /cml-sidebar__subnav-icon-wrap/);
+    assert.doesNotMatch(html, /cml-sidebar__subnav-arrow/);
     assert.doesNotMatch(html, /logo-sundowner\.svg/);
   });
 
