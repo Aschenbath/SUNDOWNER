@@ -1353,6 +1353,39 @@ function formatMusicAddedLabel(item = {}) {
   return escapeHtml(label || 'Just now');
 }
 
+function renderQueueRows(queueItems = [], currentId = '', isPlaying = false) {
+  if (!queueItems.length) {
+    return `
+      <div class="cml-music-queue__empty">Queue is empty.</div>
+    `;
+  }
+  return queueItems.map((item, index) => {
+    const itemId = escapeHtml(String(item.id || ''));
+    const title = getAudioDisplayTitle(item);
+    const subtitle = escapeHtml(formatAudioSubtitle(item) || 'Unknown Artist');
+    const isCurrent = normalizeText(item.id) === normalizeText(currentId);
+    const stateLabel = isCurrent ? (isPlaying ? 'Playing now' : 'Paused') : (index === 1 ? 'Up next' : `${index + 1} in queue`);
+    return `
+      <button
+        type="button"
+        class="cml-music-queue__item ${isCurrent ? 'is-current' : ''}"
+        data-action="play-audio-item"
+        data-id="${itemId}"
+        aria-label="Play ${title}"
+      >
+        <span class="cml-music-queue__index">${isCurrent ? (isPlaying ? icon('pause') : icon('play')) : escapeHtml(String(index + 1))}</span>
+        <span class="cml-music-queue__copy">
+          <strong class="cml-music-queue__title">${title}</strong>
+          <span class="cml-music-queue__subtitle">${subtitle}</span>
+        </span>
+        <span class="cml-music-queue__state">${escapeHtml(stateLabel)}</span>
+      </button>
+    `;
+  }).join('');
+}
+
+
+
 function renderMusicPlaylistPills({ playlists = [], activePlaylistName = '' } = {}) {
   return `
     <div class="cml-music-playlists">
@@ -1427,7 +1460,7 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
 }
 
 export function MusicListView({ items = [], state, audioState = {}, currentItem = null, currentTime = 0, duration = 0, queueItems = [], playlists = [], activePlaylistName = '' }) {
-  if (!items.length) {
+  if (!items.length && !queueItems.length) {
     return '';
   }
   const currentId = String(audioState.currentId || '');
@@ -1440,8 +1473,10 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
     ? formatStorageAmountFromMb(singleItem.sizeMb)
     : 'Unknown size';
   const showPlaylistHeader = Boolean(activePlaylistName);
+  const queueSource = queueItems.length ? queueItems : items;
+  const queueHtml = renderQueueRows(queueSource, currentId, isPlaying);
   return `
-    <section class="cml-music-library" aria-label="Music library">
+    <section class="cml-music-library" id="cml-music-library" aria-label="Music library">
       <section class="cml-music-playlist">
         <div class="cml-music-playlist__head ${showPlaylistHeader ? '' : 'is-root'}">
           <div>
@@ -1511,6 +1546,13 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
           </div>
         ` : ''}
       </section>
+      <aside class="cml-music-queue" aria-label="Music queue">
+        <div class="cml-music-queue__head">
+          <h4 class="cml-music-queue__title">Queue</h4>
+          <span class="cml-music-queue__count">${queueItems.length === 1 ? '1 track' : `${queueItems.length} tracks`}</span>
+        </div>
+        <div class="cml-music-queue__list">${queueHtml}</div>
+      </aside>
     </section>
   `;
 }

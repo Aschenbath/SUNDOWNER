@@ -699,10 +699,11 @@ describe('media library download actions', () => {
     assert.match(listHtml, /data-action="play-audio-item"/);
     assert.match(listHtml, /Darcy’s Letter/);
     assert.match(listHtml, /Dario Marianelli/);
-    assert.match(listHtml, /data-action="rename-audio-artist"/);
-    assert.match(listHtml, /data-action="rename-audio-album"/);
-    assert.doesNotMatch(listHtml, /role="columnheader">Time</);
-    assert.doesNotMatch(listHtml, /track-01\.mp3/);
+    assert.match(listHtml, /cml-music-queue/);
+    assert.match(listHtml, /Queue follows the visible track order\./);
+    assert.match(listHtml, /Music queue/);
+    assert.match(listHtml, /Playing now/);
+    assert.match(listHtml, /Up next/);
     assert.match(panelHtml, /Audio player/);
     assert.match(panelHtml, /Queue/);
     assert.match(panelHtml, /data-action="audio-toggle-play"/);
