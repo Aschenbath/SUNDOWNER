@@ -2676,8 +2676,8 @@ export function PreviewModal({
           </footer>
           <div class="cml-preview__mobile-bar">
             <button type="button" class="cml-preview__mobile-action" data-action="download-preview" data-id="${escapeHtml(item.id)}">
-              ${icon('share')}
-              <span>Share</span>
+              ${icon('download')}
+              <span>Download</span>
             </button>
             ${isBinView ? `
               <button type="button" class="cml-preview__mobile-action" data-action="restore-bin-preview" data-id="${escapeHtml(item.id)}">
@@ -2867,37 +2867,39 @@ export function SearchSummary({
   contextLabel = '',
   resultsLimited = false,
   resultSource = 'indexed',
-  jumpGroups = []
+  jumpGroups = [],
+  loadedCount = 0
 }) {
   if (!query && !hasActiveFilters) {
     return '';
   }
   const normalizedQuery = escapeHtml(query);
   const safeContextLabel = escapeHtml(contextLabel || 'Library');
+  const loadedCountLabel = new Intl.NumberFormat('en-US').format(Math.max(loadedCount || resultCount || 0, 0));
   const summaryCopy = query
     ? `Grouped results across photos, videos, music, files, and albums while browsing ${safeContextLabel}.`
     : `Filtered results across photos, videos, music, files, and albums while browsing ${safeContextLabel}.`;
   const limitationCopy = resultsLimited
     ? (resultSource === 'dom'
-      ? 'Results are currently based on visible live DOM media only, so search may be incomplete.'
-      : 'This library snapshot hit the current indexed item cap, so older items may be missing from search.')
+      ? 'Search is currently based on visible live DOM media only, so hidden or older library items may be missing.'
+      : `Search is currently limited to the newest ${loadedCountLabel} indexed results, so older library items may be missing.`)
     : '';
   return `
     <section class="cml-search-summary" data-search-summary="global">
-      <p class="cml-search-summary__eyebrow">Search</p>
+      <p class="cml-search-summary__eyebrow">Search results</p>
       <div class="cml-search-summary__head">
         <div class="cml-search-summary__titles">
           <h2 class="cml-search-summary__title">${resultCount} match${resultCount === 1 ? '' : 'es'}${query ? ` for \"${normalizedQuery}\"` : ''}</h2>
           <p class="cml-search-summary__copy">${summaryCopy}</p>
         </div>
         <div class="cml-search-summary__actions">
-          <button type="button" class="cml-search-summary__clear" data-action="clear-search-filters">Clear search</button>
-          <button type="button" class="cml-search-summary__clear cml-search-summary__clear--quiet" data-action="focus-search-input">Refine query</button>
+          <button type="button" class="cml-search-summary__clear" data-action="clear-search-filters">Back to library</button>
+          <button type="button" class="cml-search-summary__clear cml-search-summary__clear--quiet" data-action="focus-search-input">Refine search</button>
         </div>
       </div>
       ${resultsLimited ? `
         <div class="cml-search-summary__notice" role="status">
-          <strong>Heads up</strong>
+          <strong>Incomplete results</strong>
           <span>${escapeHtml(limitationCopy)}</span>
         </div>
       ` : ''}
@@ -3060,7 +3062,8 @@ export function SearchResultsView({
   activePlaylistName = '',
   contextLabel = '',
   resultsLimited = false,
-  resultSource = 'indexed'
+  resultSource = 'indexed',
+  loadedCount = 0
 } = {}) {
   const jumpGroups = [
     photoCount ? { key: 'photos', label: 'Photos', count: photoCount } : null,
@@ -3077,7 +3080,8 @@ export function SearchResultsView({
     contextLabel,
     resultsLimited,
     resultSource,
-    jumpGroups
+    jumpGroups,
+    loadedCount
   });
   const hasResults = photoCount || videoCount || audioCount || fileCount || albumCount;
   if (!hasResults) {

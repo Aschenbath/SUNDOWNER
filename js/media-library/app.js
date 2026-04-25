@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=80';
+} from './components.js?v=81';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -321,8 +321,7 @@ const state = {
   confirmDialogSelectionCount: 0,
   confirmDialogBusy: false,
   previewId: null,
-  previewTransitionRect: null,
-  previewTransitionSrc: '',
+  previewSourceHint: '',
   loadedCount: COLLECTION_PAGE_SIZE,
   activeYear: null,
   activeSectionAnchor: '',
@@ -1418,22 +1417,6 @@ function setupImageLoadAnimations() {
   });
 }
 
-function snapshotRect(element) {
-  if (!(element instanceof Element)) {
-    return null;
-  }
-  const rect = element.getBoundingClientRect();
-  if (!rect.width || !rect.height) {
-    return null;
-  }
-  return {
-    left: rect.left,
-    top: rect.top,
-    width: rect.width,
-    height: rect.height
-  };
-}
-
 function getMediaSourceFromTile(tile) {
   if (!(tile instanceof Element)) {
     return '';
@@ -1451,205 +1434,79 @@ function getMediaSourceFromTile(tile) {
 
 function resolvePreviewItem(items = getAllItems(), {
   id = state.previewId,
-  sourceHint = state.previewTransitionSrc
+  sourceHint = state.previewSourceHint
 } = {}) {
   return findPreviewMatch(items, { id, sourceHint });
-}
-
-function getPreviewMediaElement() {
-  if (!refs.root) {
-    return null;
-  }
-  const stage = refs.root.querySelector('.cml-preview__stage');
-  if (!stage) {
-    return null;
-  }
-  const mediaEl = stage.querySelector('.cml-preview__media');
-  return mediaEl instanceof HTMLElement ? mediaEl : null;
-}
-
-function runPreviewSharedElementTransition({ src, startRect, endRect, startRadius = 0, endRadius = 0 }) {
-  if (!src || !startRect || !endRect) {
-    return null;
-  }
-  const ghost = document.createElement('img');
-  ghost.src = src;
-  ghost.alt = '';
-  ghost.style.position = 'fixed';
-  ghost.style.left = `${startRect.left}px`;
-  ghost.style.top = `${startRect.top}px`;
-  ghost.style.width = `${startRect.width}px`;
-  ghost.style.height = `${startRect.height}px`;
-  ghost.style.objectFit = 'cover';
-  ghost.style.transformOrigin = 'top left';
-  ghost.style.zIndex = '999999';
-  ghost.style.pointerEvents = 'none';
-  ghost.style.borderRadius = `${startRadius}px`;
-  ghost.style.willChange = 'transform, border-radius, opacity';
-  document.body.appendChild(ghost);
-
-  const dx = endRect.left - startRect.left;
-  const dy = endRect.top - startRect.top;
-  const scaleX = endRect.width / startRect.width;
-  const scaleY = endRect.height / startRect.height;
-
-  const animation = ghost.animate(
-    [
-      { transform: 'translate(0px, 0px) scale(1)', borderRadius: `${startRadius}px`, opacity: 1 },
-      { transform: `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY})`, borderRadius: `${endRadius}px`, opacity: 1 }
-    ],
-    { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' }
-  );
-
-  const finalize = () => {
-    ghost.remove();
-  };
-  animation.finished.then(finalize).catch(finalize);
-  return animation;
 }
 
 function animatePreviewOpenFromTile() {
   if (!refs.root || previewTransitionInFlight) {
     return;
   }
-  const panel = refs.root.querySelector('.cml-preview__panel');
-  const backdrop = refs.root.querySelector('.cml-preview__backdrop');
-  if (!(panel instanceof HTMLElement) || typeof panel.animate !== 'function') {
+  const preview = refs.root.querySelector('.cml-preview');
+  if (!(preview instanceof HTMLElement)) {
     return;
   }
 
   previewTransitionInFlight = true;
-
-  backdrop?.animate?.(
-    [{ opacity: 0 }, { opacity: 1 }],
-    { duration: 150, easing: 'ease-out', fill: 'both' }
-  );
-  const mediaEl = getPreviewMediaElement();
-  const endRect = snapshotRect(mediaEl);
-  const startRect = state.previewTransitionRect;
-  const shouldSharedTransition = Boolean(startRect && endRect && state.previewTransitionSrc);
-  let animation = null;
-
-  if (shouldSharedTransition && mediaEl) {
-    const computed = window.getComputedStyle(mediaEl);
-    const endRadius = parseFloat(computed.borderRadius || '0') || 0;
-    mediaEl.style.opacity = '0';
-    animation = runPreviewSharedElementTransition({
-      src: state.previewTransitionSrc,
-      startRect,
-      endRect,
-      startRadius: 0,
-      endRadius,
-    });
-    panel.animate(
-      [{ opacity: 0 }, { opacity: 1 }],
-      { duration: 160, easing: 'ease-out', fill: 'both' }
-    );
-    animation?.finished
-      .catch(() => {})
-      .finally(() => {
-        if (mediaEl) {
-          mediaEl.style.opacity = '';
-        }
-      });
-  } else {
-    animation = panel.animate(
-      [
-        {
-          transform: 'translateY(16px) scale(0.985)',
-          opacity: 0
-        },
-        {
-          transform: 'translateY(0px) scale(1)',
-          opacity: 1
-        }
-      ],
-      {
-        duration: 180,
-        easing: 'cubic-bezier(0.2, 0.9, 0.2, 1)',
-        fill: 'both'
-      }
-    );
-  }
-
-  (animation?.finished || Promise.resolve())
-    .catch(() => {})
-    .finally(() => {
+  preview.classList.add('is-entering');
+  void preview.offsetWidth;
+  window.requestAnimationFrame(() => {
+    preview.classList.remove('is-entering');
+    window.setTimeout(() => {
       previewTransitionInFlight = false;
-    });
+    }, 220);
+  });
 }
 
 function animatePreviewCloseToTile(onComplete) {
-  if (previewTransitionInFlight) {
-    return;
-  }
   if (!refs.root) {
     onComplete();
     return;
   }
-  const panel = refs.root.querySelector('.cml-preview__panel');
-  const backdrop = refs.root.querySelector('.cml-preview__backdrop');
-  if (!(panel instanceof HTMLElement) || typeof panel.animate !== 'function') {
+  const preview = refs.root.querySelector('.cml-preview');
+  if (!(preview instanceof HTMLElement)) {
     onComplete();
     return;
   }
-
-  previewTransitionInFlight = true;
-
-  const mediaEl = getPreviewMediaElement();
-  const startRect = snapshotRect(mediaEl);
-  const tile = state.previewId
-    ? refs.root.querySelector(`.cml-media-tile[data-tile-id="${state.previewId}"]`)
-    : null;
-  const endRect = snapshotRect(tile);
-  const shouldSharedTransition = Boolean(startRect && endRect && state.previewTransitionSrc);
-
-  backdrop?.animate?.(
-    [{ opacity: 1 }, { opacity: 0 }],
-    { duration: 120, easing: 'ease-in', fill: 'both' }
-  );
-
-  let animation = null;
-  if (shouldSharedTransition && mediaEl) {
-    const computed = window.getComputedStyle(mediaEl);
-    const startRadius = parseFloat(computed.borderRadius || '0') || 0;
-    mediaEl.style.opacity = '0';
-    animation = runPreviewSharedElementTransition({
-      src: state.previewTransitionSrc,
-      startRect,
-      endRect,
-      startRadius,
-      endRadius: 0,
-    });
-  } else {
-    animation = panel.animate(
-      [
-        {
-          transform: 'translateY(0px) scale(1)',
-          opacity: 1
-        },
-        {
-          transform: 'translateY(14px) scale(0.985)',
-          opacity: 0
-        }
-      ],
-      {
-        duration: 140,
-        easing: 'ease-in',
-        fill: 'both'
-      }
-    );
+  if (previewTransitionInFlight) {
+    if (preview.classList.contains('is-entering')) {
+      preview.classList.remove('is-entering');
+      previewTransitionInFlight = false;
+    } else {
+      return;
+    }
   }
 
-  (animation?.finished || Promise.resolve())
-    .catch(() => {})
-    .finally(() => {
-      if (mediaEl) {
-        mediaEl.style.opacity = '';
-      }
-      previewTransitionInFlight = false;
-      onComplete();
-    });
+  previewTransitionInFlight = true;
+  let finished = false;
+  const finalize = () => {
+    if (finished) {
+      return;
+    }
+    finished = true;
+    preview.removeEventListener('transitionend', handleTransitionEnd);
+    window.clearTimeout(fallbackTimer);
+    preview.classList.remove('is-closing');
+    previewTransitionInFlight = false;
+    onComplete();
+  };
+  const handleTransitionEnd = (event) => {
+    if (
+      event.target instanceof HTMLElement
+      && (
+        event.target.classList.contains('cml-preview__panel')
+        || event.target.classList.contains('cml-preview__backdrop')
+      )
+    ) {
+      finalize();
+    }
+  };
+  const fallbackTimer = window.setTimeout(finalize, 220);
+  preview.addEventListener('transitionend', handleTransitionEnd);
+  window.requestAnimationFrame(() => {
+    preview.classList.add('is-closing');
+  });
 }
 
 function setPreviewInfoOpen(isOpen, { allowRenderFallback = true } = {}) {
@@ -8779,7 +8636,8 @@ function render() {
                     activePlaylistName: viewModel.activePlaylistName,
                     contextLabel: getSearchContextLabel(),
                     resultsLimited: Boolean(state.librarySyncMeta?.isTruncated || state.librarySyncMeta?.source === 'dom'),
-                    resultSource: state.librarySyncMeta?.source || 'indexed'
+                    resultSource: state.librarySyncMeta?.source || 'indexed',
+                    loadedCount: state.librarySyncMeta?.loadedCount || 0
                   })
                 : viewModel.isMindView
                 ? ((!state.mindHydrated && state.mindLoading)
@@ -9185,7 +9043,7 @@ function getPreviewOverlayModel({
     ? resolvedPreviewItems[resolvedPreviewIndex]
     : resolvePreviewItem(getAllItems(), {
         id: state.previewId,
-        sourceHint: state.previewTransitionSrc
+        sourceHint: state.previewSourceHint
       });
   const resolvedPreviewItem = previewItem || fallbackPreviewItem;
   const finalPreviewIndex = resolvedPreviewIndex >= 0 && resolvedPreviewItem
@@ -9507,7 +9365,7 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
   if (state.previewId) {
     const nextPreviewItem = resolvePreviewItem(items, {
       id: state.previewId,
-      sourceHint: state.previewTransitionSrc
+      sourceHint: state.previewSourceHint
     });
     if (!nextPreviewItem) {
       state.previewId = null;
@@ -9714,8 +9572,7 @@ function openPreview(itemId) {
     sourceHint
   });
   state.previewId = resolvedPreviewItem?.id || itemId;
-  state.previewTransitionRect = snapshotRect(sourceTile);
-  state.previewTransitionSrc = sourceHint || resolvedPreviewItem?.thumbnailUrl || resolvedPreviewItem?.sourceUrl || '';
+  state.previewSourceHint = sourceHint || resolvedPreviewItem?.thumbnailUrl || resolvedPreviewItem?.sourceUrl || '';
   state.infoOpen = false;
   state.previewImmersive = false;
   state.previewRotation = 0;
@@ -9797,8 +9654,7 @@ function closePreview() {
   const previewId = state.previewId;
   const finalizeClosePreview = () => {
     state.previewId = null;
-    state.previewTransitionRect = null;
-    state.previewTransitionSrc = '';
+    state.previewSourceHint = '';
     state.infoOpen = false;
     if (state.albumDialogOrigin === 'preview') {
       state.albumDialogOpen = false;
@@ -9875,8 +9731,7 @@ function movePreview(direction) {
   state.previewId = nextItem.id;
   state.previewRotation = 0;
   const sourceTile = refs.root?.querySelector(`.cml-media-tile[data-tile-id="${nextItem.id}"]`) || null;
-  state.previewTransitionRect = snapshotRect(sourceTile);
-  state.previewTransitionSrc = getMediaSourceFromTile(sourceTile);
+  state.previewSourceHint = getMediaSourceFromTile(sourceTile);
   touchZoom.currentScale = 1;
   touchZoom.tx = 0;
   touchZoom.ty = 0;

@@ -96,6 +96,7 @@ describe('media library download actions', () => {
     assert.ok((html.match(/class="cml-preview__icon-action/g) || []).length >= 6);
     assert.match(html, /data-action="download-preview"/);
     assert.match(html, /Download original/);
+    assert.match(html, />Download<\/span>/);
     assert.match(html, /class="cml-preview__main"/);
     assert.match(html, /class="cml-preview__info /);
     assert.match(html, /Add a description/);
@@ -1155,8 +1156,10 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="clear-search-filters"/);
     assert.match(html, /data-action="focus-search-input"/);
     assert.match(html, /data-action="jump-search-group"/);
-    assert.match(html, /Heads up/);
-    assert.match(html, /older items may be missing from search/);
+    assert.match(html, /Back to library/);
+    assert.match(html, /Refine search/);
+    assert.match(html, /Incomplete results/);
+    assert.match(html, /newest 3 indexed results/);
   });
 
   it('renders album renaming inline at the title position instead of a dialog overlay', () => {
@@ -1416,6 +1419,10 @@ describe('media library download actions', () => {
     assert.match(appSource, /scrollToYear\(targetAnchor\);\s*scheduleTimelineRender\(\);/);
     assert.match(appSource, /animatePreviewCloseToTile\(finalizeClosePreview\);/);
     assert.match(appSource, /window\.requestAnimationFrame\(\(\) => \{\s*restorePreviewPosition\(previewId\);/);
+    assert.match(appSource, /preview\.classList\.add\('is-closing'\);/);
+    assert.match(appSource, /preview\.classList\.add\('is-entering'\);/);
+    assert.doesNotMatch(appSource, /previewTransitionRect/);
+    assert.doesNotMatch(appSource, /runPreviewSharedElementTransition/);
   });
 
   it('closes the confirm dialog immediately before background delete work starts', () => {
