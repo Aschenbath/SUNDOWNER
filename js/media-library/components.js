@@ -748,10 +748,13 @@ export function TopSearchBar({ state, storageSummary = null, canDeleteSelection 
         <div class="cml-topbar__selection-shell">
           <div class="cml-topbar__selection-meta">
             <button type="button" class="cml-topbar__clear-button" data-action="clear-selection" aria-label="Clear selection">${icon('close')}</button>
-            <strong>${selectedCount} selected</strong>
+            <div class="cml-topbar__selection-copy">
+              <strong>${selectedCount} selected</strong>
+              <span class="cml-topbar__selection-context">${escapeHtml(activeAlbumName ? `Album · ${activeAlbumName}` : (state.secondaryFilter === 'Videos' ? 'Videos view' : (state.primaryFilter === 'Collections' ? 'Albums view' : 'Library view')))}</span>
+            </div>
           </div>
             <div class="cml-topbar__selection-actions">
-              <button type="button" class="cml-topbar__secondary-button" data-action="open-add-to-album">${escapeHtml(addToAlbumLabel)}</button>
+              <button type="button" class="cml-topbar__secondary-button cml-topbar__secondary-button--emphasis" data-action="open-add-to-album">${escapeHtml(addToAlbumLabel)}</button>
               ${canToggleHiddenAlbum ? `
                 <button type="button" class="cml-topbar__secondary-button" data-action="toggle-private-selection">${escapeHtml(hiddenActionLabel)}</button>
               ` : ''}
@@ -2604,11 +2607,11 @@ export function PreviewModal({
             </button>
           `}
           ${visibleAlbumEntries.length ? visibleAlbumEntries.map((entry) => `
-            <button type="button" class="cml-preview__album-entry" data-action="assign-album" data-album-name="${escapeHtml(entry.name)}">
+            <button type="button" class="cml-preview__album-entry ${entry.selected ? 'is-selected' : ''}" data-action="assign-album" data-album-name="${escapeHtml(entry.name)}" aria-pressed="${entry.selected ? 'true' : 'false'}">
               ${renderAlbumDrawerCover(entry)}
               <span class="cml-preview__album-entry-copy">
                 <span class="cml-preview__album-entry-title">${escapeHtml(entry.name)}</span>
-                <span class="cml-preview__album-entry-meta">${escapeHtml(formatAlbumItemCountLabel(entry.itemCount))}</span>
+                <span class="cml-preview__album-entry-meta">${escapeHtml(formatAlbumItemCountLabel(entry.itemCount))}${entry.selected ? ' · Already added' : ''}</span>
               </span>
             </button>
           `).join('') : `
@@ -2630,17 +2633,21 @@ export function PreviewModal({
       <div class="cml-preview__panel">
         <div class="cml-preview__main">
           <header class="cml-preview__header cml-preview__header--desktop">
+            <div class="cml-preview__header-meta">
+              <span class="cml-preview__header-count">${currentIndex + 1} / ${totalCount}</span>
+              <span class="cml-preview__header-label">${escapeHtml(item.description || item.location || safeDisplayLabel(item))}</span>
+            </div>
             <div class="cml-preview__header-actions">
               ${isBinView ? `
                 <button type="button" class="cml-preview__icon-action" data-action="restore-bin-preview" data-id="${escapeHtml(item.id)}" aria-label="Restore">${icon('restore')}</button>
                 <button type="button" class="cml-preview__icon-action is-destructive" data-action="request-delete-bin-preview-permanently" data-id="${escapeHtml(item.id)}" aria-label="Delete forever">${icon('trash')}</button>
               ` : `
-                <button type="button" class="cml-preview__icon-action ${albumDrawerOpen ? 'is-selected' : ''}" data-action="open-preview-add-to-album" data-id="${escapeHtml(item.id)}" aria-label="Add to album" aria-pressed="${albumDrawerOpen ? 'true' : 'false'}">${icon('plus')}</button>
+                <button type="button" class="cml-preview__icon-action cml-preview__icon-action--album ${albumDrawerOpen ? 'is-selected' : ''}" data-action="open-preview-add-to-album" data-id="${escapeHtml(item.id)}" aria-label="Add to album" aria-pressed="${albumDrawerOpen ? 'true' : 'false'}">${icon('plus')}</button>
                 <button type="button" class="cml-preview__icon-action ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="${favorited ? 'Remove from favourites' : 'Add to favourites'}" aria-pressed="${favorited ? 'true' : 'false'}">${icon('star')}</button>
                 <button type="button" class="cml-preview__icon-action is-destructive" data-action="request-delete-preview" data-id="${escapeHtml(item.id)}" aria-label="Delete">${icon('trash')}</button>
                 <button type="button" class="cml-preview__icon-action" data-action="rotate-preview" aria-label="Rotate">${icon('rotate')}</button>
               `}
-              <button type="button" class="cml-preview__icon-action ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="${infoOpen ? 'Hide details' : 'Show details'}" aria-pressed="${infoOpen ? 'true' : 'false'}">${icon('info')}</button>
+              <button type="button" class="cml-preview__icon-action cml-preview__icon-action--info ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="${infoOpen ? 'Hide details' : 'Show details'}" aria-pressed="${infoOpen ? 'true' : 'false'}">${icon('info')}</button>
               ${isBinView ? '' : `<button type="button" class="cml-preview__icon-action ${immersive ? 'is-selected' : ''}" data-action="toggle-immersive" aria-label="${immersive ? 'Exit immersive' : 'Immersive mode'}">${icon(immersive ? 'collapse' : 'expand')}</button>`}
               <button type="button" class="cml-preview__close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
             </div>
@@ -2764,7 +2771,7 @@ export function AlbumDialog({ state, albums, target = 'photo' }) {
             <p class="cml-album-dialog__label">Existing ${target === 'video' ? 'video albums' : 'albums'}</p>
             <div class="cml-album-dialog__list">
               ${albums.map((album) => `
-                <button type="button" class="cml-album-dialog__album-chip" data-action="assign-album" data-album-name="${escapeHtml(album)}">${escapeHtml(album)}</button>
+                <button type="button" class="cml-album-dialog__album-chip ${state.activeAlbumName && state.activeAlbumName.toLowerCase() === album.toLowerCase() ? 'is-active' : ''}" data-action="assign-album" data-album-name="${escapeHtml(album)}">${escapeHtml(album)}</button>
               `).join('')}
             </div>
           </div>

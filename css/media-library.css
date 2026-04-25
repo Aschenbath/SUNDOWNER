@@ -1368,6 +1368,20 @@ body.codex-media-library-active #app {
   letter-spacing: -0.02em;
 }
 
+#codex-media-library-root .cml-topbar__selection-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-topbar__selection-context {
+  color: var(--cml-theme-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
 #codex-media-library-root .cml-topbar__clear-button,
 #codex-media-library-root .cml-topbar__secondary-button,
 #codex-media-library-root .cml-topbar__upload-button {
@@ -1406,6 +1420,12 @@ body.codex-media-library-active #app {
   background: rgba(138, 180, 248, 0.22);
   color: #d2e3fc;
   box-shadow: inset 0 0 0 1px rgba(138, 180, 248, 0.32);
+}
+
+#codex-media-library-root .cml-topbar__secondary-button--emphasis {
+  background: color-mix(in srgb, var(--cml-theme-accent-soft) 76%, white 24%);
+  color: var(--cml-theme-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cml-theme-accent) 30%, transparent);
 }
 
 #codex-media-library-root .cml-topbar__upload-button {
@@ -3029,9 +3049,12 @@ body.codex-media-library-active #app {
   cursor: pointer;
 }
 
-#codex-media-library-root .cml-album-dialog__field {
-  display: block;
+#codex-media-library-root .cml-album-dialog__album-chip.is-active {
+  background: rgba(138, 180, 248, 0.18);
+  color: #d2e3fc;
+  box-shadow: inset 0 0 0 1px rgba(138, 180, 248, 0.28);
 }
+
 
 #codex-media-library-root .cml-album-dialog__input {
   width: 100%;
@@ -5808,6 +5831,39 @@ body.codex-media-library-active #app {
   max-width: 100%;
 }
 
+#codex-media-library-root .cml-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+#codex-media-library-root .cml-preview__header-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+#codex-media-library-root .cml-preview__header-count {
+  flex: 0 0 auto;
+  color: rgba(241, 243, 244, 0.92);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+#codex-media-library-root .cml-preview__header-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(241, 243, 244, 0.66);
+  font-size: 13px;
+  font-weight: 500;
+}
 #codex-media-library-root .cml-preview__back,
 #codex-media-library-root .cml-preview__close,
 #codex-media-library-root .cml-preview__icon-action,
@@ -6121,11 +6177,19 @@ body.codex-media-library-active #app {
   transition: background 140ms ease;
 }
 
-#codex-media-library-root .cml-preview__album-entry:hover,
-#codex-media-library-root .cml-preview__album-entry:focus-visible {
-  background: rgba(255, 255, 255, 0.08);
-  outline: none;
+#codex-media-library-root .cml-preview__album-entry.is-selected {
+  background: rgba(138, 180, 248, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(138, 180, 248, 0.26);
 }
+
+#codex-media-library-root .cml-preview__album-entry.is-selected .cml-preview__album-entry-title {
+  color: #eaf2ff;
+}
+
+#codex-media-library-root .cml-preview__album-entry.is-selected .cml-preview__album-entry-meta {
+  color: #b6cdf8;
+}
+
 
 #codex-media-library-root .cml-preview__album-entry--create {
   background: rgba(255, 255, 255, 0.1);

@@ -47,10 +47,10 @@ describe('preview overlay sync selectors', () => {
     assert.doesNotMatch(html, /has-info/);
   });
 
-  it('renders album panel without is-open when albumDrawerOpen is false', () => {
+  it('keeps preview info and album drawer mutually exclusive in rendered state', () => {
     const html = PreviewModal({
       item: {
-        id: 'test-2',
+        id: 'test-3',
         type: 'photo',
         label: 'test.jpg',
         sourceId: 'photos/test.jpg',
@@ -67,14 +67,16 @@ describe('preview overlay sync selectors', () => {
       favorited: false,
       currentIndex: 0,
       totalCount: 1,
-      infoOpen: false,
+      infoOpen: true,
       immersive: false,
       albumDrawerOpen: false,
       albumEntries: [],
     });
 
-    assert.doesNotMatch(html, /cml-preview__album-panel is-open/);
-    assert.match(html, /cml-preview__album-panel /);
-    assert.doesNotMatch(html, /has-album/);
+    assert.match(html, /cml-preview__header-meta/);
+    assert.match(html, /cml-preview__header-count/);
+    assert.match(html, /cml-preview__icon-action cml-preview__icon-action--info is-selected/);
+    assert.doesNotMatch(html, /cml-preview__icon-action cml-preview__icon-action--album is-selected/);
   });
+
 });

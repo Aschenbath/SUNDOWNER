@@ -45,6 +45,29 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="delete-selected"/);
   });
 
+  it('adds selection context and emphasis to album selection toolbar state', () => {
+    const html = TopSearchBar({
+      state: {
+        selectedIds: new Set(['managed-1']),
+        searchQuery: '',
+        primaryFilter: 'Collections',
+        secondaryFilter: '',
+        activeAlbumName: 'scenery',
+        albumSelectionTarget: '',
+        videoAlbumSelectionTarget: '',
+        privateSelectionMode: false,
+      },
+      canDeleteSelection: true,
+      canDownloadSelection: true,
+      canSetAlbumCover: true,
+    });
+
+    assert.match(html, /cml-topbar__selection-copy/);
+    assert.match(html, /Album · scenery/);
+    assert.match(html, /cml-topbar__secondary-button cml-topbar__secondary-button--emphasis/);
+    assert.match(html, /data-action="set-album-cover"/);
+  });
+
   it('only exposes remove-from-Private on the unlocked Private page', () => {
     const html = TopSearchBar({
       state: {
@@ -102,6 +125,11 @@ describe('media library download actions', () => {
     assert.match(html, /Add a description/);
     assert.match(html, /Date &amp; time/);
     assert.match(html, /data-action="edit-capture-time"/);
+    assert.match(html, /cml-preview__header-meta/);
+    assert.match(html, /cml-preview__header-count/);
+    assert.match(html, /cml-preview__header-label/);
+    assert.match(html, /cml-preview__icon-action cml-preview__icon-action--album/);
+    assert.match(html, /cml-preview__icon-action cml-preview__icon-action--info/);
     assert.doesNotMatch(html, /Hidden album/);
     assert.doesNotMatch(html, /data-action="toggle-private-photo"/);
     assert.match(html, /Details/);
@@ -340,6 +368,42 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /class="cml-dialog__panel cml-album-dialog"/);
   });
 
+
+  it('shows already-added state inside the preview album drawer entries', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'managed-1',
+        type: 'photo',
+        label: 'photo_27.jpg',
+        sourceId: 'photos/2026/photo_27.jpg',
+        sourceUrl: '/file/photos/2026/photo_27.jpg',
+        thumbnailUrl: '/file/photos/2026/photo_27.jpg',
+        width: 1080,
+        height: 1440,
+        displayTakenAt: 'April 5, 2026 08:25',
+        mimeType: 'image/jpeg',
+      },
+      selected: true,
+      favorited: false,
+      currentIndex: 0,
+      totalCount: 5,
+      infoOpen: false,
+      immersive: false,
+      albumDrawerOpen: true,
+      albumEntries: [
+        { name: 'scenery', itemCount: 12, coverUrl: '', selected: true },
+        { name: 'travel', itemCount: 3, coverUrl: '', selected: false }
+      ],
+      albumDraftName: '',
+      albumDialogError: '',
+      albumDrawerSearch: '',
+      albumDrawerCreateMode: false,
+    });
+
+    assert.match(html, /cml-preview__album-entry is-selected/);
+    assert.match(html, /Already added/);
+    assert.match(html, /aria-pressed="true"/);
+  });
   it('shows preview drawer create mode and validation state', () => {
     const html = PreviewModal({
       item: {

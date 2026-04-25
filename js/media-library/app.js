@@ -1512,6 +1512,15 @@ function animatePreviewCloseToTile(onComplete) {
 function setPreviewInfoOpen(isOpen, { allowRenderFallback = true } = {}) {
   const nextOpen = Boolean(isOpen);
   state.infoOpen = nextOpen;
+  if (nextOpen && state.albumDialogOpen && state.albumDialogOrigin === 'preview') {
+    state.albumDialogOpen = false;
+    state.albumDialogOrigin = '';
+    state.albumDialogError = '';
+    state.albumDraftName = '';
+    state.albumDrawerSearch = '';
+    state.albumDrawerScope = 'all';
+    state.albumDrawerCreateMode = false;
+  }
   if (!refs.root) {
     if (allowRenderFallback) {
       render();
@@ -1521,6 +1530,8 @@ function setPreviewInfoOpen(isOpen, { allowRenderFallback = true } = {}) {
   const preview = refs.root.querySelector('.cml-preview');
   const infoPanel = refs.root.querySelector('.cml-preview__info');
   const toggleButton = refs.root.querySelector('.cml-preview__icon-action[data-action="toggle-info"]');
+  const albumPanel = refs.root.querySelector('.cml-preview__album-panel');
+  const albumButton = refs.root.querySelector('.cml-preview__icon-action[data-action="open-preview-add-to-album"]');
 
   if (!(preview instanceof HTMLElement) || !(infoPanel instanceof HTMLElement) || !(toggleButton instanceof HTMLElement)) {
     if (allowRenderFallback) {
@@ -1535,6 +1546,16 @@ function setPreviewInfoOpen(isOpen, { allowRenderFallback = true } = {}) {
   toggleButton.classList.toggle('is-selected', nextOpen);
   toggleButton.setAttribute('aria-label', nextOpen ? 'Hide details' : 'Show details');
   toggleButton.setAttribute('aria-pressed', nextOpen ? 'true' : 'false');
+
+  if (nextOpen && albumPanel instanceof HTMLElement) {
+    preview.classList.remove('has-album');
+    albumPanel.classList.remove('is-open');
+    albumPanel.setAttribute('aria-hidden', 'true');
+    if (albumButton instanceof HTMLElement) {
+      albumButton.classList.remove('is-selected');
+      albumButton.setAttribute('aria-pressed', 'false');
+    }
+  }
 }
 
 let yearScrollerDragActive = false;
@@ -2147,6 +2168,10 @@ function getAlbumSortTimestamp(item) {
 }
 
 function buildPreviewAlbumEntries(items = getAccessibleItems()) {
+  const selectedItems = getSelectedItems(items);
+  const selectedAlbumKeys = new Set(
+    selectedItems.flatMap((item) => resolveCollectionAlbums(item).map((albumName) => normalizeAlbumKey(albumName)))
+  );
   const groups = new Map();
   const ensureGroup = (value) => {
     const albumName = normalizeText(value);
@@ -2188,7 +2213,8 @@ function buildPreviewAlbumEntries(items = getAccessibleItems()) {
         itemCount: group.items.length,
         coverUrl: normalizeText(coverItem?.thumbnailUrl || coverItem?.posterUrl || coverItem?.sourceUrl || ''),
         lastModifiedAt: group.lastModifiedAt,
-        scope: group.scope
+        scope: group.scope,
+        selected: selectedAlbumKeys.has(normalizeAlbumKey(group.name))
       };
     })
     .sort((left, right) => {
@@ -2198,6 +2224,7 @@ function buildPreviewAlbumEntries(items = getAccessibleItems()) {
       return left.name.localeCompare(right.name);
     });
 }
+
 
 function persistAlbumNames() {
   queuePersistedAlbumState();
@@ -4254,6 +4281,14 @@ function buildVideoAlbumSummaries(items = []) {
 }
 
 function buildPreviewVideoAlbumEntries(items = getAccessibleItems()) {
+  const selectedItems = getSelectedItems(items);
+  const selectedVideoAlbumKeys = new Set(
+    selectedItems
+      .filter((item) => item?.type === 'video')
+      .map((item) => normalizeVideoCategory(item.videoCategory))
+      .filter(Boolean)
+      .map((name) => normalizeAlbumKey(name))
+  );
   return buildVideoAlbumSummaries(items)
     .filter((entry) => !entry.isUngrouped)
     .map((entry) => ({
@@ -4261,9 +4296,11 @@ function buildPreviewVideoAlbumEntries(items = getAccessibleItems()) {
       itemCount: entry.itemCount,
       coverUrl: normalizeText(entry.coverItem?.thumbnailUrl || entry.coverItem?.posterUrl || entry.coverItem?.sourceUrl || ''),
       lastModifiedAt: entry.lastModifiedAt,
-      scope: 'mine'
+      scope: 'mine',
+      selected: selectedVideoAlbumKeys.has(normalizeAlbumKey(entry.name))
     }));
 }
+
 
 function isVideoAlbumRootView(parsedSearch = parseMediaSearchQuery(state.searchQuery)) {
   return state.secondaryFilter === 'Videos'
