@@ -6138,6 +6138,12 @@ function closeMusicPlaylist() {
     return;
   }
   state.activePlaylistName = '';
+  state.playlistDialogOpen = false;
+  state.playlistDialogMode = 'create';
+  state.playlistDialogTargetItemId = '';
+  state.playlistDraftName = '';
+  state.playlistDialogError = '';
+  state.playlistDialogBusy = false;
   resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
@@ -6184,7 +6190,7 @@ function unlockPrivateRoute(passwordInput = state.privatePasswordDraft) {
   const password = normalizeText(passwordInput);
   state.privatePasswordDraft = passwordInput;
   if (!password) {
-    state.privatePasswordError = 'Password is required.';
+    state.privatePasswordError = 'Enter the password first.';
     render();
     return false;
   }
@@ -7589,11 +7595,17 @@ function openDocsMoveDialog() {
 async function moveSelectedDocsToFolder(targetDir) {
   const selectedItemIds = [...state.selectedIds];
   if (!selectedItemIds.length) return;
+  const normalizedTargetDir = normalizeText(targetDir);
+  const currentDir = normalizeText(state.docsCurrentDir);
   state.docsMoveDialogOpen = false;
   state.docsMoveCreateOpen = false;
   state.docsMoveCreateName = '';
-  await moveFilesToFolder(selectedItemIds, targetDir);
+  await moveFilesToFolder(selectedItemIds, normalizedTargetDir);
   state.selectedIds.clear();
+  state.docsContextMenu = null;
+  if (currentDir && normalizedTargetDir !== currentDir) {
+    state.docsCurrentDir = normalizedTargetDir;
+  }
   await performSyncLiveMedia({ forceRender: true });
 }
 

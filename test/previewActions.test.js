@@ -1399,6 +1399,42 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /2 files 路 40\.3 MB/);
   });
 
+  it('adds scoped selection copy to the documents header when files are selected inside a folder', () => {
+    const html = DocumentsListView({
+      items: [
+        {
+          id: 'doc-1',
+          type: 'document',
+          isDocumentLike: true,
+          label: 'notes.pdf',
+          directory: 'school/sem1',
+          takenAt: '2026-04-23T09:00:00.000Z',
+          sizeMb: 1.2,
+        },
+        {
+          id: 'doc-2',
+          type: 'document',
+          isDocumentLike: true,
+          label: 'summary.pdf',
+          directory: 'school/sem1',
+          takenAt: '2026-04-23T09:30:00.000Z',
+          sizeMb: 2.4,
+        }
+      ],
+      state: {
+        docsCurrentDir: 'school/sem1',
+        layoutWidth: 1280,
+        docsNewFolderOpen: false,
+        docsFolders: new Set(['school', 'school/sem1']),
+        selectedIds: new Set(['doc-1']),
+      }
+    });
+
+    assert.match(html, /1 selected · 2 items · 3\.6 MB/);
+    assert.match(html, /Selected files stay scoped to sem1\./);
+    assert.match(html, /data-action="docs-clear-selection"/);
+  });
+
   it('shows Albums and Private in the sidebar, keeps secondary filters visible in Bin, and uses the text wordmark', () => {
     const html = Sidebar({
       navigationModel: {
@@ -1767,7 +1803,7 @@ describe('media library download actions', () => {
     assert.match(gateHtml, /Unlock private album/);
     assert.match(gateHtml, />Unlock</);
     assert.match(gateHtml, /Wrong password\./);
-    assert.match(gateHtml, /Enter your password to view private photos and videos/);
+    assert.match(gateHtml, /Enter your password to view hidden photos and videos/);
     assert.doesNotMatch(gateHtml, /Enter hidden album/);
     assert.match(summaryHtml, /Hidden album/);
     assert.match(summaryHtml, /3 items hidden from the main library/);
@@ -1784,9 +1820,19 @@ describe('media library download actions', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
     assert.match(appSource, /event\.target instanceof HTMLInputElement && event\.target\.dataset\.privateAccess === 'password'/);
+    assert.match(appSource, /state\.privatePasswordError = 'Enter the password first\.'/);
     assert.match(appSource, /unlockPrivateRoute\(event\.target\.value\)/);
     assert.match(appSource, /e\.stopPropagation\(\);\s*unlockPrivateRoute\(\);/);
     assert.match(appSource, /state\.focusedTileId = null/);
+  });
+
+  it('resets playlist dialog state when leaving an active playlist', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /function closeMusicPlaylist\(\) \{/);
+    assert.match(appSource, /state\.playlistDialogOpen = false;/);
+    assert.match(appSource, /state\.playlistDialogMode = 'create';/);
+    assert.match(appSource, /state\.playlistDialogTargetItemId = '';/);
   });
 
   it('keeps favourite toggles in preview on the local button path without a full render', () => {

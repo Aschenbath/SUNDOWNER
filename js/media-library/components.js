@@ -1086,45 +1086,57 @@ export function DocumentsListView({ items, state }) {
   const selectedInView = childFiles.filter((item) => state.selectedIds.has(item.id));
   const hasSelection = selectedInView.length > 0;
 
-  const headerHtml = `
-    <div class="cml-docs-header">
-      ${isDesktop && isRootView ? '' : `
-        <div class="cml-docs-header__top">
-          <h2 class="cml-docs-header__title">Files</h2>
-          <span class="cml-docs-header__meta">${hasSelection ? `${selectedInView.length} selected` : `${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` · ${formatFileSize(totalSize)}` : ''}`}</span>
+      const fileLikeLabel = items.length === 1 ? 'item' : 'items';
+      const sizeSummary = totalSize > 0 ? ` · ${formatFileSize(totalSize)}` : '';
+      const rootMeta = `${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${sizeSummary}`;
+      const scopedMeta = currentDir
+        ? `${selectedInView.length ? `${selectedInView.length} selected · ` : ''}${childFiles.length} ${fileLikeLabel}${sizeSummary}`
+        : (hasSelection ? `${selectedInView.length} selected · ${rootMeta}` : rootMeta);
+      const selectionCopy = hasSelection
+        ? `Selected files stay scoped to ${currentDir ? currentDir.split('/').pop() : 'this view'}.`
+        : '';
+      const headerHtml = `
+        <div class="cml-docs-header">
+          ${isDesktop && isRootView ? '' : `
+            <div class="cml-docs-header__top">
+              <div class="cml-docs-header__titles">
+                <h2 class="cml-docs-header__title">Files</h2>
+                <span class="cml-docs-header__meta">${scopedMeta}</span>
+                ${selectionCopy ? `<span class="cml-docs-header__hint">${escapeHtml(selectionCopy)}</span>` : ''}
+              </div>
+            </div>
+          `}
+          ${isDesktop && isRootView ? '' : breadcrumbHtml}
+          <div class="cml-docs-header__actions">
+            ${hasSelection ? `
+              <button type="button" class="cml-docs-action-btn" data-action="docs-move-selected">
+                ${icon('folder-move')}
+                <span>Move to</span>
+              </button>
+              <button type="button" class="cml-docs-action-btn" data-action="docs-download-selected">
+                ${icon('download')}
+                <span>Download</span>
+              </button>
+              <button type="button" class="cml-docs-action-btn cml-docs-action-btn--danger" data-action="docs-delete-selected">
+                ${icon('trash')}
+                <span>Delete</span>
+              </button>
+              <button type="button" class="cml-docs-action-btn" data-action="docs-clear-selection">
+                ${icon('close')}
+                <span>Cancel</span>
+              </button>
+            ` : `
+              <button type="button" class="cml-docs-new-folder" data-action="docs-new-folder">
+                ${icon('plus')}
+                <span>New folder</span>
+              </button>
+            `}
+            ${isDesktop && isRootView && !hasSelection
+              ? `<span class="cml-docs-header__meta cml-docs-header__meta--inline">${rootMeta}</span>`
+              : ''}
+          </div>
         </div>
-      `}
-      ${isDesktop && isRootView ? '' : breadcrumbHtml}
-      <div class="cml-docs-header__actions">
-        ${hasSelection ? `
-          <button type="button" class="cml-docs-action-btn" data-action="docs-move-selected">
-            ${icon('folder-move')}
-            <span>Move to</span>
-          </button>
-          <button type="button" class="cml-docs-action-btn" data-action="docs-download-selected">
-            ${icon('download')}
-            <span>Download</span>
-          </button>
-          <button type="button" class="cml-docs-action-btn cml-docs-action-btn--danger" data-action="docs-delete-selected">
-            ${icon('trash')}
-            <span>Delete</span>
-          </button>
-          <button type="button" class="cml-docs-action-btn" data-action="docs-clear-selection">
-            ${icon('x')}
-            <span>Cancel</span>
-          </button>
-        ` : `
-          <button type="button" class="cml-docs-new-folder" data-action="docs-new-folder">
-            ${icon('plus')}
-            <span>New folder</span>
-          </button>
-        `}
-        ${isDesktop && isRootView && !hasSelection
-          ? `<span class="cml-docs-header__meta cml-docs-header__meta--inline">${childFiles.length} file${childFiles.length === 1 ? '' : 's'}${sortedFolders.length ? `, ${sortedFolders.length} folder${sortedFolders.length === 1 ? '' : 's'}` : ''}${totalSize > 0 ? ` · ${formatFileSize(totalSize)}` : ''}</span>`
-          : ''}
-      </div>
-    </div>
-  `;
+      `;
 
   // New folder inline input
   const newFolderHtml = state.docsNewFolderOpen ? `
@@ -1376,6 +1388,8 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
   const subtitle = currentItem
     ? `Now ${isPlaying ? 'playing' : 'paused'}: ${currentItem.audioTitle || 'Track'}`
     : helper;
+  const queueSummary = queueItems.length === 1 ? '1 queued' : `${queueItems.length} queued`;
+  const hasPlaylists = playlists.length > 0;
   return `
     <section class="cml-view-summary cml-view-summary--music cml-music-summary">
       <div class="cml-music-summary__head">
@@ -1385,18 +1399,22 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
               <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-music-playlist">
                 ${icon('previous')}
               </button>
-              <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
+              <div class="cml-music-summary__playlist-copy">
+                <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
+                <p class="cml-view-summary__copy cml-view-summary__copy--albums">${escapeHtml(`${helper} · ${queueSummary}`)}</p>
+              </div>
             </div>
           ` : `
             ${isMobile ? '' : '<p class="cml-view-summary__eyebrow">Music</p>'}
             <h2 class="cml-view-summary__title">${escapeHtml(title)}</h2>
+            <p class="cml-view-summary__copy cml-view-summary__copy--albums">${escapeHtml(subtitle)}</p>
           `}
-          <p class="cml-view-summary__copy cml-view-summary__copy--albums">${escapeHtml(subtitle)}</p>
         </div>
         <div class="cml-music-summary__meta">
           <span class="cml-music-summary__chip">${countLabel}</span>
-          <span class="cml-music-summary__chip">${queueItems.length} queued</span>
+          <span class="cml-music-summary__chip">${queueSummary}</span>
           <span class="cml-music-summary__chip">${escapeHtml(modeLabel)}</span>
+          ${!activePlaylistName && hasPlaylists ? `<span class="cml-music-summary__chip">${playlists.length} playlist${playlists.length === 1 ? '' : 's'}</span>` : ''}
           ${activePlaylistName ? `
             <button type="button" class="cml-music-summary__action" data-action="open-rename-playlist">Rename</button>
             <button type="button" class="cml-music-summary__action is-danger" data-action="delete-playlist">Delete</button>
@@ -2184,6 +2202,10 @@ export function PrivateAlbumSummary({ itemCount = 0, locked = false }) {
           ? 'Enter the password to view hidden photos and videos.'
           : `${safeItemCount} item${safeItemCount === 1 ? '' : 's'} hidden from the main library.`)}
       </p>
+      <div class="cml-private-summary__status ${locked ? 'is-locked' : 'is-open'}">
+        <span class="cml-private-summary__dot" aria-hidden="true"></span>
+        <span>${locked ? 'Locked' : 'Unlocked for this visit'}</span>
+      </div>
     </section>
   `;
 }
@@ -2734,7 +2756,11 @@ export function PrivateAlbumGate({ error = '', value = '' }) {
           <h2 class="cml-private-access__title">Unlock private album</h2>
         </div>
       </div>
-      <p class="cml-private-access__copy">Enter your password to view private photos and videos.</p>
+      <p class="cml-private-access__copy">Enter your password to view hidden photos and videos.</p>
+      <div class="cml-private-access__status">
+        <span class="cml-private-access__status-dot" aria-hidden="true"></span>
+        <span>This unlock only lasts for the current visit.</span>
+      </div>
       <form class="cml-private-access__form" data-form="private-access">
         <input
           type="password"
