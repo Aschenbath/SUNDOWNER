@@ -943,6 +943,43 @@ describe('media library download actions', () => {
     assert.match(mindHtml, /data-action="send-mind-message"/);
   });
 
+  it('keeps mobile preview actions grouped on the right without a left-side back button or top date text', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'mobile-preview-1',
+        type: 'photo',
+        label: 'night-river.jpg',
+        sourceId: 'photos/night-river.jpg',
+        sourceUrl: '/file/photos/night-river.jpg',
+        thumbnailUrl: '/file/photos/night-river.jpg',
+        width: 1080,
+        height: 1440,
+        displayTakenAt: 'April 4, 2026 18:40',
+        location: 'People Bridge',
+        mimeType: 'image/jpeg',
+      },
+      selected: false,
+      favorited: true,
+      currentIndex: 24,
+      totalCount: 29,
+      infoOpen: false,
+      immersive: false,
+      albumDrawerOpen: false,
+      albumEntries: [],
+    });
+
+    assert.match(html, /cml-preview__header-actions cml-preview__header-actions--mobile/);
+    assert.match(html, /data-action="open-preview-add-to-album"/);
+    assert.match(html, /data-action="request-delete-preview"/);
+    assert.match(html, /data-action="rotate-preview"/);
+    assert.match(html, /data-action="toggle-info"/);
+    assert.match(html, /data-action="toggle-immersive"/);
+    assert.match(html, /data-action="close-preview"/);
+    assert.doesNotMatch(html, /cml-preview__mobile-back/);
+    assert.doesNotMatch(html, /cml-preview__mobile-date/);
+    assert.doesNotMatch(html, /cml-preview__mobile-location/);
+  });
+
   it('renders mobile Mind as a fixed chat shell with an internal back header', () => {
     const mobileTopbarHtml = TopSearchBar({
       state: {
@@ -986,6 +1023,7 @@ describe('media library download actions', () => {
   });
 
   it('renders the albums root with a compact title-and-count header', () => {
+
     const rootHtml = CollectionSummary({
       collectionCount: 2
     });

@@ -2653,15 +2653,21 @@ export function PreviewModal({
             </div>
           </header>
           <header class="cml-preview__header cml-preview__header--mobile">
-            <button type="button" class="cml-preview__mobile-back" data-action="close-preview" aria-label="Back">${icon('previous')}</button>
-            <div class="cml-preview__mobile-center">
-              <span class="cml-preview__mobile-date">${escapeHtml(mobileDate)}</span>
-              ${mobileLocation ? `<span class="cml-preview__mobile-location">${escapeHtml(mobileLocation)}</span>` : ''}
+            <div class="cml-preview__mobile-spacer" aria-hidden="true"></div>
+            <div class="cml-preview__header-actions cml-preview__header-actions--mobile">
+              ${isBinView ? `
+                <button type="button" class="cml-preview__icon-action" data-action="restore-bin-preview" data-id="${escapeHtml(item.id)}" aria-label="Restore">${icon('restore')}</button>
+                <button type="button" class="cml-preview__icon-action is-destructive" data-action="request-delete-bin-preview-permanently" data-id="${escapeHtml(item.id)}" aria-label="Delete forever">${icon('trash')}</button>
+              ` : `
+                <button type="button" class="cml-preview__icon-action cml-preview__icon-action--album ${albumDrawerOpen ? 'is-selected' : ''}" data-action="open-preview-add-to-album" data-id="${escapeHtml(item.id)}" aria-label="Add to album" aria-pressed="${albumDrawerOpen ? 'true' : 'false'}">${icon('plus')}</button>
+                <button type="button" class="cml-preview__icon-action ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="${favorited ? 'Remove from favourites' : 'Add to favourites'}" aria-pressed="${favorited ? 'true' : 'false'}">${icon('star')}</button>
+                <button type="button" class="cml-preview__icon-action is-destructive" data-action="request-delete-preview" data-id="${escapeHtml(item.id)}" aria-label="Delete">${icon('trash')}</button>
+                <button type="button" class="cml-preview__icon-action" data-action="rotate-preview" aria-label="Rotate">${icon('rotate')}</button>
+              `}
+              <button type="button" class="cml-preview__icon-action cml-preview__icon-action--info ${infoOpen ? 'is-selected' : ''}" data-action="toggle-info" aria-label="${infoOpen ? 'Hide details' : 'Show details'}" aria-pressed="${infoOpen ? 'true' : 'false'}">${icon('info')}</button>
+              ${isBinView ? '' : `<button type="button" class="cml-preview__icon-action ${immersive ? 'is-selected' : ''}" data-action="toggle-immersive" aria-label="${immersive ? 'Exit immersive' : 'Immersive mode'}">${icon(immersive ? 'collapse' : 'expand')}</button>`}
+              <button type="button" class="cml-preview__close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
             </div>
-            ${isBinView
-              ? `<button type="button" class="cml-preview__icon-action" data-action="restore-bin-preview" data-id="${escapeHtml(item.id)}" aria-label="Restore">${icon('restore')}</button>`
-              : `<button type="button" class="cml-preview__icon-action ${favorited ? 'is-favorited' : ''}" data-action="toggle-favorite" data-id="${escapeHtml(item.id)}" aria-label="${favorited ? 'Remove from favourites' : 'Add to favourites'}">${icon('star')}</button>`}
-            <button type="button" class="cml-preview__icon-action" data-action="toggle-info" aria-label="More options">${icon('dots')}</button>
           </header>
           <div class="cml-preview__body">
             <button type="button" class="cml-preview__nav is-prev" data-action="preview-previous" aria-label="Previous item" ${canGoPrevious ? '' : 'disabled aria-disabled="true"'}>${icon('previous')}</button>
