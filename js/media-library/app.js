@@ -10999,9 +10999,25 @@ function handleAction(actionTarget) {
       textarea.rows = 3;
       textarea.placeholder = 'Add a description';
       textarea.value = currentDesc;
-      let cancelled = false;
+      const actions = document.createElement('div');
+      actions.className = 'cml-preview__info-editor-actions';
+      const cancelButton = document.createElement('button');
+      cancelButton.type = 'button';
+      cancelButton.className = 'cml-topbar__secondary-button';
+      cancelButton.textContent = 'Cancel';
+      const saveButton = document.createElement('button');
+      saveButton.type = 'button';
+      saveButton.className = 'cml-topbar__secondary-button';
+      saveButton.textContent = 'Save';
+      let mode = 'save';
+      let finalized = false;
       const commitEdit = () => {
-        if (cancelled) return;
+        if (finalized) return;
+        finalized = true;
+        if (mode === 'cancel') {
+          patchDescriptionDisplay(descSection, currentDesc);
+          return;
+        }
         const value = textarea.value.trim();
         patchDescriptionDisplay(descSection, value);
         void savePreviewDescription(state.previewId, value);
@@ -11009,16 +11025,36 @@ function handleAction(actionTarget) {
       textarea.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
+          mode = 'save';
           textarea.blur();
         }
         if (e.key === 'Escape') {
-          cancelled = true;
+          e.preventDefault();
+          mode = 'cancel';
+          textarea.blur();
         }
       });
       textarea.addEventListener('blur', () => {
         commitEdit();
       });
-      descSection.append(textarea);
+      cancelButton.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        mode = 'cancel';
+      });
+      saveButton.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        mode = 'save';
+      });
+      cancelButton.addEventListener('click', () => {
+        mode = 'cancel';
+        commitEdit();
+      });
+      saveButton.addEventListener('click', () => {
+        mode = 'save';
+        commitEdit();
+      });
+      actions.append(cancelButton, saveButton);
+      descSection.append(textarea, actions);
       textarea.focus();
       textarea.setSelectionRange(textarea.value.length, textarea.value.length);
       return true;

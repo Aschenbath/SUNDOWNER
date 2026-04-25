@@ -1674,6 +1674,18 @@ describe('media library download actions', () => {
     assert.match(appSource, /clearSearchInputAndFocus\(\);/);
   });
 
+  it('gives preview description editing the same explicit cancel/save affordance as other metadata editors', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /const actions = document\.createElement\('div'\);\s*actions\.className = 'cml-preview__info-editor-actions';/);
+    assert.match(appSource, /cancelButton\.textContent = 'Cancel';/);
+    assert.match(appSource, /saveButton\.textContent = 'Save';/);
+    assert.match(appSource, /if \(mode === 'cancel'\) \{\s*patchDescriptionDisplay\(descSection, currentDesc\);/);
+    assert.match(appSource, /cancelButton\.addEventListener\('click', \(\) => \{/);
+    assert.match(appSource, /saveButton\.addEventListener\('click', \(\) => \{/);
+    assert.match(appSource, /descSection\.append\(textarea, actions\);/);
+  });
+
   it('opens document rows on double-click without changing the single-click selection contract', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
