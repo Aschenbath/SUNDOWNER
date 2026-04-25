@@ -500,11 +500,8 @@ export function Sidebar({
               const active = state.secondaryFilter === label ? 'is-active' : '';
               return `
                 <button type="button" class="cml-sidebar__subnav-item ${active}" data-secondary="${escapeHtml(label)}" aria-current="${state.secondaryFilter === label ? 'page' : 'false'}">
-                  <span class="cml-sidebar__subnav-accent" aria-hidden="true"></span>
-                  <span class="cml-sidebar__subnav-icon-wrap">${icon(secondaryIconMap[label])}</span>
-                  <span class="cml-sidebar__subnav-copy">
-                    <span class="cml-sidebar__subnav-label">${escapeHtml(label)}</span>
-                  </span>
+                  ${icon(secondaryIconMap[label])}
+                  <span class="cml-sidebar__subnav-label">${escapeHtml(label)}</span>
                 </button>
               `;
             }).join('')}
