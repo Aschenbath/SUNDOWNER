@@ -46,17 +46,21 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-main-content-shell \{[\s\S]*border-radius: 28px;[\s\S]*background: var\(--cml-theme-content-panel-bg, transparent\);/);
   });
 
-  it('keeps light mode accent-aware instead of hard-coding Google blue for all theme colors', () => {
+  it('keeps light shell accent-aware instead of hard-coding Google blue for all theme colors', () => {
     assert.match(css, /--cml-theme-nav-active-bg: color-mix\(in srgb, white 72%, var\(--cml-theme-accent\) 28%\);/);
     assert.match(css, /--cml-theme-search-bg: color-mix\(in srgb, white 84%, var\(--cml-theme-accent\) 16%\);/);
-    assert.match(css, /--cml-theme-preview-header-bg: color-mix\(in srgb, white 82%, var\(--cml-theme-accent\) 18%\);/);
-    assert.match(css, /--cml-theme-preview-info-toolbar-bg: color-mix\(in srgb, white 86%, var\(--cml-theme-accent\) 14%\);/);
-    assert.match(css, /--cml-theme-preview-info-chip-active-bg: rgba\(var\(--cml-theme-accent-rgb\), 0\.14\);/);
     assert.match(css, /--cml-theme-storage-strip-bg: color-mix\(in srgb, white 74%, var\(--cml-theme-accent\) 26%\);/);
     assert.match(css, /--cml-theme-storage-panel-bg: color-mix\(in srgb, white 84%, var\(--cml-theme-accent\) 16%\);/);
     assert.match(css, /#codex-media-library-root \.cml-storage-strip__meter span \{[\s\S]*var\(--cml-theme-accent\)/);
     assert.match(css, /--cml-theme-scrubber-dot-active: var\(--cml-theme-accent\);/);
     assert.match(css, /--cml-theme-avatar-btn-hover-bg: color-mix\(in srgb, white 74%, var\(--cml-theme-accent\) 26%\);/);
+  });
+
+  it('keeps preview chrome neutral in light mode so photos still inspect on dark surfaces', () => {
+    assert.match(css, /--cml-theme-preview-header-bg: linear-gradient\(180deg, rgba\(8, 9, 11, 0\.86\), rgba\(8, 9, 11, 0\)\);/);
+    assert.match(css, /--cml-theme-preview-info-toolbar-bg: rgba\(21, 22, 25, 0\.92\);/);
+    assert.match(css, /--cml-theme-preview-info-card-bg: rgba\(255, 255, 255, 0\.025\);/);
+    assert.match(css, /--cml-theme-preview-info-value: #e8eaed;/);
   });
 
   it('uses readable light-mode avatar menu tokens instead of hard-coded dark dropdown colors', () => {
