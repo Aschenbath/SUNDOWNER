@@ -5841,6 +5841,18 @@ function getSearchContextLabel() {
   return state.primaryFilter || 'Library';
 }
 
+function scrollToMusicLibrary() {
+  if (!(refs.root instanceof HTMLElement)) {
+    return false;
+  }
+  const musicLibrary = refs.root.querySelector('#cml-music-library');
+  if (!(musicLibrary instanceof HTMLElement)) {
+    return false;
+  }
+  musicLibrary.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'smooth' });
+  return true;
+}
+
 function scrollToSearchGroup(groupKey) {
   const normalizedGroupKey = normalizeText(groupKey).toLowerCase();
   if (!normalizedGroupKey || !refs.root) {
@@ -10486,6 +10498,18 @@ function handleAction(actionTarget) {
           ? getMusicContextItems(getAccessibleItems())
           : getAudioQueueItems(getAccessibleItems());
         void playAudioItemById(actionTarget.dataset.id, { queueItems });
+      }
+      return true;
+    case 'audio-open-queue':
+      if (!state.primaryFilter || state.primaryFilter !== 'Music') {
+        state.primaryFilter = 'Music';
+        pushNavigationHash();
+        render();
+        requestAnimationFrame(() => {
+          scrollToMusicLibrary();
+        });
+      } else {
+        scrollToMusicLibrary();
       }
       return true;
     case 'audio-toggle-play':

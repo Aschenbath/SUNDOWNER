@@ -1588,7 +1588,7 @@ export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentT
       </div>
       <div class="cml-audio-panel__right">
         <div class="cml-audio-panel__utility-cluster">
-          <button type="button" class="cml-audio-panel__utility cml-audio-panel__utility--queue" data-primary="Music" aria-label="Open queue" aria-controls="cml-music-library">
+          <button type="button" class="cml-audio-panel__utility cml-audio-panel__utility--queue" data-action="audio-open-queue" aria-label="Open queue" aria-controls="cml-music-library">
             ${icon('collections')}
             <span class="cml-audio-panel__utility-label">Queue</span>
           </button>
