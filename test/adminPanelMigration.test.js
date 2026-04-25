@@ -16,6 +16,7 @@ function createBaseState() {
     adminOrphanScanError: '',
     adminOrphanScanResult: null,
     adminRecoveryTargetChatId: '',
+    adminRecoveryMatchesText: '',
     adminRecoverCaptureTimesLoading: false,
     adminRecoverCaptureTimesError: '',
     adminRecoverCaptureTimesResult: null,
@@ -130,6 +131,7 @@ describe('AdminPanel migration surfaces', () => {
   it('renders metadata recovery actions for capture times and Telegram repairs', () => {
     const state = createBaseState();
     state.adminRecoveryTargetChatId = '123456789';
+    state.adminRecoveryMatchesText = 'telegram-import/Telegram_env/1775628424666_city-kiss.jpg | 42 | -100123 | Telegram_env';
     state.adminRecoverCaptureTimesResult = {
       total: 10,
       processed: 10,
@@ -161,6 +163,8 @@ describe('AdminPanel migration surfaces', () => {
     assert.match(html, /Recover Telegram file IDs/);
     assert.match(html, /Recover Telegram thumbnails/);
     assert.match(html, /Target chat ID/);
+    assert.match(html, /Orphan match lines/);
+    assert.match(html, /key \| messageId \| chatId \| channelName \| fileId/);
     assert.match(html, /Processed 10 of 10/);
     assert.match(html, /Recovered 4 · Failed 0 · Skipped 1 · Dry run/);
     assert.match(html, /Processed 5 of 5/);

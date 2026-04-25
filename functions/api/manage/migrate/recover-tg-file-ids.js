@@ -1,37 +1,29 @@
 /**
- * Migration: recover TgFileId for sync-imported files that are missing it.
+ * Migration: recover TgFileId for Telegram files that are missing it.
  *
- * Background:
- *   Batch-sync-imported files (key format: tg_<channel>_<messageId>_<fileUniqueId>)
- *   were stored with file_unique_id in the key but WITHOUT TgFileId in metadata.
- *   Telegram's file_unique_id cannot be used with getFile — only file_id can.
- *   This endpoint recovers the usable file_id by forwarding the original message
- *   to a target chat, reading the fresh file_id from the forwarded message,
- *   then deleting the forwarded message and patching the KV metadata.
+ * Supported sources:
+ * 1. Imported tg_<channel>_<messageId>_<fileUniqueId> keys, where messageId can
+ *    still be derived from the storage key.
+ * 2. Timestamp-style orphan files, when the request provides explicit recovery
+ *    hints that link a file key to its original Telegram message or file_id.
  *
  * POST /api/manage/migrate/recover-tg-file-ids
  * Body (JSON):
  *   {
- *     targetChatId: string,   // Required. Chat where messages are forwarded temporarily.
- *                             // Must be accessible by the bot (e.g. your private chat with the bot).
- *     botToken?:    string,   // Optional. Bot token override when env/KV config is unavailable.
- *     sourceChatId?: string,  // Optional. Source chat ID override (where original messages live).
- *     proxyUrl?:    string,   // Optional. Telegram API proxy domain.
- *     limit?:       number,   // Max files to process in this call. Default 20, max 100.
- *     dryRun?:      boolean,  // If true, only list candidates without making changes.
- *     keys?:        string[], // Optional. Process only these specific file keys.
- *                             // If omitted, scans the full index for candidates.
- *   }
- *
- * Response:
- *   {
- *     success:   boolean,
- *     total:     number,   // Total candidates found
- *     processed: number,   // Attempted
- *     recovered: number,   // Successfully patched
- *     failed:    Array<{ id, reason }>,
- *     skipped:   Array<{ id, reason }>,
- *     dryRun:    boolean,
+ *     targetChatId: string,
+ *     botToken?: string,
+ *     sourceChatId?: string,
+ *     proxyUrl?: string,
+ *     limit?: number,
+ *     dryRun?: boolean,
+ *     keys?: string[],
+ *     matches?: Array<{
+ *       key: string,
+ *       messageId?: string|number,
+ *       chatId?: string|number,
+ *       channelName?: string,
+ *       fileId?: string,
+ *     }>,
  *   }
  */
 
@@ -58,11 +50,60 @@ function jsonResponse(data, status = 200) {
     });
 }
 
-/**
- * Scan index chunks for files missing TgFileId.
- * Uses only kv.get() — no kv.list() — safe even when list quota is exhausted.
- */
-async function scanIndexForCandidates(db) {
+function normalizeString(value) {
+    const normalized = String(value ?? '').trim();
+    return normalized || '';
+}
+
+function normalizeOptionalString(value) {
+    const normalized = normalizeString(value);
+    return normalized || null;
+}
+
+function isTimestampStyleKey(key = '') {
+    const basename = normalizeString(key).split('/').pop() || '';
+    return /^\d{13}(?:[_.( -]|$)/.test(basename);
+}
+
+function extractIdsFromKey(key = '') {
+    const basename = normalizeString(key).split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+    const match = basename.match(/^tg_(.+)_(\d+)_(.+)$/);
+    if (!match) {
+        return null;
+    }
+    return { channelName: match[1], messageId: match[2] };
+}
+
+function isImportedCandidate(file) {
+    const metadata = file?.metadata || {};
+    if (metadata.Channel !== 'TelegramNew' || metadata.TgFileId) {
+        return false;
+    }
+    if (metadata.TgMessageId) {
+        return true;
+    }
+    return !!extractIdsFromKey(file?.id)?.messageId;
+}
+
+function isTimestampOrphanCandidate(file) {
+    const metadata = file?.metadata || {};
+    const channelName = normalizeString(metadata.ChannelName).toLowerCase();
+    if (metadata.Channel !== 'TelegramNew' || metadata.TgFileId || metadata.TgMessageId) {
+        return false;
+    }
+    return isTimestampStyleKey(file?.id) && (
+        metadata.Channel === 'TelegramNew'
+        || channelName.includes('telegram')
+    );
+}
+
+function shouldRecoverRecord(file, recoveryHints) {
+    return isImportedCandidate(file)
+        || isTimestampOrphanCandidate(file)
+        || recoveryHints.has(file?.id);
+}
+
+async function scanIndexForCandidates(db, recoveryHints) {
     const metaRaw = await db.get(INDEX_META_KEY);
     if (!metaRaw) {
         throw new Error('Index metadata not found. Run an index rebuild first.');
@@ -70,25 +111,32 @@ async function scanIndexForCandidates(db) {
 
     const meta = JSON.parse(metaRaw);
     const chunkCount = meta.chunkCount || 0;
-
-    // Load all chunks in parallel (all kv.get calls)
-    const chunkKeys = Array.from({ length: chunkCount }, (_, i) => `${INDEX_KEY}_${i}`);
-    const chunks = await Promise.all(chunkKeys.map(k => db.get(k)));
+    const chunkKeys = Array.from({ length: chunkCount }, (_, index) => `${INDEX_KEY}_${index}`);
+    const chunks = await Promise.all(chunkKeys.map((key) => db.get(key)));
 
     const candidates = [];
     for (const chunkRaw of chunks) {
-        if (!chunkRaw) continue;
+        if (!chunkRaw) {
+            continue;
+        }
+
         let files;
         try {
             files = JSON.parse(chunkRaw);
         } catch {
             continue;
         }
-        if (!Array.isArray(files)) continue;
+
+        if (!Array.isArray(files)) {
+            continue;
+        }
 
         for (const file of files) {
-            if (isMissingFileId(file)) {
-                candidates.push({ id: file.id, metadata: file.metadata });
+            if (shouldRecoverRecord(file, recoveryHints)) {
+                candidates.push({
+                    id: file.id,
+                    metadata: file.metadata || {},
+                });
             }
         }
     }
@@ -96,44 +144,100 @@ async function scanIndexForCandidates(db) {
     return candidates;
 }
 
-function isMissingFileId(file) {
-    const metadata = file?.metadata || {};
-    if (metadata.Channel !== 'TelegramNew' || metadata.TgFileId) return false;
-    // messageId can come from metadata or key name
-    if (metadata.TgMessageId) return true;
-    return !!extractIdsFromKey(file.id)?.messageId;
+function normalizeRecoveryHints(rawMatches) {
+    const hints = new Map();
+    if (!Array.isArray(rawMatches)) {
+        return hints;
+    }
+
+    for (const rawEntry of rawMatches) {
+        const key = normalizeString(rawEntry?.key || rawEntry?.id);
+        if (!key) {
+            continue;
+        }
+
+        const fileId = normalizeString(rawEntry?.fileId || rawEntry?.tgFileId);
+        const messageId = normalizeOptionalString(rawEntry?.messageId);
+        if (!fileId && !messageId) {
+            continue;
+        }
+
+        hints.set(key, {
+            fileId,
+            messageId,
+            chatId: normalizeOptionalString(rawEntry?.chatId || rawEntry?.sourceChatId),
+            channelName: normalizeString(rawEntry?.channelName),
+        });
+    }
+
+    return hints;
 }
 
-/**
- * Extract channelName and messageId from the key name.
- * Key format: tg_<channelName>_<messageId>_<fileUniqueId>.<ext>
- * e.g. tg_Telegram_env_42_AgADCx0AAm2GsVY.jpg → channelName=Telegram_env, messageId=42
- */
-function extractIdsFromKey(key) {
-    const basename = key.split('/').pop().replace(/\.[^.]+$/, ''); // strip dir + ext
-    const match = basename.match(/^tg_(.+)_(\d+)_(.+)$/);
-    if (!match) return null;
-    return { channelName: match[1], messageId: match[2] };
-}
-
-/**
- * Extract the highest-quality file_id from a Telegram message object.
- */
 function extractFileId(message) {
-    if (Array.isArray(message.photo) && message.photo.length > 0) {
-        return message.photo.reduce((best, cur) =>
-            (cur.file_size || 0) > (best.file_size || 0) ? cur : best
+    if (Array.isArray(message?.photo) && message.photo.length > 0) {
+        return message.photo.reduce((best, current) =>
+            (current.file_size || 0) > (best.file_size || 0) ? current : best
         ).file_id;
     }
+
     return (
-        message.video?.file_id ||
-        message.document?.file_id ||
-        message.audio?.file_id ||
-        message.animation?.file_id ||
-        message.voice?.file_id ||
-        message.video_note?.file_id ||
+        message?.video?.file_id ||
+        message?.document?.file_id ||
+        message?.audio?.file_id ||
+        message?.animation?.file_id ||
+        message?.voice?.file_id ||
+        message?.video_note?.file_id ||
         null
     );
+}
+
+async function resolveSourceAccess(env, db, metadata, recoveryHint, explicitBotToken, explicitSourceChatId, explicitProxyUrl) {
+    const hintChannelName = normalizeString(recoveryHint?.channelName);
+    const hintedMetadata = hintChannelName && !metadata?.ChannelName
+        ? { ...metadata, ChannelName: hintChannelName }
+        : metadata;
+
+    let telegramAccess = await resolveTelegramAccess(env, hintedMetadata || {});
+    let chatId = normalizeOptionalString(metadata?.TgChatId)
+        || normalizeOptionalString(recoveryHint?.chatId)
+        || normalizeOptionalString(telegramAccess?.chatId);
+
+    if (!telegramAccess?.botToken || !chatId) {
+        const config = await getUploadConfig(db, env);
+        const channels = config?.telegram?.channels || [];
+        const requestedChannelName = normalizeString(hintedMetadata?.ChannelName);
+        const matchedChannel = requestedChannelName
+            ? channels.find((channel) => normalizeString(channel?.name) === requestedChannelName)
+            : channels.find((channel) => channel?.botToken && channel?.enabled !== false);
+
+        if (matchedChannel) {
+            if (!telegramAccess?.botToken) {
+                telegramAccess = {
+                    botToken: matchedChannel.botToken,
+                    proxyUrl: matchedChannel.proxyUrl || '',
+                };
+            }
+            if (!chatId) {
+                chatId = normalizeOptionalString(matchedChannel.chatId);
+            }
+        }
+    }
+
+    if (!telegramAccess?.botToken && explicitBotToken) {
+        telegramAccess = {
+            botToken: explicitBotToken,
+            proxyUrl: explicitProxyUrl,
+        };
+    }
+    if (!chatId) {
+        chatId = normalizeOptionalString(explicitSourceChatId);
+    }
+
+    return {
+        botToken: telegramAccess?.botToken || '',
+        proxyUrl: telegramAccess?.proxyUrl || explicitProxyUrl || '',
+        chatId: chatId || null,
+    };
 }
 
 export async function onRequestOptions() {
@@ -150,36 +254,39 @@ export async function onRequestPost(context) {
         return jsonResponse({ success: false, error: 'Invalid JSON body' }, 400);
     }
 
-    const targetChatId = String(body.targetChatId || '').trim();
+    const targetChatId = normalizeString(body.targetChatId);
     if (!targetChatId) {
         return jsonResponse({ success: false, error: 'targetChatId is required' }, 400);
     }
 
-    const explicitBotToken = String(body.botToken || '').trim() || null;
-    const explicitSourceChatId = String(body.sourceChatId || '').trim() || null;
-    const explicitProxyUrl = String(body.proxyUrl || '').trim() || '';
-    const limit = Math.min(Math.max(parseInt(body.limit) || 20, 1), 100);
+    const explicitBotToken = normalizeOptionalString(body.botToken);
+    const explicitSourceChatId = normalizeOptionalString(body.sourceChatId);
+    const explicitProxyUrl = normalizeString(body.proxyUrl);
+    const limit = Math.min(Math.max(parseInt(body.limit, 10) || 20, 1), 100);
     const dryRun = body.dryRun === true;
-    const specificKeys = Array.isArray(body.keys) && body.keys.length > 0 ? body.keys : null;
+    const recoveryHints = normalizeRecoveryHints(body.matches);
+    const hintKeys = [...recoveryHints.keys()];
+    const specificKeys = Array.isArray(body.keys) && body.keys.length > 0
+        ? body.keys
+        : (hintKeys.length > 0 ? hintKeys : null);
 
     const db = getDatabase(env);
 
-    // --- Find candidates ---
     let candidates;
     try {
         if (specificKeys) {
             const records = await Promise.all(
-                specificKeys.map(async key => {
+                specificKeys.map(async (key) => {
                     const record = await db.getWithMetadata(key);
                     return record ? { id: key, metadata: record.metadata || {} } : null;
-                })
+                }),
             );
-            candidates = records.filter(r => r !== null);
+            candidates = records.filter((record) => record && shouldRecoverRecord(record, recoveryHints));
         } else {
-            candidates = await scanIndexForCandidates(db);
+            candidates = await scanIndexForCandidates(db, recoveryHints);
         }
-    } catch (err) {
-        return jsonResponse({ success: false, error: `Failed to scan candidates: ${err.message}` }, 500);
+    } catch (error) {
+        return jsonResponse({ success: false, error: `Failed to scan candidates: ${error.message}` }, 500);
     }
 
     const results = {
@@ -192,124 +299,110 @@ export async function onRequestPost(context) {
         dryRun,
     };
 
+    const toProcess = candidates.slice(0, limit);
+
     if (dryRun) {
-        results.skipped = candidates.slice(0, limit).map(c => {
-            const fromKey = extractIdsFromKey(c.id);
-            const messageId = c.metadata.TgMessageId || fromKey?.messageId || null;
-            return { id: c.id, reason: 'dry run', channelName: fromKey?.channelName, messageId };
+        results.processed = toProcess.length;
+        results.skipped = toProcess.map((candidate) => {
+            const fromKey = extractIdsFromKey(candidate.id);
+            const hint = recoveryHints.get(candidate.id);
+            return {
+                id: candidate.id,
+                reason: 'dry run',
+                channelName: candidate.metadata?.ChannelName || fromKey?.channelName || hint?.channelName || '',
+                messageId: candidate.metadata?.TgMessageId || fromKey?.messageId || hint?.messageId || null,
+                matchedByHint: Boolean(hint),
+            };
         });
-        results.processed = results.skipped.length;
         return jsonResponse(results);
     }
 
-    const toProcess = candidates.slice(0, limit);
-
-    // Lazy-load upload config (single KV read shared across all candidates)
-    let _uploadConfig = null;
-    async function getUploadConfigOnce() {
-        if (!_uploadConfig) _uploadConfig = await getUploadConfig(db, env);
-        return _uploadConfig;
-    }
-
     for (const candidate of toProcess) {
-        results.processed++;
+        results.processed += 1;
+
         const { id, metadata } = candidate;
-
         const fromKey = extractIdsFromKey(id);
-        const messageId = metadata.TgMessageId || fromKey?.messageId || null;
+        const recoveryHint = recoveryHints.get(id);
+        const directFileId = normalizeString(recoveryHint?.fileId);
+        const messageId = normalizeOptionalString(metadata?.TgMessageId)
+            || normalizeOptionalString(fromKey?.messageId)
+            || normalizeOptionalString(recoveryHint?.messageId);
+        const resolvedChannelName = normalizeString(metadata?.ChannelName)
+            || normalizeString(fromKey?.channelName)
+            || normalizeString(recoveryHint?.channelName)
+            || 'Telegram_env';
 
-        if (!messageId) {
+        if (!directFileId && !messageId) {
             results.skipped.push({ id, reason: 'cannot determine message ID from metadata or key' });
             continue;
         }
 
-        // Resolve Telegram credentials: metadata → upload config → env → explicit params
-        let telegramAccess = await resolveTelegramAccess(env, metadata);
-        let chatId = metadata.TgChatId || telegramAccess?.chatId || null;
-
-        // Fall back to upload config for botToken AND/OR chatId
-        if (!telegramAccess?.botToken || !chatId) {
-            const config = await getUploadConfigOnce();
-            const channels = config?.telegram?.channels || [];
-            const channel = channels.find(ch => ch.botToken && ch.enabled !== false);
-            if (channel) {
-                if (!telegramAccess?.botToken) {
-                    telegramAccess = {
-                        botToken: channel.botToken,
-                        proxyUrl: channel.proxyUrl || '',
-                    };
-                }
-                if (!chatId) {
-                    chatId = channel.chatId || null;
-                }
-            }
-        }
-        // Final fallback: explicit request params
-        if (!telegramAccess?.botToken && explicitBotToken) {
-            telegramAccess = { botToken: explicitBotToken, proxyUrl: explicitProxyUrl };
-        }
-        if (!chatId) {
-            chatId = explicitSourceChatId;
-        }
-
-        if (!telegramAccess?.botToken) {
-            results.skipped.push({ id, reason: 'no bot token resolved' });
-            continue;
-        }
-        if (!chatId) {
-            results.skipped.push({ id, reason: 'cannot determine source chat ID' });
-            continue;
-        }
-
-        const tgApi = new TelegramAPI(telegramAccess.botToken, telegramAccess.proxyUrl || '');
+        let access = null;
+        let tgApi = null;
         let forwardedMessageId = null;
 
         try {
-            // Forward the original message to get a fresh file_id
-            const forwarded = await tgApi.request('forwardMessage', {
-                method: 'POST',
-                params: {
-                    chat_id: targetChatId,
-                    from_chat_id: chatId,
-                    message_id: String(messageId),
-                },
-            });
-
-            forwardedMessageId = forwarded.message_id;
-            const recoveredFileId = extractFileId(forwarded);
+            let recoveredFileId = directFileId;
 
             if (!recoveredFileId) {
-                results.failed.push({ id, reason: 'forwarded message contained no recognizable media' });
+                access = await resolveSourceAccess(
+                    env,
+                    db,
+                    { ...metadata, ChannelName: resolvedChannelName },
+                    recoveryHint,
+                    explicitBotToken,
+                    explicitSourceChatId,
+                    explicitProxyUrl,
+                );
+
+                if (!access.botToken) {
+                    results.skipped.push({ id, reason: 'no bot token resolved' });
+                    continue;
+                }
+                if (!access.chatId) {
+                    results.skipped.push({ id, reason: 'cannot determine source chat ID' });
+                    continue;
+                }
+
+                tgApi = new TelegramAPI(access.botToken, access.proxyUrl || '');
+                const forwarded = await tgApi.request('forwardMessage', {
+                    method: 'POST',
+                    params: {
+                        chat_id: targetChatId,
+                        from_chat_id: access.chatId,
+                        message_id: String(messageId),
+                    },
+                });
+
+                forwardedMessageId = forwarded.message_id;
+                recoveredFileId = extractFileId(forwarded);
+            }
+
+            if (!recoveredFileId) {
+                results.failed.push({ id, reason: 'no Telegram file_id could be recovered' });
                 continue;
             }
 
-            // Patch KV: read current value, merge metadata, write back
             const record = await db.getWithMetadata(id);
-            const currentMetadata = record?.metadata || metadata;
-            const newMetadata = {
+            const currentMetadata = record?.metadata || metadata || {};
+            const patchedMetadata = {
                 ...currentMetadata,
                 TgFileId: recoveredFileId,
-                // Ensure channel credentials are in metadata so file serving
-                // can resolve them via resolveTelegramAccess path 1.
-                TgBotToken: currentMetadata.TgBotToken || telegramAccess.botToken,
-                TgChatId: currentMetadata.TgChatId || chatId,
-                TgProxyUrl: currentMetadata.TgProxyUrl || telegramAccess.proxyUrl || '',
+                ...(messageId ? { TgMessageId: String(messageId) } : {}),
+                ...((currentMetadata.TgChatId || access?.chatId) ? {
+                    TgChatId: currentMetadata.TgChatId || access?.chatId,
+                } : {}),
                 Channel: currentMetadata.Channel || 'TelegramNew',
-                ChannelName: currentMetadata.ChannelName || fromKey?.channelName || 'Telegram_env',
+                ChannelName: currentMetadata.ChannelName || resolvedChannelName,
             };
-            const value = record?.value ?? '';
 
-            await db.put(id, value, { metadata: newMetadata });
-
-            // Record an index update operation so the index reflects the new metadata
-            await addFileToIndex(context, id, newMetadata);
-
-            results.recovered++;
-        } catch (err) {
-            results.failed.push({ id, reason: err.message });
+            await db.put(id, record?.value ?? '', { metadata: patchedMetadata });
+            await addFileToIndex(context, id, patchedMetadata);
+            results.recovered += 1;
+        } catch (error) {
+            results.failed.push({ id, reason: error.message });
         } finally {
-            // Always clean up the forwarded message — non-fatal if it fails
-            if (forwardedMessageId !== null) {
+            if (tgApi && forwardedMessageId !== null) {
                 try {
                     await tgApi.request('deleteMessage', {
                         method: 'POST',

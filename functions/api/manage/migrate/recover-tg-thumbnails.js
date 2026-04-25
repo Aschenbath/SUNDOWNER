@@ -269,9 +269,7 @@ export async function onRequestPost(context) {
             const patchedMetadata = {
                 ...currentMetadata,
                 ...thumbnailMetadata,
-                TgBotToken: currentMetadata.TgBotToken || access.botToken,
                 TgChatId: currentMetadata.TgChatId || access.chatId,
-                TgProxyUrl: currentMetadata.TgProxyUrl || access.proxyUrl || '',
                 Channel: currentMetadata.Channel || 'TelegramNew',
                 ChannelName: currentMetadata.ChannelName || fromKey?.channelName || 'Telegram_env',
             };

@@ -147,6 +147,35 @@ describe('metadata route', () => {
     assert.equal(stored.metadata.Title, 'Moonlight Sonata');
   });
 
+  it('accepts Artist and Album updates for audio files', async () => {
+    const env = {
+      img_d1: new SqliteD1(':memory:'),
+    };
+    const db = new D1Database(env.img_d1);
+    await db.put('music/test.m4a', 'file-value', {
+      metadata: {
+        FileName: 'test.m4a',
+        FileType: 'audio/mp4',
+        TimeStamp: 1775628424666,
+      },
+    });
+
+    const response = await onRequest(createContext(env, {
+      Artist: 'Artist Name',
+      Album: 'Album Name',
+    }, 'music/test.m4a'));
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.success, true);
+    assert.equal(payload.metadata.Artist, 'Artist Name');
+    assert.equal(payload.metadata.Album, 'Album Name');
+
+    const stored = await db.getWithMetadata('music/test.m4a');
+    assert.equal(stored.metadata.Artist, 'Artist Name');
+    assert.equal(stored.metadata.Album, 'Album Name');
+  });
+
   it('rejects VideoCategory updates on non-video files', async () => {
     const env = {
       img_d1: new SqliteD1(':memory:'),

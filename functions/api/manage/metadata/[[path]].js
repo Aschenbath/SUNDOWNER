@@ -88,6 +88,8 @@ export async function onRequest(context) {
             typeof body.FileName === 'string'
             || typeof body.FileType === 'string'
             || typeof body.Title === 'string'
+            || typeof body.Artist === 'string'
+            || typeof body.Album === 'string'
             || typeof body.Description === 'string'
             || typeof body.Directory === 'string'
             || typeof body.DateTaken === 'string'
@@ -98,7 +100,7 @@ export async function onRequest(context) {
         if (!hasSupportedField) {
             return new Response(JSON.stringify({
                 success: false,
-                message: 'At least one of FileName, FileType, Title, Description, Directory, DateTaken, VideoCategory, or PrivateAlbum is required.',
+                message: 'At least one of FileName, FileType, Title, Artist, Album, Description, Directory, DateTaken, VideoCategory, or PrivateAlbum is required.',
             }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -171,6 +173,12 @@ export async function onRequest(context) {
         }
         if (typeof body.Title === 'string') {
             updatedMetadata.Title = body.Title;
+        }
+        if (typeof body.Artist === 'string') {
+            updatedMetadata.Artist = body.Artist;
+        }
+        if (typeof body.Album === 'string') {
+            updatedMetadata.Album = body.Album;
         }
         if (typeof body.Description === 'string') {
             updatedMetadata.Description = body.Description;
