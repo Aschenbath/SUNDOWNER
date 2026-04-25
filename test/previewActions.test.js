@@ -1826,14 +1826,14 @@ describe('media library download actions', () => {
     assert.match(appSource, /state\.focusedTileId = null/);
   });
 
-  it('resets playlist dialog state when leaving an active playlist', () => {
+  it('keeps active playlist music context scoped to playlist membership only', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /function closeMusicPlaylist\(\) \{/);
-    assert.match(appSource, /state\.playlistDialogOpen = false;/);
-    assert.match(appSource, /state\.playlistDialogMode = 'create';/);
-    assert.match(appSource, /state\.playlistDialogTargetItemId = '';/);
+    assert.match(appSource, /function getMusicContextItems\(items = getAccessibleItems\(\)\) \{/);
+    assert.match(appSource, /if \(!activePlaylistName\) \{\s*return visibleAudioItems;/);
+    assert.match(appSource, /return items\s*\.filter\(\(item\) => item\.type === 'audio'\)\s*\.filter\(\(item\) => itemBelongsToPlaylist\(item, activePlaylistName\)\);/);
   });
+
 
   it('keeps favourite toggles in preview on the local button path without a full render', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');

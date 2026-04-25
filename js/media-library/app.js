@@ -595,10 +595,16 @@ function getAudioItemById(itemId, items = getAccessibleItems()) {
 
 function getMusicContextItems(items = getAccessibleItems()) {
   const activePlaylistName = getActivePlaylistName();
-  return getFilteredItems(items)
+  const visibleAudioItems = getFilteredItems(items)
+    .filter((item) => item.type === 'audio');
+  if (!activePlaylistName) {
+    return visibleAudioItems;
+  }
+  return items
     .filter((item) => item.type === 'audio')
-    .filter((item) => !activePlaylistName || itemBelongsToPlaylist(item, activePlaylistName));
+    .filter((item) => itemBelongsToPlaylist(item, activePlaylistName));
 }
+
 
 function getAudioQueueItems(items = getAccessibleItems()) {
   const queueIds = Array.isArray(state.audioQueueIds) ? state.audioQueueIds : [];
