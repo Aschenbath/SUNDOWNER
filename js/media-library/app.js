@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=77';
+} from './components.js?v=78';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -4800,17 +4800,23 @@ function buildBinItem(record) {
   if (!mimeType) {
     return null;
   }
-  const type = mimeType.startsWith('video/') ? 'video' : (mimeType.startsWith('image/') ? 'photo' : 'document');
+  const type = mimeType.startsWith('video/')
+    ? 'video'
+    : (mimeType.startsWith('image/')
+      ? 'photo'
+      : (mimeType.startsWith('audio/') ? 'audio' : 'document'));
   const sourceUrl = buildFileRoute(fileId);
   const browserPreviewSupported = type === 'document' ? false : (type !== 'photo' || supportsBrowserImagePreview(mimeType));
   const thumbnailUrl = type === 'photo'
     ? resolvePhotoPreviewUrl(fileId, mimeType)
-    : (type === 'document' ? '' : sourceUrl);
+    : ((type === 'document' || type === 'audio') ? '' : sourceUrl);
   const deletedAt = Number(record.deletedAt) || Date.now();
   const deletedDate = new Date(deletedAt);
+  const deletedDateParts = createDatePartsFromDate(deletedDate);
   const deletedYear = deletedDate.getFullYear();
   const nextItem = {
     id: fileId,
+    sourceId: fileId,
     label: fileName,
     thumbnailUrl,
     sourceUrl,
@@ -4825,9 +4831,15 @@ function buildBinItem(record) {
     browserPreviewSupported,
     daysLeft: Math.max(0, Number(record.daysLeft) || 0),
     deletedAt,
-    takenAt: deletedDate.toISOString(),
+    takenAt: deletedDateParts.takenAt,
+    displayTakenAt: deletedDateParts.displayTakenAt,
     year: String(deletedYear),
     timelineLabel: createTimelineLabel(deletedDate),
+    description: normalizeText(metadata.Description || metadata.Caption || ''),
+    explicitTags: normalizeExplicitTags(metadata.Tags),
+    tags: inferTagsFromMetadata(metadata, fileName, type),
+    location: inferLocationFromMetadata(metadata, null),
+    exif: metadata.Exif || null,
     isDocumentLike: type === 'document' || DOCUMENT_HINT_PATTERN.test(`${fileId} ${fileName}`)
   };
   return shouldDisplayMediaItem(nextItem) ? nextItem : null;
@@ -4860,13 +4872,65 @@ async function fetchBinItems() {
   }
 }
 
+function snapshotBinMutationState() {
+  const previewItemsBeforeMutation = [...getPreviewItems()];
+  return {
+    binItems: state.binItems.map((item) => ({ ...item })),
+    binSelectedIds: new Set(state.binSelectedIds),
+    previewId: state.previewId,
+    previewItemsBeforeMutation,
+    previewIndexBeforeMutation: previewItemsBeforeMutation.findIndex((item) => item.id === state.previewId)
+  };
+}
+
+function applyBinItemsLocally({
+  removedIds = new Set(),
+  snapshot = null
+} = {}) {
+  const normalizedRemovedIds = removedIds instanceof Set ? removedIds : new Set(removedIds);
+  const baseBinItems = Array.isArray(snapshot?.binItems) ? snapshot.binItems : state.binItems;
+  const baseBinSelectedIds = snapshot?.binSelectedIds instanceof Set ? snapshot.binSelectedIds : state.binSelectedIds;
+  const basePreviewId = snapshot?.previewId ?? state.previewId;
+  const previewItemsBeforeMutation = Array.isArray(snapshot?.previewItemsBeforeMutation) ? snapshot.previewItemsBeforeMutation : [];
+  const previewIndexBeforeMutation = Number.isInteger(snapshot?.previewIndexBeforeMutation) ? snapshot.previewIndexBeforeMutation : -1;
+
+  state.binItems = baseBinItems.filter((item) => !normalizedRemovedIds.has(item.id));
+  state.binSelectedIds = new Set([...baseBinSelectedIds].filter((id) => !normalizedRemovedIds.has(id)));
+
+  if (basePreviewId && normalizedRemovedIds.has(basePreviewId)) {
+    const previewItemsAfterMutation = previewItemsBeforeMutation.filter((item) => !normalizedRemovedIds.has(item.id));
+    const nextPreviewItem = previewIndexBeforeMutation >= 0
+      ? previewItemsAfterMutation[Math.min(previewIndexBeforeMutation, previewItemsAfterMutation.length - 1)] || null
+      : null;
+    state.previewId = nextPreviewItem?.id || null;
+    return;
+  }
+
+  state.previewId = basePreviewId;
+}
+
+function renderBinMutationState() {
+  if (state.previewId && state.primaryFilter === 'Bin') {
+    if (!renderPreviewTransientLayers({ animateDirection: 1 })) {
+      render();
+    }
+    return;
+  }
+  render();
+}
+
 async function restoreBinSelection() {
   const fileIds = [...state.binSelectedIds];
   if (!fileIds.length) {
     return;
   }
-  state.confirmDialogBusy = true;
-  render();
+  const snapshot = snapshotBinMutationState();
+  const requestedIds = new Set(fileIds.map((id) => normalizeText(id)).filter(Boolean));
+  applyBinItemsLocally({
+    removedIds: requestedIds,
+    snapshot
+  });
+  renderBinMutationState();
   try {
     const response = await apiFetch('/api/manage/bin/batch', {
       method: 'POST',
@@ -4880,24 +4944,29 @@ async function restoreBinSelection() {
     }
     const restoredIds = new Set(safeArray(payload?.succeededIds).map(normalizeText).filter(Boolean));
     const failedIds = safeArray(payload?.failedIds).map(normalizeText).filter(Boolean);
-    state.binItems = state.binItems.filter((item) => !restoredIds.has(item.id));
-    state.binSelectedIds = new Set([...state.binSelectedIds].filter((id) => failedIds.includes(id)));
+    if (restoredIds.size !== requestedIds.size) {
+      applyBinItemsLocally({
+        removedIds: restoredIds,
+        snapshot
+      });
+      renderBinMutationState();
+    }
     if (restoredIds.size) {
       showToast(`Restored ${restoredIds.size} item${restoredIds.size === 1 ? '' : 's'} from Bin.`, 'success');
-      window.setTimeout(() => syncLiveMedia({ forceRender: true }), 260);
     }
     if (failedIds.length) {
       showToast(`Failed to restore ${failedIds.length} item${failedIds.length === 1 ? '' : 's'}. Try again.`, 'error');
-      void fetchBinItems();
     }
   } catch (error) {
     console.error('[media-library] restoreBinSelection failed', error);
+    applyBinItemsLocally({
+      removedIds: new Set(),
+      snapshot
+    });
+    renderBinMutationState();
     showToast('Failed to restore the selected Bin items.');
-  } finally {
-    state.confirmDialogBusy = false;
-    render();
-    void syncStorageSummary({ forceRender: true });
   }
+  void syncStorageSummary({ forceRender: false });
 }
 
 async function deleteBinSelectionPermanently() {
@@ -4905,8 +4974,13 @@ async function deleteBinSelectionPermanently() {
   if (!fileIds.length) {
     return;
   }
-  state.confirmDialogBusy = true;
-  render();
+  const snapshot = snapshotBinMutationState();
+  const requestedIds = new Set(fileIds.map((id) => normalizeText(id)).filter(Boolean));
+  applyBinItemsLocally({
+    removedIds: requestedIds,
+    snapshot
+  });
+  renderBinMutationState();
   try {
     const response = await apiFetch('/api/manage/bin/batch', {
       method: 'POST',
@@ -4920,31 +4994,42 @@ async function deleteBinSelectionPermanently() {
     }
     const deletedIds = new Set(safeArray(payload?.succeededIds).map(normalizeText).filter(Boolean));
     const failedIds = safeArray(payload?.failedIds).map(normalizeText).filter(Boolean);
-    state.binItems = state.binItems.filter((item) => !deletedIds.has(item.id));
-    state.binSelectedIds = new Set([...state.binSelectedIds].filter((id) => failedIds.includes(id)));
+    if (deletedIds.size !== requestedIds.size) {
+      applyBinItemsLocally({
+        removedIds: deletedIds,
+        snapshot
+      });
+      renderBinMutationState();
+    }
     if (deletedIds.size) {
       showToast(`Deleted ${deletedIds.size} item${deletedIds.size === 1 ? '' : 's'} forever.`, 'success');
     }
     if (failedIds.length) {
       showToast(`Failed to delete ${failedIds.length} Bin item${failedIds.length === 1 ? '' : 's'} forever.`, 'error');
-      void fetchBinItems();
     }
   } catch (error) {
     console.error('[media-library] deleteBinSelectionPermanently failed', error);
+    applyBinItemsLocally({
+      removedIds: new Set(),
+      snapshot
+    });
+    renderBinMutationState();
     showToast('Failed to permanently delete the selected Bin items.');
-  } finally {
-    state.confirmDialogBusy = false;
-    render();
-    void syncStorageSummary({ forceRender: true });
   }
+  void syncStorageSummary({ forceRender: false });
 }
 
 async function emptyBin() {
   if (!state.binItems.length) {
     return;
   }
-  state.confirmDialogBusy = true;
-  render();
+  const snapshot = snapshotBinMutationState();
+  const requestedIds = new Set(state.binItems.map((item) => normalizeText(item.id)).filter(Boolean));
+  applyBinItemsLocally({
+    removedIds: requestedIds,
+    snapshot
+  });
+  renderBinMutationState();
   try {
     const response = await apiFetch('/api/manage/bin/empty', { method: 'POST', timeoutMs: 15000 });
     const payload = await response.json().catch(() => ({}));
@@ -4953,25 +5038,28 @@ async function emptyBin() {
     }
     const deletedIds = new Set(safeArray(payload?.deletedIds).map(normalizeText).filter(Boolean));
     const failedIds = safeArray(payload?.failedIds).map(normalizeText).filter(Boolean);
+    if (deletedIds.size !== requestedIds.size) {
+      applyBinItemsLocally({
+        removedIds: deletedIds,
+        snapshot
+      });
+      renderBinMutationState();
+    }
     if (failedIds.length) {
-      state.binItems = state.binItems.filter((item) => !deletedIds.has(item.id));
-      state.binSelectedIds = new Set(failedIds);
       showToast(`Deleted ${deletedIds.size} item${deletedIds.size === 1 ? '' : 's'}, but ${failedIds.length} failed.`, 'error');
-      void fetchBinItems();
     } else {
-      state.binItems = [];
-      state.binSelectedIds.clear();
       showToast('Bin emptied.', 'success');
     }
   } catch (error) {
     console.error('[media-library] emptyBin failed', error);
+    applyBinItemsLocally({
+      removedIds: new Set(),
+      snapshot
+    });
+    renderBinMutationState();
     showToast('Failed to empty Bin.');
-  } finally {
-    state.confirmDialogBusy = false;
-    resetConfirmDialog();
-    render();
-    void syncStorageSummary({ forceRender: true });
   }
+  void syncStorageSummary({ forceRender: false });
 }
 
 function requestEmptyBin() {
@@ -4992,13 +5080,36 @@ function requestDeleteBinSelectionPermanently() {
   if (!fileIds.length) {
     return;
   }
+  const binItem = fileIds.length === 1
+    ? state.binItems.find((item) => item.id === fileIds[0])
+    : null;
+  const itemLabel = binItem?.label || `${fileIds.length} Bin item${fileIds.length === 1 ? '' : 's'}`;
   openConfirmDialog({
     mode: 'delete-bin-permanently',
+    origin: state.previewId && fileIds.length === 1 && state.previewId === fileIds[0] ? 'preview' : '',
     title: 'Delete forever?',
-    copy: `${fileIds.length} Bin item${fileIds.length === 1 ? '' : 's'} will be permanently deleted and cannot be restored.`,
+    copy: `${itemLabel} will be permanently deleted and cannot be restored.`,
     confirmLabel: 'Delete forever',
     selectionCount: fileIds.length
   });
+}
+
+function requestDeleteBinPreviewPermanently(itemId) {
+  const normalizedId = normalizeText(itemId);
+  if (!normalizedId) {
+    return;
+  }
+  state.binSelectedIds = new Set([normalizedId]);
+  requestDeleteBinSelectionPermanently();
+}
+
+function restoreBinPreview(itemId) {
+  const normalizedId = normalizeText(itemId);
+  if (!normalizedId) {
+    return;
+  }
+  state.binSelectedIds = new Set([normalizedId]);
+  void restoreBinSelection();
 }
 
 function focusSearchInput() {
@@ -7071,6 +7182,11 @@ function applyPatchedTags(mediaItem, metadata = {}) {
   );
 }
 
+function refreshPreviewAfterMetadataPatch(itemId, options = {}) {
+  return normalizeText(state.previewId) === normalizeText(itemId)
+    && renderPreviewTransientLayers(options);
+}
+
 function sortMediaItemsInPlace(items) {
   return items.sort((left, right) => {
     const leftTime = Date.parse(left?.takenAt || '') || 0;
@@ -7106,6 +7222,7 @@ async function savePreviewDescription(itemId, description) {
     if (mediaItem) {
       mediaItem.description = normalizeText(description);
     }
+    refreshPreviewAfterMetadataPatch(itemId);
 
     showToast('Description saved', 'success');
   } catch (error) {
@@ -7149,7 +7266,7 @@ async function savePreviewCaptureTime(itemId, captureTimeInput, previousItem = n
       sortMediaItemsInPlace(state.mediaItems);
     }
 
-    if (!(state.previewId && renderPreviewTransientLayers())) {
+    if (!refreshPreviewAfterMetadataPatch(itemId)) {
       render();
     }
     showToast('Date & time saved', 'success');
@@ -7188,7 +7305,9 @@ async function savePreviewVideoCategory(itemId, categoryInput, previousItem = nu
       applyPatchedVideoCategory(mediaItem, data.metadata || {});
     }
 
-    render();
+    if (!refreshPreviewAfterMetadataPatch(itemId)) {
+      render();
+    }
     showToast(nextCategory ? 'Video category saved' : 'Video category cleared', 'success');
   } catch (error) {
     const categorySection = refs.root?.querySelector('.cml-preview__info-section--video-category');
@@ -7267,7 +7386,7 @@ async function savePreviewTags(itemId, tagInput, previousItem = null) {
       applyPatchedTags(mediaItem, patchedMetadata);
     }
 
-    if (!(state.previewId && renderPreviewTransientLayers())) {
+    if (!refreshPreviewAfterMetadataPatch(itemId)) {
       render();
     }
     showToast(nextTags.length ? 'Tags saved' : 'Tags cleared', 'success');
@@ -8964,6 +9083,7 @@ function getPreviewOverlayModel({
     favorited: resolvedPreviewItem ? state.favoriteIds.has(resolvedPreviewItem.id) : false,
     currentIndex: Math.max(finalPreviewIndex, 0),
     totalCount: displayTotalCount,
+    isBinView: state.primaryFilter === 'Bin',
     infoOpen: state.infoOpen,
     immersive: state.previewImmersive,
     albumDrawerOpen: state.albumDialogOpen && state.albumDialogOrigin === 'preview',
@@ -9006,7 +9126,7 @@ function animatePreviewSwap(direction = 0) {
 }
 
 function getPreviewItems(items = getAccessibleItems()) {
-  return state.primaryFilter === 'Bin' ? [] : getFilteredItems(items);
+  return state.primaryFilter === 'Bin' ? state.binItems : getFilteredItems(items);
 }
 
 function getPreviewMediaSignature(node) {
@@ -9499,7 +9619,7 @@ function openPreviewFromEvent(event, itemId) {
     return false;
   }
   if (event && event.target) {
-    const selectBtn = event.target.closest('[data-action="toggle-select"]');
+    const selectBtn = event.target.closest('[data-action="toggle-select"], [data-action="toggle-bin-select"]');
     if (selectBtn) {
       return false;
     }
@@ -9518,28 +9638,78 @@ function openPreviewFromEvent(event, itemId) {
   return false;
 }
 
-function closePreview() {
-  state.previewId = null;
-  state.previewTransitionRect = null;
-  state.previewTransitionSrc = '';
-  state.infoOpen = false;
-  if (state.albumDialogOrigin === 'preview') {
-    state.albumDialogOpen = false;
-    state.albumDialogOrigin = '';
-    state.albumDialogError = '';
-    state.albumDraftName = '';
-    state.albumDrawerSearch = '';
-    state.albumDrawerScope = 'all';
-    state.albumDrawerCreateMode = false;
+function findPreviewSectionAnchor(itemId) {
+  const normalizedId = normalizeText(itemId);
+  if (!normalizedId) {
+    return '';
   }
-  state.previewImmersive = false;
-  state.previewRotation = 0;
-  touchZoom.currentScale = 1;
-  touchZoom.tx = 0;
-  touchZoom.ty = 0;
-  if (!renderPreviewTransientLayers()) {
+  const sections = state.primaryFilter === 'Bin'
+    ? buildSections(state.binItems, {
+        anchorPrefix: 'bin',
+        getLabel: (item) => item.timelineLabel || createTimelineLabel(item.deletedAt || item.takenAt),
+        getScrubberLabel: (item) => formatScrubberLabel(item.deletedAt || item.takenAt)
+      })
+    : buildSections(getFilteredItems());
+  return sections.find((section) => section.items.some((item) => item.id === normalizedId))?.anchorId || '';
+}
+
+function restorePreviewPosition(itemId) {
+  const normalizedId = normalizeText(itemId);
+  if (!normalizedId || !(refs.root instanceof HTMLElement)) {
+    return false;
+  }
+  const tile = refs.root.querySelector(`.cml-media-tile[data-tile-id="${normalizedId}"]`);
+  if (tile instanceof HTMLElement) {
+    state.focusedTileId = normalizedId;
+    tile.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+    return true;
+  }
+  const targetAnchor = findPreviewSectionAnchor(normalizedId);
+  if (!targetAnchor) {
+    return false;
+  }
+  state.activeSectionAnchor = targetAnchor;
+  if (!(refs.root.querySelector(`#${CSS.escape(targetAnchor)}`) instanceof HTMLElement)) {
     render();
   }
+  scrollToYear(targetAnchor);
+  scheduleTimelineRender();
+  return true;
+}
+
+function closePreview() {
+  const previewId = state.previewId;
+  const restoredPosition = restorePreviewPosition(previewId);
+  const finalizeClosePreview = () => {
+    state.previewId = null;
+    state.previewTransitionRect = null;
+    state.previewTransitionSrc = '';
+    state.infoOpen = false;
+    if (state.albumDialogOrigin === 'preview') {
+      state.albumDialogOpen = false;
+      state.albumDialogOrigin = '';
+      state.albumDialogError = '';
+      state.albumDraftName = '';
+      state.albumDrawerSearch = '';
+      state.albumDrawerScope = 'all';
+      state.albumDrawerCreateMode = false;
+    }
+    state.previewImmersive = false;
+    state.previewRotation = 0;
+    touchZoom.currentScale = 1;
+    touchZoom.tx = 0;
+    touchZoom.ty = 0;
+    if (!renderPreviewTransientLayers()) {
+      render();
+    }
+  };
+  if (restoredPosition) {
+    window.setTimeout(() => {
+      animatePreviewCloseToTile(finalizeClosePreview);
+    }, 90);
+    return;
+  }
+  animatePreviewCloseToTile(finalizeClosePreview);
 }
 
 function applyPreviewRotation() {
@@ -9575,7 +9745,7 @@ function applyPreviewRotation() {
 }
 
 function movePreview(direction) {
-  const items = getFilteredItems();
+  const items = getPreviewItems();
   if (!items.length || !state.previewId) {
     return false;
   }
@@ -10683,8 +10853,14 @@ function handleAction(actionTarget) {
     case 'restore-bin-selection':
       void restoreBinSelection();
       return true;
+    case 'restore-bin-preview':
+      restoreBinPreview(actionTarget.dataset.id || state.previewId);
+      return true;
     case 'delete-bin-permanently':
       requestDeleteBinSelectionPermanently();
+      return true;
+    case 'request-delete-bin-preview-permanently':
+      requestDeleteBinPreviewPermanently(actionTarget.dataset.id || state.previewId);
       return true;
     case 'request-empty-bin':
       requestEmptyBin();
@@ -10704,15 +10880,17 @@ function handleAction(actionTarget) {
           render();
           void deleteAlbum(albumTarget);
         } else if (state.confirmDialogMode === 'empty-bin') {
+          resetConfirmDialog();
+          if (!(preferPreviewRender && renderPreviewTransientLayers())) {
+            render();
+          }
           void emptyBin();
         } else if (state.confirmDialogMode === 'delete-bin-permanently') {
-          state.confirmDialogBusy = true;
-          render();
-          void deleteBinSelectionPermanently()
-            .finally(() => {
-              resetConfirmDialog();
-              render();
-            });
+          resetConfirmDialog();
+          if (!(preferPreviewRender && renderPreviewTransientLayers())) {
+            render();
+          }
+          void deleteBinSelectionPermanently();
         } else {
           const deleteOrigin = state.confirmDialogOrigin;
           const permanentDelete = state.confirmDialogMode === 'delete-permanently';

@@ -107,6 +107,39 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-preview__caption/);
   });
 
+  it('renders Bin preview with restore and delete-forever actions only', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'bin-1',
+        type: 'photo',
+        label: 'deleted-photo.jpg',
+        sourceId: 'deleted-photo.jpg',
+        sourceUrl: '/file/deleted-photo.jpg',
+        thumbnailUrl: '/file/deleted-photo.jpg',
+        width: 1080,
+        height: 1440,
+        takenAt: '2026-04-25T08:25:00.000Z',
+        displayTakenAt: 'April 25, 2026 16:25',
+        mimeType: 'image/jpeg',
+        sizeMb: 0.21,
+      },
+      selected: false,
+      favorited: false,
+      currentIndex: 0,
+      totalCount: 3,
+      isBinView: true,
+      infoOpen: true,
+      immersive: false,
+    });
+
+    assert.match(html, /data-action="restore-bin-preview"/);
+    assert.match(html, /data-action="request-delete-bin-preview-permanently"/);
+    assert.doesNotMatch(html, /data-action="open-preview-add-to-album"/);
+    assert.doesNotMatch(html, /data-action="toggle-favorite"/);
+    assert.doesNotMatch(html, /data-action="edit-capture-time"/);
+    assert.doesNotMatch(html, /data-action="edit-tags"/);
+  });
+
   it('marks favorited preview stars as pressed so the UI can render a filled active state', () => {
     const html = PreviewModal({
       item: {
@@ -1325,6 +1358,55 @@ describe('media library download actions', () => {
     assert.match(appSource, /Moved \$\{deletedIds\.size\} item/);
     assert.ok(deleteSection);
     assert.doesNotMatch(deleteSection, /window\.setTimeout\(\(\) => syncLiveMedia\(/);
+  });
+
+  it('wires Bin tiles and preview navigation to the Bin item source', () => {
+    const componentsSource = fs.readFileSync(new URL('../js/media-library/components.js', import.meta.url), 'utf8');
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(componentsSource, /function BinMediaTile\(\{ item, selected, layout \}\) \{/);
+    assert.match(componentsSource, /data-action="open-preview"/);
+    assert.match(appSource, /function getPreviewItems\(items = getAccessibleItems\(\)\) \{\s*return state\.primaryFilter === 'Bin' \? state\.binItems : getFilteredItems\(items\);/);
+    assert.match(appSource, /isBinView: state\.primaryFilter === 'Bin'/);
+    assert.match(appSource, /function movePreview\(direction\) \{\s*const items = getPreviewItems\(\);/);
+  });
+
+  it('keeps Bin mutation flows local-first and avoids success-path live sync', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const restoreSection = appSource.match(/async function restoreBinSelection\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+    const deleteSection = appSource.match(/async function deleteBinSelectionPermanently\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+    const emptySection = appSource.match(/async function emptyBin\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+
+    assert.match(appSource, /function snapshotBinMutationState\(\) \{/);
+    assert.match(appSource, /function applyBinItemsLocally\(\{/);
+    assert.match(appSource, /function renderBinMutationState\(\) \{/);
+    assert.match(restoreSection, /applyBinItemsLocally\(\{\s*removedIds: requestedIds,/);
+    assert.match(deleteSection, /applyBinItemsLocally\(\{\s*removedIds: requestedIds,/);
+    assert.match(emptySection, /applyBinItemsLocally\(\{\s*removedIds: requestedIds,/);
+    assert.doesNotMatch(restoreSection, /syncLiveMedia\(/);
+    assert.doesNotMatch(deleteSection, /syncLiveMedia\(/);
+    assert.doesNotMatch(emptySection, /syncLiveMedia\(/);
+  });
+
+  it('keeps preview metadata saves on the preview-patch path before full render fallback', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /function refreshPreviewAfterMetadataPatch\(itemId, options = \{\}\) \{/);
+    assert.match(appSource, /refreshPreviewAfterMetadataPatch\(itemId\);[\s\S]*showToast\('Description saved'/);
+    assert.match(appSource, /if \(!refreshPreviewAfterMetadataPatch\(itemId\)\) \{\s*render\(\);\s*\}\s*showToast\('Date & time saved'/);
+    assert.match(appSource, /if \(!refreshPreviewAfterMetadataPatch\(itemId\)\) \{\s*render\(\);\s*\}\s*showToast\(nextCategory \? 'Video category saved'/);
+    assert.match(appSource, /if \(!refreshPreviewAfterMetadataPatch\(itemId\)\) \{\s*render\(\);\s*\}\s*showToast\(nextTags\.length \? 'Tags saved'/);
+  });
+
+  it('anchors preview close back to the current tile or section before dismissing the overlay', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /function findPreviewSectionAnchor\(itemId\) \{/);
+    assert.match(appSource, /function restorePreviewPosition\(itemId\) \{/);
+    assert.match(appSource, /tile\.scrollIntoView\(\{ block: 'center', inline: 'nearest', behavior: 'smooth' \}\);/);
+    assert.match(appSource, /scrollToYear\(targetAnchor\);\s*scheduleTimelineRender\(\);/);
+    assert.match(appSource, /const restoredPosition = restorePreviewPosition\(previewId\);/);
+    assert.match(appSource, /animatePreviewCloseToTile\(finalizeClosePreview\);/);
   });
 
   it('closes the confirm dialog immediately before background delete work starts', () => {
