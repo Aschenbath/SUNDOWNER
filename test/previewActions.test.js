@@ -1346,6 +1346,9 @@ describe('media library download actions', () => {
     assert.match(appSource, /function scrollToSearchGroup\(groupKey\)/);
     assert.match(appSource, /case 'focus-search-input':/);
     assert.match(appSource, /case 'jump-search-group':/);
+    assert.match(appSource, /function dismissThemeMenu\(\{ allowRenderFallback = true \} = \{\}\) \{/);
+    assert.match(appSource, /const shouldCloseThemeMenu = state\.uiThemeMenuOpen && !clickedInsideThemeSwitcher;/);
+    assert.match(appSource, /if \(shouldCloseThemeMenu\) \{\s*dismissThemeMenu\(\{ allowRenderFallback: true \}\);/);
     assert.match(appSource, /state\.librarySyncMeta = \{/);
     assert.doesNotMatch(appSource, /if \(normalizedType === 'success'\) \{/);
   });

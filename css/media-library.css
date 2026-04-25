@@ -212,6 +212,13 @@ body.codex-media-library-active #app {
   --cml-theme-content-panel-bg: #15171b;
   --cml-theme-content-panel-border: rgba(255, 255, 255, 0.04);
   --cml-theme-content-panel-shadow: none;
+  --cml-theme-storage-strip-bg: rgba(255, 255, 255, 0.04);
+  --cml-theme-storage-strip-border: rgba(255, 255, 255, 0.08);
+  --cml-theme-storage-strip-hover-bg: rgba(255, 255, 255, 0.07);
+  --cml-theme-storage-strip-active-bg: color-mix(in srgb, var(--cml-theme-accent) 28%, #10151d 72%);
+  --cml-theme-storage-panel-bg: color-mix(in srgb, var(--cml-theme-dialog-surface) 92%, var(--cml-theme-accent) 8%);
+  --cml-theme-storage-panel-border: var(--cml-theme-dialog-border);
+  --cml-theme-storage-panel-shadow: var(--cml-theme-dialog-shadow);
   --cml-theme-nav-hover-bg: rgba(255, 255, 255, 0.06);
   --cml-theme-nav-hover-border: transparent;
   --cml-theme-nav-active-bg: color-mix(in srgb, var(--cml-theme-accent) 52%, #10151d 48%);
@@ -219,12 +226,12 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] {
-  --cml-theme-shell-base: #f1f3f4;
+  --cml-theme-shell-base: color-mix(in srgb, white 80%, var(--cml-theme-accent) 20%);
   --cml-theme-page-bg:
-    linear-gradient(180deg, var(--cml-theme-shell-base) 0%, var(--cml-theme-shell-base) 100%);
+    linear-gradient(180deg, color-mix(in srgb, var(--cml-theme-shell-base) 94%, white 6%) 0%, color-mix(in srgb, var(--cml-theme-shell-base) 88%, white 12%) 100%);
   --cml-theme-surface: rgba(255, 255, 255, 0.94);
   --cml-theme-surface-elevated: rgba(255, 255, 255, 0.98);
-  --cml-theme-sidebar-bg: linear-gradient(180deg, var(--cml-theme-shell-base) 0%, var(--cml-theme-shell-base) 100%);
+  --cml-theme-sidebar-bg: linear-gradient(180deg, color-mix(in srgb, var(--cml-theme-shell-base) 94%, white 6%) 0%, color-mix(in srgb, var(--cml-theme-shell-base) 86%, white 14%) 100%);
   --cml-theme-sidebar-edge: transparent;
   --cml-theme-text: #202124;
   --cml-theme-text-soft: #3c4043;
@@ -236,7 +243,7 @@ body.codex-media-library-active #app {
   --cml-theme-input: color-mix(in srgb, white 86%, var(--cml-theme-accent) 14%);
   --cml-theme-input-border: color-mix(in srgb, rgba(218, 220, 224, 0.92) 82%, var(--cml-theme-accent) 18%);
   --cml-theme-shadow: 0 8px 22px rgba(60, 64, 67, 0.1);
-  --cml-theme-topbar-bg: linear-gradient(180deg, var(--cml-theme-shell-base) 0%, var(--cml-theme-shell-base) 100%);
+  --cml-theme-topbar-bg: linear-gradient(180deg, color-mix(in srgb, var(--cml-theme-shell-base) 92%, white 8%) 0%, color-mix(in srgb, var(--cml-theme-shell-base) 86%, white 14%) 100%);
   --cml-theme-topbar-border: transparent;
   --cml-theme-topbar-shadow: none;
   --cml-theme-search-bg: color-mix(in srgb, white 84%, var(--cml-theme-accent) 16%);
@@ -246,10 +253,10 @@ body.codex-media-library-active #app {
   --cml-theme-search-focus-ring: rgba(var(--cml-theme-accent-rgb), 0.16);
   --cml-theme-search-placeholder: #5f6368;
   --cml-theme-search-icon: #5f6368;
-  --cml-theme-floating-glass: rgba(241, 243, 244, 0.88);
-  --cml-theme-floating-glass-border: rgba(218, 220, 224, 0.88);
+  --cml-theme-floating-glass: color-mix(in srgb, white 76%, var(--cml-theme-accent) 24%);
+  --cml-theme-floating-glass-border: color-mix(in srgb, rgba(218, 220, 224, 0.88) 72%, var(--cml-theme-accent) 28%);
   --cml-theme-dialog-backdrop: rgba(234, 238, 244, 0.7);
-  --cml-theme-dialog-surface: rgba(249, 250, 252, 0.97);
+  --cml-theme-dialog-surface: color-mix(in srgb, white 92%, var(--cml-theme-accent) 8%);
   --cml-theme-dialog-border: rgba(109, 126, 154, 0.14);
   --cml-theme-dialog-shadow: 0 28px 70px rgba(105, 121, 150, 0.16);
   --cml-theme-dialog-input-bg: rgba(245, 247, 250, 0.98);
@@ -293,7 +300,14 @@ body.codex-media-library-active #app {
   --cml-theme-avatar-menu-danger-hover: #d93025;
   --cml-theme-content-panel-bg: rgba(255, 255, 255, 0.98);
   --cml-theme-content-panel-border: transparent;
-  --cml-theme-content-panel-shadow: none;
+  --cml-theme-content-panel-shadow: 0 12px 34px rgba(var(--cml-theme-accent-rgb), 0.08);
+  --cml-theme-storage-strip-bg: color-mix(in srgb, white 74%, var(--cml-theme-accent) 26%);
+  --cml-theme-storage-strip-border: rgba(var(--cml-theme-accent-rgb), 0.14);
+  --cml-theme-storage-strip-hover-bg: color-mix(in srgb, white 66%, var(--cml-theme-accent) 34%);
+  --cml-theme-storage-strip-active-bg: color-mix(in srgb, white 60%, var(--cml-theme-accent) 40%);
+  --cml-theme-storage-panel-bg: color-mix(in srgb, white 84%, var(--cml-theme-accent) 16%);
+  --cml-theme-storage-panel-border: rgba(var(--cml-theme-accent-rgb), 0.12);
+  --cml-theme-storage-panel-shadow: 0 28px 70px rgba(var(--cml-theme-accent-rgb), 0.12);
   --cml-theme-nav-hover-bg: rgba(255, 255, 255, 0.96);
   --cml-theme-nav-hover-border: rgba(218, 220, 224, 0.96);
   --cml-theme-nav-active-bg: color-mix(in srgb, white 72%, var(--cml-theme-accent) 28%);
@@ -986,22 +1000,22 @@ body.codex-media-library-active #app {
   padding: 14px 18px 16px;
   border: 0;
   border-radius: 32px;
-  background: rgba(249, 250, 251, 0.92);
+  background: var(--cml-theme-storage-strip-bg);
   text-align: left;
   cursor: pointer;
   transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
-  box-shadow: inset 0 0 0 1px rgba(218, 220, 224, 0.9);
+  box-shadow: inset 0 0 0 1px var(--cml-theme-storage-strip-border);
 }
 
 #codex-media-library-root .cml-sidebar .cml-storage-strip:hover,
 #codex-media-library-root .cml-sidebar .cml-storage-strip:focus-visible {
-  background: color-mix(in srgb, white 76%, var(--cml-theme-accent) 24%);
+  background: var(--cml-theme-storage-strip-hover-bg);
   box-shadow: inset 0 0 0 1px rgba(var(--cml-theme-accent-rgb), 0.12);
   transform: translateY(-1px);
 }
 
 #codex-media-library-root .cml-sidebar .cml-storage-strip.is-active {
-  background: color-mix(in srgb, white 70%, var(--cml-theme-accent) 30%);
+  background: var(--cml-theme-storage-strip-active-bg);
   box-shadow: inset 0 0 0 1px rgba(var(--cml-theme-accent-rgb), 0.16);
 }
 
@@ -1026,7 +1040,7 @@ body.codex-media-library-active #app {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #5b93d4 0%, #8ab4f8 100%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--cml-theme-accent) 72%, white 28%) 0%, var(--cml-theme-accent) 100%);
 }
 
 #codex-media-library-root .cml-storage-strip__text {
@@ -1073,6 +1087,7 @@ body.codex-media-library-active #app {
   min-width: 0;
   height: var(--cml-app-height);
   overflow: hidden;
+  background: var(--cml-theme-page-bg);
 }
 
 #codex-media-library-root .cml-main-shell.has-desktop-audio-player {
@@ -3408,6 +3423,9 @@ body.codex-media-library-active #app {
   width: min(980px, calc(100vw - 32px));
   margin-top: 8vh;
   padding: 24px 28px 28px;
+  background: var(--cml-theme-storage-panel-bg);
+  border-color: var(--cml-theme-storage-panel-border);
+  box-shadow: var(--cml-theme-storage-panel-shadow);
 }
 
 #codex-media-library-root .cml-storage-panel__summary {

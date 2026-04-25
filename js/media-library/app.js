@@ -5861,6 +5861,17 @@ function patchThemeSwitcher() {
   return false;
 }
 
+function dismissThemeMenu({ allowRenderFallback = true } = {}) {
+  if (!state.uiThemeMenuOpen) {
+    return false;
+  }
+  state.uiThemeMenuOpen = false;
+  if (!patchThemeSwitcher() && allowRenderFallback) {
+    render();
+  }
+  return true;
+}
+
 function patchToastDom() {
   if (!refs.root) { return false; }
   const existing = refs.root.querySelector('.cml-toast');
@@ -11431,7 +11442,7 @@ function handleClick(event) {
   const shouldCloseThemeMenu = state.uiThemeMenuOpen && !clickedInsideThemeSwitcher;
 
   if (shouldCloseThemeMenu) {
-    state.uiThemeMenuOpen = false;
+    dismissThemeMenu({ allowRenderFallback: true });
   }
 
   if (!isSelectClick && actionTarget instanceof HTMLElement && actionTarget.dataset.action === 'open-preview' && actionTarget.dataset.id) {
@@ -11585,7 +11596,7 @@ function handleClick(event) {
         ...getThemeState(),
         themeColor: actionTarget.dataset.themeColor || getThemeState().themeColor
       });
-      state.uiThemeMenuOpen = false;
+      dismissThemeMenu({ allowRenderFallback: false });
       applyThemeToLiveShell(nextTheme);
       if (!patchThemeSwitcher()) {
         render();
@@ -11598,7 +11609,7 @@ function handleClick(event) {
         ...getThemeState(),
         themeMode: actionTarget.dataset.themeMode || getThemeState().themeMode
       });
-      state.uiThemeMenuOpen = false;
+      dismissThemeMenu({ allowRenderFallback: false });
       applyThemeToLiveShell(nextTheme);
       if (!patchThemeSwitcher()) {
         render();
