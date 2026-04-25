@@ -739,8 +739,9 @@ describe('media library download actions', () => {
     });
 
     assert.match(summaryHtml, /cml-music-summary/);
-    assert.match(summaryHtml, /<p class="cml-view-summary__eyebrow">Music<\/p>/);
-    assert.match(summaryHtml, /0 items in library/);
+    assert.match(summaryHtml, /<p class="cml-music-summary__eyebrow">Music<\/p>/);
+    assert.match(summaryHtml, /Music Library/);
+    assert.match(summaryHtml, /0 items available in your private cloud library\./);
     assert.match(html, /Select a track/);
   });
 

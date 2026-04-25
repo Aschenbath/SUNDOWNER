@@ -8818,7 +8818,9 @@ function render() {
                     : EmptyState({
                         query: parsedSearch.textQuery,
                         isLoading: state.isLibraryLoading,
-                        mode: 'media'
+                        mode: 'music',
+                        actionLabel: 'Create playlist',
+                        actionAction: 'open-create-playlist'
                       })}`
                 : !viewModel.isGlobalSearchView && state.secondaryFilter === 'Documents'
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
