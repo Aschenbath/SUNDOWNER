@@ -2331,15 +2331,32 @@ function formatPreviewDateMeta(item) {
   return [weekday, `${hh}:${mm}`, `GMT${sign}${offsetHours}:${offsetMins}`].filter(Boolean).join('  ');
 }
 
+const PREVIEW_INFO_FLAT_SECTION_STYLE = 'margin:0;padding:18px 20px;border:0;border-bottom:1px solid rgba(255,255,255,0.12);border-radius:0;background:transparent;';
+const PREVIEW_INFO_EDITABLE_STYLE = `${PREVIEW_INFO_FLAT_SECTION_STYLE}cursor:pointer;`;
+const PREVIEW_INFO_HEADING_STYLE = 'margin:0 0 12px;color:#c2cad6;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;';
+const PREVIEW_INFO_VALUE_STYLE = 'margin:0;color:#f3f6fb;font-size:16px;font-weight:600;line-height:1.35;';
+const PREVIEW_INFO_META_STYLE = 'margin:8px 0 0;color:#c2cad6;font-size:13px;line-height:1.45;';
+const PREVIEW_INFO_TAG_STYLE = 'display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.1);color:#eef3fa;font-size:11px;font-weight:600;';
+const PREVIEW_INFO_TOOLBAR_STYLE = 'background:rgba(21,22,25,0.92);border-bottom:1px solid rgba(255,255,255,0.06);';
+const PREVIEW_INFO_TOOLBAR_TITLE_STYLE = 'margin:0;color:#f1f3f4;font-size:15px;font-weight:600;letter-spacing:0.02em;';
+const PREVIEW_INFO_TOOLBAR_BUTTON_STYLE = 'color:#f1f3f4;';
+const PREVIEW_INFO_ITEM_TITLE_STYLE = 'margin:0;color:#f3f6fb;font-size:16px;font-weight:600;line-height:1.35;';
+const PREVIEW_INFO_ITEM_META_STYLE = 'margin:6px 0 0;color:#c2cad6;font-size:13px;line-height:1.5;';
+const PREVIEW_INFO_ICON_STYLE = 'color:#d8e0eb;';
+const PREVIEW_INFO_META_GRID_STYLE = 'display:grid;grid-template-columns:94px minmax(0,1fr);gap:10px 14px;padding:0;';
+const PREVIEW_INFO_LABEL_STYLE = 'color:#c2cad6;font-size:12px;font-weight:500;';
+const PREVIEW_INFO_GRID_VALUE_STYLE = 'color:#f3f6fb;font-size:14px;line-height:1.6;';
+const PREVIEW_INFO_DESCRIPTION_STYLE = 'margin:0;color:#f3f6fb;font-size:16px;line-height:1.45;';
+
 function renderPreviewCaptureTimeSection(item) {
   const title = item?.displayTakenAt || formatTakenAt(item) || 'Set date & time';
   const meta = formatPreviewDateMeta(item) || 'Click to change';
   return `
-    <section class="cml-preview__info-section cml-preview__info-section--capture-time" data-action="edit-capture-time">
-      <h5 class="cml-preview__info-heading">Date &amp; time</h5>
+    <section class="cml-preview__info-section cml-preview__info-section--capture-time" data-action="edit-capture-time" style="${PREVIEW_INFO_EDITABLE_STYLE}">
+      <h5 class="cml-preview__info-heading" style="${PREVIEW_INFO_HEADING_STYLE}">Date &amp; time</h5>
       <div class="cml-preview__info-time">
-        <p class="cml-preview__info-time-value">${escapeHtml(title)}</p>
-        <p class="cml-preview__info-time-meta">${escapeHtml(meta)}</p>
+        <p class="cml-preview__info-time-value" style="${PREVIEW_INFO_VALUE_STYLE}">${escapeHtml(title)}</p>
+        <p class="cml-preview__info-time-meta" style="${PREVIEW_INFO_META_STYLE}">${escapeHtml(meta)}</p>
       </div>
     </section>
   `;
@@ -2352,11 +2369,11 @@ function renderPreviewVideoCategorySection(item) {
   const title = normalizePreviewMetaText(item?.videoCategory) || 'Choose video album';
   const meta = item?.videoCategory ? 'Click to switch video album' : 'Choose or create a video album';
   return `
-    <section class="cml-preview__info-section cml-preview__info-section--video-category" data-action="edit-video-category">
-      <h5 class="cml-preview__info-heading">Video album</h5>
+    <section class="cml-preview__info-section cml-preview__info-section--video-category" data-action="edit-video-category" style="${PREVIEW_INFO_EDITABLE_STYLE}">
+      <h5 class="cml-preview__info-heading" style="${PREVIEW_INFO_HEADING_STYLE}">Video album</h5>
       <div class="cml-preview__info-category">
-        <p class="cml-preview__info-category-value">${escapeHtml(title)}</p>
-        <p class="cml-preview__info-category-meta">${escapeHtml(meta)}</p>
+        <p class="cml-preview__info-category-value" style="${PREVIEW_INFO_VALUE_STYLE}">${escapeHtml(title)}</p>
+        <p class="cml-preview__info-category-meta" style="${PREVIEW_INFO_META_STYLE}">${escapeHtml(meta)}</p>
       </div>
     </section>
   `;
@@ -2378,10 +2395,10 @@ function renderPreviewInfoItem({ iconName, title, meta = '', titleClass = '' }) 
   }
   return `
     <div class="cml-preview__info-item">
-      <div class="cml-preview__info-item-icon" aria-hidden="true">${icon(iconName)}</div>
+      <div class="cml-preview__info-item-icon" aria-hidden="true" style="${PREVIEW_INFO_ICON_STYLE}">${icon(iconName)}</div>
       <div class="cml-preview__info-item-copy">
-        <p class="cml-preview__info-item-title ${titleClass}">${escapeHtml(title)}</p>
-        ${meta ? `<p class="cml-preview__info-item-meta">${escapeHtml(meta)}</p>` : ''}
+        <p class="cml-preview__info-item-title ${titleClass}" style="${PREVIEW_INFO_ITEM_TITLE_STYLE}">${escapeHtml(title)}</p>
+        ${meta ? `<p class="cml-preview__info-item-meta" style="${PREVIEW_INFO_ITEM_META_STYLE}">${escapeHtml(meta)}</p>` : ''}
       </div>
     </div>
   `;
@@ -2462,12 +2479,12 @@ export function PreviewModal({
   const infoPanel = isBinView ? `
     <aside class="cml-preview__info ${infoOpen ? 'is-open' : ''}" aria-label="Media details" aria-hidden="${infoOpen ? 'false' : 'true'}">
       <div class="cml-preview__info-inner">
-        <div class="cml-preview__info-toolbar">
-          <button type="button" class="cml-preview__info-close" data-action="toggle-info" aria-label="Close details">${icon('close')}</button>
-          <h4 class="cml-preview__info-toolbar-title">Info</h4>
+        <div class="cml-preview__info-toolbar" style="${PREVIEW_INFO_TOOLBAR_STYLE}">
+          <button type="button" class="cml-preview__info-close" data-action="toggle-info" aria-label="Close details" style="${PREVIEW_INFO_TOOLBAR_BUTTON_STYLE}">${icon('close')}</button>
+          <h4 class="cml-preview__info-toolbar-title" style="${PREVIEW_INFO_TOOLBAR_TITLE_STYLE}">Info</h4>
         </div>
-        <section class="cml-preview__info-section cml-preview__info-section--passive">
-          <h5 class="cml-preview__info-heading">Details</h5>
+        <section class="cml-preview__info-section cml-preview__info-section--passive" style="${PREVIEW_INFO_FLAT_SECTION_STYLE}">
+          <h5 class="cml-preview__info-heading" style="${PREVIEW_INFO_HEADING_STYLE}">Details</h5>
           <div class="cml-preview__info-list">
             ${detailItems}
           </div>
@@ -2477,51 +2494,51 @@ export function PreviewModal({
   ` : `
     <aside class="cml-preview__info ${infoOpen ? 'is-open' : ''}" aria-label="Media details" aria-hidden="${infoOpen ? 'false' : 'true'}">
       <div class="cml-preview__info-inner">
-        <div class="cml-preview__info-toolbar">
-          <button type="button" class="cml-preview__info-close" data-action="toggle-info" aria-label="Close details">${icon('close')}</button>
-          <h4 class="cml-preview__info-toolbar-title">Info</h4>
+        <div class="cml-preview__info-toolbar" style="${PREVIEW_INFO_TOOLBAR_STYLE}">
+          <button type="button" class="cml-preview__info-close" data-action="toggle-info" aria-label="Close details" style="${PREVIEW_INFO_TOOLBAR_BUTTON_STYLE}">${icon('close')}</button>
+          <h4 class="cml-preview__info-toolbar-title" style="${PREVIEW_INFO_TOOLBAR_TITLE_STYLE}">Info</h4>
         </div>
         ${renderPreviewCaptureTimeSection(item).replace('cml-preview__info-section cml-preview__info-section--capture-time', 'cml-preview__info-section cml-preview__info-section--capture-time cml-preview__info-section--editable')}
         ${renderPreviewVideoCategorySection(item).replace('cml-preview__info-section cml-preview__info-section--video-category', 'cml-preview__info-section cml-preview__info-section--video-category cml-preview__info-section--editable')}
-        <section class="cml-preview__info-section cml-preview__info-section--description cml-preview__info-section--editable" data-action="edit-description">
-          <p class="cml-preview__info-description ${item.description ? 'has-content' : ''}">${item.description ? escapeHtml(item.description) : 'Add a description'}</p>
+        <section class="cml-preview__info-section cml-preview__info-section--description cml-preview__info-section--editable" data-action="edit-description" style="${PREVIEW_INFO_EDITABLE_STYLE}">
+          <p class="cml-preview__info-description ${item.description ? 'has-content' : ''}" style="${PREVIEW_INFO_DESCRIPTION_STYLE}">${item.description ? escapeHtml(item.description) : 'Add a description'}</p>
         </section>
         ${item.personLabels && item.personLabels.length ? `
-          <section class="cml-preview__info-section">
-            <h5 class="cml-preview__info-heading">People</h5>
+          <section class="cml-preview__info-section" style="${PREVIEW_INFO_FLAT_SECTION_STYLE}">
+            <h5 class="cml-preview__info-heading" style="${PREVIEW_INFO_HEADING_STYLE}">People</h5>
             <div class="cml-preview__info-row">
               <div class="cml-preview__info-row-copy">
-                <p class="cml-preview__info-row-title">${escapeHtml(item.personLabels.join(', '))}</p>
+                <p class="cml-preview__info-row-title" style="${PREVIEW_INFO_ITEM_TITLE_STYLE}">${escapeHtml(item.personLabels.join(', '))}</p>
               </div>
             </div>
           </section>
         ` : ''}
-        <section class="cml-preview__info-section cml-preview__info-section--passive">
-          <h5 class="cml-preview__info-heading">Details</h5>
+        <section class="cml-preview__info-section cml-preview__info-section--passive" style="${PREVIEW_INFO_FLAT_SECTION_STYLE}">
+          <h5 class="cml-preview__info-heading" style="${PREVIEW_INFO_HEADING_STYLE}">Details</h5>
           <div class="cml-preview__info-list">
             ${detailItems}
           </div>
         </section>
         ${cameraRows.length ? `
-          <section class="cml-preview__info-section cml-preview__info-section--camera cml-preview__info-section--passive">
-            <h5 class="cml-preview__info-heading">Camera</h5>
-            <dl class="cml-preview__info-meta">
+          <section class="cml-preview__info-section cml-preview__info-section--camera cml-preview__info-section--passive" style="${PREVIEW_INFO_FLAT_SECTION_STYLE}">
+            <h5 class="cml-preview__info-heading" style="${PREVIEW_INFO_HEADING_STYLE}">Camera</h5>
+            <dl class="cml-preview__info-meta" style="${PREVIEW_INFO_META_GRID_STYLE}">
               ${cameraRows.map((row) => `
-                <dt class="cml-preview__info-label">${escapeHtml(row.label)}</dt>
-                <dd class="cml-preview__info-value ${row.label === 'Settings' ? 'cml-preview__info-value--settings' : ''}">${escapeHtml(row.value)}</dd>
+                <dt class="cml-preview__info-label" style="${PREVIEW_INFO_LABEL_STYLE}">${escapeHtml(row.label)}</dt>
+                <dd class="cml-preview__info-value ${row.label === 'Settings' ? 'cml-preview__info-value--settings' : ''}" style="${PREVIEW_INFO_GRID_VALUE_STYLE}">${escapeHtml(row.value)}</dd>
               `).join('')}
             </dl>
           </section>
         ` : ''}
-        <section class="cml-preview__info-section cml-preview__info-section--tags cml-preview__info-section--editable" data-action="edit-tags">
-          <h5 class="cml-preview__info-heading">Tags</h5>
+        <section class="cml-preview__info-section cml-preview__info-section--tags cml-preview__info-section--editable" data-action="edit-tags" style="${PREVIEW_INFO_EDITABLE_STYLE}">
+          <h5 class="cml-preview__info-heading" style="${PREVIEW_INFO_HEADING_STYLE}">Tags</h5>
           <div class="cml-preview__info-tags-wrap">
             <div class="cml-preview__info-tags">
               ${meaningfulTags.length
-                ? meaningfulTags.map((tag) => `<span class="cml-preview__info-tag">${escapeHtml(tag)}</span>`).join('')
-                : '<p class="cml-preview__info-category-value">Add tags</p>'}
+                ? meaningfulTags.map((tag) => `<span class="cml-preview__info-tag" style="${PREVIEW_INFO_TAG_STYLE}">${escapeHtml(tag)}</span>`).join('')
+                : `<p class="cml-preview__info-category-value" style="${PREVIEW_INFO_VALUE_STYLE}">Add tags</p>`}
             </div>
-            <p class="cml-preview__info-category-meta">${meaningfulTags.length ? 'Click to edit tags for search and organization' : 'Add tags to organize this item and find it faster later'}</p>
+            <p class="cml-preview__info-category-meta" style="${PREVIEW_INFO_META_STYLE}">${meaningfulTags.length ? 'Click to edit tags for search and organization' : 'Add tags to organize this item and find it faster later'}</p>
           </div>
         </section>
       </div>

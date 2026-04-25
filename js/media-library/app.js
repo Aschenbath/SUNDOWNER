@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=79';
+} from './components.js?v=80';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -98,6 +98,12 @@ const UNGROUPED_VIDEO_ROUTE_SEGMENT = '_ungrouped';
 const PRIVATE_ROUTE_SEGMENT = 'private';
 const PRIVATE_ALBUM_PASSWORD = '210217';
 const PRIVATE_ALBUM_SESSION_KEY = 'codex-media-library-private-album';
+const PREVIEW_INFO_FLAT_SECTION_STYLE = 'margin:0;padding:18px 20px;border:0;border-bottom:1px solid rgba(255,255,255,0.12);border-radius:0;background:transparent;';
+const PREVIEW_INFO_EDITABLE_STYLE = `${PREVIEW_INFO_FLAT_SECTION_STYLE}cursor:pointer;`;
+const PREVIEW_INFO_HEADING_STYLE = 'margin:0 0 12px;color:#c2cad6;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;';
+const PREVIEW_INFO_VALUE_STYLE = 'margin:0;color:#f3f6fb;font-size:16px;font-weight:600;line-height:1.35;';
+const PREVIEW_INFO_META_STYLE = 'margin:8px 0 0;color:#c2cad6;font-size:13px;line-height:1.45;';
+const PREVIEW_INFO_TAG_STYLE = 'display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.1);color:#eef3fa;font-size:11px;font-weight:600;';
 
 function readSessionFlag(key) {
   try {
@@ -7096,17 +7102,21 @@ function buildPreviewCaptureTimeState(item, captureIso) {
 function patchCaptureTimeDisplay(section, item) {
   section.textContent = '';
   section.setAttribute('data-action', 'edit-capture-time');
+  section.style.cssText = PREVIEW_INFO_EDITABLE_STYLE;
   const heading = document.createElement('h5');
   heading.className = 'cml-preview__info-heading';
   heading.textContent = 'Date & time';
+  heading.style.cssText = PREVIEW_INFO_HEADING_STYLE;
   const wrapper = document.createElement('div');
   wrapper.className = 'cml-preview__info-time';
   const value = document.createElement('p');
   value.className = 'cml-preview__info-time-value';
   value.textContent = item?.displayTakenAt || 'Set date & time';
+  value.style.cssText = PREVIEW_INFO_VALUE_STYLE;
   const meta = document.createElement('p');
   meta.className = 'cml-preview__info-time-meta';
   meta.textContent = formatCaptureTimeMeta(item?.takenAt);
+  meta.style.cssText = PREVIEW_INFO_META_STYLE;
   wrapper.append(value, meta);
   section.append(heading, wrapper);
 }
@@ -7115,17 +7125,21 @@ function patchVideoCategoryDisplay(section, category) {
   const normalizedCategory = normalizeVideoCategory(category);
   section.textContent = '';
   section.setAttribute('data-action', 'edit-video-category');
+  section.style.cssText = PREVIEW_INFO_EDITABLE_STYLE;
   const heading = document.createElement('h5');
   heading.className = 'cml-preview__info-heading';
   heading.textContent = 'Video category';
+  heading.style.cssText = PREVIEW_INFO_HEADING_STYLE;
   const wrapper = document.createElement('div');
   wrapper.className = 'cml-preview__info-category';
   const value = document.createElement('p');
   value.className = 'cml-preview__info-category-value';
   value.textContent = normalizedCategory || 'Choose video album';
+  value.style.cssText = PREVIEW_INFO_VALUE_STYLE;
   const meta = document.createElement('p');
   meta.className = 'cml-preview__info-category-meta';
   meta.textContent = normalizedCategory ? 'Click to switch video album' : 'Choose or create a video album';
+  meta.style.cssText = PREVIEW_INFO_META_STYLE;
   wrapper.append(value, meta);
   section.append(heading, wrapper);
 }
@@ -7134,19 +7148,23 @@ function patchPrivateAlbumDisplay(section, item) {
   const isPrivate = isPrivateMedia(item);
   section.textContent = '';
   section.setAttribute('data-action', 'toggle-private-photo');
+  section.style.cssText = PREVIEW_INFO_EDITABLE_STYLE;
   const heading = document.createElement('h5');
   heading.className = 'cml-preview__info-heading';
   heading.textContent = 'Hidden album';
+  heading.style.cssText = PREVIEW_INFO_HEADING_STYLE;
   const wrapper = document.createElement('div');
   wrapper.className = 'cml-preview__info-category';
   const value = document.createElement('p');
   value.className = 'cml-preview__info-category-value';
   value.textContent = isPrivate ? 'Inside hidden album' : 'Visible in library';
+  value.style.cssText = PREVIEW_INFO_VALUE_STYLE;
   const meta = document.createElement('p');
   meta.className = 'cml-preview__info-category-meta';
   meta.textContent = isPrivate
     ? 'Click to remove this photo from the hidden album'
     : 'Click to move this photo into the hidden album';
+  meta.style.cssText = PREVIEW_INFO_META_STYLE;
   wrapper.append(value, meta);
   section.append(heading, wrapper);
 }
@@ -7175,9 +7193,11 @@ function patchTagsDisplay(section, tags = []) {
   const normalizedTags = normalizeExplicitTags(tags);
   section.textContent = '';
   section.setAttribute('data-action', 'edit-tags');
+  section.style.cssText = PREVIEW_INFO_EDITABLE_STYLE;
   const heading = document.createElement('h5');
   heading.className = 'cml-preview__info-heading';
   heading.textContent = 'Tags';
+  heading.style.cssText = PREVIEW_INFO_HEADING_STYLE;
   const wrapper = document.createElement('div');
   wrapper.className = 'cml-preview__info-tags-wrap';
   const tagsNode = document.createElement('div');
@@ -7187,12 +7207,14 @@ function patchTagsDisplay(section, tags = []) {
       const pill = document.createElement('span');
       pill.className = 'cml-preview__info-tag';
       pill.textContent = tag;
+      pill.style.cssText = PREVIEW_INFO_TAG_STYLE;
       tagsNode.appendChild(pill);
     });
   } else {
     const empty = document.createElement('p');
     empty.className = 'cml-preview__info-category-value';
     empty.textContent = 'Add tags';
+    empty.style.cssText = PREVIEW_INFO_VALUE_STYLE;
     tagsNode.appendChild(empty);
   }
   const meta = document.createElement('p');
@@ -7200,6 +7222,7 @@ function patchTagsDisplay(section, tags = []) {
   meta.textContent = normalizedTags.length
     ? 'Click to edit tags for search and organization'
     : 'Add tags to organize this item and find it faster later';
+  meta.style.cssText = PREVIEW_INFO_META_STYLE;
   wrapper.append(tagsNode, meta);
   section.append(heading, wrapper);
 }
@@ -7688,9 +7711,11 @@ async function moveSelectedDocsToFolder(targetDir) {
 function patchDescriptionDisplay(section, text) {
   section.textContent = '';
   section.setAttribute('data-action', 'edit-description');
+  section.style.cssText = PREVIEW_INFO_EDITABLE_STYLE;
   const p = document.createElement('p');
   p.className = 'cml-preview__info-description' + (text ? ' has-content' : '');
   p.textContent = text || 'Add a description';
+  p.style.cssText = PREVIEW_INFO_VALUE_STYLE.replace('font-weight:600;', 'font-weight:500;line-height:1.45;');
   section.appendChild(p);
 }
 
