@@ -1365,21 +1365,36 @@ function renderQueueRows(queueItems = [], currentId = '', isPlaying = false) {
     const subtitle = escapeHtml(formatAudioSubtitle(item) || 'Unknown Artist');
     const isCurrent = normalizeText(item.id) === normalizeText(currentId);
     const stateLabel = isCurrent ? (isPlaying ? 'Playing now' : 'Paused') : (index === 1 ? 'Up next' : `${index + 1} in queue`);
+    const playAction = isCurrent ? 'audio-toggle-play' : 'play-audio-item';
+    const ariaLabel = isCurrent
+      ? (isPlaying ? `Pause ${title}` : `Play ${title}`)
+      : `Play ${title}`;
     return `
-      <button
-        type="button"
-        class="cml-music-queue__item ${isCurrent ? 'is-current' : ''}"
-        data-action="play-audio-item"
-        data-id="${itemId}"
-        aria-label="Play ${title}"
-      >
-        <span class="cml-music-queue__index">${isCurrent ? (isPlaying ? icon('pause') : icon('play')) : escapeHtml(String(index + 1))}</span>
-        <span class="cml-music-queue__copy">
-          <strong class="cml-music-queue__title">${title}</strong>
-          <span class="cml-music-queue__subtitle">${subtitle}</span>
-        </span>
-        <span class="cml-music-queue__state">${escapeHtml(stateLabel)}</span>
-      </button>
+      <div class="cml-music-queue__item ${isCurrent ? 'is-current' : ''}">
+        <button
+          type="button"
+          class="cml-music-queue__play"
+          data-action="${playAction}"
+          ${playAction === 'play-audio-item' ? `data-id="${itemId}"` : ''}
+          aria-label="${ariaLabel}"
+        >
+          <span class="cml-music-queue__index">${isCurrent ? (isPlaying ? icon('pause') : icon('play')) : escapeHtml(String(index + 1))}</span>
+          <span class="cml-music-queue__copy">
+            <strong class="cml-music-queue__title">${title}</strong>
+            <span class="cml-music-queue__subtitle">${subtitle}</span>
+          </span>
+          <span class="cml-music-queue__state">${escapeHtml(stateLabel)}</span>
+        </button>
+        <button
+          type="button"
+          class="cml-music-queue__remove"
+          data-action="audio-remove-queue-item"
+          data-id="${itemId}"
+          aria-label="Remove ${title} from queue"
+        >
+          ${icon('close')}
+        </button>
+      </div>
     `;
   }).join('');
 }

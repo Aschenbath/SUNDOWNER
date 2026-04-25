@@ -817,7 +817,30 @@ function patchAudioUi({ allowFullRender = true } = {}) {
         currentSummary.replaceWith(nextSummary);
       }
     }
-    patchMusicAudioRows(viewModel);
+    const currentMusicLibrary = refs.root.querySelector('.cml-music-library');
+    if (currentMusicLibrary instanceof HTMLElement && viewModel.musicItems.length) {
+      const template = document.createElement('template');
+      template.innerHTML = MusicListView({
+        items: viewModel.musicItems,
+        state,
+        audioState: {
+          currentId: state.audioCurrentId,
+          isPlaying: state.audioPlaying
+        },
+        currentItem: viewModel.currentAudioItem,
+        currentTime: state.audioCurrentTime,
+        duration: state.audioDuration,
+        queueItems: viewModel.audioQueueItems,
+        playlists: viewModel.musicPlaylists,
+        activePlaylistName: viewModel.activePlaylistName
+      }).trim();
+      const nextMusicLibrary = template.content.firstElementChild;
+      if (nextMusicLibrary instanceof HTMLElement) {
+        currentMusicLibrary.replaceWith(nextMusicLibrary);
+      }
+    } else {
+      patchMusicAudioRows(viewModel);
+    }
   }
 
   scheduleAudioUiSync();
@@ -1003,6 +1026,44 @@ function handleAudioEnded() {
     return;
   }
   playAdjacentAudio(1);
+}
+
+function removeAudioQueueItem(itemId) {
+  const normalizedId = normalizeText(itemId);
+  if (!normalizedId) {
+    return;
+  }
+  const currentQueueItems = getAudioQueueItems(getAccessibleItems());
+  const currentQueueIds = currentQueueItems
+    .map((item) => normalizeText(item.id))
+    .filter(Boolean);
+  const currentIndex = currentQueueIds.findIndex((id) => id === normalizedId);
+  const nextQueueIds = currentQueueIds.filter((id) => id !== normalizedId);
+  if (nextQueueIds.length === currentQueueIds.length) {
+    return;
+  }
+  const removedCurrent = normalizeText(state.audioCurrentId) === normalizedId;
+  state.audioQueueIds = nextQueueIds;
+  if (!nextQueueIds.length) {
+    state.audioCurrentId = '';
+    state.audioPlaying = false;
+    state.audioCurrentTime = 0;
+    state.audioDuration = 0;
+    if (audioEngine) {
+      audioEngine.pause();
+      audioEngine.removeAttribute('src');
+      audioEngine.load();
+    }
+    patchAudioUi();
+    return;
+  }
+  if (removedCurrent) {
+    const fallbackIndex = currentIndex < 0 ? 0 : Math.min(currentIndex, nextQueueIds.length - 1);
+    const nextItemId = nextQueueIds[fallbackIndex] || nextQueueIds[0];
+    void playAudioItemById(nextItemId, { queueItems: getAudioQueueItems(getAccessibleItems()), autoplay: true });
+    return;
+  }
+  patchAudioUi();
 }
 
 function setAudioMode(mode) {
@@ -10523,6 +10584,11 @@ function handleAction(actionTarget) {
       return true;
     case 'audio-set-mode':
       setAudioMode(actionTarget.dataset.mode || '');
+      return true;
+    case 'audio-remove-queue-item':
+      if (actionTarget.dataset.id) {
+        removeAudioQueueItem(actionTarget.dataset.id);
+      }
       return true;
     case 'toggle-select':
       if (actionTarget.dataset.id) {

@@ -8186,6 +8186,18 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-music-queue__item {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+}
+
+#codex-media-library-root .cml-music-queue__play {
+  display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
@@ -8199,10 +8211,29 @@ body.codex-media-library-active #app {
   transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
-#codex-media-library-root .cml-music-queue__item:hover,
-#codex-media-library-root .cml-music-queue__item.is-current {
+#codex-media-library-root .cml-music-queue__play:hover,
+#codex-media-library-root .cml-music-queue__item.is-current .cml-music-queue__play {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(138, 180, 248, 0.24);
+}
+
+#codex-media-library-root .cml-music-queue__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--cml-theme-text-soft);
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+#codex-media-library-root .cml-music-queue__remove:hover {
+  background: rgba(139, 44, 61, 0.22);
+  border-color: rgba(255, 215, 222, 0.18);
+  color: #ffd7de;
 }
 
 #codex-media-library-root .cml-music-queue__index {
@@ -8246,6 +8277,7 @@ body.codex-media-library-active #app {
   padding: 4px 2px;
 }
 
+#codex-media-library-root .cml-music-playlist {
   display: grid;
   gap: 12px;
 }
