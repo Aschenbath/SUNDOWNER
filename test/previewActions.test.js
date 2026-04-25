@@ -1399,10 +1399,12 @@ describe('media library download actions', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
     assert.match(appSource, /function refreshPreviewAfterMetadataPatch\(itemId, options = \{\}\) \{/);
-    assert.match(appSource, /refreshPreviewAfterMetadataPatch\(itemId\);[\s\S]*showToast\('Description saved'/);
-    assert.match(appSource, /if \(!refreshPreviewAfterMetadataPatch\(itemId\)\) \{\s*render\(\);\s*\}\s*showToast\('Date & time saved'/);
-    assert.match(appSource, /if \(!refreshPreviewAfterMetadataPatch\(itemId\)\) \{\s*render\(\);\s*\}\s*showToast\(nextCategory \? 'Video category saved'/);
-    assert.match(appSource, /if \(!refreshPreviewAfterMetadataPatch\(itemId\)\) \{\s*render\(\);\s*\}\s*showToast\(nextTags\.length \? 'Tags saved'/);
+    assert.match(appSource, /refreshPreviewAfterMetadataPatch\(itemId\);/);
+    assert.match(appSource, /if \(!refreshPreviewAfterMetadataPatch\(itemId\)\) \{\s*render\(\);\s*\}/);
+    assert.doesNotMatch(appSource, /showToast\('Description saved'/);
+    assert.doesNotMatch(appSource, /showToast\('Date & time saved'/);
+    assert.doesNotMatch(appSource, /showToast\(nextCategory \? 'Video category saved'/);
+    assert.doesNotMatch(appSource, /showToast\(nextTags\.length \? 'Tags saved'/);
   });
 
   it('anchors preview close back to the current tile or section before dismissing the overlay', () => {

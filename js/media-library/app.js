@@ -7312,7 +7312,6 @@ async function savePreviewDescription(itemId, description) {
     }
     refreshPreviewAfterMetadataPatch(itemId);
 
-    showToast('Description saved', 'success');
   } catch (error) {
     showToast(error.message || 'Failed to save description');
   }
@@ -7357,7 +7356,6 @@ async function savePreviewCaptureTime(itemId, captureTimeInput, previousItem = n
     if (!refreshPreviewAfterMetadataPatch(itemId)) {
       render();
     }
-    showToast('Date & time saved', 'success');
   } catch (error) {
     const captureSection = refs.root?.querySelector('.cml-preview__info-section--capture-time');
     if (captureSection && previousItem) {
@@ -7396,7 +7394,6 @@ async function savePreviewVideoCategory(itemId, categoryInput, previousItem = nu
     if (!refreshPreviewAfterMetadataPatch(itemId)) {
       render();
     }
-    showToast(nextCategory ? 'Video category saved' : 'Video category cleared', 'success');
   } catch (error) {
     const categorySection = refs.root?.querySelector('.cml-preview__info-section--video-category');
     if (categorySection && previousItem) {
@@ -7432,7 +7429,6 @@ async function savePreviewPrivateAlbum(itemId, nextPrivate, previousItem = null)
     }
     state.selectedIds.delete(itemId);
     render();
-    showToast(nextPrivate ? 'Moved to hidden album' : 'Removed from hidden album', 'success');
   } catch (error) {
     const privateSection = refs.root?.querySelector('.cml-preview__info-section--private-album');
     if (privateSection && previousItem) {
@@ -7477,7 +7473,6 @@ async function savePreviewTags(itemId, tagInput, previousItem = null) {
     if (!refreshPreviewAfterMetadataPatch(itemId)) {
       render();
     }
-    showToast(nextTags.length ? 'Tags saved' : 'Tags cleared', 'success');
   } catch (error) {
     const tagSection = refs.root?.querySelector('.cml-preview__info-section--tags');
     if (tagSection && previousItem) {
@@ -10046,16 +10041,6 @@ async function submitRenameItem() {
     }
     closeRenameItemDialog();
     render();
-    showToast(
-      state.renameItemField === 'Title'
-        ? 'Track renamed'
-        : state.renameItemField === 'Artist'
-          ? 'Artist updated'
-          : state.renameItemField === 'Album'
-            ? 'Album updated'
-            : 'File renamed',
-      'success'
-    );
   } catch (error) {
     state.renameItemError = error.message || 'Failed to rename item';
     state.renameItemBusy = false;
