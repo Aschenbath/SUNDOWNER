@@ -607,6 +607,9 @@ function getMusicContextItems(items = getAccessibleItems()) {
 
 
 function getAudioQueueItems(items = getAccessibleItems()) {
+  if (state.primaryFilter === 'Music' && getActivePlaylistName()) {
+    return getMusicContextItems(items);
+  }
   const queueIds = Array.isArray(state.audioQueueIds) ? state.audioQueueIds : [];
   const mappedQueue = queueIds
     .map((itemId) => getAudioItemById(itemId, items))
@@ -8163,7 +8166,7 @@ function getViewModel() {
   const isAlbumPickerMode = Boolean(albumSelectionTarget || videoAlbumSelectionTarget || state.privateSelectionMode);
   const musicPlaylists = (isMusicView || isGlobalSearchView) ? buildMusicPlaylistSummaries(accessibleItems) : [];
   const musicItems = isMusicView
-    ? filteredItems.filter((item) => item.type === 'audio')
+    ? getMusicContextItems(accessibleItems)
     : [];
   const audioQueueItems = getAudioQueueItems(accessibleItems);
   const currentAudioItem = getAudioItemById(state.audioCurrentId, accessibleItems)

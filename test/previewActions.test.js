@@ -1846,6 +1846,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /function getMusicContextItems\(items = getAccessibleItems\(\)\) \{/);
     assert.match(appSource, /if \(!activePlaylistName\) \{\s*return visibleAudioItems;/);
     assert.match(appSource, /return items\s*\.filter\(\(item\) => item\.type === 'audio'\)\s*\.filter\(\(item\) => itemBelongsToPlaylist\(item, activePlaylistName\)\);/);
+    assert.match(appSource, /if \(state\.primaryFilter === 'Music' && getActivePlaylistName\(\)\) \{\s*return getMusicContextItems\(items\);\s*\}/);
+    assert.match(appSource, /const musicItems = isMusicView\s*\? getMusicContextItems\(accessibleItems\)\s*:\s*\[\];/);
   });
 
 
