@@ -6561,17 +6561,43 @@ async function deleteSelectedItems(options = {}) {
     return;
   }
   const permanent = Boolean(options.permanent);
-  const previewDeleteFlow = state.confirmDialogOrigin === 'preview' && selectedItems.length === 1 && Boolean(state.previewId);
+  const deleteOrigin = normalizeText(options.origin || state.confirmDialogOrigin || '');
+  const previewDeleteFlow = deleteOrigin === 'preview' && selectedItems.length === 1 && Boolean(state.previewId);
   const previewItemsBeforeDelete = previewDeleteFlow ? getFilteredItems() : [];
   const previewIndexBeforeDelete = previewDeleteFlow
     ? previewItemsBeforeDelete.findIndex((item) => item.id === state.previewId)
     : -1;
+  const snapshot = {
+    mediaItems: state.mediaItems.slice(),
+    selectedIds: new Set(state.selectedIds),
+    lastSelectedId: state.lastSelectedId,
+    previewId: state.previewId,
+    albumAssignments: { ...state.albumAssignments }
+  };
 
   const deletedIds = new Set();
   const deletedKeys = new Set();
   const failedItems = [];
+  const requestedIds = new Set(selectedItems.map((item) => item.id));
+  const requestedKeys = new Set(selectedItems.map((item) => getPersistentItemKey(item)).filter(Boolean));
 
-  for (const item of selectedItems) {
+  applyDeletedItemsLocally({
+    deletedIds: requestedIds,
+    deletedKeys: requestedKeys,
+    snapshot,
+    previewDeleteFlow,
+    previewItemsBeforeDelete,
+    previewIndexBeforeDelete
+  });
+  if (previewDeleteFlow) {
+    if (!renderPreviewTransientLayers({ animateDirection: 1 })) {
+      render();
+    }
+  } else {
+    render();
+  }
+
+  const deleteResults = await Promise.all(selectedItems.map(async (item) => {
     try {
       const route = permanent
         ? `${buildDeleteRoute(item.sourceId)}?permanent=true`
@@ -6587,52 +6613,112 @@ async function deleteSelectedItems(options = {}) {
       if (!response.ok || payload?.success === false) {
         throw new Error(payload?.error || payload?.message || `Delete failed with ${response.status}`);
       }
-      deletedIds.add(item.id);
-      deletedKeys.add(getPersistentItemKey(item));
+      return {
+        item,
+        success: true
+      };
     } catch (error) {
       console.error('[media-library] delete failed', error);
-      failedItems.push(item.id);
+      return {
+        item,
+        success: false
+      };
     }
-  }
+  }));
 
-  if (deletedIds.size) {
-    state.mediaItems = state.mediaItems.filter((item) => !deletedIds.has(item.id));
-    state.selectedIds = new Set([...state.selectedIds].filter((id) => !deletedIds.has(id)));
-    if (state.lastSelectedId && !state.selectedIds.has(state.lastSelectedId)) {
-      state.lastSelectedId = [...state.selectedIds].pop() || null;
+  deleteResults.forEach((result) => {
+    if (result.success) {
+      deletedIds.add(result.item.id);
+      deletedKeys.add(getPersistentItemKey(result.item));
+      return;
     }
-    if (state.previewId && deletedIds.has(state.previewId)) {
-      state.previewId = null;
-    }
-    const nextAssignments = { ...state.albumAssignments };
-    deletedKeys.forEach((key) => {
-      if (key) {
-        delete nextAssignments[key];
-      }
+    failedItems.push(result.item.id);
+  });
+
+  if (deletedIds.size !== requestedIds.size) {
+    applyDeletedItemsLocally({
+      deletedIds,
+      deletedKeys,
+      snapshot,
+      previewDeleteFlow,
+      previewItemsBeforeDelete,
+      previewIndexBeforeDelete
     });
-    state.albumAssignments = nextAssignments;
-    persistAlbumAssignments();
-    const remainingItems = state.mediaItems.map((item) => applyAlbumOverride(item));
-  syncAlbumAssignments(remainingItems, { pruneMissing: true });
-    syncAlbumCovers(remainingItems);
     if (previewDeleteFlow) {
-      const previewItemsAfterDelete = getFilteredItems();
-      const nextPreviewItem = previewIndexBeforeDelete >= 0
-        ? previewItemsAfterDelete[Math.min(previewIndexBeforeDelete, previewItemsAfterDelete.length - 1)] || null
-        : null;
-      state.previewId = nextPreviewItem?.id || null;
       if (!renderPreviewTransientLayers({ animateDirection: 1 })) {
         render();
       }
     } else {
       render();
     }
-    window.setTimeout(() => syncLiveMedia({ forceRender: !previewDeleteFlow }), 600);
-    void syncStorageSummary({ forceRender: !previewDeleteFlow });
   }
 
+  if (deletedIds.size) {
+    void syncStorageSummary({ forceRender: false });
+    showToast(
+      permanent
+        ? `Deleted ${deletedIds.size} item${deletedIds.size === 1 ? '' : 's'} forever.`
+        : `Moved ${deletedIds.size} item${deletedIds.size === 1 ? '' : 's'} to Bin.`,
+      'success'
+    );
+  }
   if (failedItems.length) {
     showToast(`Failed to delete ${failedItems.length} item${failedItems.length === 1 ? '' : 's'}. Check your connection and try again.`);
+  }
+}
+
+function applyDeletedItemsLocally({
+  deletedIds = new Set(),
+  deletedKeys = new Set(),
+  snapshot,
+  previewDeleteFlow = false,
+  previewItemsBeforeDelete = [],
+  previewIndexBeforeDelete = -1
+} = {}) {
+  const normalizedDeletedIds = deletedIds instanceof Set ? deletedIds : new Set(deletedIds);
+  const normalizedDeletedKeys = deletedKeys instanceof Set ? deletedKeys : new Set(deletedKeys);
+  const baseMediaItems = Array.isArray(snapshot?.mediaItems) ? snapshot.mediaItems : state.mediaItems;
+  const baseSelectedIds = snapshot?.selectedIds instanceof Set ? snapshot.selectedIds : state.selectedIds;
+  const baseLastSelectedId = snapshot?.lastSelectedId ?? state.lastSelectedId;
+  const basePreviewId = snapshot?.previewId ?? state.previewId;
+  const baseAlbumAssignments = snapshot?.albumAssignments && typeof snapshot.albumAssignments === 'object'
+    ? snapshot.albumAssignments
+    : state.albumAssignments;
+
+  state.mediaItems = baseMediaItems.filter((item) => !normalizedDeletedIds.has(item.id));
+  state.selectedIds = new Set([...baseSelectedIds].filter((id) => !normalizedDeletedIds.has(id)));
+  if (baseLastSelectedId && !state.selectedIds.has(baseLastSelectedId)) {
+    state.lastSelectedId = [...state.selectedIds].pop() || null;
+  } else {
+    state.lastSelectedId = baseLastSelectedId;
+  }
+
+  const nextAssignments = { ...baseAlbumAssignments };
+  normalizedDeletedKeys.forEach((key) => {
+    if (key) {
+      delete nextAssignments[key];
+    }
+  });
+  state.albumAssignments = nextAssignments;
+  persistAlbumAssignments();
+
+  const remainingItems = state.mediaItems.map((item) => applyAlbumOverride(item));
+  syncAlbumAssignments(remainingItems, { pruneMissing: true });
+  syncAlbumCovers(remainingItems);
+
+  if (previewDeleteFlow) {
+    const previewItemsAfterDelete = previewItemsBeforeDelete.filter((item) => !normalizedDeletedIds.has(item.id));
+    const nextPreviewItem = previewIndexBeforeDelete >= 0
+      ? previewItemsAfterDelete[Math.min(previewIndexBeforeDelete, previewItemsAfterDelete.length - 1)] || null
+      : null;
+    state.previewId = nextPreviewItem?.id || null;
+    return;
+  }
+
+  if (basePreviewId && normalizedDeletedIds.has(basePreviewId)) {
+    state.previewId = null;
+  } else {
+    state.previewId = basePreviewId;
   }
 }
 
@@ -10628,18 +10714,16 @@ function handleAction(actionTarget) {
               render();
             });
         } else {
-          state.confirmDialogBusy = true;
+          const deleteOrigin = state.confirmDialogOrigin;
+          const permanentDelete = state.confirmDialogMode === 'delete-permanently';
+          resetConfirmDialog();
           if (!(preferPreviewRender && renderPreviewTransientLayers())) {
             render();
           }
-          void deleteSelectedItems({ permanent: state.confirmDialogMode === 'delete-permanently' })
-            .finally(() => {
-              const stillPreferPreviewRender = state.confirmDialogOrigin === 'preview';
-              resetConfirmDialog();
-              if (!(stillPreferPreviewRender && renderPreviewTransientLayers())) {
-                render();
-              }
-            });
+          void deleteSelectedItems({
+            permanent: permanentDelete,
+            origin: deleteOrigin
+          });
         }
       }
       return true;

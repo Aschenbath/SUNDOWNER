@@ -1313,6 +1313,28 @@ describe('media library download actions', () => {
     assert.doesNotMatch(appSource, /if \(normalizedType === 'success'\) \{/);
   });
 
+  it('uses optimistic local deletion and parallel delete requests for faster photo removal', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const deleteSectionMatch = appSource.match(/async function deleteSelectedItems\(options = \{\}\) \{[\s\S]*?\n\}/);
+    const deleteSection = deleteSectionMatch ? deleteSectionMatch[0] : '';
+
+    assert.match(appSource, /function applyDeletedItemsLocally\(\{/);
+    assert.match(appSource, /applyDeletedItemsLocally\(\{\s*deletedIds: requestedIds,/);
+    assert.match(appSource, /const deleteResults = await Promise\.all\(selectedItems\.map\(async \(item\) => \{/);
+    assert.match(appSource, /showToast\(\s*permanent\s*\?/);
+    assert.match(appSource, /Moved \$\{deletedIds\.size\} item/);
+    assert.ok(deleteSection);
+    assert.doesNotMatch(deleteSection, /window\.setTimeout\(\(\) => syncLiveMedia\(/);
+  });
+
+  it('closes the confirm dialog immediately before background delete work starts', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /const deleteOrigin = state\.confirmDialogOrigin;/);
+    assert.match(appSource, /const permanentDelete = state\.confirmDialogMode === 'delete-permanently';/);
+    assert.match(appSource, /resetConfirmDialog\(\);\s*if \(!\(preferPreviewRender && renderPreviewTransientLayers\(\)\)\) \{\s*render\(\);\s*\}\s*void deleteSelectedItems\(\{/);
+  });
+
   it('renders storage usage numbers once the summary has loaded', () => {
     const html = StorageCard({
       usedMb: 1536,
