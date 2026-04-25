@@ -6229,24 +6229,25 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-preview__info-section--editable {
   margin: 0;
-  padding: 16px 18px;
-  border: 1px solid var(--cml-theme-preview-info-card-border, rgba(255, 255, 255, 0.12)) !important;
-  border-radius: 18px;
-  background: var(--cml-theme-preview-info-card-bg, rgba(255, 255, 255, 0.055)) !important;
-  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+  padding: 18px 20px;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
 #codex-media-library-root .cml-preview__info-section--editable:hover {
-  background: var(--cml-theme-preview-info-card-hover-bg, rgba(255, 255, 255, 0.075)) !important;
-  border-color: var(--cml-theme-preview-info-card-hover-border, rgba(255, 255, 255, 0.18)) !important;
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  transform: none;
 }
 
 #codex-media-library-root .cml-preview__info-section--editable + .cml-preview__info-section--editable,
 #codex-media-library-root .cml-preview__info-section--editable + .cml-preview__info-section--passive,
 #codex-media-library-root .cml-preview__info-section--passive + .cml-preview__info-section--editable,
 #codex-media-library-root .cml-preview__info-section--passive + .cml-preview__info-section--passive {
-  margin-top: 14px;
+  margin-top: 0;
 }
 
 #codex-media-library-root .cml-preview__info-section--editable + .cml-preview__info-section,
@@ -6498,13 +6499,13 @@ body.codex-media-library-active #app {
   margin: 0;
   padding: 0 0 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.16);
-  color: #9aa0a6;
+  color: #c2cad6 !important;
   font-size: 15px;
   line-height: 1.4;
 }
 
 #codex-media-library-root .cml-preview__info-description.has-content {
-  color: #e8eaed;
+  color: #f3f6fb !important;
 }
 
 #codex-media-library-root .cml-preview__info-description-input {
@@ -6516,7 +6517,7 @@ body.codex-media-library-active #app {
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
-  color: #e8eaed;
+  color: #f3f6fb !important;
   font-family: inherit;
   font-size: 15px;
   line-height: 1.4;
@@ -6544,9 +6545,9 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-preview__info-heading {
   margin: 0 0 12px;
-  color: #e8eaed;
-  font-size: 13px;
-  font-weight: 650;
+  color: #c2cad6 !important;
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
