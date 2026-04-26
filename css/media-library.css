@@ -7374,23 +7374,154 @@ body.codex-media-library-active #app {
   }
 }
 
-#codex-media-library-root .cml-mind__input-shell {
-  width: min(760px, 88%);
-  max-width: 760px;
-  margin: 0 auto;
-  min-width: 0;
-  min-height: 56px;
-  padding: 6px 8px 6px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 28px;
-  background: rgba(22, 26, 34, 0.55);
-  backdrop-filter: saturate(160%) blur(22px);
-  -webkit-backdrop-filter: saturate(160%) blur(22px);
+#codex-media-library-root .cml-mind__message {
   display: flex;
   align-items: center;
-  gap: 10px;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+  gap: 12px;
+  max-width: min(76%, 620px);
 }
+
+#codex-media-library-root .cml-mind__message.is-self {
+  align-self: flex-end;
+  margin-right: 0;
+}
+
+#codex-media-library-root .cml-mind__message.is-other {
+  align-self: flex-start;
+}
+
+#codex-media-library-root .cml-mind__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.18);
+  color: #f1f5f9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#codex-media-library-root .cml-mind__avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#codex-media-library-root .cml-mind__avatar--spacer {
+  visibility: hidden;
+}
+
+#codex-media-library-root .cml-mind__message-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-mind__message.is-self .cml-mind__message-stack {
+  align-items: flex-end;
+}
+
+#codex-media-library-root .cml-mind__bubble-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+#codex-media-library-root .cml-mind__message.is-self .cml-mind__bubble-row {
+  flex-direction: row-reverse;
+}
+
+#codex-media-library-root .cml-mind__bubble {
+  padding: 12px 18px;
+  border-radius: 22px;
+  box-shadow: 0 8px 22px rgba(8, 12, 18, 0.22);
+}
+
+#codex-media-library-root .cml-mind__message.is-other .cml-mind__bubble {
+  background: var(--cml-mind-bubble-left);
+  color: #f3f6fa;
+  border-top-left-radius: 10px;
+}
+
+#codex-media-library-root .cml-mind__message.is-self .cml-mind__bubble {
+  background: var(--cml-mind-bubble-right);
+  color: var(--cml-mind-bubble-right-text);
+  border-top-right-radius: 10px;
+}
+
+#codex-media-library-root .cml-mind--midnight .cml-mind__message.is-other .cml-mind__bubble {
+  color: #eff4fb;
+}
+
+#codex-media-library-root .cml-mind__text {
+  margin: 0;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.45;
+  font-size: 17px;
+}
+
+#codex-media-library-root .cml-mind__time {
+  padding: 0 2px 6px;
+  color: rgba(214, 221, 230, 0.72);
+  font-size: 14px;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+#codex-media-library-root .cml-mind__message.is-self .cml-mind__time {
+  transform: translateX(4px);
+}
+
+#codex-media-library-root .cml-mind--midnight .cml-mind__time {
+  color: rgba(232, 239, 247, 0.74);
+}
+
+#codex-media-library-root .cml-mind__delete {
+  align-self: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(24, 29, 37, 0.1);
+  color: rgba(43, 56, 73, 0.72);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+#codex-media-library-root .cml-mind__message:hover .cml-mind__time,
+#codex-media-library-root .cml-mind__message:focus-within .cml-mind__time {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+#codex-media-library-root .cml-mind__message:hover .cml-mind__delete,
+#codex-media-library-root .cml-mind__message:focus-within .cml-mind__delete {
+  opacity: 1;
+}
+
+#codex-media-library-root .cml-mind__delete:hover {
+  background: rgba(217, 50, 66, 0.14);
+  color: #c53749;
+}
+
+#codex-media-library-root .cml-mind__delete .cml-icon {
+  width: 14px;
+  height: 14px;
+}
+
 
 #codex-media-library-root .cml-mind__input-wrap {
   display: flex;
