@@ -7327,20 +7327,33 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-mind__composer {
-  flex: 0 0 auto;
+  position: sticky;
+  z-index: 2;
+  bottom: 0;
+  display: block;
+  margin: 0;
   padding: 0 20px 34px;
+  background: transparent;
+  box-shadow: none;
 }
 
-@media (max-width: 960px) {
-  #codex-media-library-root .cml-mind {
-    width: 100%;
-    height: calc(100vh - 110px);
-    margin: 0;
-    border-radius: 0;
-  }
+#codex-media-library-root .cml-mind__input-shell {
+  width: min(760px, 88%);
+  max-width: 760px;
+  margin: 0 auto;
+  min-width: 0;
+  min-height: 56px;
+  padding: 6px 8px 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 28px;
+  background: rgba(22, 26, 34, 0.55);
+  backdrop-filter: saturate(160%) blur(22px);
+  -webkit-backdrop-filter: saturate(160%) blur(22px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
 }
-
-#codex-media-library-root .cml-mind__message {
   display: flex;
   align-items: center;
   gap: 12px;
