@@ -905,7 +905,7 @@ describe('media library download actions', () => {
     assert.match(gridHtml, />New album</);
   });
 
-  it('keeps desktop Mind style in the topbar but adds a mobile-style plus launcher inside the composer', () => {
+  it('keeps desktop Mind focused on the chat header and composer plus launcher', () => {
     const topbarHtml = TopSearchBar({
       state: {
         primaryFilter: 'Mind',
@@ -938,7 +938,10 @@ describe('media library download actions', () => {
       }
     });
 
-    assert.match(topbarHtml, /<span>Style<\/span>/);
+    assert.match(topbarHtml, /cml-topbar--mind/);
+    assert.match(topbarHtml, />Willian</);
+    assert.doesNotMatch(topbarHtml, /<span>Style<\/span>/);
+    assert.doesNotMatch(topbarHtml, /Storage/);
     assert.match(mindHtml, /cml-mind__composer-plus/);
     assert.match(mindHtml, /data-action="toggle-mind-settings"/);
     assert.match(mindHtml, /data-action="send-mind-message"/);

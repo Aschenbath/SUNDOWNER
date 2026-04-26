@@ -5667,9 +5667,6 @@ function closeAlbumDialog() {
   state.albumDrawerCreateMode = false;
   if (previewAlbumFlow) {
     clearSelection({ shouldRender: false });
-    if (syncPreviewAlbumDrawer(false)) {
-      return;
-    }
   }
   renderAlbumDialogState({ preferPreviewRender: previewAlbumFlow });
 }

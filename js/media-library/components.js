@@ -644,13 +644,6 @@ export function TopSearchBar({ state, storageSummary = null, canDeleteSelection 
             <p class="cml-mind-header__title">${contactName}</p>
           </div>
         </div>
-        <div class="cml-topbar__actions">
-          ${StorageTrigger(storageSummary, Boolean(state.storagePanelOpen))}
-          <button type="button" class="cml-topbar__secondary-button ${state.mindSettingsOpen ? 'is-selected' : ''}" data-action="toggle-mind-settings" aria-pressed="${state.mindSettingsOpen ? 'true' : 'false'}">
-            ${icon('sliders')}
-            <span>Style</span>
-          </button>
-        </div>
       </header>
     `;
   }
