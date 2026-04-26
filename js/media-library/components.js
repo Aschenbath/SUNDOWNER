@@ -2277,12 +2277,12 @@ export function MindChatView({
               </div>
             </div>
           </header>
-          <div class="cml-mind__mobile-history">
+          <div class="cml-mind__body cml-mind__body--mobile">
             <div class="cml-mind__history">
               ${historyHtml}
             </div>
+            ${composerHtml}
           </div>
-          ${composerHtml}
           ${settingsHtml}
         </div>
       </section>
@@ -2292,10 +2292,14 @@ export function MindChatView({
   return `
     <section class="cml-mind cml-mind--${escapeHtml(settings.backgroundPreset || 'ios-sky')} cml-mind--send-${sendButtonColor}" aria-label="Mind conversation"${wallpaperStyle}>
       <div class="cml-mind__surface"></div>
-      <div class="cml-mind__history">
-        ${historyHtml}
+      <div class="cml-mind__frame">
+        <div class="cml-mind__body">
+          <div class="cml-mind__history">
+            ${historyHtml}
+          </div>
+          ${composerHtml}
+        </div>
       </div>
-      ${composerHtml}
       ${settingsHtml}
     </section>
   `;
