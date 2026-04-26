@@ -1898,7 +1898,13 @@ async function loadChunkedIndex(context) {
         // 首先获取元数据
         const metadataStr = await db.get(INDEX_META_KEY);
         if (!metadataStr) {
-            throw new Error('Index metadata not found');
+            return {
+                files: [],
+                lastUpdated: Date.now(),
+                totalCount: 0,
+                lastOperationId: null,
+                success: true,
+            };
         }
         
         const metadata = JSON.parse(metadataStr);

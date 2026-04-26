@@ -7,7 +7,7 @@ import {
 import { validateApiToken } from './tokenValidator.js';
 import { getDatabase } from './databaseAdapter.js';
 
-export async function userAuthCheck(env, url, request, requiredPermission = null) {
+export async function userAuthCheck(env, url, request, requiredPermission = null, { allowCookieAuthCode = true } = {}) {
     const securityConfig = await fetchSecurityConfig(env);
     if (hasSecurityConfigLoadError(securityConfig)) {
         return false;
@@ -25,7 +25,7 @@ export async function userAuthCheck(env, url, request, requiredPermission = null
     const rightAuthCode = getConfiguredUserAuthCode(securityConfig);
 
     let authCode = request.headers.get('authCode');
-    if (!authCode) {
+    if (!authCode && allowCookieAuthCode) {
         const cookies = request.headers.get('Cookie');
         if (cookies) {
             authCode = getCookieValue(cookies, 'authCode');

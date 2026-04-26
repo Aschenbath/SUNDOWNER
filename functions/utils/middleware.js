@@ -4,6 +4,20 @@ import { fetchOthersConfig } from "./sysConfig.js";
 import { checkDatabaseConfig as checkDbConfig } from './databaseAdapter.js';
 
 let disableTelemetry = false;
+const SENSITIVE_HEADER_KEYS = new Set([
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'x-telegram-bot-api-secret-token',
+  'authcode',
+]);
+
+function shouldCaptureHeader(key, value) {
+  if (!key || typeof value !== 'string' || value.length === 0) {
+    return false;
+  }
+  return !SENSITIVE_HEADER_KEYS.has(String(key).toLowerCase());
+}
 
 export async function errorHandling(context) {
   // 读取KV中的设置
@@ -35,14 +49,13 @@ export async function telemetryData(context) {
   // 读取KV中的设置
   const othersConfig = await fetchOthersConfig(context.env);
   disableTelemetry = !othersConfig.telemetry.enabled;
-  
+
   if (!disableTelemetry) {
     try {
       const parsedHeaders = {};
       context.request.headers.forEach((value, key) => {
-        parsedHeaders[key] = value
-        //check if the value is empty
-        if (value.length > 0) {
+        parsedHeaders[key] = shouldCaptureHeader(key, value) ? value : '[REDACTED]';
+        if (shouldCaptureHeader(key, value)) {
           context.data.sentry.setTag(key, value);
         }
       });
@@ -53,7 +66,7 @@ export async function telemetryData(context) {
           parsedCF[key] = JSON.stringify(CF[key]);
         } else {
           parsedCF[key] = CF[key];
-          if (CF[key].length > 0) {
+          if (typeof CF[key] === 'string' && CF[key].length > 0) {
             context.data.sentry.setTag(key, CF[key]);
           }
         }
@@ -80,7 +93,7 @@ export async function telemetryData(context) {
     } catch (e) {
       console.log(e);
     } finally {
-      context.data.transaction.finish();
+      context.data.transaction?.finish();
     }
   }
 

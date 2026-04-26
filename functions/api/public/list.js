@@ -16,9 +16,9 @@ const corsHeaders = {
  * @returns {boolean}
  */
 function isAllowedDirectory(dir, allowedDirs) {
-    // 如果允许目录列表为空，视为允许所有目录（包括根目录）
+    // 如果允许目录列表为空，默认拒绝所有目录
     if (!allowedDirs || allowedDirs.length === 0) {
-        return true;
+        return false;
     }
 
     // 标准化目录格式
@@ -55,13 +55,36 @@ function isAllowedDirectory(dir, allowedDirs) {
  * @param {boolean} recursive - 是否递归
  * @returns {Promise<Object>} 文件列表和目录列表，包含 fromCache 字段
  */
+function getDefaultCache() {
+    if (typeof caches !== 'undefined' && caches?.default) {
+        return caches.default;
+    }
+    return {
+        async match() { return undefined; },
+        async put() {},
+    };
+}
+
+function ensureAsyncContext(context) {
+    if (typeof context.waitUntil !== 'function') {
+        context.waitUntil = async (promise) => {
+            try {
+                await promise;
+            } catch {
+                // Ignore async background work errors in environments without waitUntil support.
+            }
+        };
+    }
+    return context;
+}
+
 async function getPublicFileList(context, url, dir, recursive) {
     // 构建缓存键（目录格式去掉末尾的/，与清除缓存时的格式一致）
     const cacheDir = dir.replace(/\/$/, '');
     const cacheKey = `${url.origin}/api/publicFileList?dir=${cacheDir}&recursive=${recursive}`;
 
     // 检查缓存中是否有记录
-    const cache = caches.default;
+    const cache = getDefaultCache();
     const cacheRes = await cache.match(cacheKey);
     if (cacheRes) {
         const data = JSON.parse(await cacheRes.text());
@@ -112,6 +135,7 @@ async function getPublicFileList(context, url, dir, recursive) {
 }
 
 export async function onRequest(context) {
+    context = ensureAsyncContext(context);
     const { request, env } = context;
     const url = new URL(request.url);
 
@@ -249,8 +273,7 @@ export async function onRequest(context) {
     } catch (error) {
         console.error('Error in public list API:', error);
         return new Response(JSON.stringify({
-            error: 'Internal server error',
-            message: error.message
+            error: 'Internal server error'
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', ...corsHeaders }

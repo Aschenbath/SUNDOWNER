@@ -88,7 +88,24 @@ describe('manage middleware', () => {
 
   it('returns a generic 500 response without leaking stack traces', async () => {
     const response = await runManageMiddleware({
-      request: new Request('http://localhost/api/manage/list'),
+      env: createEnv({
+        img_url: new MemoryKV({
+          'manage@sysConfig@security': JSON.stringify({
+            auth: {
+              user: { authCode: '' },
+              admin: { adminUsername: 'admin', adminPassword: 'secret' }
+            },
+            upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+            access: { allowedDomains: '', whiteListMode: false },
+            apiTokens: { tokens: {} }
+          })
+        }),
+      }),
+      request: new Request('http://localhost/api/manage/list', {
+        headers: {
+          Authorization: `Basic ${Buffer.from('admin:secret').toString('base64')}`,
+        },
+      }),
       finalHandler: async () => {
         throw new Error('kaboom');
       },

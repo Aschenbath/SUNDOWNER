@@ -61,7 +61,7 @@ export async function onRequest(context) {  // Contents of context object
 
     // 鉴权
     const requiredPermission = 'upload';
-    if (!await userAuthCheck(env, url, request, requiredPermission)) {
+    if (!await userAuthCheck(env, url, request, requiredPermission, { allowCookieAuthCode: false })) {
         return withCorsHeaders(UnauthorizedResponse('Unauthorized'));
     }
 

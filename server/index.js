@@ -35,6 +35,13 @@ if (typeof globalThis.caches === 'undefined') {
 const selfOrigins = new Set();
 const originalFetch = globalThis.fetch;
 
+function isIgnorableMigrationError(message = '') {
+    const text = String(message || '').toLowerCase();
+    return text.includes('duplicate column name')
+        || text.includes('already exists')
+        || text.includes('duplicate key name');
+}
+
 globalThis.fetch = async function(input, init) {
     try {
         let urlStr;
@@ -102,8 +109,12 @@ if (existsSync(migrationsDir)) {
             sqliteD1.exec(sql);
             console.log(`Migration ${migration}: OK`);
         } catch (e) {
-            // 忽略已执行的迁移（如列已存在等）
-            console.log(`Migration ${migration}: ${e.message}`);
+            if (isIgnorableMigrationError(e.message)) {
+                console.log(`Migration ${migration}: ${e.message}`);
+                continue;
+            }
+            console.error(`Migration ${migration}: FAILED - ${e.message}`);
+            throw e;
         }
     }
 }

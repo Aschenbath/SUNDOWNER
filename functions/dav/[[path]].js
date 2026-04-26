@@ -1,6 +1,10 @@
 // WebDAV 服务支持
 import { fetchSecurityConfig, fetchOthersConfig } from "../utils/sysConfig.js";
 
+function InternalServerErrorResponse(message = 'Internal server error', status = 500) {
+    return new Response(message, { status });
+}
+
 export async function onRequest(context) {
     const { request, env } = context;
 
@@ -101,7 +105,7 @@ async function handleGet(request, env) {
             return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
         } catch (error) {
             console.error('GET (directory) failed:', error.stack);
-            return new Response(`Error listing directory: ${error.message}`, { status: 500 });
+            return InternalServerErrorResponse('Error listing directory');
         }
     } else { // File download
         try {
@@ -121,7 +125,7 @@ async function handleGet(request, env) {
             return response;
         } catch (error) {
             console.error('GET (file) failed:', error.stack);
-            return new Response(`Error getting file: ${error.message}`, { status: 500 });
+            return InternalServerErrorResponse('Error getting file');
         }
     }
 }
@@ -179,9 +183,8 @@ async function handlePut(request, env) {
         if (response.ok && Array.isArray(result) && result.length > 0 && result[0].src) {
             return new Response(null, { status: 201 }); // Created
         } else {
-            const errorMsg = result.error || JSON.stringify(result);
-            console.error('Upload API error:', errorMsg);
-            return new Response(`Upload failed: ${errorMsg}`, { status: 500 });
+            console.error('Upload API error:', JSON.stringify(result));
+            return InternalServerErrorResponse('Upload failed');
         }
     } catch (error) {
         console.error('Fetch to upload API failed:', error.stack);
@@ -213,7 +216,7 @@ async function handleDelete(request, env) {
         }
     } catch (error) {
         console.error('Delete operation failed:', error.stack);
-        return new Response(`Internal server error: ${error.message}`, { status: 500 });
+        return InternalServerErrorResponse('Deletion failed');
     }
 }
 
@@ -226,7 +229,7 @@ async function handlePropfind(request, env) {
         return new Response(xml, { status: 207, headers: { 'Content-Type': 'application/xml; charset=utf-8' } });
     } catch (error) {
         console.error('Propfind failed:', error.stack);
-        return new Response(`Failed to list files: ${error.message}`, { status: 500 });
+        return InternalServerErrorResponse('Failed to list files');
     }
 }
 

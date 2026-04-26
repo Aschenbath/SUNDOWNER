@@ -1,5 +1,43 @@
 import { getDatabase } from '../../../utils/databaseAdapter.js';
 
+function maskSecret(value, { reveal = 0, placeholder = 'Configured' } = {}) {
+    const normalized = typeof value === 'string' ? value : '';
+    if (!normalized) {
+        return '';
+    }
+    if (reveal > 0) {
+        const visible = normalized.slice(0, reveal);
+        return `${visible}${'*'.repeat(Math.max(0, normalized.length - reveal))}`;
+    }
+    return placeholder;
+}
+
+function buildPublicSecuritySettings(settings) {
+    return {
+        auth: {
+            user: {
+                authCode: maskSecret(settings?.auth?.user?.authCode, { placeholder: 'Configured' }),
+                configured: Boolean(settings?.auth?.user?.authCode),
+            },
+            admin: {
+                adminUsername: normalizeAdminUsername(settings?.auth?.admin?.adminUsername),
+                adminPassword: maskSecret(settings?.auth?.admin?.adminPassword, { placeholder: 'Configured' }),
+                configured: Boolean(settings?.auth?.admin?.adminUsername) && Boolean(settings?.auth?.admin?.adminPassword),
+            }
+        },
+        upload: settings?.upload || {},
+        access: settings?.access || {},
+        apiTokens: {
+            tokens: {}
+        }
+    }
+}
+
+function normalizeAdminUsername(value) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return normalized ? normalized : '';
+}
+
 export async function onRequest(context) {
     // 安全设置相关，GET方法读取设置，POST方法保存设置
     const {
@@ -17,7 +55,7 @@ export async function onRequest(context) {
     if (request.method === 'GET') {
         const settings = await getSecurityConfig(db, env)
 
-        return new Response(JSON.stringify(settings), {
+        return new Response(JSON.stringify(buildPublicSecuritySettings(settings)), {
             headers: {
                 'content-type': 'application/json',
             },

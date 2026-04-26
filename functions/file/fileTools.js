@@ -14,7 +14,8 @@ export function isDomainAllowed(context) {
                 domains.push(url.hostname);// 把自身域名加入白名单
 
                 let isAllowed = domains.some(domain => {
-                    let domainPattern = new RegExp(`(^|\\.)${domain.replace('.', '\\.')}$`); // Escape dot in domain
+                    const escapedDomain = String(domain).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    let domainPattern = new RegExp(`(^|\\.)${escapedDomain}$`); // Escape full domain safely
                     return domainPattern.test(refererUrl.hostname);
                 });
 
@@ -125,23 +126,15 @@ export function isTgChannel(imgRecord) {
 
 // 图片可访问性检查
 export async function returnWithCheck(context, imgRecord) {
-    const { request, env, url, securityConfig } = context;
+    const { url, securityConfig } = context;
     const whiteListMode = securityConfig.access.whiteListMode;
 
     const response = new Response('success', { status: 200 });
 
-    // Referer header equal to the dashboard page or upload page (排除公开图库页面的请求)
-    const referer = request.headers.get('Referer');
-    if (referer && referer.includes(url.origin) && !isFromPublicBrowse(referer, url.origin)) {
-        //show the image
-        return response;
-    }
-
-    //check the record from kv
+    // 访问控制只依赖内容访问规则，不依赖 Referer 放行
     const record = imgRecord;
     if (record.metadata === null) {
     } else {
-        //if the record is not null, redirect to the image
         if (record.metadata.ListType == "White") {
             return response;
         } else if (record.metadata.ListType == "Block") {
@@ -149,19 +142,16 @@ export async function returnWithCheck(context, imgRecord) {
         } else if (record.metadata.Label == "adult") {
             return await returnBlockImg(url);
         }
-        //check if the env variables WhiteList_Mode are set
         if (whiteListMode) {
-            //if the env variables WhiteList_Mode are set, redirect to the image
             return await returnWhiteListImg(url);
         } else {
-            //if the env variables WhiteList_Mode are not set, redirect to the image
             return response;
         }
     }
 
-    // other cases
     return response;
 }
+
 
 export async function return404(url) {
     const Img404 = await fetch(url.origin + "/static/404.png");
