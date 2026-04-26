@@ -685,6 +685,19 @@ body.codex-media-library-active #app {
   justify-self: center;
 }
 
+#codex-media-library-root .cml-sidebar .cml-sidebar__nav-item .cml-icon svg,
+#codex-media-library-root .cml-sidebar .cml-sidebar__subnav-item .cml-icon svg {
+  overflow: visible;
+}
+
+#codex-media-library-root .cml-sidebar .cml-sidebar__nav-item[data-primary="Collections"] .cml-icon,
+#codex-media-library-root .cml-sidebar .cml-sidebar__nav-item[data-primary="Music"] .cml-icon,
+#codex-media-library-root .cml-sidebar .cml-sidebar__nav-item[data-primary="Mind"] .cml-icon,
+#codex-media-library-root .cml-sidebar .cml-sidebar__nav-item[data-primary="Private"] .cml-icon {
+  width: 24px;
+  height: 24px;
+}
+
 #codex-media-library-root .cml-sidebar .cml-sidebar__nav-label,
 #codex-media-library-root .cml-sidebar .cml-sidebar__subnav-label {
   min-width: 0;

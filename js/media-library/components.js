@@ -46,7 +46,11 @@ const icons = {
   folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   'folder-filled': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="#8ab4f8" stroke="#8ab4f8" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   'folder-move': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m10 14 3-3m0 0-3-3m3 3H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.2" y="10.3" width="11.6" height="8.8" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M8.8 10.3V8.2a3.2 3.2 0 0 1 6.4 0v2.1" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>'
+  lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.2" y="10.3" width="11.6" height="8.8" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M8.8 10.3V8.2a3.2 3.2 0 0 1 6.4 0v2.1" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
+  'sidebar-albums': '<svg viewBox="0 0 96 96" aria-hidden="true"><ellipse cx="48" cy="25" rx="10" ry="17" fill="#F4C66F"></ellipse><ellipse cx="48" cy="71" rx="10" ry="17" fill="#7FB6E8"></ellipse><ellipse cx="25" cy="48" rx="17" ry="10" fill="#F3D389"></ellipse><ellipse cx="71" cy="48" rx="17" ry="10" fill="#A69BE8"></ellipse><ellipse cx="31.7" cy="31.7" rx="10" ry="17" transform="rotate(-45 31.7 31.7)" fill="#F2A5A7"></ellipse><ellipse cx="64.3" cy="64.3" rx="10" ry="17" transform="rotate(-45 64.3 64.3)" fill="#65CDB1"></ellipse><ellipse cx="64.3" cy="31.7" rx="10" ry="17" transform="rotate(45 64.3 31.7)" fill="#F2A5A7"></ellipse><ellipse cx="31.7" cy="64.3" rx="10" ry="17" transform="rotate(45 31.7 64.3)" fill="#F4AEC9"></ellipse><circle cx="48" cy="48" r="17" fill="#F6F4F1"></circle></svg>',
+  'sidebar-music': '<svg viewBox="0 0 96 96" aria-hidden="true"><g stroke="currentColor" stroke-width="3.2" stroke-linecap="round" opacity="0.32"><path d="M16 34H78"></path><path d="M16 42H78"></path><path d="M16 50H78"></path><path d="M16 58H78"></path><path d="M16 66H78"></path></g><g fill="currentColor"><ellipse cx="30" cy="66" rx="11.5" ry="8.2" transform="rotate(-20 30 66)"></ellipse><ellipse cx="58" cy="58" rx="11.5" ry="8.2" transform="rotate(-20 58 58)"></ellipse><rect x="37" y="28" width="6" height="37" rx="3"></rect><rect x="65" y="21" width="6" height="36" rx="3"></rect><path d="M37 28L71 20V31L37 39V28Z"></path></g></svg>',
+  'sidebar-chat': '<svg viewBox="0 0 96 96" aria-hidden="true"><path d="M48.5 24C65.7 24 79 34.1 79 47.2C79 60.3 65.7 70.4 48.5 70.4C43.9 70.4 39.6 69.7 35.8 68.4C31.8 71.8 26.8 74.5 20.8 76C24.1 72.8 26.3 68.9 27.2 64.9C21.7 60.6 18 54.4 18 47.2C18 34.1 31.3 24 48.5 24Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"></path></svg>',
+  'sidebar-private': '<svg viewBox="0 0 96 96" aria-hidden="true"><path d="M29 20H67C71.4 20 75 23.6 75 28V76H29V20Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"></path><path d="M29 20L56 28V84L29 76V20Z" fill="#F8F6F2" stroke="currentColor" stroke-width="5" stroke-linejoin="round"></path><circle cx="48" cy="55" r="3.8" fill="currentColor"></circle></svg>'
 };
 
 const secondaryIconMap = {
@@ -482,14 +486,14 @@ export function Sidebar({
     const iconName = key === 'photos'
       ? 'photos'
       : key === 'music'
-        ? 'music'
+        ? 'sidebar-music'
       : key === 'bin'
         ? 'trash'
         : key === 'mind'
-          ? 'memory'
+          ? 'sidebar-chat'
         : key === 'private'
-          ? 'lock'
-          : 'albums';
+          ? 'sidebar-private'
+          : 'sidebar-albums';
             const displayLabel = label === 'Collections'
               ? 'Albums'
               : (label === 'Mind' ? (state.mindSettings?.contactName || 'Mind') : label);
