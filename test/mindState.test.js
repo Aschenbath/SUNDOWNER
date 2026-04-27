@@ -19,4 +19,13 @@ describe('mind visit-side persistence', () => {
     assert.match(appSource, /function enqueueMindMutation\(task\)/);
     assert.match(appSource, /mindMirrorPromise = enqueueMindMutation\(\(\) => postJson\('\/api\/manage\/mind', \{ action: 'mirror' \}\)\)/);
   });
+
+  it('preserves a data-url wallpaper fallback when saving a photo-backed Mind wallpaper', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /async function fetchImageAsDataUrl\(url\) \{/);
+    assert.match(appSource, /const wallpaperItem = resolveMindWallpaperItem\(optimisticSettings\);/);
+    assert.match(appSource, /if \(optimisticSettings\.backgroundPhotoId && wallpaperItem && !optimisticSettings\.backgroundImageData\) \{/);
+    assert.match(appSource, /optimisticSettings\.backgroundImageData = await fetchImageAsDataUrl\(/);
+  });
 });

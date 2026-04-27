@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=81';
+} from './components.js?v=82';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -2039,6 +2039,34 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function readBlobAsDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image blob'));
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function fetchImageAsDataUrl(url) {
+  const normalizedUrl = normalizeText(url);
+  if (!normalizedUrl) {
+    throw new Error('Wallpaper source is unavailable');
+  }
+  const response = await fetch(normalizedUrl, {
+    credentials: 'same-origin',
+    cache: 'no-store'
+  });
+  if (!response.ok) {
+    throw new Error(`Wallpaper request failed with ${response.status}`);
+  }
+  const blob = await response.blob();
+  if (!blob.type.startsWith('image/')) {
+    throw new Error('Wallpaper source is not an image');
+  }
+  return readBlobAsDataUrl(blob);
+}
+
 function normalizeAlbumKey(value) {
   return normalizeText(value).toLowerCase();
 }
@@ -3524,6 +3552,17 @@ async function saveMindSettings() {
   const previousSettings = normalizeMindSettings(state.mindSettings);
   const attemptedDraft = createMindSettingsDraft(state.mindSettingsDraft);
   const optimisticSettings = normalizeMindSettings(state.mindSettingsDraft);
+  const wallpaperItem = resolveMindWallpaperItem(optimisticSettings);
+  if (optimisticSettings.backgroundPhotoId && wallpaperItem && !optimisticSettings.backgroundImageData) {
+    try {
+      optimisticSettings.backgroundImageData = await fetchImageAsDataUrl(
+        normalizeText(wallpaperItem.sourceUrl || wallpaperItem.thumbnailUrl || '')
+      );
+    } catch (error) {
+      showToast(error.message || 'Failed to preserve the Mind wallpaper');
+      return;
+    }
+  }
   state.mindSettings = optimisticSettings;
   state.mindSettingsDraft = createMindSettingsDraft(optimisticSettings);
   persistMindSettings(state.mindSettings);
