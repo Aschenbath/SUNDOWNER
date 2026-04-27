@@ -20,34 +20,19 @@ describe('mind visit-side persistence', () => {
     assert.match(appSource, /mindMirrorPromise = enqueueMindMutation\(\(\) => postJson\('\/api\/manage\/mind', \{ action: 'mirror' \}\)\)/);
   });
 
-  it('preserves a data-url wallpaper fallback when saving a photo-backed Mind wallpaper', () => {
+  it('resolves photo-backed wallpaper URLs before falling back to uploaded wallpaper data', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /async function captureMindWallpaperDataFromItem\(item\) \{/);
-    assert.match(appSource, /if \(optimisticSettings\.backgroundPhotoId && !optimisticSettings\.backgroundImageData\) \{/);
-    assert.match(appSource, /optimisticSettings\.backgroundImageData = await captureMindWallpaperDataFromItem\(wallpaperItem\);/);
-  });
-
-  it('prefers uploaded wallpaper data over photo-backed wallpaper sources', () => {
-    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
-
-    assert.match(appSource, /const uploadedWallpaper = normalizeText\(settings\?\.backgroundImageData\);/);
-    assert.match(appSource, /if \(uploadedWallpaper\) \{/);
-    assert.match(appSource, /return uploadedWallpaper;/);
     assert.match(appSource, /const wallpaperItem = resolveMindWallpaperItem\(settings\);/);
+    assert.match(appSource, /if \(wallpaperItem\) \{/);
+    assert.match(appSource, /return normalizeText\(wallpaperItem\.sourceUrl \|\| wallpaperItem\.thumbnailUrl \|\| ''\);/);
+    assert.match(appSource, /return normalizeText\(settings\?\.backgroundImageData\);/);
   });
 
-  it('eagerly captures selected photo wallpapers into backgroundImageData', () => {
+  it('keeps photo wallpaper selection as an id-only draft choice', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /void captureMindWallpaperDataFromItem\(wallpaperItem\)/);
-    assert.match(appSource, /backgroundImageData: dataUrl/);
-  });
-
-  it('blocks photo-backed saves when the selected wallpaper item cannot be resolved', () => {
-    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
-
-    assert.match(appSource, /if \(!wallpaperItem\) \{/);
-    assert.match(appSource, /showToast\('Please reselect the wallpaper photo before saving'\);/);
+    assert.match(appSource, /backgroundPhotoId: normalizeText\(actionTarget\.dataset\.id\),/);
+    assert.match(appSource, /backgroundImageData: ''/);
   });
 });

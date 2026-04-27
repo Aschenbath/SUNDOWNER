@@ -3552,19 +3552,6 @@ async function saveMindSettings() {
   const previousSettings = normalizeMindSettings(state.mindSettings);
   const attemptedDraft = createMindSettingsDraft(state.mindSettingsDraft);
   const optimisticSettings = normalizeMindSettings(state.mindSettingsDraft);
-  const wallpaperItem = resolveMindWallpaperItem(optimisticSettings);
-  if (optimisticSettings.backgroundPhotoId && !optimisticSettings.backgroundImageData) {
-    if (!wallpaperItem) {
-      showToast('Please reselect the wallpaper photo before saving');
-      return;
-    }
-    try {
-      optimisticSettings.backgroundImageData = await captureMindWallpaperDataFromItem(wallpaperItem);
-    } catch (error) {
-      showToast(error.message || 'Failed to preserve the Mind wallpaper');
-      return;
-    }
-  }
   state.mindSettings = optimisticSettings;
   state.mindSettingsDraft = createMindSettingsDraft(optimisticSettings);
   persistMindSettings(state.mindSettings);
@@ -3629,14 +3616,6 @@ async function deleteMindMessageById(messageId) {
   }
 }
 
-async function captureMindWallpaperDataFromItem(item) {
-  const wallpaperUrl = normalizeText(item?.sourceUrl || item?.thumbnailUrl || '');
-  if (!wallpaperUrl) {
-    return '';
-  }
-  return fetchImageAsDataUrl(wallpaperUrl);
-}
-
 async function handleMindAssetSelection(field, file) {
   if (!file) {
     return;
@@ -3685,15 +3664,11 @@ function resolveMindWallpaperItem(settings = state.mindSettings) {
 }
 
 function resolveMindWallpaperUrl(settings = state.mindSettings) {
-  const uploadedWallpaper = normalizeText(settings?.backgroundImageData);
-  if (uploadedWallpaper) {
-    return uploadedWallpaper;
-  }
   const wallpaperItem = resolveMindWallpaperItem(settings);
   if (wallpaperItem) {
     return normalizeText(wallpaperItem.sourceUrl || wallpaperItem.thumbnailUrl || '');
   }
-  return '';
+  return normalizeText(settings?.backgroundImageData);
 }
 
 function applyMindSendButtonTheme(button, tone) {
@@ -10565,33 +10540,11 @@ function handleAction(actionTarget) {
       return true;
     case 'set-mind-wallpaper-photo':
       if (!state.mindSettingsBusy) {
-        const wallpaperId = normalizeText(actionTarget.dataset.id);
-        const wallpaperItem = wallpaperId
-          ? getMindWallpaperPhotoChoices(1000).find((item) => item?.id === wallpaperId) || resolveMindWallpaperItem({ backgroundPhotoId: wallpaperId })
-          : null;
         state.mindSettingsDraft = {
           ...state.mindSettingsDraft,
-          backgroundPhotoId: wallpaperId,
+          backgroundPhotoId: normalizeText(actionTarget.dataset.id),
           backgroundImageData: ''
         };
-        if (wallpaperItem) {
-          void captureMindWallpaperDataFromItem(wallpaperItem)
-            .then((dataUrl) => {
-              if (!dataUrl || normalizeText(state.mindSettingsDraft.backgroundPhotoId) !== wallpaperId) {
-                return;
-              }
-              state.mindSettingsDraft = {
-                ...state.mindSettingsDraft,
-                backgroundImageData: dataUrl
-              };
-              if (!patchMindDraftPreview()) {
-                render();
-              }
-            })
-            .catch(() => {
-              // Keep the photo-backed selection even if eager capture fails.
-            });
-        }
         if (!patchMindDraftPreview()) {
           render();
         }
