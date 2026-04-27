@@ -7713,11 +7713,20 @@ body.codex-media-library-active #app {
   box-shadow: -18px 0 48px rgba(0, 0, 0, 0.28);
 }
 
-#codex-media-library-root .cml-mind__settings-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+
+#codex-media-library-root .cml-mind,
+#codex-media-library-root .cml-mind--ios-sky,
+#codex-media-library-root .cml-mind--sunset-glow,
+#codex-media-library-root .cml-mind--seafoam,
+#codex-media-library-root .cml-mind--midnight,
+#codex-media-library-root .cml-mind--paper {
+  background: transparent !important;
+}
+
+#codex-media-library-root .cml-mind[style*='--cml-mind-wallpaper-image:url('] {
+  background-image: var(--cml-mind-wallpaper-image) !important;
+  background-size: cover !important;
+  background-position: var(--cml-mind-wallpaper-position, center center) !important;
 }
 
 #codex-media-library-root .cml-mind__settings-eyebrow {
