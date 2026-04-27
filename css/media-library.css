@@ -7246,9 +7246,11 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-mind[style*='--cml-mind-wallpaper-image'] {
-  background-image: var(--cml-mind-wallpaper-image);
-  background-size: cover;
-  background-position: var(--cml-mind-wallpaper-position, center center);
+  background-image: var(--cml-mind-wallpaper-image) !important;
+  background-color: transparent !important;
+  background-size: cover !important;
+  background-position: var(--cml-mind-wallpaper-position, center center) !important;
+  background-repeat: no-repeat !important;
 }
 
 #codex-media-library-root .cml-mind__surface {
