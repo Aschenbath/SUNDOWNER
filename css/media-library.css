@@ -7213,17 +7213,26 @@ body.codex-media-library-active #app {
   pointer-events: none;
 }
 
+#codex-media-library-root .cml-mind__position-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
 #codex-media-library-root .cml-mind__position-option {
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 10px 8px;
+  border-radius: 14px;
+  padding: 8px 6px;
   display: grid;
   justify-items: center;
-  gap: 8px;
+  align-content: center;
+  gap: 6px;
+  min-height: 74px;
   background: rgba(255, 255, 255, 0.06);
   color: #e5edf7;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.1;
   cursor: pointer;
   transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
 }
@@ -7240,9 +7249,9 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-mind__position-dot {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background:
     radial-gradient(circle at var(--cml-mind-position-x, 50%) var(--cml-mind-position-y, 50%), rgba(138, 180, 248, 0.95) 0 14%, rgba(138, 180, 248, 0.2) 15% 34%, rgba(255, 255, 255, 0.08) 35% 100%),
