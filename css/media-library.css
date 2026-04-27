@@ -7196,8 +7196,12 @@ body.codex-media-library-active #app {
   background: linear-gradient(180deg, #202a39 0%, #273140 48%, #313949 100%);
 }
 
-#codex-media-library-root .cml-mind--paper {
-  background: linear-gradient(180deg, #282522 0%, #2b2824 48%, #302d29 100%);
+#codex-media-library-root .cml-mind[style*='--cml-mind-wallpaper-image'].cml-mind--ios-sky,
+#codex-media-library-root .cml-mind[style*='--cml-mind-wallpaper-image'].cml-mind--sunset-glow,
+#codex-media-library-root .cml-mind[style*='--cml-mind-wallpaper-image'].cml-mind--seafoam,
+#codex-media-library-root .cml-mind[style*='--cml-mind-wallpaper-image'].cml-mind--midnight,
+#codex-media-library-root .cml-mind[style*='--cml-mind-wallpaper-image'].cml-mind--paper {
+  background: transparent !important;
 }
 
 #codex-media-library-root .cml-mind--send-default {
