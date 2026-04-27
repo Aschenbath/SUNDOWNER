@@ -23,10 +23,9 @@ describe('mind visit-side persistence', () => {
   it('preserves a data-url wallpaper fallback when saving a photo-backed Mind wallpaper', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /async function fetchImageAsDataUrl\(url\) \{/);
-    assert.match(appSource, /const wallpaperItem = resolveMindWallpaperItem\(optimisticSettings\);/);
-    assert.match(appSource, /if \(optimisticSettings\.backgroundPhotoId && wallpaperItem && !optimisticSettings\.backgroundImageData\) \{/);
-    assert.match(appSource, /optimisticSettings\.backgroundImageData = await fetchImageAsDataUrl\(/);
+    assert.match(appSource, /async function captureMindWallpaperDataFromItem\(item\) \{/);
+    assert.match(appSource, /if \(optimisticSettings\.backgroundPhotoId && !optimisticSettings\.backgroundImageData\) \{/);
+    assert.match(appSource, /optimisticSettings\.backgroundImageData = await captureMindWallpaperDataFromItem\(wallpaperItem\);/);
   });
 
   it('prefers uploaded wallpaper data over photo-backed wallpaper sources', () => {
@@ -36,5 +35,19 @@ describe('mind visit-side persistence', () => {
     assert.match(appSource, /if \(uploadedWallpaper\) \{/);
     assert.match(appSource, /return uploadedWallpaper;/);
     assert.match(appSource, /const wallpaperItem = resolveMindWallpaperItem\(settings\);/);
+  });
+
+  it('eagerly captures selected photo wallpapers into backgroundImageData', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /void captureMindWallpaperDataFromItem\(wallpaperItem\)/);
+    assert.match(appSource, /backgroundImageData: dataUrl/);
+  });
+
+  it('blocks photo-backed saves when the selected wallpaper item cannot be resolved', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /if \(!wallpaperItem\) \{/);
+    assert.match(appSource, /showToast\('Please reselect the wallpaper photo before saving'\);/);
   });
 });
