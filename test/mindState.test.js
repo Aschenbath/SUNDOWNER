@@ -28,4 +28,13 @@ describe('mind visit-side persistence', () => {
     assert.match(appSource, /if \(optimisticSettings\.backgroundPhotoId && wallpaperItem && !optimisticSettings\.backgroundImageData\) \{/);
     assert.match(appSource, /optimisticSettings\.backgroundImageData = await fetchImageAsDataUrl\(/);
   });
+
+  it('prefers uploaded wallpaper data over photo-backed wallpaper sources', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /const uploadedWallpaper = normalizeText\(settings\?\.backgroundImageData\);/);
+    assert.match(appSource, /if \(uploadedWallpaper\) \{/);
+    assert.match(appSource, /return uploadedWallpaper;/);
+    assert.match(appSource, /const wallpaperItem = resolveMindWallpaperItem\(settings\);/);
+  });
 });

@@ -3675,11 +3675,15 @@ function resolveMindWallpaperItem(settings = state.mindSettings) {
 }
 
 function resolveMindWallpaperUrl(settings = state.mindSettings) {
+  const uploadedWallpaper = normalizeText(settings?.backgroundImageData);
+  if (uploadedWallpaper) {
+    return uploadedWallpaper;
+  }
   const wallpaperItem = resolveMindWallpaperItem(settings);
   if (wallpaperItem) {
     return normalizeText(wallpaperItem.sourceUrl || wallpaperItem.thumbnailUrl || '');
   }
-  return normalizeText(settings?.backgroundImageData);
+  return '';
 }
 
 function applyMindSendButtonTheme(button, tone) {
