@@ -3385,7 +3385,14 @@ function createMindSettingsDraft(settings = {}) {
 
 function applyMindState(payload) {
   const stickyMessages = mindVisitStickyMessages.slice();
-  state.mindSettings = normalizeMindSettings(payload?.settings || {});
+  const incomingSettings = normalizeMindSettings(payload?.settings || {});
+  const currentSettings = state.mindSettings || createDefaultMindSettings();
+  const preservedSettings = {
+    ...incomingSettings,
+    backgroundImageData: incomingSettings.backgroundImageData || currentSettings.backgroundImageData || '',
+    backgroundPhotoId: incomingSettings.backgroundPhotoId || currentSettings.backgroundPhotoId || ''
+  };
+  state.mindSettings = preservedSettings;
   state.mindSettingsDraft = createMindSettingsDraft(state.mindSettings);
   persistMindSettings(state.mindSettings);
   state.mindMessages = sortMindMessages(safeArray(payload?.messages)
