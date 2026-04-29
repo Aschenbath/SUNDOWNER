@@ -3669,7 +3669,12 @@ function resolveMindWallpaperUrl(settings = state.mindSettings) {
     const previewUrl = resolvePhotoPreviewUrl(wallpaperItem);
     return normalizeText(previewUrl || wallpaperItem.thumbnailUrl || wallpaperItem.sourceUrl || '');
   }
-  return normalizeText(settings?.backgroundImageData);
+  const backgroundImageData = normalizeText(settings?.backgroundImageData);
+  if (backgroundImageData) {
+    return backgroundImageData;
+  }
+  const sourceSettings = settings === state.mindSettingsDraft ? state.mindSettings : state.mindSettingsDraft;
+  return normalizeText(sourceSettings?.backgroundImageData || '');
 }
 
 function applyMindSendButtonTheme(button, tone) {
