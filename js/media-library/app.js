@@ -3666,7 +3666,8 @@ function resolveMindWallpaperItem(settings = state.mindSettings) {
 function resolveMindWallpaperUrl(settings = state.mindSettings) {
   const wallpaperItem = resolveMindWallpaperItem(settings);
   if (wallpaperItem) {
-    return normalizeText(wallpaperItem.sourceUrl || wallpaperItem.thumbnailUrl || '');
+    const previewUrl = resolvePhotoPreviewUrl(wallpaperItem);
+    return normalizeText(previewUrl || wallpaperItem.thumbnailUrl || wallpaperItem.sourceUrl || '');
   }
   return normalizeText(settings?.backgroundImageData);
 }
