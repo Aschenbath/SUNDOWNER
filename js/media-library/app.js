@@ -3660,7 +3660,8 @@ function resolveMindWallpaperItem(settings = state.mindSettings) {
   if (!photoId) {
     return null;
   }
-  return getAccessibleItems(getAllItems()).find((item) => item?.id === photoId && item?.type === 'photo') || null;
+  const canonicalItems = [...state.mediaItems, ...state.binItems];
+  return canonicalItems.find((item) => normalizeText(item?.id) === photoId && item?.type === 'photo') || null;
 }
 
 function resolveMindWallpaperUrl(settings = state.mindSettings) {
