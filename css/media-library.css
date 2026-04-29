@@ -7197,20 +7197,14 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-mind[style*='--cml-mind-wallpaper-image'] {
-  background-image:
-    linear-gradient(180deg, rgba(14, 17, 22, 0.34), rgba(14, 17, 22, 0.42)),
-    var(--cml-mind-wallpaper-image);
-  background-size: cover;
-  background-position: var(--cml-mind-wallpaper-position, center center);
+  background-image: var(--cml-mind-wallpaper-image) !important;
+  background-size: cover !important;
+  background-position: var(--cml-mind-wallpaper-position, center center) !important;
+  background-repeat: no-repeat !important;
 }
 
 #codex-media-library-root .cml-mind__surface {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
-  pointer-events: none;
+  display: none !important;
 }
 
 #codex-media-library-root .cml-mind__position-grid {
