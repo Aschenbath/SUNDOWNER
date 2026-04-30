@@ -11056,13 +11056,15 @@ function handleAction(actionTarget) {
       saveButton.type = 'button';
       saveButton.className = 'cml-topbar__secondary-button';
       saveButton.textContent = 'Save';
-      let mode = 'save';
       let finalized = false;
-      const commitEdit = () => {
+      const restoreDescription = () => {
+        patchDescriptionDisplay(descSection, currentDesc);
+      };
+      const commitEdit = (mode = 'save') => {
         if (finalized) return;
         finalized = true;
         if (mode === 'cancel') {
-          patchDescriptionDisplay(descSection, currentDesc);
+          restoreDescription();
           return;
         }
         const value = textarea.value.trim();
@@ -11072,34 +11074,15 @@ function handleAction(actionTarget) {
       textarea.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
-          mode = 'save';
-          textarea.blur();
+          commitEdit('save');
         }
         if (e.key === 'Escape') {
           e.preventDefault();
-          mode = 'cancel';
-          textarea.blur();
+          commitEdit('cancel');
         }
       });
-      textarea.addEventListener('blur', () => {
-        commitEdit();
-      });
-      cancelButton.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        mode = 'cancel';
-      });
-      saveButton.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        mode = 'save';
-      });
-      cancelButton.addEventListener('click', () => {
-        mode = 'cancel';
-        commitEdit();
-      });
-      saveButton.addEventListener('click', () => {
-        mode = 'save';
-        commitEdit();
-      });
+      cancelButton.addEventListener('click', () => commitEdit('cancel'));
+      saveButton.addEventListener('click', () => commitEdit('save'));
       actions.append(cancelButton, saveButton);
       descSection.append(textarea, actions);
       textarea.focus();

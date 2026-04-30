@@ -1922,10 +1922,9 @@ describe('media library download actions', () => {
     assert.match(appSource, /const actions = document\.createElement\('div'\);\s*actions\.className = 'cml-preview__info-editor-actions';/);
     assert.match(appSource, /cancelButton\.textContent = 'Cancel';/);
     assert.match(appSource, /saveButton\.textContent = 'Save';/);
-    assert.match(appSource, /if \(mode === 'cancel'\) \{\s*patchDescriptionDisplay\(descSection, currentDesc\);/);
-    assert.match(appSource, /cancelButton\.addEventListener\('click', \(\) => \{/);
-    assert.match(appSource, /saveButton\.addEventListener\('click', \(\) => \{/);
-    assert.match(appSource, /descSection\.append\(textarea, actions\);/);
+    assert.match(appSource, /if \(mode === 'cancel'\) \{\s*restoreDescription\(\);/);
+    assert.match(appSource, /cancelButton\.addEventListener\('click', \(\) => commitEdit\('cancel'\)\);/);
+    assert.match(appSource, /saveButton\.addEventListener\('click', \(\) => commitEdit\('save'\)\);/);    assert.match(appSource, /descSection\.append\(textarea, actions\);/);
   });
 
   it('opens document rows on double-click without changing the single-click selection contract', () => {
