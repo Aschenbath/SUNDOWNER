@@ -10559,10 +10559,14 @@ function handleAction(actionTarget) {
       return true;
     case 'set-mind-wallpaper-photo':
       if (!state.mindSettingsBusy) {
+        const wallpaperId = normalizeText(actionTarget.dataset.id);
+        const canonicalItems = [...state.mediaItems, ...state.binItems];
+        const wallpaperItem = canonicalItems.find((item) => normalizeText(item?.id) === wallpaperId && item?.type === 'photo') || null;
+        const previewUrl = wallpaperItem ? resolvePhotoPreviewUrl(wallpaperItem) : '';
         state.mindSettingsDraft = {
           ...state.mindSettingsDraft,
-          backgroundPhotoId: normalizeText(actionTarget.dataset.id),
-          backgroundImageData: ''
+          backgroundPhotoId: wallpaperId,
+          backgroundImageData: previewUrl || state.mindSettingsDraft.backgroundImageData || ''
         };
         if (!patchMindDraftPreview()) {
           render();
