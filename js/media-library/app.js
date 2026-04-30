@@ -3280,7 +3280,7 @@ function normalizeMindSettings(settings = {}) {
   const allowedSendButtonColors = new Set(['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'black']);
   const normalizeImage = (value) => {
     const nextValue = normalizeText(value);
-    return /^data:image\//i.test(nextValue) ? nextValue : '';
+    return /^data:image\//i.test(nextValue) || /^\/file\//i.test(nextValue) ? nextValue : '';
   };
   return {
     contactName: normalizeText(settings.contactName) || defaults.contactName,

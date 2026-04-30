@@ -31,7 +31,7 @@ function normalizePreset(value) {
 
 function normalizeImageData(value) {
     const data = normalizeText(value)
-    return /^data:image\//i.test(data) ? data : ''
+    return /^data:image\//i.test(data) || /^\/file\//i.test(data) ? data : ''
 }
 
 function normalizeBackgroundPosition(value) {
