@@ -3668,7 +3668,12 @@ function resolveMindWallpaperItem(settings = state.mindSettings) {
     return null;
   }
   const canonicalItems = [...state.mediaItems, ...state.binItems];
-  return canonicalItems.find((item) => normalizeText(item?.id) === photoId && item?.type === 'photo') || null;
+  const canonicalMatch = canonicalItems.find((item) => normalizeText(item?.id) === photoId && item?.type === 'photo');
+  if (canonicalMatch) {
+    return canonicalMatch;
+  }
+  const liveItems = extractLiveMediaItems();
+  return liveItems.find((item) => normalizeText(item?.id) === photoId && item?.type === 'photo') || null;
 }
 
 function resolveMindWallpaperUrl(settings = state.mindSettings) {
