@@ -7004,7 +7004,15 @@ function encodeMetadataPath(sourceId) {
     .join(',');
 }
 
-function formatCaptureTimeMeta(value) {
+function normalizePreviewDescription(value) {
+  return String(value ?? '').replace(/\r\n/g, '\n').trim();
+}
+
+function renderPreviewDescriptionHtml(value) {
+  const normalized = normalizePreviewDescription(value);
+  return normalized ? escapeHtml(normalized).replace(/\n/g, '<br>') : '';
+}
+
   const date = new Date(value || '');
   if (Number.isNaN(date.getTime())) {
     return 'Click to change';
