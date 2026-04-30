@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=83';
+} from './components.js?v=81';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -2039,34 +2039,6 @@ function readFileAsDataUrl(file) {
   });
 }
 
-function readBlobAsDataUrl(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Failed to read image blob'));
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.readAsDataURL(blob);
-  });
-}
-
-async function fetchImageAsDataUrl(url) {
-  const normalizedUrl = normalizeText(url);
-  if (!normalizedUrl) {
-    throw new Error('Wallpaper source is unavailable');
-  }
-  const response = await fetch(normalizedUrl, {
-    credentials: 'same-origin',
-    cache: 'no-store'
-  });
-  if (!response.ok) {
-    throw new Error(`Wallpaper request failed with ${response.status}`);
-  }
-  const blob = await response.blob();
-  if (!blob.type.startsWith('image/')) {
-    throw new Error('Wallpaper source is not an image');
-  }
-  return readBlobAsDataUrl(blob);
-}
-
 function normalizeAlbumKey(value) {
   return normalizeText(value).toLowerCase();
 }
@@ -3280,7 +3252,7 @@ function normalizeMindSettings(settings = {}) {
   const allowedSendButtonColors = new Set(['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'black']);
   const normalizeImage = (value) => {
     const nextValue = normalizeText(value);
-    return /^data:image\//i.test(nextValue) || /^\/file\//i.test(nextValue) ? nextValue : '';
+    return /^data:image\//i.test(nextValue) ? nextValue : '';
   };
   return {
     contactName: normalizeText(settings.contactName) || defaults.contactName,
@@ -3385,14 +3357,7 @@ function createMindSettingsDraft(settings = {}) {
 
 function applyMindState(payload) {
   const stickyMessages = mindVisitStickyMessages.slice();
-  const incomingSettings = normalizeMindSettings(payload?.settings || {});
-  const currentSettings = state.mindSettings || createDefaultMindSettings();
-  const preservedSettings = {
-    ...incomingSettings,
-    backgroundImageData: incomingSettings.backgroundImageData || currentSettings.backgroundImageData || '',
-    backgroundPhotoId: incomingSettings.backgroundPhotoId || currentSettings.backgroundPhotoId || ''
-  };
-  state.mindSettings = preservedSettings;
+  state.mindSettings = normalizeMindSettings(payload?.settings || {});
   state.mindSettingsDraft = createMindSettingsDraft(state.mindSettings);
   persistMindSettings(state.mindSettings);
   state.mindMessages = sortMindMessages(safeArray(payload?.messages)
@@ -3667,27 +3632,15 @@ function resolveMindWallpaperItem(settings = state.mindSettings) {
   if (!photoId) {
     return null;
   }
-  const canonicalItems = [...state.mediaItems, ...state.binItems];
-  const canonicalMatch = canonicalItems.find((item) => normalizeText(item?.id) === photoId && item?.type === 'photo');
-  if (canonicalMatch) {
-    return canonicalMatch;
-  }
-  const liveItems = extractLiveMediaItems();
-  return liveItems.find((item) => normalizeText(item?.id) === photoId && item?.type === 'photo') || null;
+  return getAccessibleItems(getAllItems()).find((item) => item?.id === photoId && item?.type === 'photo') || null;
 }
 
 function resolveMindWallpaperUrl(settings = state.mindSettings) {
   const wallpaperItem = resolveMindWallpaperItem(settings);
   if (wallpaperItem) {
-    const previewUrl = resolvePhotoPreviewUrl(wallpaperItem);
-    return normalizeText(previewUrl || wallpaperItem.thumbnailUrl || wallpaperItem.sourceUrl || '');
+    return normalizeText(wallpaperItem.sourceUrl || wallpaperItem.thumbnailUrl || '');
   }
-  const backgroundImageData = normalizeText(settings?.backgroundImageData);
-  if (backgroundImageData) {
-    return backgroundImageData;
-  }
-  const sourceSettings = settings === state.mindSettingsDraft ? state.mindSettings : state.mindSettingsDraft;
-  return normalizeText(sourceSettings?.backgroundImageData || '');
+  return normalizeText(settings?.backgroundImageData);
 }
 
 function applyMindSendButtonTheme(button, tone) {
@@ -10559,14 +10512,10 @@ function handleAction(actionTarget) {
       return true;
     case 'set-mind-wallpaper-photo':
       if (!state.mindSettingsBusy) {
-        const wallpaperId = normalizeText(actionTarget.dataset.id);
-        const canonicalItems = [...state.mediaItems, ...state.binItems];
-        const wallpaperItem = canonicalItems.find((item) => normalizeText(item?.id) === wallpaperId && item?.type === 'photo') || null;
-        const previewUrl = wallpaperItem ? resolvePhotoPreviewUrl(wallpaperItem) : '';
         state.mindSettingsDraft = {
           ...state.mindSettingsDraft,
-          backgroundPhotoId: wallpaperId,
-          backgroundImageData: previewUrl || state.mindSettingsDraft.backgroundImageData || ''
+          backgroundPhotoId: normalizeText(actionTarget.dataset.id),
+          backgroundImageData: ''
         };
         if (!patchMindDraftPreview()) {
           render();
