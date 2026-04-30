@@ -7013,6 +7013,7 @@ function renderPreviewDescriptionHtml(value) {
   return normalized ? escapeHtml(normalized).replace(/\n/g, '<br>') : '';
 }
 
+function formatCaptureTimeMeta(value) {
   const date = new Date(value || '');
   if (Number.isNaN(date.getTime())) {
     return 'Click to change';
