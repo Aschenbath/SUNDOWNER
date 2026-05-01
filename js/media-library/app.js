@@ -5638,6 +5638,12 @@ function getDialogAlbumEntries(items = getAccessibleItems()) {
 }
 
 function openAlbumDialog(mode = 'create', { origin = '', preferPreviewRender = false } = {}) {
+  console.debug('[album-add-debug] openAlbumDialog', {
+    mode,
+    albumSelectionTarget: state.albumSelectionTarget,
+    primaryFilter: state.primaryFilter,
+    activeAlbumName: state.activeAlbumName
+  });
   state.albumDialogOpen = true;
   state.albumDialogMode = mode;
   state.albumDialogOrigin = normalizeText(origin || '');
@@ -6294,6 +6300,12 @@ function unlockPrivateRoute(passwordInput = state.privatePasswordDraft) {
 }
 
 function openAlbumSelection(albumName = getActiveAlbumName()) {
+  console.debug('[album-add-debug] openAlbumSelection', {
+    albumName,
+    albumSelectionTarget: state.albumSelectionTarget,
+    primaryFilter: state.primaryFilter,
+    activeAlbumName: state.activeAlbumName
+  });
   const normalizedName = normalizeText(albumName);
   if (!normalizedName) {
     return;
@@ -6947,6 +6959,7 @@ function syncPreviewAlbumDrawer(isOpen) {
 }
 
 function openPreviewAddToAlbum(itemId) {
+  console.debug('[album-add-debug] openAlbumDialog assign source: openPreviewAddToAlbum');
   if (!itemId) {
     return;
   }
@@ -10625,10 +10638,17 @@ function handleAction(actionTarget) {
       clearSelection();
       return true;
     case 'open-add-to-album':
+      console.debug('[album-add-debug] open-add-to-album', {
+        albumSelectionTarget: state.albumSelectionTarget,
+        primaryFilter: state.primaryFilter,
+        activeAlbumName: state.activeAlbumName,
+        selectedIdsCount: state.selectedIds.size
+      });
       if (state.albumSelectionTarget) {
         commitSelectionToAlbum(state.albumSelectionTarget);
         return true;
       }
+      console.debug('[album-add-debug] openAlbumDialog assign source: handleAction/open-add-to-album');
       openAlbumDialog('assign');
       return true;
     case 'download-selected':
