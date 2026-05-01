@@ -1966,6 +1966,16 @@ describe('media library download actions', () => {
     assert.doesNotMatch(topbarHtml, /data-action="open-add-to-album"/);
   });
 
+  it('preserves album-first picker target when restoring the photos hash route', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /function resetAddToTargetModes\(\{ preserveAlbumSelectionTarget = false \} = \{\}\) \{/);
+    assert.match(appSource, /if \(!preserveAlbumSelectionTarget\) \{/);
+    assert.match(appSource, /state\.albumSelectionTarget = '';/);
+    assert.match(appSource, /const preserveAlbumSelectionTarget = Boolean\(state\.albumSelectionTarget\)/);
+    assert.match(appSource, /resetAddToTargetModes\(\{ preserveAlbumSelectionTarget \}\);/);
+  });
+
   it('keeps current-album add-photos in a dedicated Photos picker instead of the album detail state', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 

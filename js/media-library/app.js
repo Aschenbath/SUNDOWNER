@@ -1,4 +1,3 @@
-console.warn('[album-add-debug] app.js loaded v173');
 import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js?v=2';
 import {
   AdminPanel,
@@ -5639,12 +5638,6 @@ function getDialogAlbumEntries(items = getAccessibleItems()) {
 }
 
 function openAlbumDialog(mode = 'create', { origin = '', preferPreviewRender = false } = {}) {
-  console.debug('[album-add-debug] openAlbumDialog', {
-    mode,
-    albumSelectionTarget: state.albumSelectionTarget,
-    primaryFilter: state.primaryFilter,
-    activeAlbumName: state.activeAlbumName
-  });
   state.albumDialogOpen = true;
   state.albumDialogMode = mode;
   state.albumDialogOrigin = normalizeText(origin || '');
@@ -6265,8 +6258,10 @@ function clearPrivateViewState() {
   state.focusedTileId = null;
 }
 
-function resetAddToTargetModes() {
-  state.albumSelectionTarget = '';
+function resetAddToTargetModes({ preserveAlbumSelectionTarget = false } = {}) {
+  if (!preserveAlbumSelectionTarget) {
+    state.albumSelectionTarget = '';
+  }
   state.videoAlbumSelectionTarget = '';
   state.privateSelectionMode = false;
   state.albumPickerDistinctOnly = false;
@@ -6301,12 +6296,6 @@ function unlockPrivateRoute(passwordInput = state.privatePasswordDraft) {
 }
 
 function openAlbumSelection(albumName = getActiveAlbumName()) {
-  console.debug('[album-add-debug] openAlbumSelection', {
-    albumName,
-    albumSelectionTarget: state.albumSelectionTarget,
-    primaryFilter: state.primaryFilter,
-    activeAlbumName: state.activeAlbumName
-  });
   const normalizedName = normalizeText(albumName);
   if (!normalizedName) {
     return;
@@ -6960,7 +6949,6 @@ function syncPreviewAlbumDrawer(isOpen) {
 }
 
 function openPreviewAddToAlbum(itemId) {
-  console.debug('[album-add-debug] openAlbumDialog assign source: openPreviewAddToAlbum');
   if (!itemId) {
     return;
   }
@@ -10639,17 +10627,10 @@ function handleAction(actionTarget) {
       clearSelection();
       return true;
     case 'open-add-to-album':
-      console.debug('[album-add-debug] open-add-to-album', {
-        albumSelectionTarget: state.albumSelectionTarget,
-        primaryFilter: state.primaryFilter,
-        activeAlbumName: state.activeAlbumName,
-        selectedIdsCount: state.selectedIds.size
-      });
       if (state.albumSelectionTarget) {
         commitSelectionToAlbum(state.albumSelectionTarget);
         return true;
       }
-      console.debug('[album-add-debug] openAlbumDialog assign source: handleAction/open-add-to-album');
       openAlbumDialog('assign');
       return true;
     case 'download-selected':
@@ -12318,7 +12299,8 @@ function pushNavigationHash() {
 
 function restoreNavigationFromHash() {
   const rawHash = decodeURIComponent(window.location.hash || '').replace(/^#\/?/, '');
-  resetAddToTargetModes();
+  const preserveAlbumSelectionTarget = Boolean(state.albumSelectionTarget) && /^photos(?:\/|$)/i.test(rawHash || 'photos');
+  resetAddToTargetModes({ preserveAlbumSelectionTarget });
   if (!rawHash) {
     state.primaryFilter = 'Photos';
     state.secondaryFilter = '';

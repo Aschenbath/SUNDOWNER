@@ -316,7 +316,14 @@ pm; git diff --check passed.
 - Bumped cache versions to `components.js?v=33`, `app.js?v=95`, and `media-library.css?v=81` via `js/media-library/app.js` and `index.html`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
 
-### 2026-04-17 15:38 Asia/Shanghai
+### 2026-05-02 00:28 Asia/Shanghai
+
+- Fixed the real album-first `Add photos` lifecycle bug in `js/media-library/app.js`. Root cause: `restoreNavigationFromHash()` always called `resetAddToTargetModes()` before replaying the current hash, so ordinary in-place `history.replaceState('#/photos')` refreshes during the album-first picker silently cleared `state.albumSelectionTarget` even though the user had not cancelled or exited the picker. That left the later `open-add-to-album` handler seeing an empty target and falling back to `openAlbumDialog('assign')`.
+- `resetAddToTargetModes()` now accepts `{ preserveAlbumSelectionTarget }`, and `restoreNavigationFromHash()` preserves the current album target when replaying a `photos` route while an album-first picker target already exists. This keeps the target album alive through selection changes and route-sync renders, but still clears it on real picker exit paths.
+- The direct album-first commit branch remains intact: `open-add-to-album` still short-circuits to `commitSelectionToAlbum(state.albumSelectionTarget)` when that target exists, while ordinary Photos multi-select still falls back to `openAlbumDialog('assign')`.
+- Added a targeted regression in `test/previewActions.test.js` to lock the preserved album-target behavior during photos-hash restoration.
+- **Validation**: `D:\DevTools\nvm\v24.11.1\node.exe --check js\media-library\app.js`; `D:\DevTools\nvm\v24.11.1\node.exe --check test\previewActions.test.js`; `D:\DevTools\nvm\v22.14.0\node.exe .\node_modules\mocha\bin\mocha.js .\test\previewActions.test.js` (`70 passing`).
+
 
 - Removed success toasts across the media-library by changing `showToast()` in `js/media-library/app.js` to ignore `type === 'success'`. This removes the green “saved / updated / completed” bars globally while preserving error toasts and manual dismiss for non-success cases.
 - Bumped `index.html` media-library app cache bust from `?v=95` to `?v=96` so the toast-behavior change appears immediately after refresh.
