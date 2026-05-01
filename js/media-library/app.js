@@ -7703,8 +7703,12 @@ function patchDescriptionDisplay(section, text) {
   section.style.cssText = PREVIEW_INFO_EDITABLE_STYLE;
   const p = document.createElement('p');
   p.className = 'cml-preview__info-description' + (text ? ' has-content' : '');
-  p.textContent = text || 'Add a description';
-  p.style.cssText = PREVIEW_INFO_VALUE_STYLE.replace('font-weight:600;', 'font-weight:500;line-height:1.45;');
+  if (text) {
+    p.innerHTML = renderPreviewDescriptionHtml(text);
+  } else {
+    p.textContent = 'Add a description';
+  }
+  p.style.cssText = PREVIEW_INFO_VALUE_STYLE.replace('font-weight:600;', 'font-weight:500;line-height:1.45;white-space:pre-wrap;');
   section.appendChild(p);
 }
 
