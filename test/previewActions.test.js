@@ -1927,14 +1927,15 @@ describe('media library download actions', () => {
     assert.match(appSource, /saveButton\.addEventListener\('click', \(\) => commitEdit\('save'\)\);/);    assert.match(appSource, /descSection\.append\(textarea, actions\);/);
   });
 
-  it('opens document rows on double-click without changing the single-click selection contract', () => {
+  it('keeps preview descriptions multiline after saving and display patching', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /function handleDoubleClick\(event\) \{/);
-    assert.match(appSource, /const docsRow = event\.target\.closest\('\.cml-docs-row\[data-id\]'\);/);
-    assert.match(appSource, /if \(!itemId \|\| state\.secondaryFilter !== 'Documents'\) \{/);
-    assert.match(appSource, /downloadPreviewItem\(itemId\);/);
-    assert.match(appSource, /refs\.root\.addEventListener\('dblclick', handleDoubleClick, true\);/);
+    assert.match(appSource, /function normalizePreviewDescription\(value\) \{/);
+    assert.match(appSource, /replace\(/);
+    assert.match(appSource, /function renderPreviewDescriptionHtml\(value\) \{/);
+    assert.match(appSource, /replace\(/);
+    assert.match(appSource, /p\.innerHTML = renderPreviewDescriptionHtml\(text\);/);
+    assert.match(appSource, /mediaItem\.description = normalizePreviewDescription\(description\);/);
   });
 
   it('exposes picker actions for video albums and Private media', () => {
