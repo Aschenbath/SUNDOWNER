@@ -6401,16 +6401,7 @@ function closeAlbumSelection() {
   }
 }
 
-function isAlbumTargetedPhotoPickerActive() {
-  const targetAlbum = getAlbumSelectionTarget();
-  return Boolean(targetAlbum)
-    && state.primaryFilter === 'Photos'
-    && !state.activeAlbumName
-    && !state.secondaryFilter
-    && !state.videoAlbumSelectionTarget
-    && !state.privateSelectionMode;
-}
-
+function commitSelectionToCurrentTarget() {
   const targetAlbum = getAlbumSelectionTarget();
   const targetVideoAlbum = getVideoAlbumSelectionTarget();
   if (state.privateSelectionMode) {

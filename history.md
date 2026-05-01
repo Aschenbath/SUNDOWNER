@@ -294,9 +294,11 @@ pm; git diff --check passed.
 - The distinct filter is intentionally scoped to normal album pickers only: it does not appear for video album assignment or Private add flows. State resets when leaving picker mode, and toggling it clears current selection before rerendering so hidden items cannot remain selected and get added accidentally.
 - Added a lightweight active pill style in `css/media-library.css` for the toggled button. **Validation**: `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` and `--check js/media-library/components.js` passed; `git diff -- js/media-library/app.js js/media-library/components.js css/media-library.css` reviewed cleanly.
 
-### 2026-04-17 13:25 Asia/Shanghai
+### 2026-05-01 22:29 Asia/Shanghai
 
-- Added a new primary sidebar route `Mind` across `js/media-library/data.js`, `js/media-library/components.js`, and `js/media-library/app.js`. The page renders a dedicated chat-style surface instead of the timeline: Telegram-synced text and older self-notes appear on the left, while notes sent from the web stay on the right for the current visit and flip to the left after leaving/re-entering the page.
+- Fixed the deployed blank-page regression in `js/media-library/app.js`. Root cause: a bad merge left a second `isAlbumTargetedPhotoPickerActive()` declaration in the file and stripped the function header that should have wrapped the album-commit block, so the browser hit `SyntaxError: Identifier 'isAlbumTargetedPhotoPickerActive' has already been declared` while parsing `/js/media-library/app.js` and the whole media-library module never executed.
+- Restored the missing `commitSelectionToCurrentTarget()` wrapper around the orphaned album-selection logic and removed the duplicate later `isAlbumTargetedPhotoPickerActive()` declaration, leaving a single valid definition earlier in the file.
+- **Validation**: `D:\DevTools\nvm\v24.11.1\node.exe --check js\media-library\app.js`, `--check js\media-library\components.js`, and `--check js\ui-overrides.js` passed. Running `D:\DevTools\nvm\v22.14.0\node.exe .\node_modules\mocha\bin\mocha.js` from the repo root now gets past startup and reports `220 passing`; the remaining `fetchRes` 4 failures are pre-existing and unrelated to this blank-page fix.
 - Implemented persistent Mind storage in `functions/utils/mindStore.js` and exposed it through `GET/POST /api/manage/mind` in `functions/api/manage/mind.js`. The state is stored under `manage@sysConfig@mind`, trims/normalizes message text, caps history length, and supports a `mirror` action that converts fresh web-authored notes from `phase: fresh` to `phase: mirrored`.
 - Extended `functions/utils/telegramSync.js` so Telegram channel posts with plain text but no media now sync into Mind unless they are commands (leading `/`). Album commands still short-circuit first, and edited Telegram text reuses a stable `sourceRef` (`telegram:<channel>:<messageId>`) so later edits update the existing chat bubble instead of duplicating it.
 - **Validation**: attempted `node --check` for the touched frontend/backend files, but this shell currently has no usable `node` binary on `PATH` and the previously used fixed Node locations are unavailable here. I manually reviewed the touched blocks (`app.js`, `components.js`, `mindStore.js`, `telegramSync.js`) and confirmed the new route, API calls, and Telegram sync flow line up end-to-end.
@@ -452,11 +454,14 @@ pm; git diff --check passed.
 - Reduced the pill height from `62px` to `52px`, the inner input height from `48px` to `40px`, and the send button from `56x48` to `50x40`, so the whole composer sits lower and lighter. Mobile keeps `width: 100%` under the existing responsive breakpoint to preserve usability on small screens.
 - **Validation**: `git diff --check` passed after the CSS-only change.
 
-### 2026-04-17 21:49 Asia/Shanghai
 
-- Centered the narrowed desktop Mind composer in `css/media-library.css` by adding `margin: 0 auto` on `.cml-mind__input-shell`, while explicitly resetting that margin on the mobile full-width breakpoint.
-- Reworked `deleteMindMessageById()` in `js/media-library/app.js` into an optimistic delete flow: the chosen message is removed from `state.mindMessages` and rerendered immediately, the delete request runs afterward, and the UI only rolls back if the backend call fails.
-- **Validation**: `git diff --check` and `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js` both passed.
+### 2026-05-01 12:20 Asia/Shanghai
+
+- Stabilized the preview description editing chain in `js/media-library/app.js` and `css/media-library.css`. Description editing now commits only through explicit Save/Cancel actions (no blur-driven auto-commit), `normalizePreviewDescription(...)` preserves line breaks instead of collapsing whitespace, `patchDescriptionDisplay(...)` renders saved descriptions with multiline HTML + `white-space: pre-wrap`, and rebuilt media items now keep `metadata.Description` through `normalizePreviewDescription(...)` instead of `normalizeText(...)`. `test/previewActions.test.js` was extended to lock multiline save/display behavior. **Validation**: `D:\DevTools\nvm\v24.11.1\node.exe .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`68 passing`).
+
+### 2026-05-01 12:32 Asia/Shanghai
+
+- Began reshaping the album-first `Add photos` path away from the old “jump to Photos then pick the album again” loop. `openAlbumSelection(...)` no longer clears the current album context into a generic wall immediately, and follow-up adjustments reduced the worst blank/intermediate states while keeping the route usable. The final dedicated current-album photo-picker modal is still pending; current state is a safer intermediate step, not the finished interaction model. **Validation**: `D:\DevTools\nvm\v24.11.1\node.exe .\node_modules\mocha\bin\mocha.js test\previewActions.test.js` (`68 passing`).
 
 ### 2026-04-17 22:11 Asia/Shanghai
 
