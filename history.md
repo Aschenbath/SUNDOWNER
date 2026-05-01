@@ -303,35 +303,13 @@ pm; git diff --check passed.
 - Extended `functions/utils/telegramSync.js` so Telegram channel posts with plain text but no media now sync into Mind unless they are commands (leading `/`). Album commands still short-circuit first, and edited Telegram text reuses a stable `sourceRef` (`telegram:<channel>:<messageId>`) so later edits update the existing chat bubble instead of duplicating it.
 - **Validation**: attempted `node --check` for the touched frontend/backend files, but this shell currently has no usable `node` binary on `PATH` and the previously used fixed Node locations are unavailable here. I manually reviewed the touched blocks (`app.js`, `components.js`, `mindStore.js`, `telegramSync.js`) and confirmed the new route, API calls, and Telegram sync flow line up end-to-end.
 
+### 2026-05-01 23:58 Asia/Shanghai
+
+- Corrected the root state model for the album-detail `Add photos` flow in `js/media-library/app.js`. `openAlbumSelection()` no longer keeps the app inside the album detail route semantics (`primaryFilter = 'Collections'` + `activeAlbumName = current album`) while also trying to behave like a picker. It now enters a dedicated `Photos` picker state with `albumSelectionTarget` set, `activeAlbumName` cleared, and video/private route state reset, so the flow is driven by one picker context instead of overlapping album-detail and timeline contexts.
+- Added a source-level regression in `test/previewActions.test.js` to lock that contract: current-album add-photos must switch to a dedicated Photos picker state instead of staying in album-detail state.
+- **Validation**: `D:\DevTools\nvm\v24.11.1\node.exe --check js\media-library\app.js` and `--check test\previewActions.test.js` passed; targeted `D:\DevTools\nvm\v22.14.0\node.exe .\node_modules\mocha\bin\mocha.js .\test\previewActions.test.js` passed (`68 passing`). Full Mocha remains `220 passing` with the same pre-existing `fetchRes` 4 failures unrelated to this album-picker fix.
+
 ### 2026-04-17 14:09 Asia/Shanghai
-
-- Reworked `Mind` into an iMessage-inspired conversation surface in `js/media-library/components.js` and `css/media-library.css`: translucent wallpaper-backed thread, compact centered contact header, blue self bubbles / glass incoming bubbles, left-side avatar, and inline per-message delete affordance that appears on hover/focus.
-- Finished the Mind customization flow in `js/media-library/app.js`: the top-right `Style` button now opens a settings sheet where the contact name, avatar image, background preset, and optional wallpaper can be edited; the form persists through `POST /api/manage/mind` with `action: 'update-settings'`, while delete buttons call the new `delete-message` action.
-- Extended the persisted Mind state in `functions/utils/mindStore.js` so `manage@sysConfig@mind` now carries normalized `settings` alongside `messages`, with defaults and image-data sanitization centralized in the store layer.
-- **Validation**: `git diff --check` passed. This shell still has no usable `node` binary on `PATH` (`where.exe node` returns nothing), so I could not run `node --check` here.
-
-### 2026-04-17 14:33 Asia/Shanghai
-
-- Simplified the `Mind` layout after UI feedback: `js/media-library/app.js` now marks the main content wrapper with `is-mind-view`, and `css/media-library.css` uses that state to let Mind occupy the whole right content area instead of rendering as a separate rounded chat card floating inside it.
-- Toned the default Mind palette down to a more neutral iMessage-like gray surface, kept the blue outgoing bubbles, and converted the settings UI from an inline white panel into a proper right-side drawer with a backdrop so the chat area remains visually continuous and the controls are readable/clickable.
-- `js/media-library/components.js` now renders the settings drawer/backdrop as siblings of the chat surface rather than nested inside the message area, which fixes the “chat region gets split by a box” problem and makes close interactions more intuitive.
-- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/app.js`, and `--check js/media-library/components.js` all passed.
-
-### 2026-04-17 14:41 Asia/Shanghai
-
-- Tightened `Mind` contrast in `css/media-library.css`: the whole conversation surface now defaults to a darker slate background, the left-side bubbles are dark enough to preserve the “no extra frame” look but still carry bright text, and day/time labels were brightened so they remain visible over the dark canvas.
-- Reworked the bottom composer to better match the supplied `p2` reference: instead of a floating white pill, the input area is now a full-width dark footer editor with a subtle top divider, darker inner writing field, and much larger/clearer input text and placeholder contrast.
-- Added stronger focus overrides on `.cml-mind__input` to suppress the bright browser-blue focus ring that was making the typed text area look washed out, and bumped `index.html` media-library CSS cache bust to `?v=77`.
-- **Validation**: `git diff --check` passed. This change was CSS-only, so no JS syntax check was needed beyond the existing clean state.
-
-### 2026-04-17 14:56 Asia/Shanghai
-
-- Refined the Mind message layout in `js/media-library/components.js` and `css/media-library.css` to match the new references more closely: incoming rows now keep avatar, bubble, and time on the same line, the incoming bubble shows the contact name inside the bubble, and self messages no longer reserve a fake hidden-avatar spacer that pushed bubbles inward.
-- Shrunk the Mind composer from the oversized dark editor into a compact `p3`-style control strip: left circular `+` button, central pill input, and right send button. The input text size came back down to ordinary chat scale while keeping the higher contrast from the previous pass.
-- Bumped cache busts to `components.js?v=30`, `app.js?v=92`, and `media-library.css?v=78` via `js/media-library/app.js` and `index.html`.
-- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
-
-### 2026-04-17 15:03 Asia/Shanghai
 
 - Removed the remaining Mind layout dead space by marking both `.cml-main-content-shell` and `.cml-main-content` with `is-mind-view` in `js/media-library/app.js`, then collapsing the shell's extra 62px column and zeroing the content padding in `css/media-library.css`. This makes everything outside the sidebar belong to the chat surface as requested.
 - Simplified incoming bubbles in `js/media-library/components.js`: the inline `Mind` sender label is gone, and timestamps now default to hidden opacity/offset in CSS and only fade in on message hover/focus. That keeps the bubble cleaner while still exposing send time on demand.

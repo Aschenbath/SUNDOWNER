@@ -6301,9 +6301,11 @@ function openAlbumSelection(albumName = getActiveAlbumName()) {
   state.albumSelectionTarget = normalizedName;
   state.videoAlbumSelectionTarget = '';
   state.privateSelectionMode = false;
-  state.primaryFilter = 'Collections';
-  state.activeAlbumName = normalizedName;
+  state.primaryFilter = 'Photos';
+  state.activeAlbumName = '';
   state.secondaryFilter = '';
+  state.videoCategoryFilter = '';
+  clearPrivateViewState();
   resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });

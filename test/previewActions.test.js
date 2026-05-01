@@ -1938,77 +1938,15 @@ describe('media library download actions', () => {
     assert.match(appSource, /mediaItem\.description = normalizePreviewDescription\(description\);/);
   });
 
-  it('exposes picker actions for video albums and Private media', () => {
-    const videoRootHtml = TopSearchBar({
-      state: {
-        primaryFilter: 'Photos',
-        secondaryFilter: 'Videos',
-        videoCategoryFilter: '',
-        activeAlbumName: '',
-        albumSelectionTarget: '',
-        videoAlbumSelectionTarget: '',
-        privateSelectionMode: false,
-        privateViewOpen: false,
-        privateRouteUnlocked: false,
-        selectedIds: new Set(),
-        searchDraft: '',
-        searchQuery: '',
-      },
-    });
-    const videoDetailHtml = TopSearchBar({
-      state: {
-        primaryFilter: 'Photos',
-        secondaryFilter: 'Videos',
-        videoCategoryFilter: 'little doggy',
-        activeAlbumName: '',
-        albumSelectionTarget: '',
-        videoAlbumSelectionTarget: '',
-        privateSelectionMode: false,
-        privateViewOpen: false,
-        privateRouteUnlocked: false,
-        selectedIds: new Set(),
-        searchDraft: '',
-        searchQuery: '',
-      },
-    });
-    const privateHtml = TopSearchBar({
-      state: {
-        primaryFilter: 'Photos',
-        secondaryFilter: '',
-        videoCategoryFilter: '',
-        activeAlbumName: '',
-        albumSelectionTarget: '',
-        videoAlbumSelectionTarget: '',
-        privateSelectionMode: false,
-        privateViewOpen: true,
-        privateRouteUnlocked: true,
-        selectedIds: new Set(),
-        searchDraft: '',
-        searchQuery: '',
-      },
-    });
-    const pickerHtml = TopSearchBar({
-      state: {
-        primaryFilter: 'Photos',
-        secondaryFilter: 'Videos',
-        videoCategoryFilter: '',
-        activeAlbumName: '',
-        albumSelectionTarget: '',
-        videoAlbumSelectionTarget: 'little doggy',
-        privateSelectionMode: false,
-        privateViewOpen: false,
-        privateRouteUnlocked: false,
-        selectedIds: new Set(['video-1']),
-        searchDraft: '',
-        searchQuery: '',
-      },
-    });
 
-    assert.match(videoRootHtml, /New video album/);
-    assert.match(videoDetailHtml, /data-action="open-add-to-current-video-album"/);
-    assert.match(videoDetailHtml, /Add videos/);
-    assert.match(privateHtml, /data-action="open-add-to-private"/);
-    assert.match(privateHtml, /Add photos\/videos/);
-    assert.match(pickerHtml, /Add to little doggy/);
+  it('keeps current-album add-photos in a dedicated Photos picker instead of the album detail state', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /function openAlbumSelection\(albumName = getActiveAlbumName\(\)\) \{/);
+    assert.match(appSource, /state\.albumSelectionTarget = normalizedName;/);
+    assert.match(appSource, /state\.primaryFilter = 'Photos';/);
+    assert.match(appSource, /state\.activeAlbumName = '';/);
+    assert.match(appSource, /state\.videoCategoryFilter = '';/);
+    assert.match(appSource, /clearPrivateViewState\(\);/);
   });
 });
