@@ -6301,10 +6301,14 @@ function openAlbumSelection(albumName = getActiveAlbumName()) {
   state.albumSelectionTarget = normalizedName;
   state.videoAlbumSelectionTarget = '';
   state.privateSelectionMode = false;
+  state.primaryFilter = 'Photos';
+  state.activeAlbumName = '';
+  state.secondaryFilter = '';
   resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
   resetLoadedCount();
+  pushNavigationHash();
   render();
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
