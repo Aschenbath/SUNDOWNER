@@ -1960,7 +1960,7 @@ describe('media library download actions', () => {
 
     assert.match(appSource, /case 'confirm-add-to-current-album':\s*commitSelectionToCurrentTarget\(\);/);
     assert.match(appSource, /return commitSelectionToAlbum\(targetAlbum\);/);
-    assert.match(appSource, /case 'open-add-to-album':\s*openAlbumDialog\('assign'\);/);
+    assert.match(appSource, /case 'open-add-to-album':\s*if \(state\.albumSelectionTarget\) \{\s*commitSelectionToAlbum\(state\.albumSelectionTarget\);\s*return true;\s*\}\s*openAlbumDialog\('assign'\);\s*return true;/);
     assert.match(topbarHtml, /data-action="confirm-add-to-current-album"/);
     assert.match(topbarHtml, /Add selected to scenery/);
     assert.doesNotMatch(topbarHtml, /data-action="open-add-to-album"/);

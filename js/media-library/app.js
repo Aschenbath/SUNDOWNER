@@ -10625,6 +10625,10 @@ function handleAction(actionTarget) {
       clearSelection();
       return true;
     case 'open-add-to-album':
+      if (state.albumSelectionTarget) {
+        commitSelectionToAlbum(state.albumSelectionTarget);
+        return true;
+      }
       openAlbumDialog('assign');
       return true;
     case 'download-selected':
