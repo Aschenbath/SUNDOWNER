@@ -1,3 +1,4 @@
+console.warn('[album-add-debug] app.js loaded v173');
 import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js?v=2';
 import {
   AdminPanel,
