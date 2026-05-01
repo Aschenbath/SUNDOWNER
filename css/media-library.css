@@ -6604,6 +6604,7 @@ body.codex-media-library-active #app {
   color: #c2cad6 !important;
   font-size: 15px;
   line-height: 1.4;
+  white-space: pre-wrap;
 }
 
 #codex-media-library-root .cml-preview__info-description.has-content {
