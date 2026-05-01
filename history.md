@@ -303,32 +303,13 @@ pm; git diff --check passed.
 - Extended `functions/utils/telegramSync.js` so Telegram channel posts with plain text but no media now sync into Mind unless they are commands (leading `/`). Album commands still short-circuit first, and edited Telegram text reuses a stable `sourceRef` (`telegram:<channel>:<messageId>`) so later edits update the existing chat bubble instead of duplicating it.
 - **Validation**: attempted `node --check` for the touched frontend/backend files, but this shell currently has no usable `node` binary on `PATH` and the previously used fixed Node locations are unavailable here. I manually reviewed the touched blocks (`app.js`, `components.js`, `mindStore.js`, `telegramSync.js`) and confirmed the new route, API calls, and Telegram sync flow line up end-to-end.
 
-### 2026-05-01 23:58 Asia/Shanghai
+### 2026-05-02 00:13 Asia/Shanghai
 
-- Corrected the root state model for the album-detail `Add photos` flow in `js/media-library/app.js`. `openAlbumSelection()` no longer keeps the app inside the album detail route semantics (`primaryFilter = 'Collections'` + `activeAlbumName = current album`) while also trying to behave like a picker. It now enters a dedicated `Photos` picker state with `albumSelectionTarget` set, `activeAlbumName` cleared, and video/private route state reset, so the flow is driven by one picker context instead of overlapping album-detail and timeline contexts.
-- Added a source-level regression in `test/previewActions.test.js` to lock that contract: current-album add-photos must switch to a dedicated Photos picker state instead of staying in album-detail state.
-- **Validation**: `D:\DevTools\nvm\v24.11.1\node.exe --check js\media-library\app.js` and `--check test\previewActions.test.js` passed; targeted `D:\DevTools\nvm\v22.14.0\node.exe .\node_modules\mocha\bin\mocha.js .\test\previewActions.test.js` passed (`68 passing`). Full Mocha remains `220 passing` with the same pre-existing `fetchRes` 4 failures unrelated to this album-picker fix.
+- Fixed the album-first picker confirm action without touching the ordinary photo-first Add to album flow. In `js/media-library/app.js`, the `confirm-add-to-current-album` action now calls `commitSelectionToCurrentTarget()` directly instead of falling through the old broken confirm path. That means when `state.albumSelectionTarget` is set, the selected photos are committed straight into that current album and the flow closes back to the album detail page, instead of reopening the generic album chooser.
+- Updated the picker selection-toolbar copy in `js/media-library/components.js` so current-album picker mode now shows explicit commit wording (`Add selected to <album>`) while other picker targets keep the generic wording.
+- Added a regression in `test/previewActions.test.js` that locks three things at once: `confirm-add-to-current-album` must dispatch to `commitSelectionToCurrentTarget()`, that helper must still commit through `commitSelectionToAlbum(targetAlbum)`, and the album-first picker toolbar must not expose the ordinary `open-add-to-album` action.
+- **Validation**: `D:\DevTools\nvm\v24.11.1\node.exe --check js\media-library\app.js`, `--check js\media-library\components.js`, and `--check test\previewActions.test.js` passed. Targeted `D:\DevTools\nvm\v22.14.0\node.exe .\node_modules\mocha\bin\mocha.js .\test\previewActions.test.js` passed (`69 passing`).
 
-### 2026-04-17 14:09 Asia/Shanghai
-
-- Removed the remaining Mind layout dead space by marking both `.cml-main-content-shell` and `.cml-main-content` with `is-mind-view` in `js/media-library/app.js`, then collapsing the shell's extra 62px column and zeroing the content padding in `css/media-library.css`. This makes everything outside the sidebar belong to the chat surface as requested.
-- Simplified incoming bubbles in `js/media-library/components.js`: the inline `Mind` sender label is gone, and timestamps now default to hidden opacity/offset in CSS and only fade in on message hover/focus. That keeps the bubble cleaner while still exposing send time on demand.
-- Bumped cache busts to `components.js?v=31`, `app.js?v=93`, and `media-library.css?v=79` so the layout/timestamp changes are visible immediately after refresh.
-- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
-
-### 2026-04-17 15:14 Asia/Shanghai
-
-- Removed the last bottom gap on the `Mind` page by stopping the `is-mind-view` chain from using `calc(100vh - ...)`/negative-margin hacks in `css/media-library.css`. The main-content shell, main-content body, inner wrapper, and `.cml-mind` itself now all inherit `height: 100%` from the existing layout, so the chat surface and sticky composer actually reach the bottom of the usable pane.
-- Bumped `index.html` media-library CSS cache bust from `?v=79` to `?v=80` so the full-height fix is visible immediately after refresh.
-- **Validation**: `git diff --check` passed. This was a CSS/layout-only change, so no JS syntax check was needed.
-
-### 2026-04-17 15:23 Asia/Shanghai
-
-- Removed two pieces of Mind helper copy in `js/media-library/components.js`: the topbar subtitle (`iMessage-style self conversation`) is gone, and the composer input no longer renders the `Write something to your future self` placeholder text.
-- Bumped the media-library module cache versions to `components.js?v=32` inside `js/media-library/app.js` and `app.js?v=94` in `index.html` so the text removal shows up immediately after refresh.
-- **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
-
-### 2026-04-17 15:33 Asia/Shanghai
 
 - Extended Mind wallpaper settings end-to-end so they can point at an existing library photo instead of only storing uploaded data URLs. `functions/utils/mindStore.js` and `js/media-library/app.js` now persist/normalize `backgroundPhotoId`, resolve it against accessible photo items at render time, and automatically clear that id when the user uploads a custom wallpaper instead.
 - Added a recent-photo wallpaper picker inside the Mind settings drawer in `js/media-library/components.js`, with thumbnail buttons sourced from the current photo library and styled in `css/media-library.css`. This keeps `Upload wallpaper` available, but also lets the user pick a background straight from existing photos.

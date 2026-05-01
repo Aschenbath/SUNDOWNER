@@ -726,6 +726,9 @@ export function TopSearchBar({ state, storageSummary = null, canDeleteSelection 
   if (selectedCount) {
     if (isAlbumPickerMode) {
       const isCurrentAlbumPicker = Boolean(state.primaryFilter === 'Photos' && state.albumSelectionTarget && !state.videoAlbumSelectionTarget && !state.privateSelectionMode);
+      const confirmLabel = isCurrentAlbumPicker
+        ? `Add selected to ${escapeHtml(pickerTargetLabel)}`
+        : `Add to ${escapeHtml(pickerTargetLabel)}`;
       return `
         <header class="cml-topbar is-selection-mode">
           <div class="cml-topbar__selection-shell">
@@ -735,7 +738,7 @@ export function TopSearchBar({ state, storageSummary = null, canDeleteSelection 
             </div>
             <div class="cml-topbar__selection-actions">
               <button type="button" class="cml-topbar__secondary-button" data-action="cancel-add-to-current-album">Cancel</button>
-              <button type="button" class="cml-topbar__upload-button" data-action="confirm-add-to-current-album">${isCurrentAlbumPicker ? `Add to ${escapeHtml(pickerTargetLabel)}` : `Add to ${escapeHtml(pickerTargetLabel)}`}</button>
+              <button type="button" class="cml-topbar__upload-button" data-action="confirm-add-to-current-album">${confirmLabel}</button>
             </div>
           </div>
         </header>

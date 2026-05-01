@@ -10657,7 +10657,7 @@ function handleAction(actionTarget) {
       closeAlbumSelection();
       return true;
     case 'confirm-add-to-current-album':
-      confirmAlbumSelection();
+      commitSelectionToCurrentTarget();
       return true;
     case 'open-create-album':
       openAlbumDialog('create');

@@ -1939,6 +1939,33 @@ describe('media library download actions', () => {
   });
 
 
+  it('routes current-album picker confirm directly into the current album target', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const topbarHtml = TopSearchBar({
+      state: {
+        primaryFilter: 'Photos',
+        secondaryFilter: '',
+        videoCategoryFilter: '',
+        activeAlbumName: '',
+        albumSelectionTarget: 'scenery',
+        videoAlbumSelectionTarget: '',
+        privateSelectionMode: false,
+        privateViewOpen: false,
+        privateRouteUnlocked: false,
+        selectedIds: new Set(['photo-1', 'photo-2']),
+        searchDraft: '',
+        searchQuery: '',
+      },
+    });
+
+    assert.match(appSource, /case 'confirm-add-to-current-album':\s*commitSelectionToCurrentTarget\(\);/);
+    assert.match(appSource, /return commitSelectionToAlbum\(targetAlbum\);/);
+    assert.match(appSource, /case 'open-add-to-album':\s*openAlbumDialog\('assign'\);/);
+    assert.match(topbarHtml, /data-action="confirm-add-to-current-album"/);
+    assert.match(topbarHtml, /Add selected to scenery/);
+    assert.doesNotMatch(topbarHtml, /data-action="open-add-to-album"/);
+  });
+
   it('keeps current-album add-photos in a dedicated Photos picker instead of the album detail state', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
