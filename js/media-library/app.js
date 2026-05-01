@@ -2701,6 +2701,10 @@ function getVideoAlbumSelectionTarget() {
   return normalizeVideoCategory(state.videoAlbumSelectionTarget);
 }
 
+function isAlbumTargetedPhotoPickerActive() {
+  return Boolean(getAlbumSelectionTarget()) && state.primaryFilter === 'Collections' && normalizeText(state.activeAlbumName) === getAlbumSelectionTarget();
+}
+
 function getViewportLayoutWidth() {
   const docWidth = typeof document !== 'undefined' ? Number(document.documentElement?.clientWidth || 0) : 0;
   const winWidth = typeof window !== 'undefined' ? Number(window.innerWidth || 0) : 0;
@@ -6297,14 +6301,10 @@ function openAlbumSelection(albumName = getActiveAlbumName()) {
   state.albumSelectionTarget = normalizedName;
   state.videoAlbumSelectionTarget = '';
   state.privateSelectionMode = false;
-  state.primaryFilter = 'Photos';
-  state.activeAlbumName = '';
-  state.secondaryFilter = '';
   resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
   resetLoadedCount();
-  pushNavigationHash();
   render();
   if (refs.scrollRegion) {
     refs.scrollRegion.scrollTo({ top: 0, behavior: 'auto' });
