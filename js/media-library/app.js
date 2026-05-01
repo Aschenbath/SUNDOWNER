@@ -4578,7 +4578,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     sizeMb: Math.max(0, Number(metadata.FileSize) || Number(metadata.FileSizeMB) || 0),
     exif: metadata.Exif || null,
     browserPreviewSupported,
-    description: normalizeText(metadata.Description || ''),
+    description: normalizePreviewDescription(metadata.Description || ''),
     audioTitle: audioMeta?.audioTitle || '',
     audioArtist: audioMeta?.audioArtist || '',
     audioAlbum: audioMeta?.audioAlbum || '',
