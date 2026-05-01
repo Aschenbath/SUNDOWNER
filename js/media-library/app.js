@@ -7296,7 +7296,7 @@ async function savePreviewDescription(itemId, description) {
 
     const mediaItem = state.mediaItems.find((entry) => entry.id === itemId);
     if (mediaItem) {
-      mediaItem.description = normalizeText(description);
+      mediaItem.description = normalizePreviewDescription(description);
     }
     refreshPreviewAfterMetadataPatch(itemId);
 
