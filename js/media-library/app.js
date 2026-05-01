@@ -6401,7 +6401,16 @@ function closeAlbumSelection() {
   }
 }
 
-function confirmAlbumSelection() {
+function isAlbumTargetedPhotoPickerActive() {
+  const targetAlbum = getAlbumSelectionTarget();
+  return Boolean(targetAlbum)
+    && state.primaryFilter === 'Photos'
+    && !state.activeAlbumName
+    && !state.secondaryFilter
+    && !state.videoAlbumSelectionTarget
+    && !state.privateSelectionMode;
+}
+
   const targetAlbum = getAlbumSelectionTarget();
   const targetVideoAlbum = getVideoAlbumSelectionTarget();
   if (state.privateSelectionMode) {
@@ -8894,7 +8903,7 @@ function render() {
                       query: parsedSearch.textQuery,
                       isLoading: state.isLibraryLoading,
                       mode: viewModel.activeAlbumName ? 'album-detail' : (viewModel.isAlbumPickerMode ? 'album-picker' : 'media'),
-                      actionLabel: viewModel.activeAlbumName ? 'Add from library' : (viewModel.isAlbumPickerMode ? 'Back to album' : ''),
+                      actionLabel: viewModel.activeAlbumName ? 'Add from library' : (viewModel.isAlbumPickerMode ? 'Cancel picker' : ''),
                       actionAction: viewModel.activeAlbumName ? 'open-add-to-current-album' : (viewModel.isAlbumPickerMode ? 'cancel-add-to-current-album' : '')
                     }))}`}
             </div>
