@@ -316,6 +316,13 @@ pm; git diff --check passed.
 - Bumped cache versions to `components.js?v=33`, `app.js?v=95`, and `media-library.css?v=81` via `js/media-library/app.js` and `index.html`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
 
+### 2026-05-02 00:46 Asia/Shanghai
+
+- Fixed the live `Uncaught SyntaxError: missing ) after argument list` coming from the compiled legacy Vue bundle `js/app.f0825045.js`. Root cause: that tracked bundle contained a broken literal in the axios response interceptor (`r.nk.error("认证失败，请重新登录�?)`) where a mojibake replacement character had eaten the closing quote, so the browser parser died before the old app shell finished loading.
+- Applied the smallest safe repair directly in the tracked compiled asset by restoring the literal to `r.nk.error("认证失败，请重新登录")`, then regenerated the paired gzip asset `js/app.f0825045.js.gz` so deployed clients and compressed responses stay aligned.
+- Bumped `index.html` media-library entry cache bust from `app.js?v=174` to `app.js?v=175` so the post-fix frontend definitely refreshes.
+- **Validation**: `D:\DevTools\nvm\v24.11.1\node.exe --check js\app.f0825045.js` passed after the fix.
+
 ### 2026-05-02 00:28 Asia/Shanghai
 
 - Fixed the real album-first `Add photos` lifecycle bug in `js/media-library/app.js`. Root cause: `restoreNavigationFromHash()` always called `resetAddToTargetModes()` before replaying the current hash, so ordinary in-place `history.replaceState('#/photos')` refreshes during the album-first picker silently cleared `state.albumSelectionTarget` even though the user had not cancelled or exited the picker. That left the later `open-add-to-album` handler seeing an empty target and falling back to `openAlbumDialog('assign')`.
