@@ -350,8 +350,8 @@ describe('media library download actions', () => {
 
     assert.match(html, /class="cml-dialog__panel cml-album-dialog cml-album-dialog--sheet"/);
     assert.match(html, /Search albums/);
-    assert.match(html, /My albums/);
-    assert.match(html, /Shared with me/);
+    assert.doesNotMatch(html, /My albums/);
+    assert.doesNotMatch(html, /Shared with me/);
     assert.match(html, /Last modified/);
     assert.match(html, /New album/);
     assert.match(html, /12 items/);

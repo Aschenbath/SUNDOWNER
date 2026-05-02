@@ -2930,13 +2930,8 @@ export function AlbumDialog({ state, albums, target = 'photo' }) {
     ? `Add ${selectedCount} selected item${selectedCount === 1 ? '' : 's'} to an existing ${targetLabel} or create a new one.`
     : `Create a new ${targetLabel} now and fill it later from the library.`;
   const normalizedAlbumSearch = String(state.albumDrawerSearch || '').trim().toLowerCase();
-  const normalizedScope = String(state.albumDrawerScope || 'all').toLowerCase();
   const visibleAlbumEntries = (Array.isArray(albums) ? albums : [])
-    .filter((entry) => {
-      const matchesScope = normalizedScope === 'all' || String(entry.scope || 'mine').toLowerCase() === normalizedScope;
-      const matchesSearch = !normalizedAlbumSearch || String(entry.name || '').toLowerCase().includes(normalizedAlbumSearch);
-      return matchesScope && matchesSearch;
-    });
+    .filter((entry) => !normalizedAlbumSearch || String(entry.name || '').toLowerCase().includes(normalizedAlbumSearch));
   const modalSearchPlaceholder = `Search ${targetLabelPlural}`;
   const createLabel = `New ${targetLabel}`;
   return `
@@ -2961,11 +2956,6 @@ export function AlbumDialog({ state, albums, target = 'photo' }) {
               placeholder="${escapeHtml(modalSearchPlaceholder)}"
               autocomplete="off"
             />
-          </div>
-          <div class="cml-album-dialog__scope-row" role="tablist" aria-label="Album scope">
-            <button type="button" class="cml-album-dialog__scope-chip ${normalizedScope === 'all' ? 'is-active' : ''}" data-action="set-album-drawer-scope" data-scope="all" aria-pressed="${normalizedScope === 'all' ? 'true' : 'false'}">${normalizedScope === 'all' ? icon('check') : ''}<span>All</span></button>
-            <button type="button" class="cml-album-dialog__scope-chip ${normalizedScope === 'mine' ? 'is-active' : ''}" data-action="set-album-drawer-scope" data-scope="mine" aria-pressed="${normalizedScope === 'mine' ? 'true' : 'false'}"><span>My albums</span></button>
-            <button type="button" class="cml-album-dialog__scope-chip ${normalizedScope === 'shared' ? 'is-active' : ''}" data-action="set-album-drawer-scope" data-scope="shared" aria-pressed="${normalizedScope === 'shared' ? 'true' : 'false'}"><span>Shared with me</span></button>
           </div>
           <div class="cml-album-dialog__sort-row">
             <span class="cml-album-dialog__sort-icon" aria-hidden="true">${icon('updates')}</span>

@@ -9375,30 +9375,32 @@ function getFloatingLayerContainer() {
   return refs.root?.querySelector('.cml-app-shell') || refs.root;
 }
 
-function replaceFloatingLayer(currentNode, nextNode) {
-  const container = getFloatingLayerContainer();
-  if (!(container instanceof HTMLElement)) {
-    return;
+function patchAlbumDialogSearchResults() {
+  if (!refs.root || !state.albumDialogOpen || state.albumDialogOrigin === 'preview') {
+    return false;
   }
-  if (currentNode instanceof HTMLElement && nextNode instanceof HTMLElement) {
-    currentNode.replaceWith(nextNode);
-  } else if (currentNode instanceof HTMLElement && !(nextNode instanceof HTMLElement)) {
-    currentNode.remove();
-  } else if (!(currentNode instanceof HTMLElement) && nextNode instanceof HTMLElement) {
-    container.appendChild(nextNode);
+  const currentDialog = refs.root.querySelector('.cml-album-dialog');
+  if (!(currentDialog instanceof HTMLElement)) {
+    return false;
   }
-}
-
-function getToastMarkup() {
-  if (!state.toastMessage) {
-    return '';
+  const allItems = getAllItems();
+  const template = document.createElement('template');
+  template.innerHTML = AlbumDialog({
+    state,
+    albums: getDialogAlbumEntries(allItems),
+    target: state.albumDialogTarget
+  }).trim();
+  const nextDialog = template.content.querySelector('.cml-album-dialog');
+  if (!(nextDialog instanceof HTMLElement)) {
+    return false;
   }
-  return `
-    <div class="cml-toast cml-toast--${state.toastType}" role="alert" aria-live="polite">
-      <span class="cml-toast__message">${state.toastMessage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
-      <button type="button" class="cml-toast__dismiss" data-action="dismiss-toast" aria-label="Dismiss">✕</button>
-    </div>
-  `;
+  const currentBody = currentDialog.querySelector('.cml-album-dialog__body');
+  const nextBody = nextDialog.querySelector('.cml-album-dialog__body');
+  if (!(currentBody instanceof HTMLElement) || !(nextBody instanceof HTMLElement)) {
+    return false;
+  }
+  currentBody.replaceWith(nextBody);
+  return true;
 }
 
 function renderPreviewTransientLayers({ animateDirection = 0 } = {}) {
@@ -11793,15 +11795,15 @@ function handleInput(event) {
     return;
   }
   if (input.dataset.focusKey === 'album-search') {
-    const selectionStart = input.selectionStart;
-    const selectionEnd = input.selectionEnd;
     state.albumDrawerSearch = input.value;
-    renderAlbumDialogState({
-      preferPreviewRender: state.albumDialogOrigin === 'preview',
-      focusKey: 'search',
-      selectionStart,
-      selectionEnd
-    });
+    if (!patchAlbumDialogSearchResults()) {
+      renderAlbumDialogState({
+        preferPreviewRender: state.albumDialogOrigin === 'preview',
+        focusKey: 'search',
+        selectionStart: input.selectionStart,
+        selectionEnd: input.selectionEnd
+      });
+    }
     return;
   }
   if (input.classList.contains('cml-album-dialog__input')) {
