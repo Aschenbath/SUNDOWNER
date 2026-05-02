@@ -33,7 +33,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=84';
+} from './components.js?v=85';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -9397,6 +9397,23 @@ function renderPreviewOverlay({ animateDirection = 0, nextPreviewElement = null 
 
 function getFloatingLayerContainer() {
   return refs.root?.querySelector('.cml-app-shell') || refs.root;
+}
+
+function replaceFloatingLayer(currentLayer, nextLayer) {
+  if (currentLayer instanceof HTMLElement && nextLayer instanceof HTMLElement) {
+    currentLayer.replaceWith(nextLayer);
+    return;
+  }
+  if (currentLayer instanceof HTMLElement) {
+    currentLayer.remove();
+    return;
+  }
+  if (nextLayer instanceof HTMLElement) {
+    const container = getFloatingLayerContainer();
+    if (container instanceof HTMLElement) {
+      container.appendChild(nextLayer);
+    }
+  }
 }
 
 function patchAlbumDialogSearchResults() {
