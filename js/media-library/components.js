@@ -2937,7 +2937,7 @@ export function AlbumDialog({ state, albums, target = 'photo' }) {
   const createLabel = `New ${targetLabel}`;
   const selectedLabel = `${selectedCount} selected ${targetItemLabel}${selectedCount === 1 ? '' : 's'}`;
   const createTile = `
-    <button type="button" class="cml-album-dialog__entry cml-album-dialog__entry--create cml-album-dialog__chooser-card" data-action="toggle-album-create" role="listitem">
+    <button type="button" class="cml-album-dialog__entry cml-album-dialog__entry--create cml-album-dialog__chooser-row" data-action="toggle-album-create" role="listitem">
       <span class="cml-album-dialog__entry-thumb cml-album-dialog__entry-thumb--create" aria-hidden="true">${icon('plus')}</span>
       <span class="cml-album-dialog__entry-copy">
         <span class="cml-album-dialog__entry-title">${createLabel}</span>
@@ -2946,9 +2946,9 @@ export function AlbumDialog({ state, albums, target = 'photo' }) {
     </button>
   `;
   const albumTiles = visibleAlbumEntries.map((entry) => `
-    <button type="button" class="cml-album-dialog__entry cml-album-dialog__chooser-card ${entry.selected ? 'is-selected' : ''}" data-action="assign-album" data-album-name="${escapeHtml(entry.name)}" aria-pressed="${entry.selected ? 'true' : 'false'}" role="listitem">
+    <button type="button" class="cml-album-dialog__entry cml-album-dialog__chooser-row ${entry.selected ? 'is-selected' : ''}" data-action="assign-album" data-album-name="${escapeHtml(entry.name)}" aria-pressed="${entry.selected ? 'true' : 'false'}" role="listitem">
       <span class="cml-album-dialog__entry-thumb ${entry.coverUrl ? '' : 'cml-album-dialog__entry-thumb--placeholder'}">
-        ${entry.coverUrl ? `<img src="${escapeHtml(entry.coverUrl)}" alt="${escapeHtml(entry.name)}" class="cml-album-dialog__entry-image" />` : icon('albums')}
+        ${entry.coverUrl ? `<img src="${escapeHtml(entry.coverUrl)}" alt="${escapeHtml(entry.name)}" class="cml-album-dialog__entry-image" />` : ''}
       </span>
       <span class="cml-album-dialog__entry-copy">
         <span class="cml-album-dialog__entry-title">${escapeHtml(entry.name)}</span>

@@ -326,7 +326,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /Library path/);
   });
 
-  it('renders the standard add-to-album modal as a themed visual chooser with search and album tiles', () => {
+  it('renders the standard add-to-album modal as a themed destination row chooser with search', () => {
     const html = AlbumDialog({
       state: {
         albumDialogOpen: true,
@@ -357,7 +357,8 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /Shared with me/);
     assert.match(html, /Last modified/);
     assert.match(html, /cml-album-dialog__chooser/);
-    assert.match(html, /cml-album-dialog__chooser-card/);
+    assert.match(html, /cml-album-dialog__chooser-row/);
+    assert.doesNotMatch(html, /cml-album-dialog__chooser-card/);
     assert.match(html, /New album/);
     assert.match(html, /12 items/);
     assert.match(html, /Already added/);
