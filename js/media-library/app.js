@@ -8924,7 +8924,7 @@ function render() {
       ${PreviewModal(getPreviewOverlayModel())}
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
       ${StoragePanel({ state, insights: storageInsights })}
-      ${AlbumDialog({ state, albums: getDialogAlbumNames(getAccessibleItems()), target: state.albumDialogTarget })}
+      ${AlbumDialog({ state, albums: getDialogAlbumEntries(getAccessibleItems()), target: state.albumDialogTarget })}
       ${renderPlaylistDialog()}
       ${renderRenameItemDialog()}
       ${ConfirmDialog({ state })}
@@ -9419,7 +9419,7 @@ function renderPreviewTransientLayers({ animateDirection = 0 } = {}) {
   const template = document.createElement('template');
   template.innerHTML = `
     ${PreviewModal(previewModel)}
-    ${AlbumDialog({ state, albums: getAvailableAlbumNames(allItems) })}
+    ${AlbumDialog({ state, albums: getDialogAlbumEntries(allItems), target: state.albumDialogTarget })}
     ${ConfirmDialog({ state })}
     ${getToastMarkup()}
   `.trim();
