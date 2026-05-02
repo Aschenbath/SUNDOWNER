@@ -2925,15 +2925,45 @@ export function AlbumDialog({ state, albums, target = 'photo' }) {
   const isAssignMode = state.albumDialogMode === 'assign';
   const targetLabel = target === 'video' ? 'video album' : 'album';
   const targetLabelPlural = target === 'video' ? 'video albums' : 'albums';
+  const targetItemLabel = target === 'video' ? 'video' : 'photo';
   const title = isAssignMode ? `Add to ${targetLabel}` : `Create ${targetLabel}`;
   const description = isAssignMode
-    ? `Add ${selectedCount} selected item${selectedCount === 1 ? '' : 's'} to an existing ${targetLabel} or create a new one.`
+    ? `Choose a destination ${targetLabel}, or make a new one without leaving this flow.`
     : `Create a new ${targetLabel} now and fill it later from the library.`;
   const normalizedAlbumSearch = String(state.albumDrawerSearch || '').trim().toLowerCase();
   const visibleAlbumEntries = (Array.isArray(albums) ? albums : [])
     .filter((entry) => !normalizedAlbumSearch || String(entry.name || '').toLowerCase().includes(normalizedAlbumSearch));
   const modalSearchPlaceholder = `Search ${targetLabelPlural}`;
   const createLabel = `New ${targetLabel}`;
+  const selectedLabel = `${selectedCount} selected ${targetItemLabel}${selectedCount === 1 ? '' : 's'}`;
+  const createTile = `
+    <button type="button" class="cml-album-dialog__entry cml-album-dialog__entry--create cml-album-dialog__chooser-card" data-action="toggle-album-create" role="listitem">
+      <span class="cml-album-dialog__entry-thumb cml-album-dialog__entry-thumb--create" aria-hidden="true">${icon('plus')}</span>
+      <span class="cml-album-dialog__entry-copy">
+        <span class="cml-album-dialog__entry-title">${createLabel}</span>
+        <span class="cml-album-dialog__entry-meta">Create and add selected ${targetItemLabel}${selectedCount === 1 ? '' : 's'}</span>
+      </span>
+    </button>
+  `;
+  const albumTiles = visibleAlbumEntries.map((entry) => `
+    <button type="button" class="cml-album-dialog__entry cml-album-dialog__chooser-card ${entry.selected ? 'is-selected' : ''}" data-action="assign-album" data-album-name="${escapeHtml(entry.name)}" aria-pressed="${entry.selected ? 'true' : 'false'}" role="listitem">
+      <span class="cml-album-dialog__entry-thumb ${entry.coverUrl ? '' : 'cml-album-dialog__entry-thumb--placeholder'}">
+        ${entry.coverUrl ? `<img src="${escapeHtml(entry.coverUrl)}" alt="${escapeHtml(entry.name)}" class="cml-album-dialog__entry-image" />` : icon('albums')}
+      </span>
+      <span class="cml-album-dialog__entry-copy">
+        <span class="cml-album-dialog__entry-title">${escapeHtml(entry.name)}</span>
+        <span class="cml-album-dialog__entry-meta">${escapeHtml(formatAlbumItemCountLabel(entry.itemCount))}${entry.selected ? ' · Already added' : ''}</span>
+      </span>
+      ${entry.selected ? `<span class="cml-album-dialog__entry-check" aria-hidden="true">${icon('check')}</span>` : ''}
+    </button>
+  `).join('');
+  const emptyChooser = `
+    <div class="cml-album-dialog__empty cml-album-dialog__empty--chooser">
+      <strong>${normalizedAlbumSearch ? 'No matching destination' : `No ${targetLabelPlural} yet`}</strong>
+      <span>${normalizedAlbumSearch ? `Create "${escapeHtml(state.albumDrawerSearch || '')}" as a new ${targetLabel}.` : `Create your first ${targetLabel} for this selection.`}</span>
+      <button type="button" class="cml-topbar__secondary-button" data-action="toggle-album-create">${createLabel}</button>
+    </div>
+  `;
   return `
     <div class="cml-dialog" role="dialog" aria-modal="true" aria-label="${title}">
       <div class="cml-dialog__backdrop" data-action="close-album-dialog"></div>
@@ -2946,6 +2976,16 @@ export function AlbumDialog({ state, albums, target = 'photo' }) {
           <button type="button" class="cml-dialog__close" data-action="close-album-dialog" aria-label="Close dialog">${icon('close')}</button>
         </header>
         ${isAssignMode ? `
+          <section class="cml-album-dialog__context" aria-label="Current selection">
+            <div class="cml-album-dialog__context-stack">
+              <span class="cml-album-dialog__context-icon" aria-hidden="true">${icon(target === 'video' ? 'play' : 'albums')}</span>
+              <div>
+                <p class="cml-album-dialog__context-label">Ready to organize</p>
+                <p class="cml-album-dialog__context-title">${escapeHtml(selectedLabel)}</p>
+              </div>
+            </div>
+            <span class="cml-album-dialog__context-meta">Pick a visual destination</span>
+          </section>
           <div class="cml-album-dialog__search-row">
             <span class="cml-album-dialog__search-icon" aria-hidden="true">${icon('search')}</span>
             <input
@@ -2976,22 +3016,11 @@ export function AlbumDialog({ state, albums, target = 'photo' }) {
               </div>
             </section>
           ` : `
-            <button type="button" class="cml-album-dialog__entry cml-album-dialog__entry--create" data-action="toggle-album-create">
-              <span class="cml-album-dialog__entry-thumb cml-album-dialog__entry-thumb--create" aria-hidden="true">${icon('plus')}</span>
-              <span class="cml-album-dialog__entry-copy">
-                <span class="cml-album-dialog__entry-title">${createLabel}</span>
-              </span>
-            </button>
+            <div class="cml-album-dialog__chooser" role="list" aria-label="Choose ${targetLabel}">
+              ${createTile}
+              ${albumTiles || emptyChooser}
+            </div>
           `}
-          ${isAssignMode ? (visibleAlbumEntries.length ? visibleAlbumEntries.map((entry) => `
-            <button type="button" class="cml-album-dialog__entry ${entry.selected ? 'is-selected' : ''}" data-action="assign-album" data-album-name="${escapeHtml(entry.name)}" aria-pressed="${entry.selected ? 'true' : 'false'}">
-              <span class="cml-album-dialog__entry-thumb ${entry.coverUrl ? '' : 'cml-album-dialog__entry-thumb--placeholder'}">${entry.coverUrl ? `<img src="${escapeHtml(entry.coverUrl)}" alt="${escapeHtml(entry.name)}" class="cml-album-dialog__entry-image" />` : ''}</span>
-              <span class="cml-album-dialog__entry-copy">
-                <span class="cml-album-dialog__entry-title">${escapeHtml(entry.name)}</span>
-                <span class="cml-album-dialog__entry-meta">${escapeHtml(formatAlbumItemCountLabel(entry.itemCount))}${entry.selected ? ' · Already added' : ''}</span>
-              </span>
-            </button>
-          `).join('') : `<div class="cml-album-dialog__empty">${normalizedAlbumSearch ? `No ${targetLabelPlural} match this search.` : `No ${targetLabelPlural} are available yet.`}</div>`) : ''}
         </div>
         ${!state.albumDrawerCreateMode && !isAssignMode ? `
           <footer class="cml-dialog__footer cml-album-dialog__footer">

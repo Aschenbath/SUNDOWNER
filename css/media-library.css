@@ -3087,17 +3087,17 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-dialog__panel.cml-album-dialog--sheet {
-  width: min(760px, calc(100vw - 40px));
-  max-height: min(86vh, 920px);
+  width: min(840px, calc(100vw - 40px));
+  max-height: min(88vh, 940px);
   margin-top: 4vh;
   padding: 0;
   overflow: hidden;
-  border-radius: 28px;
+  border-radius: 30px;
   background: color-mix(in srgb, var(--cml-theme-dialog-surface) 92%, var(--cml-theme-surface) 8%);
 }
 
 #codex-media-library-root .cml-album-dialog__header {
-  padding: 28px 32px 18px;
+  padding: 28px 32px 16px;
 }
 
 #codex-media-library-root .cml-album-dialog__header .cml-dialog__title {
@@ -3112,10 +3112,77 @@ body.codex-media-library-active #app {
   font-size: 16px;
 }
 
+#codex-media-library-root .cml-album-dialog__context,
 #codex-media-library-root .cml-album-dialog__search-row,
 #codex-media-library-root .cml-album-dialog__scope-row,
 #codex-media-library-root .cml-album-dialog__sort-row {
-  margin: 0 32px;
+  margin-left: 32px;
+  margin-right: 32px;
+}
+
+#codex-media-library-root .cml-album-dialog__context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(var(--cml-theme-accent-rgb), 0.18);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(var(--cml-theme-accent-rgb), 0.16), transparent 34%),
+    color-mix(in srgb, var(--cml-theme-surface-elevated) 86%, var(--cml-theme-accent-soft) 14%);
+}
+
+#codex-media-library-root .cml-album-dialog__context-stack {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-album-dialog__context-icon {
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--cml-theme-accent-rgb), 0.14);
+  color: rgb(var(--cml-theme-accent-rgb));
+}
+
+#codex-media-library-root .cml-album-dialog__context-icon .cml-icon {
+  width: 22px;
+  height: 22px;
+}
+
+#codex-media-library-root .cml-album-dialog__context-label,
+#codex-media-library-root .cml-album-dialog__context-title,
+#codex-media-library-root .cml-album-dialog__context-meta {
+  margin: 0;
+}
+
+#codex-media-library-root .cml-album-dialog__context-label,
+#codex-media-library-root .cml-album-dialog__context-meta {
+  color: var(--cml-theme-text-muted);
+  font-size: 13px;
+  font-weight: 560;
+}
+
+#codex-media-library-root .cml-album-dialog__context-title {
+  color: var(--cml-theme-text);
+  font-size: 17px;
+  font-weight: 680;
+  letter-spacing: -0.01em;
+}
+
+#codex-media-library-root .cml-album-dialog__context-meta {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(var(--cml-theme-accent-rgb), 0.1);
 }
 
 #codex-media-library-root .cml-album-dialog__search-row {
@@ -3140,8 +3207,8 @@ body.codex-media-library-active #app {
   width: 100%;
   min-height: 58px;
   padding: 0 18px 0 62px;
-  border-radius: 14px;
-  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
   background: color-mix(in srgb, var(--cml-theme-surface-elevated) 96%, white 4%);
   color: rgba(17, 24, 39, 0.98);
   caret-color: rgba(17, 24, 39, 0.98);
@@ -3164,7 +3231,7 @@ body.codex-media-library-active #app {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  margin-top: 22px;
+  margin-top: 18px;
   color: var(--cml-theme-text-muted);
   font-size: 15px;
   font-weight: 500;
@@ -3176,9 +3243,9 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-album-dialog__body {
-  margin-top: 18px;
-  padding: 0 0 28px;
-  max-height: min(54vh, 560px);
+  margin-top: 16px;
+  padding: 0 32px 28px;
+  max-height: min(52vh, 560px);
   overflow-y: auto;
 }
 
@@ -3187,21 +3254,47 @@ body.codex-media-library-active #app {
   width: 100%;
   margin: 0;
   border: 0;
-  border-radius: 0;
   background: transparent;
 }
 
+#codex-media-library-root .cml-album-dialog__chooser {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 14px;
+}
+
 #codex-media-library-root .cml-album-dialog__entry {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 16px 32px;
   text-align: left;
-  transition: background-color 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
-#codex-media-library-root .cml-album-dialog__entry:hover {
+#codex-media-library-root .cml-album-dialog__chooser-card {
+  min-height: 186px;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--cml-theme-surface-elevated) 88%, var(--cml-theme-surface) 12%);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+}
+
+#codex-media-library-root .cml-album-dialog__entry:hover,
+#codex-media-library-root .cml-album-dialog__entry:focus-visible {
   background: color-mix(in srgb, var(--cml-theme-accent-soft) 50%, transparent 50%);
+}
+
+#codex-media-library-root .cml-album-dialog__chooser-card:hover,
+#codex-media-library-root .cml-album-dialog__chooser-card:focus-visible {
+  border-color: rgba(var(--cml-theme-accent-rgb), 0.28);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
 }
 
 #codex-media-library-root .cml-album-dialog__entry.is-selected {
@@ -3209,8 +3302,21 @@ body.codex-media-library-active #app {
   box-shadow: inset 0 0 0 1px rgba(var(--cml-theme-accent-rgb), 0.22);
 }
 
+#codex-media-library-root .cml-album-dialog__chooser-card.is-selected {
+  border-color: rgba(var(--cml-theme-accent-rgb), 0.5);
+  box-shadow: 0 18px 42px rgba(var(--cml-theme-accent-rgb), 0.18), inset 0 0 0 1px rgba(var(--cml-theme-accent-rgb), 0.28);
+}
+
 #codex-media-library-root .cml-album-dialog__entry--create {
   background: color-mix(in srgb, var(--cml-theme-dialog-input-bg) 92%, transparent 8%);
+}
+
+#codex-media-library-root .cml-album-dialog__chooser-card.cml-album-dialog__entry--create {
+  border-style: dashed;
+  border-color: rgba(var(--cml-theme-accent-rgb), 0.32);
+  background:
+    linear-gradient(135deg, rgba(var(--cml-theme-accent-rgb), 0.12), transparent 58%),
+    color-mix(in srgb, var(--cml-theme-dialog-input-bg) 92%, transparent 8%);
 }
 
 #codex-media-library-root .cml-album-dialog__entry-thumb {
@@ -3225,14 +3331,31 @@ body.codex-media-library-active #app {
   justify-content: center;
 }
 
+#codex-media-library-root .cml-album-dialog__chooser-card .cml-album-dialog__entry-thumb {
+  flex: 0 0 auto;
+  width: 100%;
+  height: 112px;
+  border-radius: 18px;
+}
+
 #codex-media-library-root .cml-album-dialog__entry-thumb--create,
 #codex-media-library-root .cml-album-dialog__entry-thumb--placeholder {
   color: var(--cml-theme-text-muted);
 }
 
+#codex-media-library-root .cml-album-dialog__entry-thumb--create {
+  background: rgba(var(--cml-theme-accent-rgb), 0.12);
+  color: rgb(var(--cml-theme-accent-rgb));
+}
+
 #codex-media-library-root .cml-album-dialog__entry-thumb--create .cml-icon {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
+}
+
+#codex-media-library-root .cml-album-dialog__entry-thumb--placeholder .cml-icon {
+  width: 32px;
+  height: 32px;
 }
 
 #codex-media-library-root .cml-album-dialog__entry-image {
@@ -3250,7 +3373,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-album-dialog__entry-title {
   color: var(--cml-theme-text);
   font-size: 18px;
-  font-weight: 520;
+  font-weight: 620;
   line-height: 1.25;
 }
 
@@ -3261,12 +3384,50 @@ body.codex-media-library-active #app {
   line-height: 1.45;
 }
 
+#codex-media-library-root .cml-album-dialog__entry-check {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(var(--cml-theme-accent-rgb));
+  color: white;
+  box-shadow: 0 10px 20px rgba(var(--cml-theme-accent-rgb), 0.26);
+}
+
+#codex-media-library-root .cml-album-dialog__entry-check .cml-icon {
+  width: 16px;
+  height: 16px;
+}
+
 #codex-media-library-root .cml-album-dialog__empty {
   padding: 24px 32px 0;
 }
 
+#codex-media-library-root .cml-album-dialog__empty--chooser {
+  min-height: 186px;
+  padding: 22px;
+  border: 1px dashed rgba(15, 23, 42, 0.16);
+  border-radius: 22px;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 10px;
+  background: color-mix(in srgb, var(--cml-theme-surface-elevated) 78%, transparent 22%);
+}
+
+#codex-media-library-root .cml-album-dialog__empty--chooser strong {
+  color: var(--cml-theme-text);
+  font-size: 17px;
+  font-weight: 650;
+}
+
 #codex-media-library-root .cml-album-dialog__create-card {
-  padding: 20px 32px 8px;
+  padding: 20px 0 8px;
 }
 
 #codex-media-library-root .cml-album-dialog__field {
@@ -3304,6 +3465,7 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-album-dialog__header,
+  #codex-media-library-root .cml-album-dialog__context,
   #codex-media-library-root .cml-album-dialog__search-row,
   #codex-media-library-root .cml-album-dialog__sort-row,
   #codex-media-library-root .cml-album-dialog__entry,
@@ -3316,10 +3478,43 @@ body.codex-media-library-active #app {
     margin-right: 0;
   }
 
-  #codex-media-library-root .cml-album-dialog__entry-thumb {
-    flex-basis: 64px;
+  #codex-media-library-root .cml-album-dialog__body {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  #codex-media-library-root .cml-album-dialog__context {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  #codex-media-library-root .cml-album-dialog__chooser {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  #codex-media-library-root .cml-album-dialog__chooser-card {
+    min-height: 0;
+    flex-direction: row;
+    align-items: center;
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  #codex-media-library-root .cml-album-dialog__entry-thumb,
+  #codex-media-library-root .cml-album-dialog__chooser-card .cml-album-dialog__entry-thumb {
+    flex: 0 0 64px;
     width: 64px;
     height: 64px;
+    border-radius: 16px;
+  }
+
+  #codex-media-library-root .cml-album-dialog__entry-check {
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%);
   }
 }
 

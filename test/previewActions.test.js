@@ -326,7 +326,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /Library path/);
   });
 
-  it('renders the standard add-to-album modal as a themed sheet with search, scope chips, and album rows', () => {
+  it('renders the standard add-to-album modal as a themed visual chooser with search and album tiles', () => {
     const html = AlbumDialog({
       state: {
         albumDialogOpen: true,
@@ -342,19 +342,26 @@ describe('media library download actions', () => {
         selectedIds: new Set(['managed-1']),
       },
       albums: [
-        { name: 'scenery', itemCount: 12, coverUrl: '/file/scenery.jpg', scope: 'mine', selected: false },
+        { name: 'scenery', itemCount: 12, coverUrl: '/file/scenery.jpg', scope: 'mine', selected: true },
         { name: 'travel', itemCount: 4, coverUrl: '/file/travel.jpg', scope: 'mine', selected: false }
       ],
       target: 'photo'
     });
 
     assert.match(html, /class="cml-dialog__panel cml-album-dialog cml-album-dialog--sheet"/);
+    assert.match(html, /cml-album-dialog__context/);
+    assert.match(html, /1 selected photo/);
+    assert.match(html, /Pick a visual destination/);
     assert.match(html, /Search albums/);
     assert.doesNotMatch(html, /My albums/);
     assert.doesNotMatch(html, /Shared with me/);
     assert.match(html, /Last modified/);
+    assert.match(html, /cml-album-dialog__chooser/);
+    assert.match(html, /cml-album-dialog__chooser-card/);
     assert.match(html, /New album/);
     assert.match(html, /12 items/);
+    assert.match(html, /Already added/);
+    assert.match(html, /cml-album-dialog__entry-check/);
     assert.match(html, /data-action="assign-album"/);
     assert.doesNotMatch(html, /cml-album-dialog__album-chip/);
   });
