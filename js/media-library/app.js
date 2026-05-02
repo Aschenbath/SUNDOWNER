@@ -5676,7 +5676,7 @@ function closeAlbumDialog() {
 }
 
 function setAlbumDrawerScope(scope) {
-  if (!state.albumDialogOpen || state.albumDialogOrigin !== 'preview') {
+  if (!state.albumDialogOpen) {
     return;
   }
   const normalizedScope = normalizeText(scope || 'all').toLowerCase();
@@ -5685,11 +5685,11 @@ function setAlbumDrawerScope(scope) {
     return;
   }
   state.albumDrawerScope = nextScope;
-  renderAlbumDialogState({ preferPreviewRender: true, focusKey: 'search' });
+  renderAlbumDialogState({ preferPreviewRender: state.albumDialogOrigin === 'preview', focusKey: 'search' });
 }
 
 function setPreviewAlbumCreateMode(forceOpen) {
-  if (!state.albumDialogOpen || state.albumDialogOrigin !== 'preview') {
+  if (!state.albumDialogOpen) {
     return;
   }
   const nextValue = typeof forceOpen === 'boolean' ? forceOpen : !state.albumDrawerCreateMode;
@@ -5702,7 +5702,7 @@ function setPreviewAlbumCreateMode(forceOpen) {
     state.albumDraftName = '';
   }
   renderAlbumDialogState({
-    preferPreviewRender: true,
+    preferPreviewRender: state.albumDialogOrigin === 'preview',
     focusKey: nextValue ? 'create' : 'search',
     select: nextValue
   });

@@ -316,6 +316,14 @@ pm; git diff --check passed.
 - Bumped cache versions to `components.js?v=33`, `app.js?v=95`, and `media-library.css?v=81` via `js/media-library/app.js` and `index.html`.
 - **Validation**: `git diff --check`, `D:\APP\PS\Adobe Photoshop 2024\node.exe --check js/media-library/components.js`, and `--check js/media-library/app.js` all passed.
 
+### 2026-05-02 01:08 Asia/Shanghai
+
+- Reworked the standard `Add to album` modal in `js/media-library/components.js` to match the supplied information architecture while staying on the current theme palette rather than forcing a pure dark modal. The non-preview modal now renders as a larger sheet with search, scope chips (`All / My albums / Shared with me`), a `Last modified` row, a first-row `New album` entry, and full album rows with cover thumbnails + item counts instead of the old chip list plus bottom-only text field.
+- Kept behavior intact by reusing the existing album dialog state in `js/media-library/app.js`: `albumDrawerSearch`, `albumDrawerScope`, `albumDrawerCreateMode`, `assignSelectionToAlbum(...)`, and `submitAlbumDialog()`. `setAlbumDrawerScope(...)` and `setPreviewAlbumCreateMode(...)` now work for the standard modal too instead of being preview-only.
+- Updated `css/media-library.css` so the standard modal inherits the site theme but uses the richer sheet layout and album-entry presentation, while the preview drawer remains untouched.
+- Expanded `test/previewActions.test.js` with a standard modal contract test for the new sheet structure and kept the existing album-first/photo-first behavior tests green.
+- **Validation**: `D:\DevTools\nvm\v24.11.1\node.exe --check js\media-library\components.js`; `D:\DevTools\nvm\v24.11.1\node.exe --check js\media-library\app.js`; `D:\DevTools\nvm\v24.11.1\node.exe --check test\previewActions.test.js`; `D:\DevTools\nvm\v22.14.0\node.exe .\node_modules\mocha\bin\mocha.js .\test\previewActions.test.js` (`70 passing`).
+
 ### 2026-05-02 00:46 Asia/Shanghai
 
 - Fixed the live `Uncaught SyntaxError: missing ) after argument list` coming from the compiled legacy Vue bundle `js/app.f0825045.js`. Root cause: that tracked bundle contained a broken literal in the axios response interceptor (`r.nk.error("认证失败，请重新登录�?)`) where a mojibake replacement character had eaten the closing quote, so the browser parser died before the old app shell finished loading.

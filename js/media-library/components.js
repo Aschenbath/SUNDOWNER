@@ -2924,42 +2924,91 @@ export function AlbumDialog({ state, albums, target = 'photo' }) {
   const selectedCount = state.selectedIds.size;
   const isAssignMode = state.albumDialogMode === 'assign';
   const targetLabel = target === 'video' ? 'video album' : 'album';
+  const targetLabelPlural = target === 'video' ? 'video albums' : 'albums';
   const title = isAssignMode ? `Add to ${targetLabel}` : `Create ${targetLabel}`;
   const description = isAssignMode
     ? `Add ${selectedCount} selected item${selectedCount === 1 ? '' : 's'} to an existing ${targetLabel} or create a new one.`
     : `Create a new ${targetLabel} now and fill it later from the library.`;
+  const normalizedAlbumSearch = String(state.albumDrawerSearch || '').trim().toLowerCase();
+  const normalizedScope = String(state.albumDrawerScope || 'all').toLowerCase();
+  const visibleAlbumEntries = (Array.isArray(albums) ? albums : [])
+    .filter((entry) => {
+      const matchesScope = normalizedScope === 'all' || String(entry.scope || 'mine').toLowerCase() === normalizedScope;
+      const matchesSearch = !normalizedAlbumSearch || String(entry.name || '').toLowerCase().includes(normalizedAlbumSearch);
+      return matchesScope && matchesSearch;
+    });
+  const modalSearchPlaceholder = `Search ${targetLabelPlural}`;
+  const createLabel = `New ${targetLabel}`;
   return `
     <div class="cml-dialog" role="dialog" aria-modal="true" aria-label="${title}">
       <div class="cml-dialog__backdrop" data-action="close-album-dialog"></div>
-      <div class="cml-dialog__panel cml-album-dialog">
-        <header class="cml-dialog__header">
+      <div class="cml-dialog__panel cml-album-dialog cml-album-dialog--sheet">
+        <header class="cml-dialog__header cml-album-dialog__header">
           <div>
             <h3 class="cml-dialog__title">${title}</h3>
             <p class="cml-dialog__copy">${description}</p>
           </div>
           <button type="button" class="cml-dialog__close" data-action="close-album-dialog" aria-label="Close dialog">${icon('close')}</button>
         </header>
-        ${isAssignMode && albums.length ? `
-          <div class="cml-album-dialog__section">
-            <p class="cml-album-dialog__label">Existing ${target === 'video' ? 'video albums' : 'albums'}</p>
-            <div class="cml-album-dialog__list">
-              ${albums.map((album) => `
-                <button type="button" class="cml-album-dialog__album-chip ${state.activeAlbumName && state.activeAlbumName.toLowerCase() === album.toLowerCase() ? 'is-active' : ''}" data-action="assign-album" data-album-name="${escapeHtml(album)}">${escapeHtml(album)}</button>
-              `).join('')}
-            </div>
+        ${isAssignMode ? `
+          <div class="cml-album-dialog__search-row">
+            <span class="cml-album-dialog__search-icon" aria-hidden="true">${icon('search')}</span>
+            <input
+              type="text"
+              class="cml-album-dialog__search-input"
+              data-focus-key="album-search"
+              value="${escapeHtml(state.albumDrawerSearch || '')}"
+              placeholder="${escapeHtml(modalSearchPlaceholder)}"
+              autocomplete="off"
+            />
+          </div>
+          <div class="cml-album-dialog__scope-row" role="tablist" aria-label="Album scope">
+            <button type="button" class="cml-album-dialog__scope-chip ${normalizedScope === 'all' ? 'is-active' : ''}" data-action="set-album-drawer-scope" data-scope="all" aria-pressed="${normalizedScope === 'all' ? 'true' : 'false'}">${normalizedScope === 'all' ? icon('check') : ''}<span>All</span></button>
+            <button type="button" class="cml-album-dialog__scope-chip ${normalizedScope === 'mine' ? 'is-active' : ''}" data-action="set-album-drawer-scope" data-scope="mine" aria-pressed="${normalizedScope === 'mine' ? 'true' : 'false'}"><span>My albums</span></button>
+            <button type="button" class="cml-album-dialog__scope-chip ${normalizedScope === 'shared' ? 'is-active' : ''}" data-action="set-album-drawer-scope" data-scope="shared" aria-pressed="${normalizedScope === 'shared' ? 'true' : 'false'}"><span>Shared with me</span></button>
+          </div>
+          <div class="cml-album-dialog__sort-row">
+            <span class="cml-album-dialog__sort-icon" aria-hidden="true">${icon('updates')}</span>
+            <span>Last modified</span>
           </div>
         ` : ''}
-        <div class="cml-album-dialog__section">
-          <label class="cml-album-dialog__field">
-            <span class="cml-album-dialog__label">New ${targetLabel} name</span>
-            <input type="text" class="cml-album-dialog__input" value="${escapeHtml(state.albumDraftName || '')}" placeholder="${target === 'video' ? 'Travel vlog' : 'Weekend in Guangzhou'}" maxlength="64" />
-          </label>
-          ${state.albumDialogError ? `<p class="cml-album-dialog__error">${escapeHtml(state.albumDialogError)}</p>` : ''}
+        <div class="cml-album-dialog__body">
+          ${state.albumDrawerCreateMode || !isAssignMode ? `
+            <section class="cml-album-dialog__create-card">
+              <label class="cml-album-dialog__field">
+                <span class="cml-album-dialog__label">New ${targetLabel} name</span>
+                <input type="text" class="cml-album-dialog__input" data-focus-key="album-create" value="${escapeHtml(state.albumDraftName || '')}" placeholder="${target === 'video' ? 'Travel vlog' : 'Weekend in Guangzhou'}" maxlength="64" autocomplete="off" />
+              </label>
+              ${state.albumDialogError ? `<p class="cml-album-dialog__error">${escapeHtml(state.albumDialogError)}</p>` : ''}
+              <div class="cml-album-dialog__create-actions">
+                ${isAssignMode ? `<button type="button" class="cml-topbar__secondary-button" data-action="cancel-album-create">Cancel</button>` : `<button type="button" class="cml-topbar__secondary-button" data-action="close-album-dialog">Cancel</button>`}
+                <button type="button" class="cml-topbar__upload-button" data-action="submit-album-dialog">${isAssignMode ? 'Create and add' : 'Create album'}</button>
+              </div>
+            </section>
+          ` : `
+            <button type="button" class="cml-album-dialog__entry cml-album-dialog__entry--create" data-action="toggle-album-create">
+              <span class="cml-album-dialog__entry-thumb cml-album-dialog__entry-thumb--create" aria-hidden="true">${icon('plus')}</span>
+              <span class="cml-album-dialog__entry-copy">
+                <span class="cml-album-dialog__entry-title">${createLabel}</span>
+              </span>
+            </button>
+          `}
+          ${isAssignMode ? (visibleAlbumEntries.length ? visibleAlbumEntries.map((entry) => `
+            <button type="button" class="cml-album-dialog__entry ${entry.selected ? 'is-selected' : ''}" data-action="assign-album" data-album-name="${escapeHtml(entry.name)}" aria-pressed="${entry.selected ? 'true' : 'false'}">
+              <span class="cml-album-dialog__entry-thumb ${entry.coverUrl ? '' : 'cml-album-dialog__entry-thumb--placeholder'}">${entry.coverUrl ? `<img src="${escapeHtml(entry.coverUrl)}" alt="${escapeHtml(entry.name)}" class="cml-album-dialog__entry-image" />` : ''}</span>
+              <span class="cml-album-dialog__entry-copy">
+                <span class="cml-album-dialog__entry-title">${escapeHtml(entry.name)}</span>
+                <span class="cml-album-dialog__entry-meta">${escapeHtml(formatAlbumItemCountLabel(entry.itemCount))}${entry.selected ? ' · Already added' : ''}</span>
+              </span>
+            </button>
+          `).join('') : `<div class="cml-album-dialog__empty">${normalizedAlbumSearch ? `No ${targetLabelPlural} match this search.` : `No ${targetLabelPlural} are available yet.`}</div>`) : ''}
         </div>
-        <footer class="cml-dialog__footer">
-          <button type="button" class="cml-topbar__secondary-button" data-action="close-album-dialog">Cancel</button>
-          <button type="button" class="cml-topbar__upload-button" data-action="submit-album-dialog">${isAssignMode ? 'Create and add' : 'Create album'}</button>
-        </footer>
+        ${!state.albumDrawerCreateMode && !isAssignMode ? `
+          <footer class="cml-dialog__footer cml-album-dialog__footer">
+            <button type="button" class="cml-topbar__secondary-button" data-action="close-album-dialog">Cancel</button>
+            <button type="button" class="cml-topbar__upload-button" data-action="submit-album-dialog">Create album</button>
+          </footer>
+        ` : ''}
       </div>
     </div>
   `;
@@ -2969,14 +3018,12 @@ export function ConfirmDialog({ state }) {
   if (!state.confirmDialogOpen) {
     return '';
   }
-
   const isDestructive = ['delete', 'delete-permanently', 'delete-bin-permanently', 'empty-bin', 'delete-album'].includes(state.confirmDialogMode);
   const countLabel = state.confirmDialogSelectionCount > 1
     ? `${state.confirmDialogSelectionCount} items selected`
     : state.confirmDialogSelectionCount === 1
       ? '1 item selected'
       : '';
-
   return `
     <div class="cml-dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(state.confirmDialogTitle || 'Confirm action')}">
       <div class="cml-dialog__backdrop" data-action="close-confirm-dialog"></div>

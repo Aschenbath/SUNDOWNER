@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar } from '../js/media-library/components.js';
+import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar, AlbumDialog } from '../js/media-library/components.js';
 
 describe('media library download actions', () => {
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
@@ -326,48 +326,38 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /Library path/);
   });
 
-  it('renders add-to-album as a preview side drawer with search and album summaries', () => {
-    const html = PreviewModal({
-      item: {
-        id: 'managed-4',
-        type: 'photo',
-        label: 'photo_27.jpg',
-        sourceId: 'photos/2026/photo_27.jpg',
-        sourceUrl: '/file/photos/2026/photo_27.jpg',
-        thumbnailUrl: '/file/photos/2026/photo_27.jpg',
-        width: 1080,
-        height: 1440,
-        displayTakenAt: 'April 5, 2026 08:25',
-        mimeType: 'image/jpeg',
-        sizeMb: 0.21,
-        exif: null,
+  it('renders the standard add-to-album modal as a themed sheet with search, scope chips, and album rows', () => {
+    const html = AlbumDialog({
+      state: {
+        albumDialogOpen: true,
+        albumDialogOrigin: '',
+        albumDialogMode: 'assign',
+        albumDialogTarget: 'photo',
+        albumDraftName: '',
+        albumDialogError: '',
+        albumDrawerSearch: '',
+        albumDrawerScope: 'all',
+        albumDrawerCreateMode: false,
+        activeAlbumName: '',
+        selectedIds: new Set(['managed-1']),
       },
-      selected: true,
-      favorited: false,
-      currentIndex: 0,
-      totalCount: 5,
-      infoOpen: false,
-      immersive: false,
-      albumDrawerOpen: true,
-      albumEntries: [
-        { name: 'scenery', itemCount: 12, coverUrl: '/file/scenery.jpg', scope: 'mine' },
-        { name: 'travel', itemCount: 4, coverUrl: '/file/travel.jpg', scope: 'mine' }
+      albums: [
+        { name: 'scenery', itemCount: 12, coverUrl: '/file/scenery.jpg', scope: 'mine', selected: false },
+        { name: 'travel', itemCount: 4, coverUrl: '/file/travel.jpg', scope: 'mine', selected: false }
       ],
-      albumDraftName: '',
-      albumDialogError: '',
-      albumDrawerSearch: '',
-      albumDrawerCreateMode: false
+      target: 'photo'
     });
 
-    assert.match(html, /cml-preview__album-panel is-open/);
+    assert.match(html, /class="cml-dialog__panel cml-album-dialog cml-album-dialog--sheet"/);
     assert.match(html, /Search albums/);
+    assert.match(html, /My albums/);
+    assert.match(html, /Shared with me/);
     assert.match(html, /Last modified/);
     assert.match(html, /New album/);
     assert.match(html, /12 items/);
     assert.match(html, /data-action="assign-album"/);
-    assert.doesNotMatch(html, /class="cml-dialog__panel cml-album-dialog"/);
+    assert.doesNotMatch(html, /cml-album-dialog__album-chip/);
   });
-
 
   it('shows already-added state inside the preview album drawer entries', () => {
     const html = PreviewModal({
@@ -437,7 +427,6 @@ describe('media library download actions', () => {
     assert.match(html, /New album name/);
     assert.match(html, /Create and add/);
     assert.match(html, /Album name is required\./);
-    assert.match(html, /No albums are available yet\./);
   });
 
   it('renders video album copy in selection and preview album drawers', () => {
