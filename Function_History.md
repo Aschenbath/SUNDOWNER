@@ -158,3 +158,4 @@
 26-04-23 by codex: Extend local selection patching to Documents rows as well, so selecting files no longer falls back to a full-page rerender, and add a light topbar selection-shell transition for smoother mode changes
 26-04-23 by codex: Push the desktop shell farther toward the p2 reference by rounding the topbar search, right-side scrubber badge, and tool buttons into a more consistent pill language
 26-04-23 by codex: Complete the surrounding shell pass by turning the collection secondary rail into its own rounded group, making Storage read like a pill-shaped info card, and grouping top-right desktop tools into a more unified control strip
+26-05-02 by claude: Finish the standard Add to album sheet polish by keeping album search/create typing on local dialog-body patch paths, preserving preview overlays during modal edits, and retaining rich album entries with cover/count/selected state in both standard and preview add flows
