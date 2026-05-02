@@ -3127,7 +3127,7 @@ body.codex-media-library-active #app {
   left: 18px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--cml-theme-text-muted);
+  color: rgba(31, 41, 55, 0.88);
   pointer-events: none;
 }
 
@@ -3141,57 +3141,23 @@ body.codex-media-library-active #app {
   min-height: 58px;
   padding: 0 18px 0 62px;
   border-radius: 14px;
-  border: 1px solid rgba(15, 23, 42, 0.14);
-  background: color-mix(in srgb, var(--cml-theme-surface-elevated) 92%, white 8%);
-  color: rgba(17, 24, 39, 0.96);
-  caret-color: rgba(var(--cml-theme-accent-rgb), 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  background: color-mix(in srgb, var(--cml-theme-surface-elevated) 96%, white 4%);
+  color: rgba(17, 24, 39, 0.98);
+  caret-color: rgba(17, 24, 39, 0.98);
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 520;
   line-height: 1.4;
   outline: none;
 }
 
 #codex-media-library-root .cml-album-dialog__search-input::placeholder {
-  color: rgba(55, 65, 81, 0.72);
+  color: rgba(75, 85, 99, 0.78);
 }
 
 #codex-media-library-root .cml-album-dialog__search-input:focus {
-  border-color: rgba(var(--cml-theme-accent-rgb), 0.7);
-  box-shadow: 0 0 0 3px rgba(var(--cml-theme-accent-rgb), 0.12);
-}
-
-#codex-media-library-root .cml-album-dialog__scope-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-#codex-media-library-root .cml-album-dialog__scope-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 0 18px;
-  border: 1px solid var(--cml-theme-dialog-input-border);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--cml-theme-dialog-input-bg) 88%, transparent 12%);
-  color: var(--cml-theme-text-muted);
-  font: inherit;
-  font-size: 15px;
-  font-weight: 520;
-  cursor: pointer;
-}
-
-#codex-media-library-root .cml-album-dialog__scope-chip.is-active {
-  background: rgba(var(--cml-theme-accent-rgb), 0.22);
-  border-color: rgba(var(--cml-theme-accent-rgb), 0.45);
-  color: var(--cml-theme-text);
-}
-
-#codex-media-library-root .cml-album-dialog__scope-chip .cml-icon {
-  width: 18px;
-  height: 18px;
+  border-color: rgba(var(--cml-theme-accent-rgb), 0.72);
+  box-shadow: 0 0 0 3px rgba(var(--cml-theme-accent-rgb), 0.14);
 }
 
 #codex-media-library-root .cml-album-dialog__sort-row {
