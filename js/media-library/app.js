@@ -9438,7 +9438,9 @@ function patchAlbumDialogCreateMode() {
   currentBody.replaceWith(nextBody);
   return true;
 }
+
 function renderPreviewTransientLayers({ animateDirection = 0 } = {}) {
+
   if (!refs.root) {
     return false;
   }
@@ -11847,6 +11849,8 @@ function handleInput(event) {
     state.albumDraftName = input.value;
     if (state.albumDialogError) {
       state.albumDialogError = '';
+    }
+    if (!patchAlbumDialogCreateMode()) {
       renderAlbumDialogState({
         preferPreviewRender: state.albumDialogOrigin === 'preview',
         focusKey: 'create',
