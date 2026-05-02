@@ -8672,6 +8672,22 @@ function renderPlaylistDialog() {
   `;
 }
 
+function getToastMarkup() {
+  if (!state.toastMessage) {
+    return '';
+  }
+  const safeMessage = state.toastMessage
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return `
+    <div class="cml-toast cml-toast--${state.toastType}" role="alert" aria-live="polite">
+      <span class="cml-toast__message">${safeMessage}</span>
+      <button type="button" class="cml-toast__dismiss" data-action="dismiss-toast" aria-label="Dismiss">✕</button>
+    </div>
+  `;
+}
+
 function render() {
   if (!refs.root) {
     return;
