@@ -2723,7 +2723,7 @@ export function PreviewModal({
       <section class="cml-preview__album-sheet">
         <div class="cml-preview__album-toolbar">
           <h4 class="cml-preview__album-title">Add to ${escapeHtml(targetLabel)}</h4>
-          <button type="button" class="cml-preview__info-close" data-action="close-album-dialog" aria-label="Close album picker">${icon('close')}</button>
+          <button type="button" class="cml-preview__info-close" data-action="close-preview" aria-label="Close preview">${icon('close')}</button>
         </div>
         <div class="cml-preview__album-search">
           <span class="cml-preview__album-search-icon" aria-hidden="true">${icon('search')}</span>

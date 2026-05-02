@@ -1973,6 +1973,14 @@ describe('media library download actions', () => {
     assert.match(appSource, /resetAddToTargetModes\(\{ preserveAlbumSelectionTarget \}\);/);
   });
 
+  it('lets the preview album-panel close button close the whole preview and clears preview-side selection state', () => {
+    const componentsSource = fs.readFileSync(new URL('../js/media-library/components.js', import.meta.url), 'utf8');
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(componentsSource, /class="cml-preview__info-close" data-action="close-preview" aria-label="Close preview"/);
+    assert.match(appSource, /const previewAlbumFlow = state\.albumDialogOrigin === 'preview';/);
+    assert.match(appSource, /if \(previewAlbumFlow\) \{[\s\S]*clearSelection\(\{ shouldRender: false \}\);/);
+  });
   it('keeps current-album add-photos in a dedicated Photos picker instead of the album detail state', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 

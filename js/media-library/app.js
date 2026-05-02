@@ -9842,11 +9842,12 @@ function restorePreviewPosition(itemId) {
 
 function closePreview() {
   const previewId = state.previewId;
+  const previewAlbumFlow = state.albumDialogOrigin === 'preview';
   const finalizeClosePreview = () => {
     state.previewId = null;
     state.previewSourceHint = '';
     state.infoOpen = false;
-    if (state.albumDialogOrigin === 'preview') {
+    if (previewAlbumFlow) {
       state.albumDialogOpen = false;
       state.albumDialogOrigin = '';
       state.albumDialogError = '';
@@ -9854,6 +9855,7 @@ function closePreview() {
       state.albumDrawerSearch = '';
       state.albumDrawerScope = 'all';
       state.albumDrawerCreateMode = false;
+      clearSelection({ shouldRender: false });
     }
     state.previewImmersive = false;
     state.previewRotation = 0;
