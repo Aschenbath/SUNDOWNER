@@ -3001,6 +3001,13 @@ function rememberMobileMindReturnRoute() {
   state.mobileMindReturnPrivate = Boolean(state.privateViewOpen);
 }
 
+function ensureDocsFolders() {
+  if (!(state.docsFolders instanceof Set)) {
+    state.docsFolders = new Set();
+  }
+  return state.docsFolders;
+}
+
 function leaveMobileMindView() {
   const targetPrimary = state.mobileMindReturnPrivate
     ? 'Photos'
