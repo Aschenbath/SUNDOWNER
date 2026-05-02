@@ -3305,7 +3305,6 @@ body.codex-media-library-active #app {
 
   #codex-media-library-root .cml-album-dialog__header,
   #codex-media-library-root .cml-album-dialog__search-row,
-  #codex-media-library-root .cml-album-dialog__scope-row,
   #codex-media-library-root .cml-album-dialog__sort-row,
   #codex-media-library-root .cml-album-dialog__entry,
   #codex-media-library-root .cml-album-dialog__create-card,
@@ -3321,10 +3320,6 @@ body.codex-media-library-active #app {
     flex-basis: 64px;
     width: 64px;
     height: 64px;
-  }
-
-  #codex-media-library-root .cml-album-dialog__scope-row {
-    gap: 10px;
   }
 }
 

@@ -5701,11 +5701,19 @@ function setPreviewAlbumCreateMode(forceOpen) {
   if (!nextValue) {
     state.albumDraftName = '';
   }
-  renderAlbumDialogState({
-    preferPreviewRender: state.albumDialogOrigin === 'preview',
-    focusKey: nextValue ? 'create' : 'search',
-    select: nextValue
-  });
+  if (!patchAlbumDialogCreateMode()) {
+    renderAlbumDialogState({
+      preferPreviewRender: state.albumDialogOrigin === 'preview',
+      focusKey: nextValue ? 'create' : 'search',
+      select: nextValue
+    });
+    return;
+  }
+  if (nextValue) {
+    window.setTimeout(() => {
+      focusAlbumInput({ focusKey: 'create', select: true });
+    }, 30);
+  }
 }
 
 function toggleAlbumPickerDistinctOnly() {
@@ -9403,6 +9411,33 @@ function patchAlbumDialogSearchResults() {
   return true;
 }
 
+function patchAlbumDialogCreateMode() {
+  if (!refs.root || !state.albumDialogOpen || state.albumDialogOrigin === 'preview') {
+    return false;
+  }
+  const currentDialog = refs.root.querySelector('.cml-album-dialog');
+  if (!(currentDialog instanceof HTMLElement)) {
+    return false;
+  }
+  const allItems = getAllItems();
+  const template = document.createElement('template');
+  template.innerHTML = AlbumDialog({
+    state,
+    albums: getDialogAlbumEntries(allItems),
+    target: state.albumDialogTarget
+  }).trim();
+  const nextDialog = template.content.querySelector('.cml-album-dialog');
+  if (!(nextDialog instanceof HTMLElement)) {
+    return false;
+  }
+  const currentBody = currentDialog.querySelector('.cml-album-dialog__body');
+  const nextBody = nextDialog.querySelector('.cml-album-dialog__body');
+  if (!(currentBody instanceof HTMLElement) || !(nextBody instanceof HTMLElement)) {
+    return false;
+  }
+  currentBody.replaceWith(nextBody);
+  return true;
+}
 function renderPreviewTransientLayers({ animateDirection = 0 } = {}) {
   if (!refs.root) {
     return false;
