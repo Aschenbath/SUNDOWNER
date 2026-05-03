@@ -44,6 +44,48 @@ function buildEmbeddedPreviewResponse(context, fileName, preview) {
     });
 }
 
+function fileMetadataUnavailableResponse() {
+    return new Response('File metadata is unavailable', { status: 500 });
+}
+
+function parseChunkMetadata(rawValue) {
+    try {
+        const parsed = JSON.parse(rawValue);
+        if (!Array.isArray(parsed)) {
+            console.warn('Invalid chunk metadata shape: expected array');
+            return { ok: false, error: 'invalid-shape' };
+        }
+        return { ok: true, value: parsed };
+    } catch (error) {
+        console.warn('Invalid chunk metadata:', error);
+        return { ok: false, error: 'invalid-json' };
+    }
+}
+
+function loadChunkMetadata(rawValue, expectedChunks = null) {
+    if (!rawValue) {
+        return { ok: false, response: fileMetadataUnavailableResponse() };
+    }
+
+    const parsed = parseChunkMetadata(rawValue);
+    if (!parsed.ok) {
+        return { ok: false, response: fileMetadataUnavailableResponse() };
+    }
+
+    const chunks = [...parsed.value].sort((a, b) => a.index - b.index);
+    if (!chunks.length) {
+        return { ok: false, response: fileMetadataUnavailableResponse() };
+    }
+
+    const normalizedExpectedChunks = Number(expectedChunks) || chunks.length;
+    if (chunks.length !== normalizedExpectedChunks) {
+        console.warn(`Chunk metadata count mismatch: expected ${normalizedExpectedChunks}, got ${chunks.length}`);
+        return { ok: false, response: fileMetadataUnavailableResponse() };
+    }
+
+    return { ok: true, chunks };
+}
+
 async function fetchBinaryBufferFromUrl(targetUrl) {
     if (!targetUrl) {
         return null;
@@ -332,28 +374,11 @@ async function handleTelegramChunkedFile(context, imgRecord, encodedFileName, fi
     const TgBotToken = telegramAccess.botToken;
     const TgProxyUrl = telegramAccess.proxyUrl || '';
 
-    // 从KV的value中读取分片信息
-    let chunks = [];
-    try {
-        if (imgRecord.value) {
-            chunks = JSON.parse(imgRecord.value);
-            // 确保分片按索引排序
-            chunks.sort((a, b) => a.index - b.index);
-        }
-    } catch (parseError) {
-        console.error('Failed to parse chunks data:', parseError);
-        return new Response('Error: Invalid chunks data', { status: 500 });
+    const chunkMetadata = loadChunkMetadata(imgRecord.value, metadata.TotalChunks);
+    if (!chunkMetadata.ok) {
+        return chunkMetadata.response;
     }
-
-    if (chunks.length === 0) {
-        return new Response('Error: No chunks found for this file', { status: 500 });
-    }
-
-    // 验证分片完整性
-    const expectedChunks = metadata.TotalChunks || chunks.length;
-    if (chunks.length !== expectedChunks) {
-        return new Response(`Error: Missing chunks, expected ${expectedChunks}, got ${chunks.length}`, { status: 500 });
-    }
+    const chunks = chunkMetadata.chunks;
 
     // 计算文件总大小
     const totalSize = chunks.reduce((total, chunk) => total + (chunk.size || 0), 0);
@@ -528,28 +553,11 @@ async function handleDiscordChunkedFile(context, imgRecord, encodedFileName, fil
     const botToken = discordAccess.botToken;
     const proxyUrl = discordAccess.proxyUrl;
 
-    // 从KV的value中读取分片信息
-    let chunks = [];
-    try {
-        if (imgRecord.value) {
-            chunks = JSON.parse(imgRecord.value);
-            // 确保分片按索引排序
-            chunks.sort((a, b) => a.index - b.index);
-        }
-    } catch (parseError) {
-        console.error('Failed to parse Discord chunks data:', parseError);
-        return new Response('Error: Invalid chunks data', { status: 500 });
+    const chunkMetadata = loadChunkMetadata(imgRecord.value, metadata.TotalChunks);
+    if (!chunkMetadata.ok) {
+        return chunkMetadata.response;
     }
-
-    if (chunks.length === 0) {
-        return new Response('Error: No chunks found for this file', { status: 500 });
-    }
-
-    // 验证分片完整性
-    const expectedChunks = metadata.TotalChunks || chunks.length;
-    if (chunks.length !== expectedChunks) {
-        return new Response(`Error: Missing chunks, expected ${expectedChunks}, got ${chunks.length}`, { status: 500 });
-    }
+    const chunks = chunkMetadata.chunks;
 
     // 计算文件总大小
     const totalSize = chunks.reduce((total, chunk) => total + (chunk.size || 0), 0);
