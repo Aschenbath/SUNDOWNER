@@ -3699,9 +3699,9 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-admin-panel__field > span,
 #codex-media-library-root .cml-admin-panel__toggle > span {
-  color: var(--cml-text-secondary);
+  color: var(--cml-text-primary);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 #codex-media-library-root .cml-admin-panel__field--wide,
@@ -3714,22 +3714,23 @@ body.codex-media-library-active #app {
   width: 100%;
   min-height: 46px;
   padding: 0 14px;
-  border: 1px solid rgba(150, 165, 192, 0.38);
+  border: 1px solid rgba(95, 111, 145, 0.26);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.82);
   color: var(--cml-text-primary);
   -webkit-text-fill-color: var(--cml-text-primary);
   font-size: 14px;
   font-weight: 500;
   outline: none;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 1px 2px rgba(78, 92, 120, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 1px 2px rgba(32, 42, 68, 0.04);
   transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
   min-width: 0;
 }
 
 #codex-media-library-root .cml-admin-panel__input::placeholder,
 #codex-media-library-root .cml-admin-panel__textarea::placeholder {
-  color: var(--cml-text-muted);
+  color: rgba(82, 92, 121, 0.62);
+  font-weight: 400;
   opacity: 1;
 }
 
