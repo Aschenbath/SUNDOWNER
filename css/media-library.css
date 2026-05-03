@@ -3784,6 +3784,11 @@ body.codex-media-library-active #app {
   overflow-wrap: break-word;
 }
 
+#codex-media-library-root .cml-admin-panel__stats > * {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
 #codex-media-library-root .cml-admin-panel__stat-card {
   display: flex;
   flex-direction: column;
