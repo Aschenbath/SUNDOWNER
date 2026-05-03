@@ -3628,7 +3628,9 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-admin-panel__footer-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
 }
 
 #codex-media-library-root .cml-admin-panel__section-footer {
@@ -3637,8 +3639,10 @@ body.codex-media-library-active #app {
   display: flex;
   justify-content: flex-end;
   margin-top: 24px;
-  padding-top: 18px;
-  background: linear-gradient(180deg, rgba(45, 45, 45, 0) 0%, rgba(45, 45, 45, 0.96) 30%);
+  padding: 16px 0 0;
+  border-top: 1px solid rgba(170, 184, 207, 0.26);
+  background: rgba(248, 250, 255, 0.72);
+  backdrop-filter: blur(14px);
 }
 
 #codex-media-library-root .cml-admin-panel__form-grid {
@@ -3754,8 +3758,9 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-admin-panel__primary:disabled,
 #codex-media-library-root .cml-admin-panel__secondary:disabled,
 #codex-media-library-root .cml-admin-panel__ghost:disabled {
-  opacity: 0.5;
+  opacity: 0.56;
   cursor: not-allowed;
+  color: #d9e1ee;
 }
 
 #codex-media-library-root .cml-admin-panel__status {
