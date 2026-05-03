@@ -1969,34 +1969,42 @@ describe('media library download actions', () => {
 
   it('resets all picker target state by default', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const pickerStateSource = fs.readFileSync(new URL('../js/media-library/picker-state.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /function resetAddToTargetModes\(\{[\s\S]*preserveAlbumSelectionTarget = false,[\s\S]*preserveVideoAlbumSelectionTarget = false,[\s\S]*preservePrivateSelectionMode = false,[\s\S]*preserveAlbumPickerDistinctOnly = false[\s\S]*\} = \{\}\) \{/);
-    assert.match(appSource, /if \(!preserveAlbumSelectionTarget\) \{\s*state\.albumSelectionTarget = '';\s*\}/);
-    assert.match(appSource, /if \(!preserveVideoAlbumSelectionTarget\) \{\s*state\.videoAlbumSelectionTarget = '';\s*\}/);
-    assert.match(appSource, /if \(!preservePrivateSelectionMode\) \{\s*state\.privateSelectionMode = false;\s*\}/);
-    assert.match(appSource, /if \(!preserveAlbumPickerDistinctOnly\) \{\s*state\.albumPickerDistinctOnly = false;\s*\}/);
+    assert.match(appSource, /import \{[\s\S]*resetAddToTargetModes,[\s\S]*\} from '\.\/picker-state\.js';/);
+    assert.match(pickerStateSource, /export function resetAddToTargetModes\(state, \{[\s\S]*preserveAlbumSelectionTarget = false,[\s\S]*preserveVideoAlbumSelectionTarget = false,[\s\S]*preservePrivateSelectionMode = false,[\s\S]*preserveAlbumPickerDistinctOnly = false[\s\S]*\} = \{\}\) \{/);
+    assert.match(pickerStateSource, /if \(!preserveAlbumSelectionTarget\) \{\s*state\.albumSelectionTarget = '';\s*\}/);
+    assert.match(pickerStateSource, /if \(!preserveVideoAlbumSelectionTarget\) \{\s*state\.videoAlbumSelectionTarget = '';\s*\}/);
+    assert.match(pickerStateSource, /if \(!preservePrivateSelectionMode\) \{\s*state\.privateSelectionMode = false;\s*\}/);
+    assert.match(pickerStateSource, /if \(!preserveAlbumPickerDistinctOnly\) \{\s*state\.albumPickerDistinctOnly = false;\s*\}/);
   });
 
   it('preserves targeted picker state during photos route replay when requested', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const pickerStateSource = fs.readFileSync(new URL('../js/media-library/picker-state.js', import.meta.url), 'utf8');
 
     assert.match(appSource, /const rawHash = decodeURIComponent\(window\.location\.hash \|\| ''\)\.replace\(\/\^#\\\/\?\/, ''\);/);
-    assert.match(appSource, /const isPhotosRouteReplay = \/\^photos\(\?:\\\/\|\$\)\/i\.test\(rawHash \|\| 'photos'\);/);
-    assert.match(appSource, /const preserveAlbumSelectionTarget = Boolean\(state\.albumSelectionTarget\) && isPhotosRouteReplay;/);
-    assert.match(appSource, /const preserveVideoAlbumSelectionTarget = Boolean\(state\.videoAlbumSelectionTarget\) && isPhotosRouteReplay;/);
-    assert.match(appSource, /const preservePrivateSelectionMode = Boolean\(state\.privateSelectionMode\) && isPhotosRouteReplay;/);
-    assert.match(appSource, /const preserveAlbumPickerDistinctOnly = Boolean\(state\.albumPickerDistinctOnly\) && isPhotosRouteReplay;/);
-    assert.match(appSource, /resetAddToTargetModes\(\{[\s\S]*preserveAlbumSelectionTarget,[\s\S]*preserveVideoAlbumSelectionTarget,[\s\S]*preservePrivateSelectionMode,[\s\S]*preserveAlbumPickerDistinctOnly[\s\S]*\}\);/);
+    assert.match(pickerStateSource, /export function isPhotosRouteReplay\(rawHash\) \{/);
+    assert.match(pickerStateSource, /return \/\^photos\(\?:\\\/\|\$\)\/i\.test\(rawHash \|\| 'photos'\);/);
+    assert.match(pickerStateSource, /export function buildPickerPreserveFlags\(state, rawHash\) \{/);
+    assert.match(pickerStateSource, /preserveAlbumSelectionTarget: Boolean\(state\?\.albumSelectionTarget\) && photosRouteReplay,/);
+    assert.match(pickerStateSource, /preserveVideoAlbumSelectionTarget: Boolean\(state\?\.videoAlbumSelectionTarget\) && photosRouteReplay,/);
+    assert.match(pickerStateSource, /preservePrivateSelectionMode: Boolean\(state\?\.privateSelectionMode\) && photosRouteReplay,/);
+    assert.match(pickerStateSource, /preserveAlbumPickerDistinctOnly: Boolean\(state\?\.albumPickerDistinctOnly\) && photosRouteReplay,/);
+    assert.match(appSource, /\} = buildPickerPreserveFlags\(state, rawHash\);/);
+    assert.match(appSource, /resetAddToTargetModes\(state, \{[\s\S]*preserveAlbumSelectionTarget,[\s\S]*preserveVideoAlbumSelectionTarget,[\s\S]*preservePrivateSelectionMode,[\s\S]*preserveAlbumPickerDistinctOnly[\s\S]*\}\);/);
   });
 
   it('keeps current album target and related picker state protected from photos route replay regressions', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const pickerStateSource = fs.readFileSync(new URL('../js/media-library/picker-state.js', import.meta.url), 'utf8');
 
     assert.match(appSource, /case 'open-add-to-album':\s*if \(state\.albumSelectionTarget\) \{\s*commitSelectionToAlbum\(state\.albumSelectionTarget\);\s*return true;\s*\}\s*openAlbumDialog\('assign'\);\s*return true;/);
-    assert.match(appSource, /const preserveAlbumSelectionTarget = Boolean\(state\.albumSelectionTarget\) && isPhotosRouteReplay;/);
-    assert.match(appSource, /const preserveVideoAlbumSelectionTarget = Boolean\(state\.videoAlbumSelectionTarget\) && isPhotosRouteReplay;/);
-    assert.match(appSource, /const preservePrivateSelectionMode = Boolean\(state\.privateSelectionMode\) && isPhotosRouteReplay;/);
-    assert.match(appSource, /const preserveAlbumPickerDistinctOnly = Boolean\(state\.albumPickerDistinctOnly\) && isPhotosRouteReplay;/);
+    assert.match(pickerStateSource, /export function buildPickerPreserveFlags\(state, rawHash\) \{/);
+    assert.match(pickerStateSource, /preserveAlbumSelectionTarget: Boolean\(state\?\.albumSelectionTarget\) && photosRouteReplay,/);
+    assert.match(pickerStateSource, /preserveVideoAlbumSelectionTarget: Boolean\(state\?\.videoAlbumSelectionTarget\) && photosRouteReplay,/);
+    assert.match(pickerStateSource, /preservePrivateSelectionMode: Boolean\(state\?\.privateSelectionMode\) && photosRouteReplay,/);
+    assert.match(pickerStateSource, /preserveAlbumPickerDistinctOnly: Boolean\(state\?\.albumPickerDistinctOnly\) && photosRouteReplay,/);
   });
 
   it('lets the preview album-panel close button close the whole preview and clears preview-side selection state', () => {

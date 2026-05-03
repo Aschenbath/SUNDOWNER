@@ -41,6 +41,14 @@ import {
   summarizeMediaSearch,
 } from './search-filters.js?v=4';
 import { loadJson, saveJson } from './storage.js';
+import {
+  buildPickerPreserveFlags,
+  canUseDistinctAlbumPicker,
+  getAlbumSelectionTarget,
+  getVideoAlbumSelectionTarget,
+  hasAnyPickerTarget,
+  resetAddToTargetModes,
+} from './picker-state.js';
 import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
@@ -2677,16 +2685,10 @@ function getActivePlaylistName() {
   return state.primaryFilter === 'Music' ? normalizeText(state.activePlaylistName) : '';
 }
 
-function getAlbumSelectionTarget() {
-  return normalizeText(state.albumSelectionTarget);
-}
-
-function getVideoAlbumSelectionTarget() {
-  return normalizeVideoCategory(state.videoAlbumSelectionTarget);
-}
-
 function isAlbumTargetedPhotoPickerActive() {
-  return Boolean(getAlbumSelectionTarget()) && state.primaryFilter === 'Collections' && normalizeText(state.activeAlbumName) === getAlbumSelectionTarget();
+  return Boolean(getAlbumSelectionTarget(state))
+    && state.primaryFilter === 'Collections'
+    && normalizeText(state.activeAlbumName) === getAlbumSelectionTarget(state);
 }
 
 function getViewportLayoutWidth() {
@@ -3008,7 +3010,7 @@ function leaveMobileMindView() {
   state.previewId = null;
   state.selectedIds.clear();
   state.binSelectedIds.clear();
-  resetAddToTargetModes();
+  resetAddToTargetModes(state);
   resetSearchQuery();
   clearPrivateViewState();
   if (state.mobileMindReturnPrivate) {
@@ -5708,7 +5710,7 @@ function setPreviewAlbumCreateMode(forceOpen) {
 }
 
 function toggleAlbumPickerDistinctOnly() {
-  if (!canUseDistinctAlbumPicker()) {
+  if (!canUseDistinctAlbumPicker(state)) {
     state.albumPickerDistinctOnly = false;
     return;
   }
@@ -6138,7 +6140,7 @@ function openCollection(albumName) {
   }
   state.primaryFilter = 'Collections';
   state.activeAlbumName = normalizedName;
-  resetAddToTargetModes();
+  resetAddToTargetModes(state);
   state.secondaryFilter = '';
   resetSearchQuery();
   state.previewId = null;
@@ -6158,7 +6160,7 @@ function openMusicPlaylist(playlistName) {
   }
   state.primaryFilter = 'Music';
   state.activePlaylistName = normalizedName;
-  resetAddToTargetModes();
+  resetAddToTargetModes(state);
   resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
@@ -6186,7 +6188,7 @@ function openVideoAlbum(categoryName) {
   state.secondaryFilter = 'Videos';
   state.videoCategoryFilter = normalizedCategory;
   state.activeAlbumName = '';
-  resetAddToTargetModes();
+  resetAddToTargetModes(state);
   resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
@@ -6203,7 +6205,7 @@ function closeCollection() {
     return;
   }
   state.activeAlbumName = '';
-  resetAddToTargetModes();
+  resetAddToTargetModes(state);
   resetSearchQuery();
   state.previewId = null;
   clearSelection({ shouldRender: false });
@@ -6255,26 +6257,6 @@ function clearPrivateViewState() {
   state.privatePasswordDraft = '';
   state.privatePasswordError = '';
   state.focusedTileId = null;
-}
-
-function resetAddToTargetModes({
-  preserveAlbumSelectionTarget = false,
-  preserveVideoAlbumSelectionTarget = false,
-  preservePrivateSelectionMode = false,
-  preserveAlbumPickerDistinctOnly = false
-} = {}) {
-  if (!preserveAlbumSelectionTarget) {
-    state.albumSelectionTarget = '';
-  }
-  if (!preserveVideoAlbumSelectionTarget) {
-    state.videoAlbumSelectionTarget = '';
-  }
-  if (!preservePrivateSelectionMode) {
-    state.privateSelectionMode = false;
-  }
-  if (!preserveAlbumPickerDistinctOnly) {
-    state.albumPickerDistinctOnly = false;
-  }
 }
 
 function resetPrivateRouteUnlockError() {
@@ -6374,13 +6356,13 @@ function openPrivateSelection() {
 }
 
 function closeAlbumSelection() {
-  const targetAlbum = getAlbumSelectionTarget();
-  const targetVideoAlbum = getVideoAlbumSelectionTarget();
+  const targetAlbum = getAlbumSelectionTarget(state);
+  const targetVideoAlbum = getVideoAlbumSelectionTarget(state);
   const wasPrivateSelection = state.privateSelectionMode;
   if (!targetAlbum && !targetVideoAlbum && !wasPrivateSelection) {
     return;
   }
-  resetAddToTargetModes();
+  resetAddToTargetModes(state);
   if (targetVideoAlbum) {
     state.primaryFilter = 'Photos';
     state.activeAlbumName = '';
@@ -6416,8 +6398,8 @@ function closeAlbumSelection() {
 }
 
 function commitSelectionToCurrentTarget() {
-  const targetAlbum = getAlbumSelectionTarget();
-  const targetVideoAlbum = getVideoAlbumSelectionTarget();
+  const targetAlbum = getAlbumSelectionTarget(state);
+  const targetVideoAlbum = getVideoAlbumSelectionTarget(state);
   if (state.privateSelectionMode) {
     return setSelectionPrivateAlbum(true);
   }
@@ -6467,7 +6449,7 @@ function commitSelectionToAlbum(albumName) {
   state.albumDialogTarget = 'photo';
   state.albumDialogError = '';
   state.albumDraftName = '';
-  resetAddToTargetModes();
+  resetAddToTargetModes(state);
   state.albumDrawerSearch = '';
   state.albumDrawerScope = 'all';
   state.albumDrawerCreateMode = false;
@@ -6520,7 +6502,7 @@ function submitAlbumDialog() {
   state.albumDialogError = '';
   state.albumDialogTarget = 'photo';
   state.albumDraftName = '';
-  resetAddToTargetModes();
+  resetAddToTargetModes(state);
   state.albumDrawerSearch = '';
   state.albumDrawerScope = 'all';
   state.albumDrawerCreateMode = false;
@@ -7525,7 +7507,7 @@ async function setSelectionPrivateAlbum(nextPrivate) {
 
   state.selectedIds.clear();
   if (nextPrivate) {
-    resetAddToTargetModes();
+    resetAddToTargetModes(state);
   }
   if (!nextPrivate && isPrivateRouteActive()) {
     state.previewId = null;
@@ -7587,7 +7569,7 @@ async function setSelectionVideoAlbum(albumName, { createOnly = false } = {}) {
   state.albumDialogTarget = 'photo';
   state.albumDialogError = '';
   state.albumDraftName = '';
-  resetAddToTargetModes();
+  resetAddToTargetModes(state);
   state.albumDrawerSearch = '';
   state.albumDrawerScope = 'all';
   state.albumDrawerCreateMode = false;
@@ -7743,16 +7725,14 @@ function isTodoPhotoItem(item) {
   return item?.type === 'photo' && resolveCollectionAlbums(item).length === 0;
 }
 
-function canUseDistinctAlbumPicker() {
-  return Boolean(getAlbumSelectionTarget()) && !getVideoAlbumSelectionTarget() && !state.privateSelectionMode;
-}
+
 
 function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = false } = {}) {
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const query = parsedSearch.textQuery.toLowerCase();
   const activeAlbumName = getActiveAlbumName();
-  const albumSelectionTarget = getAlbumSelectionTarget();
-  const videoAlbumSelectionTarget = getVideoAlbumSelectionTarget();
+  const albumSelectionTarget = getAlbumSelectionTarget(state);
+  const videoAlbumSelectionTarget = getVideoAlbumSelectionTarget(state);
   const searchFilters = parsedSearch.filters;
   const hasGlobalSearch = Boolean(query || countActiveMediaSearchFilters(searchFilters) > 0);
 
@@ -7773,7 +7753,7 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
       return false;
     }
 
-    if (state.albumPickerDistinctOnly && canUseDistinctAlbumPicker() && !isTodoPhotoItem(item)) {
+    if (state.albumPickerDistinctOnly && canUseDistinctAlbumPicker(state) && !isTodoPhotoItem(item)) {
       return false;
     }
 
@@ -8123,8 +8103,8 @@ function getViewModel() {
     }
   }
   const activeAlbumName = getActiveAlbumName();
-  const albumSelectionTarget = getAlbumSelectionTarget();
-  const videoAlbumSelectionTarget = getVideoAlbumSelectionTarget();
+  const albumSelectionTarget = getAlbumSelectionTarget(state);
+  const videoAlbumSelectionTarget = getVideoAlbumSelectionTarget(state);
   const filteredItems = getFilteredItems(accessibleItems);
   const searchPhotoItems = globalSearchActive
     ? filteredItems.filter((item) => item?.type === 'photo')
@@ -8191,7 +8171,7 @@ function getViewModel() {
     : 0;
   const isMusicView = state.primaryFilter === 'Music' && !isGlobalSearchView;
   const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName && !isGlobalSearchView;
-  const isAlbumPickerMode = Boolean(albumSelectionTarget || videoAlbumSelectionTarget || state.privateSelectionMode);
+  const isAlbumPickerMode = hasAnyPickerTarget(state);
   const musicPlaylists = (isMusicView || isGlobalSearchView) ? buildMusicPlaylistSummaries(accessibleItems) : [];
   const musicItems = isMusicView
     ? getMusicContextItems(accessibleItems)
@@ -11557,7 +11537,7 @@ function handleClick(event) {
 
   // In selection mode, clicking anywhere on a tile toggles selection instead of opening preview
   const inSelectionMode = state.selectedIds.size > 0
-    || Boolean(state.albumSelectionTarget || state.videoAlbumSelectionTarget || state.privateSelectionMode);
+    || hasAnyPickerTarget(state);
   const clickedInsideThemeSwitcher = event.target instanceof Element && event.target.closest('.cml-theme-switcher');
   const shouldCloseThemeMenu = state.uiThemeMenuOpen && !clickedInsideThemeSwitcher;
 
@@ -11607,9 +11587,7 @@ function handleClick(event) {
         && !state.activeAlbumName
         && !state.activePlaylistName
         && !state.privateViewOpen
-        && !state.albumSelectionTarget
-        && !state.videoAlbumSelectionTarget
-        && !state.privateSelectionMode
+        && !hasAnyPickerTarget(state)
         && !state.previewId
         && state.selectedIds.size === 0
         && state.binSelectedIds.size === 0;
@@ -11637,7 +11615,7 @@ function handleClick(event) {
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       state.activePlaylistName = '';
-      resetAddToTargetModes();
+      resetAddToTargetModes(state);
       resetSearchQuery();
       state.previewId = null;
       state.selectedIds.clear();
@@ -11656,9 +11634,7 @@ function handleClick(event) {
         && !hasActiveSearchUiState()
         && !state.activeAlbumName
         && !state.privateViewOpen
-        && !state.albumSelectionTarget
-        && !state.videoAlbumSelectionTarget
-        && !state.privateSelectionMode
+        && !hasAnyPickerTarget(state)
         && !state.previewId
         && state.selectedIds.size === 0
         && state.binSelectedIds.size === 0;
@@ -11675,7 +11651,7 @@ function handleClick(event) {
       clearPrivateViewState();
       state.storagePanelOpen = false;
       state.activeAlbumName = '';
-      resetAddToTargetModes();
+      resetAddToTargetModes(state);
       state.previewId = null;
       state.selectedIds.clear();
       state.binSelectedIds.clear();
@@ -12164,7 +12140,7 @@ function handleKeyDown(event) {
   }
 
   // Escape cancels album-selection (picker) mode
-  if ((state.albumSelectionTarget || state.videoAlbumSelectionTarget || state.privateSelectionMode) && event.key === 'Escape') {
+  if (hasAnyPickerTarget(state) && event.key === 'Escape') {
     closeAlbumSelection();
     return;
   }
@@ -12377,12 +12353,13 @@ function pushNavigationHash() {
 
 function restoreNavigationFromHash() {
   const rawHash = decodeURIComponent(window.location.hash || '').replace(/^#\/?/, '');
-  const isPhotosRouteReplay = /^photos(?:\/|$)/i.test(rawHash || 'photos');
-  const preserveAlbumSelectionTarget = Boolean(state.albumSelectionTarget) && isPhotosRouteReplay;
-  const preserveVideoAlbumSelectionTarget = Boolean(state.videoAlbumSelectionTarget) && isPhotosRouteReplay;
-  const preservePrivateSelectionMode = Boolean(state.privateSelectionMode) && isPhotosRouteReplay;
-  const preserveAlbumPickerDistinctOnly = Boolean(state.albumPickerDistinctOnly) && isPhotosRouteReplay;
-  resetAddToTargetModes({
+  const {
+    preserveAlbumSelectionTarget,
+    preserveVideoAlbumSelectionTarget,
+    preservePrivateSelectionMode,
+    preserveAlbumPickerDistinctOnly,
+  } = buildPickerPreserveFlags(state, rawHash);
+  resetAddToTargetModes(state, {
     preserveAlbumSelectionTarget,
     preserveVideoAlbumSelectionTarget,
     preservePrivateSelectionMode,
@@ -12409,7 +12386,7 @@ function restoreNavigationFromHash() {
       state.activeAlbumName = '';
       state.activePlaylistName = '';
       if (parts[1] && parts[1].toLowerCase() === PRIVATE_ROUTE_SEGMENT) {
-        resetAddToTargetModes();
+        resetAddToTargetModes(state);
         state.privateViewOpen = true;
         state.privateRouteUnlocked = false;
         state.privatePasswordDraft = '';
