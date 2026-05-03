@@ -9,6 +9,11 @@ import {
   createAdminSessionToken,
   makeAdminSessionCookie,
 } from '../../utils/adminSession.js';
+import { jsonResponse, optionsResponse } from '../../utils/cors.js';
+
+export function onRequestOptions() {
+  return optionsResponse();
+}
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -17,60 +22,56 @@ export async function onRequestPost(context) {
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+    return jsonResponse({ error: 'Invalid JSON' }, {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
     });
   }
 
   const { username, password } = body || {};
 
   if (!username || !password) {
-    return new Response(JSON.stringify({ error: 'Username and password required' }), {
+    return jsonResponse({ error: 'Username and password required' }, {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
     });
   }
 
   const securityConfig = await fetchSecurityConfig(env);
   if (hasSecurityConfigLoadError(securityConfig)) {
-    return new Response(JSON.stringify({ error: 'Security configuration is unavailable' }), {
+    return jsonResponse({ error: 'Security configuration is unavailable' }, {
       status: 503,
-      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      headers: { 'Cache-Control': 'no-store' },
     });
   }
 
   if (!hasConfiguredAdminCredentials(securityConfig)) {
-    return new Response(JSON.stringify({ error: 'Admin credentials are not configured' }), {
+    return jsonResponse({ error: 'Admin credentials are not configured' }, {
       status: 503,
-      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      headers: { 'Cache-Control': 'no-store' },
     });
   }
 
   const { username: rightUser, password: rightPass } = getConfiguredAdminCredentials(securityConfig);
 
   if (!rightUser || username !== rightUser || password !== rightPass) {
-    return new Response(JSON.stringify({ error: 'Invalid username or password' }), {
+    return jsonResponse({ error: 'Invalid username or password' }, {
       status: 401,
-      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      headers: { 'Cache-Control': 'no-store' },
     });
   }
 
   const token = await createAdminSessionToken(username, password, ADMIN_SESSION_MAX_AGE);
-  return new Response(JSON.stringify({ ok: true }), {
+  return jsonResponse({ ok: true }, {
     status: 200,
     headers: {
-      'Content-Type': 'application/json',
       'Set-Cookie': makeAdminSessionCookie(token, ADMIN_SESSION_MAX_AGE),
     },
   });
 }
 
 export async function onRequestDelete(context) {
-  return new Response(JSON.stringify({ ok: true }), {
+  return jsonResponse({ ok: true }, {
     status: 200,
     headers: {
-      'Content-Type': 'application/json',
       'Set-Cookie': makeAdminSessionCookie('', 0),
     },
   });

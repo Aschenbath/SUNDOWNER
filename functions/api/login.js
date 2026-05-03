@@ -4,12 +4,17 @@ import {
     hasConfiguredUserAuthCode,
     hasSecurityConfigLoadError,
 } from "../utils/sysConfig.js";
+import { optionsResponse, withCorsHeaders } from '../utils/cors.js';
 
 function invalidBodyResponse() {
     return new Response(JSON.stringify({ success: false, error: 'Invalid request body' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: withCorsHeaders({ 'Content-Type': 'application/json' }),
     });
+}
+
+export function onRequestOptions() {
+    return optionsResponse();
 }
 
 export async function onRequestPost(context) {
@@ -30,17 +35,29 @@ export async function onRequestPost(context) {
 
     const securityConfig = await fetchSecurityConfig(env);
     if (hasSecurityConfigLoadError(securityConfig)) {
-        return new Response('Security configuration is unavailable', { status: 503 });
+        return new Response('Security configuration is unavailable', {
+            status: 503,
+            headers: withCorsHeaders(),
+        });
     }
 
     if (!hasConfiguredUserAuthCode(securityConfig)) {
-        return new Response('User auth code is not configured', { status: 503 });
+        return new Response('User auth code is not configured', {
+            status: 503,
+            headers: withCorsHeaders(),
+        });
     }
 
     const rightAuthCode = getConfiguredUserAuthCode(securityConfig);
     if (authCode !== rightAuthCode) {
-        return new Response('Unauthorized', { status: 401 });
+        return new Response('Unauthorized', {
+            status: 401,
+            headers: withCorsHeaders(),
+        });
     }
 
-    return new Response('Login success', { status: 200 });
+    return new Response('Login success', {
+        status: 200,
+        headers: withCorsHeaders(),
+    });
 }

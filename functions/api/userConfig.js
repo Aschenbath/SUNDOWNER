@@ -1,4 +1,5 @@
 import { fetchPageConfig } from "../utils/sysConfig.js";
+import { methodNotAllowed, optionsResponse, withCorsHeaders } from '../utils/cors.js';
 
 function invalidStoredConfigResponse() {
     return new Response(JSON.stringify({
@@ -6,11 +7,23 @@ function invalidStoredConfigResponse() {
         error: 'Invalid stored user configuration'
     }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: withCorsHeaders({ 'Content-Type': 'application/json' })
     });
 }
 
+export function onRequestOptions() {
+    return optionsResponse();
+}
+
 export async function onRequest(context) {
+    const request = context.request || new Request('http://localhost/api/userConfig', { method: 'GET' });
+    if (request.method === 'OPTIONS') {
+        return optionsResponse();
+    }
+    if (request.method !== 'GET') {
+        return methodNotAllowed(['GET', 'OPTIONS']);
+    }
+
     const { env } = context;
     const PageConfig = await fetchPageConfig(env);
     const userConfigList = PageConfig.config;
@@ -30,13 +43,16 @@ export async function onRequest(context) {
     }
 
     if (!userConfig) {
-        return new Response(JSON.stringify({}), { status: 200 });
+        return new Response(JSON.stringify({}), {
+            status: 200,
+            headers: withCorsHeaders({ 'Content-Type': 'application/json' })
+        });
     }
 
     if (typeof userConfig === 'object' && userConfig !== null) {
         return new Response(JSON.stringify(userConfig), {
             status: 200,
-            headers: { 'Content-Type': 'application/json' }
+            headers: withCorsHeaders({ 'Content-Type': 'application/json' })
         });
     }
 

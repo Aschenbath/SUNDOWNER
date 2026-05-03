@@ -5,6 +5,7 @@ import {
 import { KV_TO_D1_MIGRATION_STATE_KEY, checkDatabaseConfig, getDatabase } from '../../utils/databaseAdapter.js';
 import { cleanupExpiredRecycleBin, isRecycleBinMetadata } from '../../utils/recycleBin.js';
 import { sanitizeExposedMetadata } from '../../utils/mediaSecurity.js';
+import { methodNotAllowed, optionsResponse } from '../../utils/cors.js';
 
 // CORS 跨域响应头
 const corsHeaders = {
@@ -85,6 +86,13 @@ async function isD1ListQueryEnabled(env) {
 
 export async function onRequest(context) {
     const { request, waitUntil } = context;
+    if (request.method === 'OPTIONS') {
+        return optionsResponse();
+    }
+    if (request.method !== 'GET') {
+        return methodNotAllowed(['GET', 'OPTIONS']);
+    }
+
     const url = new URL(request.url);
 
     // 解析查询参数
