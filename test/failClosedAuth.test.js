@@ -44,6 +44,76 @@ describe('fail-closed auth helpers', () => {
 });
 
 describe('fail-closed auth routes', () => {
+  it('returns 400 for empty login body', async () => {
+    const response = await loginPost({
+      env: createEnv(),
+      request: new Request('http://localhost/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '',
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { success: false, error: 'Invalid request body' });
+  });
+
+  it('returns 400 for invalid login JSON', async () => {
+    const response = await loginPost({
+      env: createEnv(),
+      request: new Request('http://localhost/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{',
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { success: false, error: 'Invalid request body' });
+  });
+
+  it('returns 400 for array login body', async () => {
+    const response = await loginPost({
+      env: createEnv(),
+      request: new Request('http://localhost/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(['anything']),
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { success: false, error: 'Invalid request body' });
+  });
+
+  it('returns 400 for null login body', async () => {
+    const response = await loginPost({
+      env: createEnv(),
+      request: new Request('http://localhost/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: 'null',
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { success: false, error: 'Invalid request body' });
+  });
+
+  it('keeps object login bodies on the existing auth path', async () => {
+    const response = await loginPost({
+      env: createEnv(),
+      request: new Request('http://localhost/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authCode: 'anything' }),
+      }),
+    });
+
+    assert.equal(response.status, 503);
+    assert.equal(await response.text(), 'User auth code is not configured');
+  });
+
   it('returns 503 for user login when authCode is not configured', async () => {
     const response = await loginPost({
       env: createEnv(),
