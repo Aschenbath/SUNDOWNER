@@ -1473,8 +1473,12 @@ describe('media library download actions', () => {
 
   it('keeps primary and secondary nav fast-paths aware of active desktop search state', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const storageSource = fs.readFileSync(new URL('../js/media-library/storage.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /function saveJson\(key, value\)/);
+    assert.match(appSource, /import \{ loadJson, saveJson \} from '\.\/storage\.js';/);
+    assert.match(storageSource, /const badJsonWarnedKeys = new Set\(\);/);
+    assert.match(storageSource, /export function loadJson\(key, fallback\)/);
+    assert.match(storageSource, /export function saveJson\(key, value\)/);
     assert.match(appSource, /function hasActiveSearchUiState\(\)/);
     assert.match(appSource, /function savePreviewTags\(itemId, tagInput, previousItem = null\)/);
     assert.match(appSource, /function syncDocsRowSelectionState\(row, selected\)/);

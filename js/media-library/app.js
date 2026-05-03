@@ -40,6 +40,7 @@ import {
   parseMediaSearchQuery,
   summarizeMediaSearch,
 } from './search-filters.js?v=4';
+import { loadJson, saveJson } from './storage.js';
 import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
@@ -193,33 +194,6 @@ const AUDIO_MODE_REPEAT_ONE = 'repeat-one';
 const AUDIO_MODE_SHUFFLE = 'shuffle';
 const MIND_SETTINGS_STORAGE_KEY = 'codex-media-library-mind-settings';
 const MIND_STATE_FRESH_MS = 30000;
-const badJsonWarnedKeys = new Set();
-
-function loadJson(key, fallback) {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch (error) {
-    if (!badJsonWarnedKeys.has(key)) {
-      badJsonWarnedKeys.add(key);
-      console.warn('[media-library] invalid localStorage JSON cleared', key, error);
-    }
-    try {
-      window.localStorage.removeItem(key);
-    } catch {
-      // Ignore localStorage cleanup failures and keep fallback behavior.
-    }
-    return fallback;
-  }
-}
-
-function saveJson(key, value) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    // Ignore local persistence failures and keep the UI responsive.
-  }
-}
 
 function loadStringSet(key) {
   const values = loadJson(key, []);
