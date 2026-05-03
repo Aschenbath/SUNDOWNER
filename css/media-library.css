@@ -716,6 +716,7 @@ body.codex-media-library-active #app {
   height: 20px;
   flex-shrink: 0;
   justify-self: center;
+  color: currentColor;
 }
 
 #codex-media-library-root .cml-sidebar .cml-sidebar__nav-item .cml-icon svg,
@@ -3573,10 +3574,10 @@ body.codex-media-library-active #app {
   flex-direction: column;
   gap: 8px;
   padding: 22px 16px;
-  background: color-mix(in srgb, var(--cml-surface-dark) 96%, var(--cml-accent) 4%);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--cml-surface-soft) 94%, var(--cml-accent) 6%);
+  border-right: 1px solid var(--cml-border-soft);
   min-width: 0;
-  color: var(--cml-text-on-dark);
+  color: var(--cml-text-primary);
 }
 
 #codex-media-library-root .cml-admin-panel__tab {
@@ -3588,20 +3589,21 @@ body.codex-media-library-active #app {
   border: 0;
   border-radius: 12px;
   background: transparent;
-  color: var(--cml-text-on-dark-secondary);
+  color: var(--cml-text-secondary);
   cursor: pointer;
   text-align: left;
-  transition: background-color 160ms ease, color 160ms ease;
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 
 #codex-media-library-root .cml-admin-panel__tab:hover {
-  background: rgba(138, 180, 248, 0.14);
-  color: var(--cml-text-on-dark);
+  background: rgba(138, 180, 248, 0.12);
+  color: var(--cml-text-primary);
 }
 
 #codex-media-library-root .cml-admin-panel__tab.is-active {
-  background: rgba(11, 87, 208, 0.92);
-  color: #edf3ff;
+  background: color-mix(in srgb, var(--cml-accent) 18%, white 82%);
+  color: var(--cml-accent);
+  box-shadow: inset 3px 0 0 var(--cml-accent), inset 0 0 0 1px rgba(var(--cml-theme-accent-rgb), 0.12);
 }
 
 #codex-media-library-root .cml-admin-panel__content {
@@ -3675,8 +3677,8 @@ body.codex-media-library-active #app {
   justify-content: flex-end;
   margin-top: 24px;
   padding: 16px 0 0;
-  border-top: 1px solid rgba(170, 184, 207, 0.26);
-  background: rgba(248, 250, 255, 0.72);
+  border-top: 1px solid rgba(170, 184, 207, 0.2);
+  background: color-mix(in srgb, var(--cml-surface) 76%, transparent 24%);
   backdrop-filter: blur(14px);
 }
 
@@ -3713,8 +3715,9 @@ body.codex-media-library-active #app {
   padding: 0 14px;
   border: 1px solid var(--cml-border-soft);
   border-radius: 10px;
-  background: var(--cml-surface-soft);
+  background: color-mix(in srgb, var(--cml-surface) 68%, white 32%);
   color: var(--cml-text-primary);
+  -webkit-text-fill-color: var(--cml-text-primary);
   font-size: 14px;
   font-weight: 500;
   outline: none;
@@ -3725,6 +3728,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-admin-panel__input::placeholder,
 #codex-media-library-root .cml-admin-panel__textarea::placeholder {
   color: var(--cml-text-muted);
+  opacity: 1;
 }
 
 #codex-media-library-root .cml-admin-panel__input:disabled,
@@ -3824,14 +3828,15 @@ body.codex-media-library-active #app {
   min-height: 42px;
   padding: 0 18px;
   border-radius: 999px;
-  border: 1px solid rgba(179, 197, 255, 0.18);
+  border: 1px solid rgba(179, 197, 255, 0.2);
   background: linear-gradient(135deg, rgba(122, 146, 255, 0.96), rgba(162, 108, 246, 0.96));
-  color: #f8fbff;
-  box-shadow: 0 14px 30px rgba(77, 103, 197, 0.24);
+  color: var(--cml-text-on-accent);
+  box-shadow: 0 14px 30px rgba(77, 103, 197, 0.18);
 }
 
 #codex-media-library-root .cml-admin-panel__save-button:hover:not(:disabled) {
   background: linear-gradient(135deg, rgba(111, 137, 255, 1), rgba(149, 96, 240, 1));
+  color: var(--cml-text-on-accent);
 }
 
 #codex-media-library-root .cml-admin-panel__save-button:disabled {
@@ -4676,6 +4681,7 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-mobile-nav__icon-wrap .cml-icon {
     width: 24px;
     height: 24px;
+    color: currentColor;
   }
 
   /* Tab label — clear and readable */

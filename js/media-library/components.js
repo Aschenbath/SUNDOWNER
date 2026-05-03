@@ -3733,7 +3733,7 @@ export function AdminPanel({ state, storageSummary }) {
       ${statusHtml}
       <div class="cml-admin-panel__section-footer">
         <div class="cml-admin-panel__footer-actions">
-          <button type="button" class="cml-admin-panel__primary" data-action="save-admin-site" ${state.adminPanelBusy ? 'disabled' : ''}>${icon('save')}<span>${state.adminPanelBusy ? 'Saving...' : 'Save site settings'}</span></button>
+          <button type="button" class="cml-admin-panel__primary cml-admin-panel__save-button" data-action="save-admin-site" ${state.adminPanelBusy ? 'disabled' : ''}>${icon('save')}<span>${state.adminPanelBusy ? 'Saving...' : 'Save site settings'}</span></button>
         </div>
       </div>
     </section>
