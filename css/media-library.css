@@ -3515,9 +3515,10 @@ body.codex-media-library-active #app {
   }
 }
 
-  width: min(980px, calc(100vw - 32px));
+#codex-media-library-root .cml-admin-panel__panel {
+  width: min(1120px, calc(100vw - 48px));
   max-height: min(88vh, 900px);
-  margin-top: 6vh;
+  margin-top: 4vh;
   padding: 0;
   overflow: hidden;
 }
@@ -3570,10 +3571,12 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-admin-panel__content {
   min-width: 0;
+  width: 100%;
+  max-width: none;
   min-height: 0;
   max-height: min(72vh, 740px);
-  overflow-y: auto;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #codex-media-library-root .cml-admin-panel__section {
@@ -3776,6 +3779,11 @@ body.codex-media-library-active #app {
   margin-bottom: 20px;
 }
 
+#codex-media-library-root .cml-admin-panel__stats > * {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
 #codex-media-library-root .cml-admin-panel__stat-card {
   display: flex;
   flex-direction: column;
@@ -3821,6 +3829,7 @@ body.codex-media-library-active #app {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   min-width: 0;
+  overflow-wrap: break-word;
 }
 
 #codex-media-library-root .cml-admin-panel__subheader {
@@ -3832,9 +3841,10 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-admin-panel__subactions {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
 }
 
 #codex-media-library-root .cml-admin-panel__subactions--stack {
@@ -3863,6 +3873,8 @@ body.codex-media-library-active #app {
   border-radius: 16px;
   background: rgba(17, 24, 39, 0.46);
   border: 1px solid rgba(255, 255, 255, 0.06);
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 #codex-media-library-root .cml-admin-panel__migration-label,
@@ -3963,6 +3975,7 @@ body.codex-media-library-active #app {
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+  overflow-wrap: break-word;
 }
 
 #codex-media-library-root .cml-admin-panel__recovery-copy strong {
@@ -4072,26 +4085,38 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-admin-panel__inline-link {
+  display: inline-flex;
   align-self: flex-start;
+  align-items: center;
+  justify-content: center;
   margin-top: 14px;
-  min-height: 38px;
-  padding: 0 14px;
-  border: 0;
+  min-height: 40px;
+  min-width: 132px;
+  padding: 0 16px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #c3cad6;
+  border: 1px solid rgba(120,130,150,0.22);
+  background: rgba(255,255,255,0.72);
+  color: #20232a;
   cursor: pointer;
-  transition: background-color 160ms ease, color 160ms ease;
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: normal;
+  word-break: normal;
+  box-shadow: none;
 }
 
 #codex-media-library-root .cml-admin-panel__inline-link:hover {
-  background: rgba(138, 180, 248, 0.16);
-  color: #8ab4f8;
+  background: rgba(255,255,255,0.92);
+  color: #101828;
+  border-color: rgba(120,130,150,0.32);
 }
 
 #codex-media-library-root .cml-admin-panel__inline-link:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  color: #5f6b7f;
+  background: rgba(255,255,255,0.56);
 }
 
 #codex-media-library-root .cml-preview {
