@@ -79,6 +79,19 @@ body.codex-media-library-active #app {
   --cml-theme-accent: #78aaf8;
   --cml-theme-accent-rgb: 120, 170, 248;
   --cml-theme-accent-strong: #9dc4ff;
+  --cml-accent: var(--cml-theme-accent);
+  --cml-accent-strong: var(--cml-theme-accent-strong);
+  --cml-surface: rgba(255, 255, 255, 0.94);
+  --cml-surface-soft: rgba(248, 250, 255, 0.9);
+  --cml-surface-dark: rgba(21, 23, 27, 0.92);
+  --cml-border-soft: rgba(134, 147, 170, 0.18);
+  --cml-text-primary: #202430;
+  --cml-text-secondary: rgba(45, 52, 68, 0.76);
+  --cml-text-muted: rgba(65, 72, 88, 0.58);
+  --cml-text-on-dark: #eef2f7;
+  --cml-text-on-dark-secondary: rgba(230, 236, 245, 0.78);
+  --cml-text-on-dark-muted: rgba(198, 208, 222, 0.68);
+  --cml-text-on-accent: #f8fbff;
   --cml-theme-accent-soft: rgba(var(--cml-theme-accent-rgb), 0.18);
   --cml-theme-accent-soft-strong: rgba(var(--cml-theme-accent-rgb), 0.28);
   --cml-theme-panel-glow: rgba(var(--cml-theme-accent-rgb), 0.16);
@@ -210,6 +223,16 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-app-shell[data-cml-theme-mode="dark"] {
   --cml-theme-shell-base: color-mix(in srgb, #1f2024 90%, var(--cml-theme-accent) 10%);
+  --cml-text-primary: #eef2f7;
+  --cml-text-secondary: rgba(226, 232, 241, 0.84);
+  --cml-text-muted: rgba(198, 208, 222, 0.68);
+  --cml-text-on-dark: #eef2f7;
+  --cml-text-on-dark-secondary: rgba(226, 232, 241, 0.84);
+  --cml-text-on-dark-muted: rgba(198, 208, 222, 0.68);
+  --cml-surface: rgba(24, 26, 31, 0.96);
+  --cml-surface-soft: rgba(30, 33, 39, 0.9);
+  --cml-surface-dark: rgba(17, 19, 24, 0.94);
+  --cml-border-soft: rgba(255, 255, 255, 0.08);
   --cml-theme-page-bg:
     linear-gradient(180deg, var(--cml-theme-shell-base) 0%, var(--cml-theme-shell-base) 100%);
   --cml-theme-surface: #191b20;
@@ -247,6 +270,16 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] {
   --cml-theme-shell-base: color-mix(in srgb, white 80%, var(--cml-theme-accent) 20%);
+  --cml-text-primary: #202430;
+  --cml-text-secondary: rgba(45, 52, 68, 0.76);
+  --cml-text-muted: rgba(65, 72, 88, 0.58);
+  --cml-text-on-dark: #eef2f7;
+  --cml-text-on-dark-secondary: rgba(230, 236, 245, 0.78);
+  --cml-text-on-dark-muted: rgba(198, 208, 222, 0.68);
+  --cml-surface: rgba(255, 255, 255, 0.94);
+  --cml-surface-soft: rgba(248, 250, 255, 0.9);
+  --cml-surface-dark: rgba(21, 23, 27, 0.92);
+  --cml-border-soft: rgba(134, 147, 170, 0.18);
   --cml-theme-page-bg:
     linear-gradient(180deg, color-mix(in srgb, var(--cml-theme-shell-base) 94%, white 6%) 0%, color-mix(in srgb, var(--cml-theme-shell-base) 88%, white 12%) 100%);
   --cml-theme-surface: rgba(255, 255, 255, 0.94);
@@ -550,7 +583,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-sidebar__filter-field span {
-  color: var(--cml-theme-text-muted);
+  color: var(--cml-text-on-dark-muted);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -564,7 +597,7 @@ body.codex-media-library-active #app {
   border: 1px solid var(--cml-theme-input-border);
   border-radius: 12px;
   background: var(--cml-theme-input);
-  color: var(--cml-theme-text);
+  color: var(--cml-text-on-dark);
   font-size: 13px;
   outline: none;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
@@ -577,7 +610,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-sidebar__filter-input::placeholder {
-  color: var(--cml-theme-text-muted);
+  color: var(--cml-text-on-dark-muted);
 }
 
 #codex-media-library-root .cml-sidebar__section {
@@ -599,7 +632,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-sidebar__section-label {
   padding: 2px 14px 6px;
-  color: var(--cml-theme-text-muted);
+  color: var(--cml-text-on-dark-muted);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -647,7 +680,7 @@ body.codex-media-library-active #app {
   margin: 0;
   border-radius: 25px;
   background: transparent !important;
-  color: var(--cml-theme-text-soft);
+  color: var(--cml-text-on-dark-secondary);
   font-size: 14px;
   font-weight: 560;
   text-align: left;
@@ -817,7 +850,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-sidebar-audio-player__subtitle {
   font-size: 11px;
   line-height: 1.3;
-  color: #9ea8ba;
+  color: var(--cml-text-on-dark-muted);
 }
 
 #codex-media-library-root .cml-sidebar-audio-player__progress {
@@ -845,7 +878,7 @@ body.codex-media-library-active #app {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: #9aa6bb;
+  color: var(--cml-text-on-dark-muted);
   font-size: 10px;
   letter-spacing: 0.01em;
 }
@@ -911,7 +944,7 @@ body.codex-media-library-active #app {
   gap: 8px;
   min-width: 0;
   flex: 1 1 104px;
-  color: #9ea8ba;
+  color: var(--cml-text-on-dark-muted);
 }
 
 #codex-media-library-root .cml-sidebar-audio-player__volume-input {
@@ -1389,7 +1422,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-topbar__selection-context {
-  color: var(--cml-theme-text-muted);
+  color: var(--cml-text-secondary);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
@@ -1533,7 +1566,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-topbar__clear-button,
 #codex-media-library-root .cml-topbar__secondary-button {
   background: var(--cml-theme-card);
-  color: var(--cml-theme-text-soft);
+  color: var(--cml-text-secondary);
   box-shadow: inset 0 0 0 1px var(--cml-theme-card-border);
 }
 
@@ -1545,7 +1578,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-topbar__upload-button {
   background: var(--cml-theme-accent-soft);
-  color: var(--cml-theme-accent-strong);
+  color: var(--cml-accent-strong);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cml-theme-accent) 35%, transparent);
 }
 
@@ -1680,7 +1713,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root button[disabled] {
-  opacity: 0.45;
+  opacity: 0.72;
   cursor: not-allowed;
 }
 
@@ -3521,6 +3554,7 @@ body.codex-media-library-active #app {
   margin-top: 4vh;
   padding: 0;
   overflow: hidden;
+  color: var(--cml-text-primary);
 }
 
 #codex-media-library-root .cml-admin-panel__header {
@@ -3539,9 +3573,10 @@ body.codex-media-library-active #app {
   flex-direction: column;
   gap: 8px;
   padding: 22px 16px;
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--cml-surface-dark) 96%, var(--cml-accent) 4%);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   min-width: 0;
+  color: var(--cml-text-on-dark);
 }
 
 #codex-media-library-root .cml-admin-panel__tab {
@@ -3553,7 +3588,7 @@ body.codex-media-library-active #app {
   border: 0;
   border-radius: 12px;
   background: transparent;
-  color: #9aa0a6;
+  color: var(--cml-text-on-dark-secondary);
   cursor: pointer;
   text-align: left;
   transition: background-color 160ms ease, color 160ms ease;
@@ -3561,7 +3596,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-admin-panel__tab:hover {
   background: rgba(138, 180, 248, 0.14);
-  color: #d2e3fc;
+  color: var(--cml-text-on-dark);
 }
 
 #codex-media-library-root .cml-admin-panel__tab.is-active {
@@ -3612,7 +3647,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-admin-panel__copy {
   margin: 10px 0 0;
-  color: #94a0b2;
+  color: var(--cml-text-secondary);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -3661,7 +3696,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-admin-panel__field > span,
 #codex-media-library-root .cml-admin-panel__toggle > span {
-  color: #d7dce4;
+  color: var(--cml-text-secondary);
   font-size: 13px;
   font-weight: 600;
 }
@@ -3676,10 +3711,10 @@ body.codex-media-library-active #app {
   width: 100%;
   min-height: 46px;
   padding: 0 14px;
-  border: 1px solid rgba(162, 176, 202, 0.22);
+  border: 1px solid var(--cml-border-soft);
   border-radius: 10px;
-  background: linear-gradient(180deg, rgba(20, 28, 44, 0.92), rgba(15, 21, 34, 0.96));
-  color: #f2f6fc;
+  background: var(--cml-surface-soft);
+  color: var(--cml-text-primary);
   font-size: 14px;
   font-weight: 500;
   outline: none;
@@ -3689,16 +3724,16 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-admin-panel__input::placeholder,
 #codex-media-library-root .cml-admin-panel__textarea::placeholder {
-  color: rgba(209, 220, 238, 0.62);
+  color: var(--cml-text-muted);
 }
 
 #codex-media-library-root .cml-admin-panel__input:disabled,
 #codex-media-library-root .cml-admin-panel__input[readonly],
 #codex-media-library-root .cml-admin-panel__textarea:disabled,
 #codex-media-library-root .cml-admin-panel__textarea[readonly] {
-  color: #e4ebf7;
-  background: linear-gradient(180deg, rgba(23, 31, 48, 0.94), rgba(17, 24, 38, 0.98));
-  -webkit-text-fill-color: #e4ebf7;
+  color: var(--cml-text-secondary);
+  background: color-mix(in srgb, var(--cml-surface-soft) 92%, var(--cml-theme-card) 8%);
+  -webkit-text-fill-color: var(--cml-text-secondary);
   opacity: 1;
 }
 
@@ -3721,9 +3756,10 @@ body.codex-media-library-active #app {
   gap: 12px;
   min-height: 46px;
   padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--cml-border-soft);
   border-radius: 10px;
-  background: rgba(17, 24, 39, 0.62);
+  background: var(--cml-surface-soft);
+  color: var(--cml-text-primary);
 }
 
 #codex-media-library-root .cml-admin-panel__toggle input {
@@ -3754,12 +3790,12 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-admin-panel__secondary {
   background: rgba(138, 180, 248, 0.18);
-  color: #8ab4f8;
+  color: var(--cml-accent);
 }
 
 #codex-media-library-root .cml-admin-panel__ghost {
   background: rgba(255, 255, 255, 0.06);
-  color: #c3cad6;
+  color: var(--cml-text-secondary);
 }
 
 #codex-media-library-root .cml-admin-panel__primary:hover:not(:disabled) {
@@ -3847,19 +3883,19 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-admin-panel__stat-label,
 #codex-media-library-root .cml-admin-panel__stat-meta {
-  color: #9aa0a6;
+  color: var(--cml-text-muted);
   font-size: 12px;
 }
 
 #codex-media-library-root .cml-admin-panel__stat-value {
   font-size: 26px;
   font-weight: 700;
-  color: #edf2f7;
+  color: var(--cml-text-primary);
 }
 
 #codex-media-library-root .cml-admin-panel__loading {
   padding: 48px 28px;
-  color: #9aa0a6;
+  color: var(--cml-text-secondary);
   font-size: 14px;
 }
 
@@ -4551,6 +4587,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-mobile-nav {
   display: none;
+  color: var(--cml-text-on-dark);
 }
 
 @media (max-width: 960px) {
@@ -4591,7 +4628,7 @@ body.codex-media-library-active #app {
     padding: 8px 0;
     border: 0;
     background: none;
-    color: #9aa0a6;
+    color: var(--cml-text-on-dark-secondary);
     cursor: pointer;
     transition: color 180ms ease;
     -webkit-tap-highlight-color: transparent;
@@ -4651,6 +4688,7 @@ body.codex-media-library-active #app {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+    color: currentColor;
   }
 
   /* Content padding so last row isn't hidden behind nav bar */
