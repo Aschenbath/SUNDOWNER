@@ -5,22 +5,26 @@ function ensureLoginStyles(doc) {
   const style = doc.createElement('style');
   style.setAttribute('data-login-app-style', '1');
   style.textContent = [
-    'body{margin:0;background:#101113;color:#f3f6fb;font-family:"Segoe UI",Arial,sans-serif;}',
+    ':root{color-scheme:light;}',
+    'body{margin:0;background:linear-gradient(180deg,#eef5ff 0%,#f8fbff 45%,#edf2f7 100%);color:#152033;font-family:"Segoe UI",Arial,sans-serif;}',
     '#app{min-height:100vh;}',
-    '.sla-login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at top,rgba(72,96,140,0.22),transparent 42%),#101113;}',
-    '.sla-login__shell{width:min(100%,420px);padding:32px 28px;border:1px solid rgba(255,255,255,0.1);border-radius:24px;background:rgba(17,19,23,0.92);box-shadow:0 24px 80px rgba(0,0,0,0.45);}',
-    '.sla-login__eyebrow{margin:0 0 10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#a8b4c7;}',
-    '.sla-login__title{margin:0 0 8px;font-size:30px;line-height:1.1;font-weight:700;}',
-    '.sla-login__copy{margin:0 0 24px;color:#c7d0de;font-size:14px;line-height:1.5;}',
+    '.sla-login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 12% 14%,rgba(165,194,255,0.45),transparent 28%),radial-gradient(circle at 88% 18%,rgba(194,226,255,0.5),transparent 26%),linear-gradient(180deg,#eef5ff 0%,#f9fbff 44%,#edf2f7 100%);}',
+    '.sla-login__shell{width:min(100%,430px);padding:34px 30px;border:1px solid rgba(171,188,211,0.42);border-radius:28px;background:rgba(255,255,255,0.84);backdrop-filter:blur(18px);box-shadow:0 26px 64px rgba(118,145,182,0.18);}',
+    '.sla-login__eyebrow{margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7185a6;}',
+    '.sla-login__title{margin:0 0 8px;font-size:31px;line-height:1.08;font-weight:700;color:#182536;}',
+    '.sla-login__copy{margin:0 0 24px;color:#5b6e87;font-size:14px;line-height:1.55;}',
     '.sla-login__form{display:grid;gap:16px;}',
     '.sla-login__field{display:grid;gap:8px;}',
-    '.sla-login__label{font-size:13px;font-weight:600;color:#d6deea;}',
-    '.sla-login__input{width:100%;box-sizing:border-box;padding:14px 15px;border-radius:14px;border:1px solid rgba(255,255,255,0.12);background:#171a21;color:#f5f7fb;font-size:15px;outline:none;}',
-    '.sla-login__input:focus{border-color:#5d87ff;box-shadow:0 0 0 3px rgba(93,135,255,0.18);}',
-    '.sla-login__error{min-height:20px;margin:0;color:#ff9b9b;font-size:13px;}',
-    '.sla-login__submit{width:100%;padding:14px 16px;border:0;border-radius:14px;background:linear-gradient(180deg,#5d87ff 0%,#3c67f0 100%);color:#fff;font-size:15px;font-weight:700;cursor:pointer;}',
-    '.sla-login__submit[disabled]{opacity:.65;cursor:wait;}',
-    '.sla-login__hint{margin:16px 0 0;font-size:12px;color:#95a2b5;text-align:center;}'
+    '.sla-login__label{font-size:13px;font-weight:600;color:#43556f;}',
+    '.sla-login__input{width:100%;box-sizing:border-box;padding:14px 15px;border-radius:16px;border:1px solid rgba(174,190,212,0.75);background:rgba(249,251,255,0.96);color:#182433;font-size:15px;line-height:1.4;outline:none;appearance:none;-webkit-appearance:none;box-shadow:inset 0 1px 0 rgba(255,255,255,0.72);}',
+    '.sla-login__input::placeholder{color:#8d9cb1;}',
+    '.sla-login__input:focus{border-color:#88abff;box-shadow:0 0 0 4px rgba(136,171,255,0.18);background:#ffffff;}',
+    '.sla-login__error{min-height:20px;margin:0;color:#c1556a;font-size:13px;line-height:1.45;}',
+    '.sla-login__submit{width:100%;padding:14px 16px;border:0;border-radius:16px;background:linear-gradient(180deg,#7ca5ff 0%,#5d87ff 100%);color:#ffffff;font-size:15px;font-weight:700;letter-spacing:.01em;cursor:pointer;box-shadow:0 14px 28px rgba(93,135,255,0.22);}',
+    '.sla-login__submit:hover{filter:brightness(1.02);}',
+    '.sla-login__submit[disabled]{opacity:.64;cursor:wait;box-shadow:none;}',
+    '.sla-login__hint{margin:16px 0 0;font-size:12px;color:#7e8fa7;text-align:center;}',
+    '@media (max-width: 640px){.sla-login{padding:20px;}.sla-login__shell{width:min(100%,460px);padding:28px 22px;border-radius:24px;}.sla-login__title{font-size:28px;}.sla-login__input,.sla-login__submit{padding:15px 16px;}}'
   ].join('');
   doc.head.appendChild(style);
 }
@@ -33,7 +37,7 @@ export function createLoginMarkup(state) {
       <section class="sla-login__shell" aria-label="Login shell">
         <p class="sla-login__eyebrow">SUNDOWNER</p>
         <h1 class="sla-login__title">Admin Login</h1>
-        <p class="sla-login__copy">Sign in to manage your photo library and archive.</p>
+        <p class="sla-login__copy">Sign in to manage your photo library.</p>
         <form class="sla-login__form" data-login-form="1">
           <label class="sla-login__field">
             <span class="sla-login__label">Username</span>

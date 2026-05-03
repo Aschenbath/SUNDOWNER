@@ -100,7 +100,7 @@ describe('legacy entry loader', () => {
     const harness = createHarness('/login');
 
     assert.equal(harness.scripts.length, 1);
-    assert.equal(harness.scripts[0].src, '/js/login-app.js?v=1');
+    assert.equal(harness.scripts[0].src, '/js/login-app.js?v=2');
     assert.equal(harness.scripts[0].type, 'module');
     assert.equal(harness.parse, harness.nativeParse);
   });
