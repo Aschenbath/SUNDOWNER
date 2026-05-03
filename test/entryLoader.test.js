@@ -25,6 +25,7 @@ function createHarness(pathname = '/login') {
       return {
         defer: false,
         src: '',
+        type: '',
         onload: null,
         onerror: null,
       };
@@ -95,8 +96,17 @@ describe('legacy entry loader', () => {
     assert.equal(harness.parse, harness.nativeParse);
   });
 
-  it('injects vendors first and legacy app only after vendors onload on /login', () => {
+  it('loads the new login shell on /login without injecting legacy scripts', () => {
     const harness = createHarness('/login');
+
+    assert.equal(harness.scripts.length, 1);
+    assert.equal(harness.scripts[0].src, '/js/login-app.js?v=1');
+    assert.equal(harness.scripts[0].type, 'module');
+    assert.equal(harness.parse, harness.nativeParse);
+  });
+
+  it('injects vendors first and legacy app only after vendors onload on /browse routes', () => {
+    const harness = createHarness('/browse/foo');
 
     assert.equal(harness.scripts.length, 1);
     assert.equal(harness.scripts[0].src, '/js/chunk-vendors.8dadfdfd.js');
@@ -109,8 +119,16 @@ describe('legacy entry loader', () => {
     assert.notEqual(harness.parse, harness.nativeParse);
   });
 
+  it('still injects legacy for /adminLogin', () => {
+    const harness = createHarness('/adminLogin');
+
+    assert.equal(harness.scripts.length, 1);
+    assert.equal(harness.scripts[0].src, '/js/chunk-vendors.8dadfdfd.js');
+    assert.notEqual(harness.parse, harness.nativeParse);
+  });
+
   it('returns the fallback login locale for corrupted legacy locale payloads', () => {
-    const harness = createHarness('/login');
+    const harness = createHarness('/browse/foo');
 
     const locale = harness.context.JSON.parse(createBrokenLegacyLocalePayload());
 
@@ -124,7 +142,7 @@ describe('legacy entry loader', () => {
   });
 
   it('still throws for broken non-legacy JSON payloads', () => {
-    const harness = createHarness('/login');
+    const harness = createHarness('/browse/foo');
 
     assert.throws(() => {
       harness.context.JSON.parse('{"foo":');
@@ -134,7 +152,7 @@ describe('legacy entry loader', () => {
   });
 
   it('restores native JSON.parse after legacy app onload', () => {
-    const harness = createHarness('/login');
+    const harness = createHarness('/browse/foo');
 
     harness.triggerLoad(0);
     assert.notEqual(harness.parse, harness.nativeParse);
@@ -145,7 +163,7 @@ describe('legacy entry loader', () => {
   });
 
   it('restores native JSON.parse after legacy app onerror', () => {
-    const harness = createHarness('/login');
+    const harness = createHarness('/browse/foo');
 
     harness.triggerLoad(0);
     assert.notEqual(harness.parse, harness.nativeParse);

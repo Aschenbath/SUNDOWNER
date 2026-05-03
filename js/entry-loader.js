@@ -4,6 +4,33 @@
     return;
   }
 
+  function loadScript(src, next, cleanup, type) {
+    var script = document.createElement('script');
+    script.defer = true;
+    script.src = src;
+    if (type) {
+      script.type = type;
+    }
+    script.onload = function () {
+      if (next) {
+        next();
+      } else if (cleanup) {
+        cleanup();
+      }
+    };
+    script.onerror = function () {
+      if (cleanup) {
+        cleanup();
+      }
+    };
+    document.head.appendChild(script);
+  }
+
+  if (path === '/login') {
+    loadScript('/js/login-app.js?v=1', null, null, 'module');
+    return;
+  }
+
   var nativeJsonParse = JSON.parse;
   var guardInstalled = false;
   var legacyLocaleFallback = {
@@ -66,25 +93,6 @@
       }
     };
     guardInstalled = true;
-  }
-
-  function loadScript(src, next, cleanup) {
-    var script = document.createElement('script');
-    script.defer = true;
-    script.src = src;
-    script.onload = function () {
-      if (next) {
-        next();
-      } else if (cleanup) {
-        cleanup();
-      }
-    };
-    script.onerror = function () {
-      if (cleanup) {
-        cleanup();
-      }
-    };
-    document.head.appendChild(script);
   }
 
   installJsonParseGuard();
