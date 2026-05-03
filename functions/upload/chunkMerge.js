@@ -2,7 +2,47 @@
 import { createResponse, getUploadIp, getIPAddress, selectConsistentChannel, buildUniqueFileId, endUpload, sanitizeUploadFolder } from './uploadTools.js';
 import { retryFailedChunks, cleanupFailedMultipartUploads, checkChunkUploadStatuses, cleanupChunkData, cleanupUploadSession } from './chunkUpload.js';
 import { S3Client, CompleteMultipartUploadCommand } from "@aws-sdk/client-s3";
-import { getDatabase } from '../utils/databaseAdapter.js';
+
+const RECOVERABLE_CHUNK_STATUSES = new Set(['uploading', 'retrying', 'timeout', 'uncertain']);
+
+export function classifyChunkMergeState(chunkStatuses = [], totalChunks = 0) {
+    const normalizedTotalChunks = Number(totalChunks) || 0;
+    const completedChunks = chunkStatuses.filter(chunk => chunk.status === 'completed');
+    const recoverableChunks = chunkStatuses.filter(chunk => RECOVERABLE_CHUNK_STATUSES.has(chunk.status));
+    const failedChunks = chunkStatuses.filter(chunk => chunk.status === 'failed');
+
+    if (normalizedTotalChunks > 0 && completedChunks.length === normalizedTotalChunks) {
+        return {
+            ready: true,
+            recoverable: false,
+            completedChunks,
+            recoverableChunks,
+            failedChunks,
+            statusSummary: buildChunkStatusSummary(chunkStatuses),
+        };
+    }
+
+    const message = recoverableChunks.length > 0
+        ? 'Chunk upload is still in progress, please retry merge later'
+        : 'Chunk upload is incomplete';
+
+    return {
+        ready: false,
+        recoverable: true,
+        completedChunks,
+        recoverableChunks,
+        failedChunks,
+        statusSummary: buildChunkStatusSummary(chunkStatuses),
+        message,
+    };
+}
+
+function buildChunkStatusSummary(chunkStatuses = []) {
+    return chunkStatuses.reduce((acc, chunk) => {
+        acc[chunk.status] = (acc[chunk.status] || 0) + 1;
+        return acc;
+    }, {});
+}
 
 // 处理分块合并
 export async function handleChunkMerge(context) {
@@ -80,9 +120,14 @@ export async function handleChunkMerge(context) {
     }
 }
 
-// 开始合并处理
-async function startMerge(context, uploadId, totalChunks, originalFileName, originalFileType, uploadChannel) {
+export async function startMerge(context, uploadId, totalChunks, originalFileName, originalFileType, uploadChannel, deps = {}) {
     const { env } = context;
+    const {
+        handleChannelMerge = handleChannelBasedMerge,
+        cleanupMultipart = cleanupFailedMultipartUploads,
+        cleanupChunks = cleanupChunkData,
+        cleanupSession = cleanupUploadSession,
+    } = deps;
 
     try {
         // 合并任务状态输出
@@ -100,34 +145,41 @@ async function startMerge(context, uploadId, totalChunks, originalFileName, orig
         console.log(`Merge status: ${JSON.stringify(mergeStatus)}`);
 
         // 同步执行合并
-        const result = await handleChannelBasedMerge(context, uploadId, totalChunks, originalFileName, originalFileType, uploadChannel);
+        const result = await handleChannelMerge(context, uploadId, totalChunks, originalFileName, originalFileType, uploadChannel);
 
         if (result.success) {
             // 清理临时分块数据
-            await cleanupChunkData(env, uploadId, totalChunks);
+            await cleanupChunks(env, uploadId, totalChunks);
 
             // 清理上传会话
-            await cleanupUploadSession(env, uploadId);
+            await cleanupSession(env, uploadId);
 
             return createResponse(JSON.stringify(result.result), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json' }
             });
-        } else {
-            throw new Error(result.error || 'Merge failed');
         }
+
+        if (result.recoverable) {
+            return createResponse(result.error || 'Chunk upload is incomplete', {
+                status: 409,
+                headers: { 'Content-Type': 'text/plain' }
+            });
+        }
+
+        throw new Error(result.error || 'Merge failed');
 
     } catch (error) {
         // 清理失败的multipart uploads
         if (uploadChannel === 'cfr2' || uploadChannel === 's3') {
-            await cleanupFailedMultipartUploads(context, uploadId, uploadChannel);
+            await cleanupMultipart(context, uploadId, uploadChannel);
         }
 
         // 清理分块数据
-        await cleanupChunkData(env, uploadId, totalChunks);
+        await cleanupChunks(env, uploadId, totalChunks);
 
         // 清理上传会话
-        await cleanupUploadSession(env, uploadId);
+        await cleanupSession(env, uploadId);
 
         return createResponse(`Error: Failed to merge chunks - ${error.message}`, { status: 500 });
     }
@@ -159,45 +211,32 @@ async function handleChannelBasedMerge(context, uploadId, totalChunks, originalF
 
         // 收集所有已上传的分块信息
         const chunkStatuses = await checkChunkUploadStatuses(env, uploadId, totalChunks);
-        let completedChunks = chunkStatuses.filter(chunk => chunk.status === 'completed');
-        let uploadingChunks = chunkStatuses.filter(chunk =>
-            chunk.status === 'uploading' ||
-            chunk.status === 'retrying'
-        );
-        let failedChunks = chunkStatuses.filter(chunk =>
-            chunk.status === 'failed' ||
-            chunk.status === 'timeout'
-        );
+        const initialState = classifyChunkMergeState(chunkStatuses, totalChunks);
+        let completedChunks = initialState.completedChunks;
+        const retryableFailedChunks = initialState.failedChunks;
 
-        // 统计不同状态的分块
-        const statusSummary = chunkStatuses.reduce((acc, chunk) => {
-            acc[chunk.status] = (acc[chunk.status] || 0) + 1;
-            return acc;
-        }, {});
-
-        console.log(`Chunk status summary: ${JSON.stringify(statusSummary)}`);
+        console.log(`Chunk status summary: ${JSON.stringify(initialState.statusSummary)}`);
 
         // 如果有失败的分块，尝试重试
-        if (failedChunks.length > 0) {
-            console.log(`Retrying ${failedChunks.length} failed chunks...`);
+        if (retryableFailedChunks.length > 0) {
+            console.log(`Retrying ${retryableFailedChunks.length} failed chunks...`);
             // 同步重试（await）
-            await retryFailedChunks(context, failedChunks, uploadChannel);
+            await retryFailedChunks(context, retryableFailedChunks, uploadChannel);
         }
 
         // 重新检查状态
         const updatedStatuses = await checkChunkUploadStatuses(env, uploadId, totalChunks);
-        completedChunks = updatedStatuses.filter(chunk => chunk.status === 'completed');
+        const mergeState = classifyChunkMergeState(updatedStatuses, totalChunks);
+        completedChunks = mergeState.completedChunks;
 
         // 最终检查是否所有分块都完成
-        if (completedChunks.length !== totalChunks) {
-            // 获取最新的状态信息
-            const finalStatuses = await checkChunkUploadStatuses(env, uploadId, totalChunks);
-            const finalStatusSummary = finalStatuses.reduce((acc, chunk) => {
-                acc[chunk.status] = (acc[chunk.status] || 0) + 1;
-                return acc;
-            }, {});
-
-            throw new Error(`Only ${completedChunks.length}/${totalChunks} chunks completed successfully. Final status: ${JSON.stringify(finalStatusSummary)}`);
+        if (!mergeState.ready) {
+            console.log(`Merge deferred for upload ${uploadId}: ${JSON.stringify(mergeState.statusSummary)}`);
+            return {
+                success: false,
+                recoverable: true,
+                error: mergeState.message,
+            };
         }
 
         // 根据渠道合并分块信息
