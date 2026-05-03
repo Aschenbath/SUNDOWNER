@@ -193,12 +193,22 @@ const AUDIO_MODE_REPEAT_ONE = 'repeat-one';
 const AUDIO_MODE_SHUFFLE = 'shuffle';
 const MIND_SETTINGS_STORAGE_KEY = 'codex-media-library-mind-settings';
 const MIND_STATE_FRESH_MS = 30000;
+const badJsonWarnedKeys = new Set();
 
 function loadJson(key, fallback) {
   try {
     const raw = window.localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
   } catch (error) {
+    if (!badJsonWarnedKeys.has(key)) {
+      badJsonWarnedKeys.add(key);
+      console.warn('[media-library] invalid localStorage JSON cleared', key, error);
+    }
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Ignore localStorage cleanup failures and keep fallback behavior.
+    }
     return fallback;
   }
 }
