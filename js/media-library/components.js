@@ -398,7 +398,7 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       : (item.posterUrl || '');
     const imgSrc = escapeHtml(fallbackUrl || (item.sourceUrl || ''));
     if (imgSrc) {
-      // Try rendering 鈥?Safari supports HEIC natively; on failure, onerror
+      // Try rendering — Safari supports HEIC natively; on failure, onerror
       // hides the broken img and reveals a CSS fallback label on the tile.
       const w = item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
       const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
@@ -1014,7 +1014,7 @@ export function DocumentsListView({ items, state }) {
   items.forEach((item) => {
     const itemDir = String(item.directory || '').replace(/\/+$/, '');
     if (currentDir) {
-      // Inside a folder 鈥?only show items whose directory starts with currentDir
+      // Inside a folder — only show items whose directory starts with currentDir
       if (itemDir === currentDir) {
         childFiles.push(item);
       } else if (itemDir.startsWith(dirPrefix)) {
@@ -1208,7 +1208,7 @@ export function DocumentsListView({ items, state }) {
       </div>`;
   }
 
-  // Move-to-folder dialog 鈥?collect ALL directory paths
+  // Move-to-folder dialog — collect ALL directory paths
   const allDirPaths = new Set();
   items.forEach((item) => {
     const dir = String(item.directory || '').replace(/\/+$/, '');
@@ -1304,7 +1304,7 @@ export function DocumentsListView({ items, state }) {
           </div>
           <div class="cml-docs-move-dialog__footer">
             <button type="button" class="cml-docs-move-dialog__confirm" data-action="docs-move-confirm">
-              Move here${moveDir ? ` 鈥?${escapeHtml(moveParts[moveParts.length - 1] || 'Root')}` : ' 鈥?Root'}
+              Move here${moveDir ? ` — ${escapeHtml(moveParts[moveParts.length - 1] || 'Root')}` : ' — Root'}
             </button>
           </div>
         </div>
