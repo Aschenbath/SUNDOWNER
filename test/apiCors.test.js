@@ -5,6 +5,8 @@ import { onRequest } from '../functions/api/userConfig.js';
 import { onRequest as listRequest } from '../functions/api/manage/list.js';
 import { onRequest as albumsRequest } from '../functions/api/manage/albums/[[path]].js';
 import { onRequestOptions as authSessionOptions, onRequestPost as authSessionPost } from '../functions/api/manage/auth-session.js';
+import { onRequest as channelsRequest } from '../functions/api/channels.js';
+import { onRequest as directoryTreeRequest } from '../functions/api/directoryTree.js';
 
 class MemoryKV {
   constructor(initialEntries = {}) {
@@ -32,7 +34,7 @@ class MemoryKV {
   }
 }
 
-function createEnv({ pageConfig = null, securityConfig = null } = {}) {
+function createEnv({ pageConfig = null, securityConfig = null, uploadConfig = null, authCode = '' } = {}) {
   const entries = {};
   if (pageConfig) {
     entries['manage@sysConfig@page'] = JSON.stringify(pageConfig);
@@ -40,7 +42,13 @@ function createEnv({ pageConfig = null, securityConfig = null } = {}) {
   if (securityConfig) {
     entries['manage@sysConfig@security'] = JSON.stringify(securityConfig);
   }
-  return { img_url: new MemoryKV(entries) };
+  if (uploadConfig) {
+    entries['manage@sysConfig@upload'] = JSON.stringify(uploadConfig);
+  }
+  return {
+    img_url: new MemoryKV(entries),
+    AUTH_CODE: authCode,
+  };
 }
 
 function assertCors(response) {
@@ -150,5 +158,85 @@ describe('API CORS responses', () => {
     const response = authSessionOptions();
     assert.equal(response.status, 204);
     assertCors(response);
+  });
+
+  it('returns OPTIONS /api/channels with CORS headers', async () => {
+    const response = await channelsRequest({
+      env: createEnv(),
+      request: new Request('http://localhost/api/channels', { method: 'OPTIONS' }),
+    });
+    assert.equal(response.status, 204);
+    assertCors(response);
+  });
+
+  it('returns unsupported method /api/channels with CORS headers and Allow header', async () => {
+    const response = await channelsRequest({
+      env: createEnv(),
+      request: new Request('http://localhost/api/channels', { method: 'POST' }),
+    });
+    assert.equal(response.status, 405);
+    assertCors(response);
+    assert.equal(response.headers.get('Allow'), 'GET, OPTIONS');
+  });
+
+  it('returns normal /api/channels response with CORS headers', async () => {
+    const response = await channelsRequest({
+      env: createEnv({
+        securityConfig: {
+          auth: { user: { authCode: 'user-code' }, admin: { adminUsername: '', adminPassword: '' } },
+          upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+          access: { allowedDomains: '', whiteListMode: false },
+          apiTokens: { tokens: {} },
+        },
+        uploadConfig: {
+          telegram: { channels: [] },
+          cfr2: { channels: [] },
+          s3: { channels: [] },
+          discord: { channels: [] },
+          huggingface: { channels: [] },
+        },
+        authCode: 'user-code',
+      }),
+      request: new Request('http://localhost/api/channels', {
+        method: 'GET',
+        headers: { authCode: 'user-code' },
+      }),
+    });
+    assert.equal(response.status, 200);
+    assertCors(response);
+  });
+
+  it('returns OPTIONS /api/directoryTree with CORS headers', async () => {
+    const response = await directoryTreeRequest({
+      env: createEnv(),
+      request: new Request('http://localhost/api/directoryTree', { method: 'OPTIONS' }),
+      waitUntil() {},
+      data: {},
+    });
+    assert.equal(response.status, 204);
+    assertCors(response);
+  });
+
+  it('returns unauthorized /api/directoryTree with CORS headers', async () => {
+    const response = await directoryTreeRequest({
+      env: createEnv(),
+      request: new Request('http://localhost/api/directoryTree', { method: 'GET' }),
+      waitUntil() {},
+      data: {},
+    });
+    assert.equal(response.status, 401);
+    assertCors(response);
+  });
+
+  it('returns unsupported method /api/directoryTree with CORS headers and Allow header', async () => {
+    const response = await directoryTreeRequest({
+      env: createEnv(),
+      request: new Request('http://localhost/api/directoryTree', { method: 'POST' }),
+      waitUntil() {},
+      data: {},
+    });
+    assert.equal(response.status, 405);
+    assertCors(response);
+    assert.equal(response.headers.get('Allow'), 'GET, OPTIONS');
   });
 });

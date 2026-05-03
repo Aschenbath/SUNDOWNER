@@ -3,21 +3,25 @@ import { fetchUploadConfig } from '../utils/sysConfig.js';
 import { getUploadConfig } from './manage/sysConfig/upload.js';
 import { getDatabase } from '../utils/databaseAdapter.js';
 import { dualAuthCheck } from '../utils/dualAuth.js';
+import { jsonResponse, methodNotAllowed, optionsResponse } from '../utils/cors.js';
 
 export async function onRequest(context) {
     const { request, env } = context;
 
+    if (request.method === 'OPTIONS') {
+        return optionsResponse();
+    }
+
     if (request.method !== 'GET') {
-        return new Response('Method Not Allowed', { status: 405 });
+        return methodNotAllowed(['GET', 'OPTIONS']);
     }
 
     // 双重鉴权检查
     const url = new URL(request.url);
     const { authorized } = await dualAuthCheck(env, url, request);
     if (!authorized) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        return jsonResponse({ error: 'Unauthorized' }, {
             status: 401,
-            headers: { 'Content-Type': 'application/json' }
         });
     }
 
@@ -58,15 +62,13 @@ export async function onRequest(context) {
             }))
         };
 
-        return new Response(JSON.stringify(channels), {
+        return jsonResponse(channels, {
             status: 200,
-            headers: { 'Content-Type': 'application/json' }
         });
     } catch (error) {
         console.error('Failed to get channels:', error);
-        return new Response(JSON.stringify({ error: 'Failed to get channels' }), {
+        return jsonResponse({ error: 'Failed to get channels' }, {
             status: 500,
-            headers: { 'Content-Type': 'application/json' }
         });
     }
 }
