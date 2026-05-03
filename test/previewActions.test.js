@@ -1963,14 +1963,36 @@ describe('media library download actions', () => {
     assert.doesNotMatch(topbarHtml, /data-action="open-add-to-album"/);
   });
 
-  it('preserves album-first picker target when restoring the photos hash route', () => {
+  it('resets all picker target state by default', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /function resetAddToTargetModes\(\{ preserveAlbumSelectionTarget = false \} = \{\}\) \{/);
-    assert.match(appSource, /if \(!preserveAlbumSelectionTarget\) \{/);
-    assert.match(appSource, /state\.albumSelectionTarget = '';/);
-    assert.match(appSource, /const preserveAlbumSelectionTarget = Boolean\(state\.albumSelectionTarget\)/);
-    assert.match(appSource, /resetAddToTargetModes\(\{ preserveAlbumSelectionTarget \}\);/);
+    assert.match(appSource, /function resetAddToTargetModes\(\{[\s\S]*preserveAlbumSelectionTarget = false,[\s\S]*preserveVideoAlbumSelectionTarget = false,[\s\S]*preservePrivateSelectionMode = false,[\s\S]*preserveAlbumPickerDistinctOnly = false[\s\S]*\} = \{\}\) \{/);
+    assert.match(appSource, /if \(!preserveAlbumSelectionTarget\) \{\s*state\.albumSelectionTarget = '';\s*\}/);
+    assert.match(appSource, /if \(!preserveVideoAlbumSelectionTarget\) \{\s*state\.videoAlbumSelectionTarget = '';\s*\}/);
+    assert.match(appSource, /if \(!preservePrivateSelectionMode\) \{\s*state\.privateSelectionMode = false;\s*\}/);
+    assert.match(appSource, /if \(!preserveAlbumPickerDistinctOnly\) \{\s*state\.albumPickerDistinctOnly = false;\s*\}/);
+  });
+
+  it('preserves targeted picker state during photos route replay when requested', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /const rawHash = decodeURIComponent\(window\.location\.hash \|\| ''\)\.replace\(\/\^#\\\/\?\/, ''\);/);
+    assert.match(appSource, /const isPhotosRouteReplay = \/\^photos\(\?:\\\/\|\$\)\/i\.test\(rawHash \|\| 'photos'\);/);
+    assert.match(appSource, /const preserveAlbumSelectionTarget = Boolean\(state\.albumSelectionTarget\) && isPhotosRouteReplay;/);
+    assert.match(appSource, /const preserveVideoAlbumSelectionTarget = Boolean\(state\.videoAlbumSelectionTarget\) && isPhotosRouteReplay;/);
+    assert.match(appSource, /const preservePrivateSelectionMode = Boolean\(state\.privateSelectionMode\) && isPhotosRouteReplay;/);
+    assert.match(appSource, /const preserveAlbumPickerDistinctOnly = Boolean\(state\.albumPickerDistinctOnly\) && isPhotosRouteReplay;/);
+    assert.match(appSource, /resetAddToTargetModes\(\{[\s\S]*preserveAlbumSelectionTarget,[\s\S]*preserveVideoAlbumSelectionTarget,[\s\S]*preservePrivateSelectionMode,[\s\S]*preserveAlbumPickerDistinctOnly[\s\S]*\}\);/);
+  });
+
+  it('keeps current album target and related picker state protected from photos route replay regressions', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /case 'open-add-to-album':\s*if \(state\.albumSelectionTarget\) \{\s*commitSelectionToAlbum\(state\.albumSelectionTarget\);\s*return true;\s*\}\s*openAlbumDialog\('assign'\);\s*return true;/);
+    assert.match(appSource, /const preserveAlbumSelectionTarget = Boolean\(state\.albumSelectionTarget\) && isPhotosRouteReplay;/);
+    assert.match(appSource, /const preserveVideoAlbumSelectionTarget = Boolean\(state\.videoAlbumSelectionTarget\) && isPhotosRouteReplay;/);
+    assert.match(appSource, /const preservePrivateSelectionMode = Boolean\(state\.privateSelectionMode\) && isPhotosRouteReplay;/);
+    assert.match(appSource, /const preserveAlbumPickerDistinctOnly = Boolean\(state\.albumPickerDistinctOnly\) && isPhotosRouteReplay;/);
   });
 
   it('lets the preview album-panel close button close the whole preview and clears preview-side selection state', () => {

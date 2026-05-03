@@ -6283,13 +6283,24 @@ function clearPrivateViewState() {
   state.focusedTileId = null;
 }
 
-function resetAddToTargetModes({ preserveAlbumSelectionTarget = false } = {}) {
+function resetAddToTargetModes({
+  preserveAlbumSelectionTarget = false,
+  preserveVideoAlbumSelectionTarget = false,
+  preservePrivateSelectionMode = false,
+  preserveAlbumPickerDistinctOnly = false
+} = {}) {
   if (!preserveAlbumSelectionTarget) {
     state.albumSelectionTarget = '';
   }
-  state.videoAlbumSelectionTarget = '';
-  state.privateSelectionMode = false;
-  state.albumPickerDistinctOnly = false;
+  if (!preserveVideoAlbumSelectionTarget) {
+    state.videoAlbumSelectionTarget = '';
+  }
+  if (!preservePrivateSelectionMode) {
+    state.privateSelectionMode = false;
+  }
+  if (!preserveAlbumPickerDistinctOnly) {
+    state.albumPickerDistinctOnly = false;
+  }
 }
 
 function resetPrivateRouteUnlockError() {
@@ -12392,8 +12403,17 @@ function pushNavigationHash() {
 
 function restoreNavigationFromHash() {
   const rawHash = decodeURIComponent(window.location.hash || '').replace(/^#\/?/, '');
-  const preserveAlbumSelectionTarget = Boolean(state.albumSelectionTarget) && /^photos(?:\/|$)/i.test(rawHash || 'photos');
-  resetAddToTargetModes({ preserveAlbumSelectionTarget });
+  const isPhotosRouteReplay = /^photos(?:\/|$)/i.test(rawHash || 'photos');
+  const preserveAlbumSelectionTarget = Boolean(state.albumSelectionTarget) && isPhotosRouteReplay;
+  const preserveVideoAlbumSelectionTarget = Boolean(state.videoAlbumSelectionTarget) && isPhotosRouteReplay;
+  const preservePrivateSelectionMode = Boolean(state.privateSelectionMode) && isPhotosRouteReplay;
+  const preserveAlbumPickerDistinctOnly = Boolean(state.albumPickerDistinctOnly) && isPhotosRouteReplay;
+  resetAddToTargetModes({
+    preserveAlbumSelectionTarget,
+    preserveVideoAlbumSelectionTarget,
+    preservePrivateSelectionMode,
+    preserveAlbumPickerDistinctOnly
+  });
   if (!rawHash) {
     state.primaryFilter = 'Photos';
     state.secondaryFilter = '';
