@@ -3676,15 +3676,32 @@ body.codex-media-library-active #app {
   width: 100%;
   min-height: 46px;
   padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(162, 176, 202, 0.22);
   border-radius: 10px;
-  background: rgba(17, 24, 39, 0.76);
-  color: #edf2f7;
+  background: linear-gradient(180deg, rgba(20, 28, 44, 0.92), rgba(15, 21, 34, 0.96));
+  color: #f2f6fc;
   font-size: 14px;
+  font-weight: 500;
   outline: none;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
   min-width: 0;
 }
+
+#codex-media-library-root .cml-admin-panel__input::placeholder,
+#codex-media-library-root .cml-admin-panel__textarea::placeholder {
+  color: rgba(209, 220, 238, 0.62);
+}
+
+#codex-media-library-root .cml-admin-panel__input:disabled,
+#codex-media-library-root .cml-admin-panel__input[readonly],
+#codex-media-library-root .cml-admin-panel__textarea:disabled,
+#codex-media-library-root .cml-admin-panel__textarea[readonly] {
+  color: #e4ebf7;
+  background: linear-gradient(180deg, rgba(23, 31, 48, 0.94), rgba(17, 24, 38, 0.98));
+  -webkit-text-fill-color: #e4ebf7;
+  opacity: 1;
+}
+
 
 #codex-media-library-root .cml-admin-panel__textarea {
   min-height: 120px;
@@ -3758,9 +3775,33 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-admin-panel__primary:disabled,
 #codex-media-library-root .cml-admin-panel__secondary:disabled,
 #codex-media-library-root .cml-admin-panel__ghost:disabled {
-  opacity: 0.56;
+  opacity: 0.72;
   cursor: not-allowed;
   color: #d9e1ee;
+}
+
+#codex-media-library-root .cml-admin-panel__save-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(179, 197, 255, 0.18);
+  background: linear-gradient(135deg, rgba(122, 146, 255, 0.96), rgba(162, 108, 246, 0.96));
+  color: #f8fbff;
+  box-shadow: 0 14px 30px rgba(77, 103, 197, 0.24);
+}
+
+#codex-media-library-root .cml-admin-panel__save-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(111, 137, 255, 1), rgba(149, 96, 240, 1));
+}
+
+#codex-media-library-root .cml-admin-panel__save-button:disabled {
+  border-color: rgba(190, 201, 234, 0.2);
+  background: linear-gradient(135deg, rgba(101, 122, 207, 0.94), rgba(129, 92, 194, 0.94));
+  color: rgba(245, 248, 255, 0.94);
 }
 
 #codex-media-library-root .cml-admin-panel__status {
