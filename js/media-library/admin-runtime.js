@@ -30,6 +30,24 @@ export function createEmptyAdminCloudDraft() {
   };
 }
 
+export function resetAdminPasswordDraft(draft) {
+  return {
+    ...draft,
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+}
+
+export function hydrateAdminProfileDraft(profile, normalizeText) {
+  return {
+    ...createEmptyAdminProfileDraft(),
+    username: normalizeText(profile?.username),
+    displayName: normalizeText(profile?.displayName) || normalizeText(profile?.username),
+    avatarData: normalizeText(profile?.avatarData)
+  };
+}
+
 export function parseAdminRecoveryMatches(input = '', normalizeText) {
   const lines = String(input || '')
     .split(/\r?\n/)
@@ -134,4 +152,24 @@ export function applyAdminCloudDraftToSettings(settings, draft) {
     randomImage,
     showStatus: Boolean(draft.telemetryEnabled)
   };
+}
+
+export function updateAdminDraftField(state, section, field, rawValue) {
+  if (!section || !field) {
+    return;
+  }
+  if (state.adminPanelError) {
+    state.adminPanelError = '';
+  }
+  if (section === 'account') {
+    state.adminProfileDraft[field] = rawValue;
+    return;
+  }
+  if (section === 'site') {
+    state.adminPageDraft[field] = rawValue;
+    return;
+  }
+  if (section === 'cloud') {
+    state.adminCloudDraft[field] = rawValue;
+  }
 }

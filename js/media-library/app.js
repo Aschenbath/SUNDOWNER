@@ -7,7 +7,10 @@ import {
   applyAdminCloudDraftToSettings,
   applyAdminPageDraftToConfig,
   parseAdminRecoveryMatches,
-} from './admin-runtime.js?v=1';
+  resetAdminPasswordDraft,
+  hydrateAdminProfileDraft,
+  updateAdminDraftField,
+} from './admin-runtime.js?v=2';
 import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js?v=2';
 import {
   AdminPanel,
@@ -1880,12 +1883,6 @@ function getPageConfigValue(config, id) {
 }
 
 
-function resetAdminPasswordDraft() {
-  state.adminProfileDraft.currentPassword = '';
-  state.adminProfileDraft.newPassword = '';
-  state.adminProfileDraft.confirmPassword = '';
-}
-
 function applyAdminIdentity(profile, { shouldRender = false } = {}) {
   const username = normalizeText(profile?.username);
   const displayName = normalizeText(profile?.displayName) || username;
@@ -1896,15 +1893,6 @@ function applyAdminIdentity(profile, { shouldRender = false } = {}) {
   if (shouldRender && refs.root) {
     render();
   }
-}
-
-function hydrateAdminProfileDraft(profile) {
-  state.adminProfileDraft = {
-    ...createEmptyAdminProfileDraft(),
-    username: normalizeText(profile?.username),
-    displayName: normalizeText(profile?.displayName) || normalizeText(profile?.username),
-    avatarData: normalizeText(profile?.avatarData)
-  };
 }
 
 function readFileAsDataUrl(file) {
@@ -3663,7 +3651,7 @@ async function loadAdminPanelData() {
     const otherSettings = otherSettingsResult.value;
 
     applyAdminIdentity(account);
-    hydrateAdminProfileDraft(account);
+    state.adminProfileDraft = hydrateAdminProfileDraft(account, normalizeText);
     state.adminPageConfigSource = safeArray(pageConfig?.config);
     state.adminPageDraft = createAdminPageDraft(state.adminPageConfigSource);
     state.adminOthersConfigSource = otherSettings || {};
@@ -5862,7 +5850,7 @@ function closeAdminPanel() {
   }
   state.adminPanelOpen = false;
   state.adminPanelError = '';
-  resetAdminPasswordDraft();
+  state.adminProfileDraft = resetAdminPasswordDraft(state.adminProfileDraft);
   patchAdminOverlays();
 }
 
@@ -5908,25 +5896,6 @@ async function handleAdminAvatarSelection(file) {
   patchAdminOverlays();
 }
 
-function updateAdminDraftField(section, field, rawValue) {
-  if (!section || !field) {
-    return;
-  }
-  if (state.adminPanelError) {
-    state.adminPanelError = '';
-  }
-  if (section === 'account') {
-    state.adminProfileDraft[field] = rawValue;
-    return;
-  }
-  if (section === 'site') {
-    state.adminPageDraft[field] = rawValue;
-    return;
-  }
-  if (section === 'cloud') {
-    state.adminCloudDraft[field] = rawValue;
-  }
-}
 
 async function saveAdminAccount() {
   if (state.adminPanelBusy) {
@@ -5964,7 +5933,7 @@ async function saveAdminAccount() {
       newPassword: state.adminProfileDraft.newPassword
     });
     applyAdminIdentity(profile);
-    hydrateAdminProfileDraft(profile);
+    state.adminProfileDraft = hydrateAdminProfileDraft(profile, normalizeText);
     showToast('Admin account updated', 'success');
   } catch (error) {
     state.adminPanelError = error.message || 'Failed to update account';
@@ -11801,7 +11770,7 @@ function handleInput(event) {
     const value = input instanceof HTMLInputElement && input.type === 'checkbox'
       ? input.checked
       : input.value;
-    updateAdminDraftField(input.dataset.adminSection, input.dataset.adminField, value);
+    updateAdminDraftField(state, input.dataset.adminSection, input.dataset.adminField, value);
   }
 }
 
