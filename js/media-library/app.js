@@ -70,8 +70,8 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS,
   mockFilmRecords
-} from './films-data.js?v=1';
-import { FilmsPage } from './films-components.js?v=1';
+} from './films-data.js?v=2';
+import { FilmDetailModal, FilmsPage } from './films-components.js?v=2';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -426,9 +426,9 @@ const state = {
   docsMoveCreateOpen: false,
   docsMoveCreateName: '',
   docsContextMenu: null,
-  filmFilter: FILM_FILTERS[0],
-  filmSearchQuery: '',
-  films: mockFilmRecords.slice()
+  films: mockFilmRecords.slice(),
+  activeFilmId: '',
+  filmDetailOpen: false
 };
 
 let dimensionPatchTimer = 0;
@@ -8164,6 +8164,7 @@ function getViewModel() {
     previewItem,
     availableAlbums: getAvailableAlbumNames(accessibleItems),
     previewAlbumEntries: buildPreviewAlbumEntries(accessibleItems),
+    filmRecord: getActiveFilmRecord(),
     canSetAlbumCover,
     canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
     canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item)),
@@ -8299,6 +8300,31 @@ function isPrimaryViewDomInSync(primary) {
     && domPlaylist === normalizeText(state.activePlaylistName || '');
 }
 
+function getActiveFilmRecord() {
+  if (!state.activeFilmId) {
+    return null;
+  }
+  return state.films.find((record) => record.id === state.activeFilmId) || null;
+}
+
+function openFilmDetail(filmId) {
+  const film = state.films.find((record) => record.id === filmId);
+  if (!film) {
+    return;
+  }
+  state.activeFilmId = film.id;
+  state.filmDetailOpen = true;
+  render();
+}
+
+function closeFilmDetail() {
+  if (!state.filmDetailOpen && !state.activeFilmId) {
+    return;
+  }
+  state.filmDetailOpen = false;
+  state.activeFilmId = '';
+  render();
+}
 function patchTopbarStorageTrigger() {
   if (!refs.root) return false;
   const currentTrigger = refs.root.querySelector('.cml-topbar .cml-storage-trigger');
@@ -8683,8 +8709,8 @@ function render() {
                 : viewModel.isFilmsView
                 ? FilmsPage({
                     records: state.films,
-                    activeFilter: state.filmFilter,
-                    searchQuery: state.filmSearchQuery
+                    activeFilter: FILM_FILTERS[0],
+                    searchQuery: ''
                   })
                 : viewModel.isMusicView
                 ? `${MusicSummary({
@@ -8800,6 +8826,7 @@ function render() {
             })
           : ''}
       </div>
+      ${FilmDetailModal({ record: state.filmDetailOpen ? viewModel.filmRecord : null })}
       ${PreviewModal(getPreviewOverlayModel())}
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
       ${StoragePanel({ state, insights: storageInsights })}
@@ -11380,6 +11407,9 @@ function handleAction(actionTarget) {
     case 'close-preview':
       closePreview();
       return true;
+    case 'close-film-detail':
+      closeFilmDetail();
+      return true;
     case 'preview-next':
       movePreview(1);
       return true;
@@ -11393,22 +11423,19 @@ function handleAction(actionTarget) {
 
 function handleClick(event) {
   const actionTarget = event.target instanceof Element ? event.target.closest('[data-action], [data-primary], [data-secondary], [data-year], [data-anchor]') : null;
+  const filmCardTarget = event.target instanceof Element ? event.target.closest('.cml-film-card') : null;
   const tileTarget = event.target instanceof Element ? event.target.closest('.cml-media-tile') : null;
   const clickedControl = event.target instanceof HTMLElement
     ? event.target.closest('button, a, input, textarea, select, label')
     : null;
 
-  // Ignore clicks on disabled controls
   if (clickedControl instanceof HTMLElement && clickedControl.hasAttribute('disabled')) {
     event.preventDefault();
     event.stopPropagation();
     return;
   }
 
-  // Select button clicks should only toggle selection, never open preview
   const isSelectClick = event.target instanceof Element && event.target.closest('[data-action="toggle-select"]');
-
-  // In selection mode, clicking anywhere on a tile toggles selection instead of opening preview
   const inSelectionMode = state.selectedIds.size > 0
     || hasAnyPickerTarget(state);
   const clickedInsideThemeSwitcher = event.target instanceof Element && event.target.closest('.cml-theme-switcher');
@@ -11445,6 +11472,22 @@ function handleClick(event) {
     }
   }
 
+  if (state.filmDetailOpen && actionTarget instanceof HTMLElement && actionTarget.dataset.action === 'close-film-detail') {
+    if (event.target === actionTarget || event.target.closest('.cml-film-ticket__close')) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeFilmDetail();
+      return;
+    }
+  }
+
+  if (filmCardTarget instanceof HTMLElement && !(clickedControl instanceof HTMLElement) && filmCardTarget.dataset.filmId) {
+    event.preventDefault();
+    event.stopPropagation();
+    openFilmDetail(filmCardTarget.dataset.filmId);
+    return;
+  }
+
   if (actionTarget instanceof HTMLElement) {
     if (actionTarget.dataset.action === 'submit-login') {
       event.preventDefault();
@@ -11462,6 +11505,7 @@ function handleClick(event) {
         && !state.privateViewOpen
         && !hasAnyPickerTarget(state)
         && !state.previewId
+        && !state.filmDetailOpen
         && state.selectedIds.size === 0
         && state.binSelectedIds.size === 0;
       if (alreadyOnPrimary) {
@@ -11488,6 +11532,8 @@ function handleClick(event) {
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       state.activePlaylistName = '';
+      state.activeFilmId = '';
+      state.filmDetailOpen = false;
       resetAddToTargetModes(state);
       resetSearchQuery();
       state.previewId = null;
@@ -11894,6 +11940,13 @@ function handleKeyDown(event) {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault();
     focusSearchInput();
+    return;
+  }
+
+  if (state.filmDetailOpen) {
+    if (event.key === 'Escape') {
+      closeFilmDetail();
+    }
     return;
   }
 
