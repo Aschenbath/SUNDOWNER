@@ -11,7 +11,7 @@ import {
   hydrateAdminProfileDraft,
   updateAdminDraftField,
 } from './admin-runtime.js?v=2';
-import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js?v=2';
+import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js?v=3';
 import {
   AdminPanel,
   AlbumDialog,
@@ -46,7 +46,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=88';
+} from './components.js?v=89';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -67,6 +67,11 @@ import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
 import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js';
 import { resolveMediaCaptureTimestamp } from './time-resolution.js';
+import {
+  FILM_FILTERS,
+  mockFilmRecords
+} from './films-data.js?v=1';
+import { FilmsPage } from './films-components.js?v=1';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -420,7 +425,10 @@ const state = {
   docsMoveDialogDir: '',
   docsMoveCreateOpen: false,
   docsMoveCreateName: '',
-  docsContextMenu: null
+  docsContextMenu: null,
+  filmFilter: FILM_FILTERS[0],
+  filmSearchQuery: '',
+  films: mockFilmRecords.slice()
 };
 
 let dimensionPatchTimer = 0;
@@ -5774,6 +5782,9 @@ function getSearchContextLabel() {
   if (state.primaryFilter === 'Collections') {
     return 'Albums';
   }
+  if (state.primaryFilter === 'Films') {
+    return 'Films';
+  }
   if (state.secondaryFilter) {
     return state.secondaryFilter;
   }
@@ -8023,6 +8034,7 @@ function getViewModel() {
       + searchFileItems.length
       + searchAlbumCards.length
     : 0;
+  const isFilmsView = state.primaryFilter === 'Films' && !isGlobalSearchView;
   const isMusicView = state.primaryFilter === 'Music' && !isGlobalSearchView;
   const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName && !isGlobalSearchView;
   const isAlbumPickerMode = hasAnyPickerTarget(state);
@@ -8033,12 +8045,12 @@ function getViewModel() {
   const audioQueueItems = getAudioQueueItems(accessibleItems);
   const currentAudioItem = getAudioItemById(state.audioCurrentId, accessibleItems)
     || getAudioItemById(state.audioCurrentId, getAllItems());
-  const timelineItems = isMindView || isMusicView
+  const timelineItems = isMindView || isMusicView || isFilmsView
     ? []
     : state.primaryFilter === 'Bin'
     ? state.binItems
     : filteredItems;
-  const baseSections = isMindView || isMusicView || isCollectionRoot
+  const baseSections = isMindView || isMusicView || isCollectionRoot || isFilmsView
     ? []
     : buildSections(timelineItems, state.primaryFilter === 'Bin'
       ? {
@@ -8049,12 +8061,12 @@ function getViewModel() {
           getScrubberLabel: (item) => formatScrubberLabel(item.deletedAt || item.takenAt)
         }
       : undefined);
-  const laidOutSections = isMindView || isMusicView || isCollectionRoot
+  const laidOutSections = isMindView || isMusicView || isCollectionRoot || isFilmsView
     ? []
     : buildTimelineLayoutSections(baseSections, {
         sectionGap: state.primaryFilter === 'Bin' ? BIN_TIMELINE_SECTION_GAP : TIMELINE_SECTION_GAP
       });
-  const shouldVirtualizeTimeline = !isMindView && !isMusicView && !isCollectionRoot && timelineItems.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD;
+  const shouldVirtualizeTimeline = !isMindView && !isMusicView && !isCollectionRoot && !isFilmsView && timelineItems.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD;
   const virtualWindow = !shouldVirtualizeTimeline
     ? {
         sections: laidOutSections.map((section) => ({
@@ -8074,7 +8086,7 @@ function getViewModel() {
           viewportHeight: state.virtualViewportHeight
         });
   const sections = virtualWindow.sections;
-  const years = isMindView || isMusicView || isCollectionRoot
+  const years = isMindView || isMusicView || isCollectionRoot || isFilmsView
     ? []
     : [...new Set(timelineItems.map((item) => String(item.year)))]
       .sort((left, right) => Number(right) - Number(left));
@@ -8112,6 +8124,7 @@ function getViewModel() {
     albumSelectionTarget,
     videoAlbumSelectionTarget,
     isAlbumPickerMode,
+    isFilmsView,
     isMindView,
     isGlobalSearchView,
     globalSearchResultCount,
@@ -8667,6 +8680,12 @@ function render() {
                     wallpaperPhotoChoices: getMindWallpaperPhotoChoices(),
                     layoutWidth: state.layoutWidth
                   }))
+                : viewModel.isFilmsView
+                ? FilmsPage({
+                    records: state.films,
+                    activeFilter: state.filmFilter,
+                    searchQuery: state.filmSearchQuery
+                  })
                 : viewModel.isMusicView
                 ? `${MusicSummary({
                     totalCount: viewModel.musicItems.length,
@@ -12184,6 +12203,9 @@ function buildNavigationHash() {
   if (primary === 'Collections') {
     return '#/albums';
   }
+  if (primary === 'Films') {
+    return '#/films';
+  }
   if (primary === 'Music') {
     return getActivePlaylistName()
       ? '#/music/' + encodeURIComponent(getActivePlaylistName())
@@ -12262,6 +12284,14 @@ function restoreNavigationFromHash() {
       } else {
         state.activeAlbumName = '';
       }
+      break;
+    case 'films':
+      state.primaryFilter = 'Films';
+      state.secondaryFilter = '';
+      state.videoCategoryFilter = '';
+      state.activeAlbumName = '';
+      state.activePlaylistName = '';
+      clearPrivateViewState();
       break;
     case 'mind':
       state.primaryFilter = 'Mind';

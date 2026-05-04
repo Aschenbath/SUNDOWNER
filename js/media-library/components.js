@@ -1,5 +1,5 @@
 ﻿import { shouldDisplayMediaItem } from './media-support.js';
-
+import { FilmsPage } from './films-components.js?v=1';
 
 import { THEME_COLOR_OPTIONS, THEME_MODE_OPTIONS, formatThemeModeLabel } from '../theme-system.js?v=2';
 
@@ -11,6 +11,7 @@ const icons = {
   documents: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.1 4.5h5.8l3.6 3.7v10.1A1.9 1.9 0 0 1 15.6 20H8.4a1.9 1.9 0 0 1-1.9-1.9V6.4A1.9 1.9 0 0 1 8.1 4.5Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M13.9 4.7v3.6h3.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
   favourites: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 5.8 1.8 3.6 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.8 4-.6Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
   music: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5.3v9.5a2.8 2.8 0 1 1-1.7-2.6V7.8L8 9.1v6a2.8 2.8 0 1 1-1.7-2.6V7.8l8.7-2.5Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+  films: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.8 7.1A2.1 2.1 0 0 1 6.9 5h10.2a2.1 2.1 0 0 1 2.1 2.1v9.8a2.1 2.1 0 0 1-2.1 2.1H6.9a2.1 2.1 0 0 1-2.1-2.1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.1 5v14M15.9 5v14M4.8 9.7h14.4M4.8 14.3h14.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m15.2 15.2 4.3 4.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 12.8 3.7 3.7 7.5-8.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -487,6 +488,8 @@ export function Sidebar({
       ? 'photos'
       : key === 'music'
         ? 'sidebar-music'
+      : key === 'films'
+        ? 'films'
       : key === 'bin'
         ? 'trash'
         : key === 'mind'
@@ -722,7 +725,9 @@ export function TopSearchBar({ state, storageSummary = null, canDeleteSelection 
   ` : '';
   const searchPlaceholder = state.primaryFilter === 'Music'
     ? 'Search music, artist, album, type:audio'
-    : 'Search library, albums, files, camera:canon, tag:night, has:location';
+    : state.primaryFilter === 'Films'
+      ? 'Search films / notes...'
+      : 'Search library, albums, files, camera:canon, tag:night, has:location';
   if (selectedCount) {
     if (isAlbumPickerMode) {
       const isCurrentAlbumPicker = Boolean(state.primaryFilter === 'Photos' && state.albumSelectionTarget && !state.videoAlbumSelectionTarget && !state.privateSelectionMode);
