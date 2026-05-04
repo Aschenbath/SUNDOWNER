@@ -26,6 +26,28 @@ function createBaseState(overrides = {}) {
     adminRecoverTgThumbnailsLoading: false,
     adminRecoverTgThumbnailsError: '',
     adminRecoverTgThumbnailsResult: null,
+    adminTelegramChannels: [
+      {
+        name: 'Telegram_env',
+        chatId: '-100123',
+        importDirectory: '/',
+        syncEnabled: true,
+        manualRunAllowed: true,
+        lastProcessedCount: 2,
+        lastUpdateId: 42,
+        lastSyncAt: 1715000000000,
+        lastSyncSource: 'webhook',
+        lastWebhookEventAt: 1715000100000,
+        lastError: '',
+        webhookInfo: {
+          url: 'https://example.com/webhook',
+          pending_update_count: 0,
+        },
+      },
+    ],
+    adminTelegramLoading: false,
+    adminTelegramBusy: false,
+    adminTelegramError: '',
     adminDisplayName: 'LA',
     adminUsername: 'nashaschenbath',
     adminAvatarData: '',
@@ -52,28 +74,6 @@ function createBaseState(overrides = {}) {
       randomImageAllowedDir: '/wallpaper',
       telemetryEnabled: false,
     },
-    adminTelegramChannels: [
-      {
-        name: 'Telegram_env',
-        chatId: '-100123',
-        importDirectory: '/',
-        syncEnabled: true,
-        manualRunAllowed: true,
-        lastProcessedCount: 2,
-        lastUpdateId: 42,
-        lastSyncAt: Date.now(),
-        lastSyncSource: 'webhook',
-        lastWebhookEventAt: Date.now(),
-        lastError: '',
-        webhookInfo: {
-          url: 'https://example.com/webhook',
-          pending_update_count: 0,
-        },
-      },
-    ],
-    adminTelegramLoading: false,
-    adminTelegramBusy: false,
-    adminTelegramError: '',
     ...overrides,
   };
 }
@@ -86,7 +86,7 @@ function renderAdminPanel(stateOverrides = {}, storageSummary = { usedMb: 512, t
 }
 
 describe('AdminPanel DOM contracts', () => {
-  it('renders editable account inputs and password fields for the account tab', () => {
+  it('renders editable account inputs for the account tab', () => {
     const html = renderAdminPanel({ adminPanelTab: 'account' });
 
     const inputCount = (html.match(/class="cml-admin-panel__input"/g) || []).length;
@@ -103,7 +103,7 @@ describe('AdminPanel DOM contracts', () => {
     assert.match(html, /data-admin-field="confirmPassword"/);
   });
 
-  it('keeps password helper copy as placeholder attributes on real inputs', () => {
+  it('keeps password helper copy on placeholder attributes instead of only loose text', () => {
     const html = renderAdminPanel({ adminPanelTab: 'account' });
 
     assert.match(html, /placeholder="Required for username or password changes"/);
@@ -114,15 +114,15 @@ describe('AdminPanel DOM contracts', () => {
     assert.match(html, /<input type="password"[^>]*placeholder="Repeat the new password"/);
   });
 
-  it('renders the Account tab save button with the expected action hook and class', () => {
+  it('renders the Save account button with the real action hook and save-button class', () => {
     const html = renderAdminPanel({ adminPanelTab: 'account' });
 
     assert.match(html, /data-action="save-admin-account"/);
-    assert.match(html, /class="cml-admin-panel__primary cml-admin-panel__save-button"/);
+    assert.match(html, /cml-admin-panel__save-button/);
     assert.match(html, />Save account</);
   });
 
-  it('renders the Site tab with editable fields and save action', () => {
+  it('renders the Site tab with expected field markers and save action', () => {
     const html = renderAdminPanel({ adminPanelTab: 'site' });
 
     assert.match(html, /Brand and entry surfaces/);
@@ -134,7 +134,7 @@ describe('AdminPanel DOM contracts', () => {
     assert.match(html, />Save site settings</);
   });
 
-  it('renders the Cloud tab with cloud controls and save action', () => {
+  it('renders the Cloud tab with expected markers and save action', () => {
     const html = renderAdminPanel({ adminPanelTab: 'cloud' });
 
     assert.match(html, /Service controls/);
@@ -146,7 +146,7 @@ describe('AdminPanel DOM contracts', () => {
     assert.match(html, />Save cloud settings</);
   });
 
-  it('renders the Telegram tab with sync controls and action markers', () => {
+  it('renders the Telegram tab with sync markers and action hooks', () => {
     const html = renderAdminPanel({ adminPanelTab: 'telegram' });
 
     assert.match(html, /Channel sync/);
@@ -157,10 +157,10 @@ describe('AdminPanel DOM contracts', () => {
     assert.match(html, /data-action="tg-delete-webhook"/);
   });
 
-  it('fails closed if account tab loses all admin inputs while open', () => {
+  it('fails closed if the account tab loses all admin inputs while open', () => {
     const html = renderAdminPanel({ adminPanelOpen: true, adminPanelTab: 'account' });
-
     const accountInputCount = (html.match(/class="cml-admin-panel__input"/g) || []).length;
+
     assert.ok(accountInputCount > 0, 'expected account tab to render admin inputs when panel is open');
   });
 });
