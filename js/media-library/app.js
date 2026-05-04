@@ -1,3 +1,13 @@
+import {
+  createEmptyAdminCloudDraft,
+  createEmptyAdminPageDraft,
+  createEmptyAdminProfileDraft,
+  createAdminCloudDraft,
+  createAdminPageDraft,
+  applyAdminCloudDraftToSettings,
+  applyAdminPageDraftToConfig,
+  parseAdminRecoveryMatches,
+} from './admin-runtime.js?v=1';
 import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js?v=2';
 import {
   AdminPanel,
@@ -134,37 +144,6 @@ function writeSessionFlag(key, enabled) {
   }
 }
 
-function createEmptyAdminProfileDraft() {
-  return {
-    username: '',
-    displayName: '',
-    avatarData: '',
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  };
-}
-
-function createEmptyAdminPageDraft() {
-  return {
-    siteTitle: '',
-    ownerName: '',
-    logoUrl: '',
-    announcement: '',
-    adminBkImg: '',
-    adminLoginBkImg: ''
-  };
-}
-
-function createEmptyAdminCloudDraft() {
-  return {
-    publicBrowseEnabled: false,
-    publicBrowseAllowedDir: '',
-    randomImageEnabled: false,
-    randomImageAllowedDir: '',
-    telemetryEnabled: false
-  };
-}
 
 const LIVE_MEDIA_QUERY = [
   '#app .list-view img[src]',
@@ -1797,39 +1776,6 @@ function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
-function parseAdminRecoveryMatches(input = '') {
-  const lines = String(input || '')
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const matches = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const parts = lines[index].split('|').map((part) => normalizeText(part));
-    if (parts.length < 2) {
-      throw new Error(`Recovery match line ${index + 1} must include at least key and message ID or file ID.`);
-    }
-
-    const [key, messageId, chatId, channelName, fileId] = parts;
-    if (!key) {
-      throw new Error(`Recovery match line ${index + 1} is missing the file key.`);
-    }
-    if (!messageId && !fileId) {
-      throw new Error(`Recovery match line ${index + 1} must include either a message ID or a file ID.`);
-    }
-
-    matches.push({
-      key,
-      ...(messageId ? { messageId } : {}),
-      ...(chatId ? { chatId } : {}),
-      ...(channelName ? { channelName } : {}),
-      ...(fileId ? { fileId } : {}),
-    });
-  }
-
-  return matches;
-}
-
 function formatScrubberLabel(dateLike) {
   const date = new Date(dateLike);
   if (Number.isNaN(date.getTime())) {
@@ -1933,67 +1879,6 @@ function getPageConfigValue(config, id) {
   return value == null ? '' : String(value);
 }
 
-function createAdminPageDraft(config) {
-  return {
-    siteTitle: getPageConfigValue(config, 'siteTitle'),
-    ownerName: getPageConfigValue(config, 'ownerName'),
-    logoUrl: getPageConfigValue(config, 'logoUrl'),
-    announcement: getPageConfigValue(config, 'announcement'),
-    adminBkImg: getPageConfigValue(config, 'adminBkImg'),
-    adminLoginBkImg: getPageConfigValue(config, 'adminLoginBkImg')
-  };
-}
-
-function applyAdminPageDraftToConfig(config, draft) {
-  const valueMap = {
-    siteTitle: draft.siteTitle,
-    ownerName: draft.ownerName,
-    logoUrl: draft.logoUrl,
-    announcement: draft.announcement,
-    adminBkImg: draft.adminBkImg,
-    adminLoginBkImg: draft.adminLoginBkImg
-  };
-  return {
-    config: safeArray(config).map((item) => (
-      item && Object.prototype.hasOwnProperty.call(valueMap, item.id)
-        ? { ...item, value: valueMap[item.id] }
-        : item
-    ))
-  };
-}
-
-function createAdminCloudDraft(settings) {
-  return {
-    publicBrowseEnabled: Boolean(settings?.publicBrowse?.enabled),
-    publicBrowseAllowedDir: normalizeText(settings?.publicBrowse?.allowedDir),
-    randomImageEnabled: Boolean(settings?.randomImageAPI?.enabled),
-    randomImageAllowedDir: normalizeText(settings?.randomImageAPI?.allowedDir),
-    telemetryEnabled: Boolean(settings?.telemetry?.enabled)
-  };
-}
-
-function applyAdminCloudDraftToSettings(settings, draft) {
-  return {
-    ...(settings || {}),
-    telemetry: {
-      ...(settings?.telemetry || {}),
-      enabled: Boolean(draft.telemetryEnabled),
-      fixed: false
-    },
-    randomImageAPI: {
-      ...(settings?.randomImageAPI || {}),
-      enabled: Boolean(draft.randomImageEnabled),
-      allowedDir: normalizeText(draft.randomImageAllowedDir),
-      fixed: false
-    },
-    publicBrowse: {
-      ...(settings?.publicBrowse || {}),
-      enabled: Boolean(draft.publicBrowseEnabled),
-      allowedDir: normalizeText(draft.publicBrowseAllowedDir),
-      fixed: false
-    }
-  };
-}
 
 function resetAdminPasswordDraft() {
   state.adminProfileDraft.currentPassword = '';
@@ -4033,7 +3918,7 @@ async function runAdminRecoveryTask(kind, { dryRun = false } = {}) {
         dryRun,
         targetChatId: normalizeText(state.adminRecoveryTargetChatId),
         ...(() => {
-          const matches = parseAdminRecoveryMatches(state.adminRecoveryMatchesText);
+          const matches = parseAdminRecoveryMatches(state.adminRecoveryMatchesText, normalizeText);
           return matches.length ? { matches } : {};
         })(),
       }),
