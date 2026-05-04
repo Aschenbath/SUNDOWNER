@@ -3693,7 +3693,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-admin-panel__field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -3712,27 +3712,30 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-admin-panel__input,
 #codex-media-library-root .cml-admin-panel__textarea {
   width: 100%;
-  min-height: 52px;
+  min-height: 56px;
+  height: 56px;
   padding: 0 18px;
   box-sizing: border-box;
   display: block;
-  border: 1.5px solid rgba(48, 65, 96, 0.52);
+  border: 2px solid rgba(42, 58, 88, 0.42);
   border-radius: 18px;
-  background: #ffffff;
+  background-color: #ffffff;
+  background-image: none;
   color: var(--cml-text-primary);
   -webkit-text-fill-color: var(--cml-text-primary);
   font-size: 14px;
   font-weight: 500;
+  line-height: 56px;
   outline: none;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), 0 4px 12px rgba(32, 42, 68, 0.10);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.9), 0 6px 16px rgba(31,41,64,0.12);
   transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
   min-width: 0;
 }
 
 #codex-media-library-root .cml-admin-panel__input::placeholder,
 #codex-media-library-root .cml-admin-panel__textarea::placeholder {
-  color: rgba(82, 92, 121, 0.58);
-  -webkit-text-fill-color: rgba(82, 92, 121, 0.58);
+  color: rgba(82, 92, 121, 0.56);
+  -webkit-text-fill-color: rgba(82, 92, 121, 0.56);
   font-weight: 400;
   opacity: 1;
 }
@@ -3742,9 +3745,9 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-admin-panel__textarea:disabled,
 #codex-media-library-root .cml-admin-panel__textarea[readonly] {
   color: var(--cml-text-secondary);
-  background: rgba(255,255,255,.76);
-  border-color: rgba(48,65,96,.28);
-  box-shadow: 0 1px 4px rgba(32,42,68,.06);
+  background-color: rgba(255,255,255,0.84);
+  border: 2px solid rgba(42,58,88,0.30);
+  box-shadow: 0 2px 8px rgba(31,41,64,0.08);
   -webkit-text-fill-color: var(--cml-text-secondary);
   opacity: 1;
 }
@@ -3752,8 +3755,18 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-admin-panel__textarea {
   min-height: 120px;
+  height: auto;
   padding: 12px 14px;
+  line-height: 1.5;
   resize: vertical;
+}
+
+#codex-media-library-root .cml-admin-panel__input[type="password"] {
+  background-color: #ffffff;
+  border: 2px solid rgba(42, 58, 88, 0.48);
+  min-height: 56px;
+  height: 56px;
+  border-radius: 18px;
 }
 
 #codex-media-library-root .cml-admin-panel__input:focus,
@@ -6308,20 +6321,44 @@ body.codex-media-library-active #app {
 }
 
 @media (max-width: 860px) {
+  #codex-media-library-root .cml-admin-panel__panel {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 24px);
+    margin-top: 12px;
+  }
+
+  #codex-media-library-root .cml-admin-panel__layout {
+    grid-template-columns: 1fr;
+  }
+
+  #codex-media-library-root .cml-admin-panel__tabs {
+    flex-direction: row;
+    overflow: auto;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
   #codex-media-library-root .cml-admin-panel__input,
   #codex-media-library-root .cml-admin-panel__textarea {
-    min-height: 52px;
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    min-height: 56px;
+    height: 56px;
     padding: 0 18px;
-    background: #ffffff;
-    border: 1.5px solid rgba(48, 65, 96, 0.52);
+    background-color: #ffffff;
+    background-image: none;
+    border: 2px solid rgba(42, 58, 88, 0.42);
     border-radius: 18px;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), 0 4px 12px rgba(32, 42, 68, 0.10);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.9), 0 6px 16px rgba(31,41,64,0.12);
   }
 
   #codex-media-library-root .cml-admin-panel__textarea {
+    min-height: 120px;
+    height: auto;
     padding: 14px 18px;
+    line-height: 1.5;
   }
-
 
   #codex-media-library-root .cml-admin-panel__form-grid,
   #codex-media-library-root .cml-admin-panel__stats,
