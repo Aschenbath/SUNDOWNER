@@ -1,4 +1,4 @@
-import { FILM_FILTERS, FILM_STATUS_LABELS, getFilmRatingLabel } from './films-data.js?v=2';
+import { FILM_FILTERS, FILM_STATUS_LABELS, getFilmRatingLabel } from './films-data.js?v=3';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -22,6 +22,21 @@ function formatFilmMonthLabel(value) {
 }
 
 function formatWatchedDate(value) {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return normalizeText(value);
+  }
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).replace(/\//g, '/');
+}
+
+function formatWatchedDateLong(value) {
   if (!value) {
     return '—';
   }
@@ -100,21 +115,61 @@ function renderTicketMetaRow(label, value) {
   `;
 }
 
+function buildCardBarcode() {
+  return Array.from({ length: 16 }, (_, index) => {
+    const narrow = index % 4 === 1 || index % 4 === 3 ? 'is-narrow' : '';
+    return `<span class="cml-film-card__barcode-bar ${narrow}"></span>`;
+  }).join('');
+}
+
 export function FilmCard(record = {}) {
   const statusLabel = FILM_STATUS_LABELS[record.status] || '想看';
-  const rating = Number.isFinite(Number(record.rating)) ? Number(record.rating).toFixed(1) : '';
-  const metaLabel = rating || statusLabel;
   const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
+  const originalTitle = normalizeText(record.originalTitle || record.title || '');
+  const localeLine = [record.country, record.language].filter(Boolean).join(' / ');
+  const directorLine = normalizeText(record.director || '');
+  const infoLine = localeLine || directorLine;
+  const genres = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' / ') : '';
+  const runtime = formatRuntime(record.runtime);
+  const watchedDate = record.status === 'watched' ? formatWatchedDate(record.watchedAt) : '';
+  const ratingValue = Number.isFinite(Number(record.rating)) ? Number(record.rating).toFixed(1) : '';
+  const ratingLabel = ratingValue ? getFilmRatingLabel(record.rating) : '';
+  const compactNote = normalizeText(record.note || '').slice(0, 22);
   return `
     <article class="cml-film-card" data-film-id="${escapeHtml(record.id || '')}" data-action="open-film-detail" tabindex="0" role="button" aria-label="Open ${escapeHtml(localTitle)} details">
-      <div class="cml-film-card__poster-wrap">
-        <img class="cml-film-card__poster" src="${escapeHtml(record.posterUrl || '')}" alt="${escapeHtml(localTitle)}" loading="eager" decoding="async" />
-        ${record.favorite ? '<span class="cml-film-card__favorite" aria-label="Favorite">★</span>' : ''}
+      <div class="cml-film-card__strip">
+        <img class="cml-film-card__thumb" src="${escapeHtml(record.posterUrl || '')}" alt="${escapeHtml(localTitle)}" loading="eager" decoding="async" />
+        <div class="cml-film-card__strip-copy">
+          <span class="cml-film-card__badge">${escapeHtml(statusLabel)}</span>
+          ${record.favorite ? '<span class="cml-film-card__favorite" aria-label="Favorite">★</span>' : ''}
+        </div>
       </div>
-      <div class="cml-film-card__body">
-        <h3 class="cml-film-card__title">${escapeHtml(localTitle)}</h3>
-        <p class="cml-film-card__meta">${escapeHtml(String(record.year || ''))}</p>
-        <p class="cml-film-card__status">${escapeHtml(metaLabel)}</p>
+      <div class="cml-film-card__ticket">
+        <div class="cml-film-card__notch cml-film-card__notch--left" aria-hidden="true"></div>
+        <div class="cml-film-card__notch cml-film-card__notch--right" aria-hidden="true"></div>
+        <div class="cml-film-card__body">
+          <h3 class="cml-film-card__title">${escapeHtml(localTitle)}</h3>
+          ${originalTitle && originalTitle !== localTitle ? `<p class="cml-film-card__original">${escapeHtml(originalTitle)}</p>` : ''}
+          ${infoLine ? `<p class="cml-film-card__line">${escapeHtml(infoLine)}</p>` : ''}
+          ${genres ? `<p class="cml-film-card__line">${escapeHtml(genres)}</p>` : ''}
+          <p class="cml-film-card__facts">${escapeHtml([record.year, runtime].filter(Boolean).join(' / '))}</p>
+          ${watchedDate ? `<p class="cml-film-card__facts cml-film-card__facts--muted">${escapeHtml(watchedDate)}</p>` : ''}
+          <div class="cml-film-card__dash" aria-hidden="true"></div>
+          <div class="cml-film-card__summary">
+            <div class="cml-film-card__summary-block">
+              <span class="cml-film-card__summary-label">Rating</span>
+              <strong class="cml-film-card__summary-value">${escapeHtml(ratingValue || statusLabel)}</strong>
+            </div>
+            <div class="cml-film-card__summary-block cml-film-card__summary-block--right">
+              <span class="cml-film-card__summary-label">Diary</span>
+              <strong class="cml-film-card__summary-value">${escapeHtml(ratingLabel || compactNote || 'SUNDOWNER')}</strong>
+            </div>
+          </div>
+        </div>
+        <footer class="cml-film-card__footer" aria-hidden="true">
+          <div class="cml-film-card__barcode">${buildCardBarcode()}</div>
+          <span class="cml-film-card__footer-copy">FILM DIARY</span>
+        </footer>
       </div>
     </article>
   `;
@@ -172,7 +227,7 @@ export function FilmDetailModal({ record = null } = {}) {
           ${renderTicketMetaRow('Genres', genres)}
           ${renderTicketMetaRow('Year', record.year ? String(record.year) : '')}
           ${renderTicketMetaRow('Runtime', runtime)}
-          ${renderTicketMetaRow('Watched', formatWatchedDate(record.watchedAt))}
+          ${renderTicketMetaRow('Watched', formatWatchedDateLong(record.watchedAt))}
           ${renderTicketMetaRow('Rating', rating ? `${rating} · ${ratingLabel}` : '')}
         </dl>
         ${record.note ? `

@@ -70,8 +70,8 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS,
   mockFilmRecords
-} from './films-data.js?v=2';
-import { FilmDetailModal, FilmsPage } from './films-components.js?v=2';
+} from './films-data.js?v=3';
+import { FilmDetailModal, FilmsPage } from './films-components.js?v=3';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
