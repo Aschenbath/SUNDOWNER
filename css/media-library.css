@@ -10786,9 +10786,14 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__poster-panel::after {
   content: '';
   position: absolute;
-  inset: auto 0 0;
-  height: 34%;
-  background: linear-gradient(180deg, rgba(8, 10, 12, 0) 0%, rgba(8, 10, 12, 0.48) 100%);
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(8, 12, 14, 0.08) 0%,
+      rgba(8, 12, 14, 0.22) 42%,
+      rgba(8, 12, 14, 0.58) 100%
+    );
   pointer-events: none;
 }
 
@@ -10803,19 +10808,22 @@ body.codex-media-library-active #app {
   position: absolute;
   top: 12px;
   left: 12px;
-  z-index: 1;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   max-width: calc(100% - 24px);
   min-height: 30px;
   padding: 0 11px;
   border-radius: 999px;
-  background: rgba(18, 20, 24, 0.72);
-  color: #f5efe4;
+  border: 1px solid rgba(255, 250, 240, 0.14);
+  background: rgba(18, 22, 20, 0.72);
+  color: #fffaf0;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.34);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
   backdrop-filter: blur(8px);
 }
 
@@ -10871,10 +10879,10 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__title {
   margin: 0;
-  color: #241b15;
+  color: #29231f;
   font-family: "Times New Roman", Times, serif;
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.12;
 }
 
@@ -10892,17 +10900,17 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__separator {
   height: 1px;
   margin: 2px 0 0;
-  border-top: 1px dashed rgba(125, 98, 72, 0.34);
+  border-top: 1px dashed rgba(89, 72, 58, 0.30);
 }
 
 #codex-media-library-root .cml-film-card__line {
-  color: #66564a;
+  color: rgba(45, 39, 34, 0.76);
   font-size: 12px;
   line-height: 1.45;
 }
 
 #codex-media-library-root .cml-film-card__line--strong {
-  color: #34281f;
+  color: #29231f;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -10922,17 +10930,17 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card__meta-label {
-  color: #8b7764;
+  color: rgba(74, 64, 56, 0.68);
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-weight: 800;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-film-card__meta-value {
-  color: #2f261f;
+  color: #2a231f;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.35;
 }
 
@@ -10956,7 +10964,7 @@ body.codex-media-library-active #app {
   width: 4px;
   height: 100%;
   border-radius: 2px;
-  background: rgba(47, 38, 31, 0.9);
+  background: rgba(42, 35, 30, 0.86);
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar.is-narrow {
