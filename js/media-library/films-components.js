@@ -135,8 +135,6 @@ function buildCardBarcode() {
 }
 
 export function FilmCard(record = {}) {
-  const statusLabel = FILM_STATUS_LABELS[record.status] || '想看';
-  const badgeLabel = record.favorite ? `${statusLabel} ★` : statusLabel;
   const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
   const originalTitle = normalizeText(record.originalTitle || record.title || '');
   const directorLine = normalizeText(record.director || '');
@@ -161,7 +159,6 @@ export function FilmCard(record = {}) {
     <article class="cml-film-card" data-film-id="${escapeHtml(record.id || '')}" data-action="open-film-detail" tabindex="0" role="button" aria-label="Open ${escapeHtml(localTitle)} details">
       <div class="cml-film-card__poster-panel">
         <img class="cml-film-card__poster" src="${escapeHtml(record.posterUrl || '')}" alt="${escapeHtml(localTitle)}" loading="eager" decoding="async" />
-        <span class="cml-film-card__badge">${escapeHtml(badgeLabel)}</span>
       </div>
       <div class="cml-film-card__ticket-panel">
         <div class="cml-film-card__notch cml-film-card__notch--left" aria-hidden="true"></div>
