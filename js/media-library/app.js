@@ -71,7 +71,7 @@ import {
   FILM_FILTERS,
   mockFilmRecords
 } from './films-data.js?v=3';
-import { FilmDetailModal, FilmsPage } from './films-components.js?v=3';
+import { FilmDetailModal, FilmsPage } from './films-components.js?v=4';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
