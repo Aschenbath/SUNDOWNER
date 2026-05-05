@@ -144,8 +144,10 @@ export function FilmCard(record = {}) {
   const genresLine = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' / ') : '';
   const runtime = formatRuntime(record.runtime);
   const watchedDate = record.status === 'watched' ? formatWatchedDate(record.watchedAt) : '';
-  const ratingValue = Number.isFinite(Number(record.rating)) ? Number(record.rating).toFixed(1) : '';
-  const ratingLabel = ratingValue ? getFilmRatingLabel(record.rating) : '';
+  const normalizedRating = Number(record.rating);
+  const hasRating = Number.isFinite(normalizedRating) && normalizedRating > 0;
+  const ratingValue = hasRating ? normalizedRating.toFixed(1) : '';
+  const ratingLabel = hasRating ? getFilmRatingLabel(record.rating) : '';
   const primaryInfo = directorLine || [record.year, runtime].filter(Boolean).join(' • ');
   const secondaryInfo = directorLine ? [record.year, runtime].filter(Boolean).join(' • ') : localeLine;
   const tertiaryInfo = directorLine ? localeLine : genresLine;
@@ -153,7 +155,7 @@ export function FilmCard(record = {}) {
     renderFilmCardMetaBlock('Year', record.year ? String(record.year) : ''),
     renderFilmCardMetaBlock('Runtime', runtime),
     renderFilmCardMetaBlock('Watched', watchedDate),
-    renderFilmCardMetaBlock('Rating', ratingValue ? `${ratingValue} ${ratingLabel}` : '')
+    renderFilmCardMetaBlock('Rating', hasRating ? `${ratingValue} ${ratingLabel}` : '')
   ].filter(Boolean).join('');
   return `
     <article class="cml-film-card" data-film-id="${escapeHtml(record.id || '')}" data-action="open-film-detail" tabindex="0" role="button" aria-label="Open ${escapeHtml(localTitle)} details">

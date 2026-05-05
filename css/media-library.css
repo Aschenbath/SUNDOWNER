@@ -10811,19 +10811,21 @@ body.codex-media-library-active #app {
   z-index: 2;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   max-width: calc(100% - 24px);
   min-height: 30px;
   padding: 0 11px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 250, 240, 0.14);
-  background: rgba(18, 22, 20, 0.72);
-  color: #fffaf0;
+  border: 1px solid rgba(255, 250, 240, 0.18);
+  background: rgba(18, 22, 20, 0.88);
+  color: #fffaf0 !important;
+  -webkit-text-fill-color: #fffaf0;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.34);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.42);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(8px);
 }
 
