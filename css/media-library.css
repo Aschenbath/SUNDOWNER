@@ -10765,14 +10765,15 @@ body.codex-media-library-active #app {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  border-radius: 32px 32px 0 0;
-  overflow: visible;
+  border-radius: 30px;
+  overflow: hidden;
   cursor: pointer;
   color: inherit;
   text-decoration: none;
-  background: transparent;
-  box-shadow: 0 26px 68px rgba(0, 0, 0, 0.34);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  background: linear-gradient(180deg, rgba(17, 20, 27, 0.96) 0%, rgba(14, 16, 22, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 24px 64px rgba(5, 7, 11, 0.28);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
 #codex-media-library-root .cml-film-card:focus-visible {
@@ -10783,10 +10784,12 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__poster-panel {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 0.92;
+  aspect-ratio: 0.9;
   min-height: 0;
-  border-radius: 32px 32px 0 0;
-  background: #14161d;
+  background:
+    radial-gradient(circle at top right, rgba(224, 192, 137, 0.28) 0%, rgba(224, 192, 137, 0) 34%),
+    radial-gradient(circle at 14% 18%, rgba(138, 180, 248, 0.18) 0%, rgba(138, 180, 248, 0) 30%),
+    linear-gradient(180deg, rgba(26, 31, 40, 0.4) 0%, rgba(14, 17, 24, 0.76) 100%);
 }
 
 #codex-media-library-root .cml-film-card__poster-panel::before {
@@ -10794,13 +10797,19 @@ body.codex-media-library-active #app {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(8, 10, 14, 0.06) 0%, rgba(8, 10, 14, 0.1) 54%, rgba(8, 10, 14, 0.18) 100%),
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 42%);
+    linear-gradient(180deg, rgba(6, 9, 13, 0.18) 0%, rgba(6, 9, 13, 0.22) 20%, rgba(6, 9, 13, 0.68) 100%),
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 58%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, rgba(0, 0, 0, 0) 1px 3px);
   pointer-events: none;
 }
 
-#codex-media-library-root .cml-film-card__poster::after {
-  display: none;
+#codex-media-library-root .cml-film-card__poster-panel::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 42%;
+  background: linear-gradient(180deg, rgba(8, 11, 16, 0) 0%, rgba(8, 11, 16, 0.84) 100%);
+  pointer-events: none;
 }
 
 #codex-media-library-root .cml-film-card__poster {
@@ -10808,6 +10817,79 @@ body.codex-media-library-active #app {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0.94;
+  transform: scale(1.01);
+}
+
+#codex-media-library-root .cml-film-card__cover-top,
+#codex-media-library-root .cml-film-card__cover-bottom {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  z-index: 1;
+  display: flex;
+}
+
+#codex-media-library-root .cml-film-card__cover-top {
+  top: 18px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#codex-media-library-root .cml-film-card__cover-bottom {
+  bottom: 18px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#codex-media-library-root .cml-film-card__cover-kicker,
+#codex-media-library-root .cml-film-card__cover-chip {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  background: rgba(11, 14, 18, 0.44);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(245, 239, 228, 0.88);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+#codex-media-library-root .cml-film-card__cover-chip {
+  justify-content: flex-end;
+  text-align: right;
+  letter-spacing: 0.08em;
+}
+
+#codex-media-library-root .cml-film-card__cover-title {
+  margin: 0;
+  color: #f8f2e8;
+  font-family: "Times New Roman", Times, serif;
+  font-size: clamp(24px, 3.1vw, 31px);
+  font-weight: 700;
+  line-height: 1.02;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.42);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+#codex-media-library-root .cml-film-card__cover-caption {
+  margin: 0;
+  max-width: 88%;
+  color: rgba(245, 239, 228, 0.72);
+  font-size: 12px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 #codex-media-library-root .cml-film-card__ticket-panel {
@@ -10815,58 +10897,50 @@ body.codex-media-library-active #app {
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-height: 338px;
-  margin-top: 0;
-  background: linear-gradient(180deg, #232323 0%, #1d1d1d 100%);
-  color: #f5efe3;
-}
-
-#codex-media-library-root .cml-film-card__ticket-cut {
-  position: absolute;
-  top: -20px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--cml-theme-page-bg, #0f1218);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-}
-
-#codex-media-library-root .cml-film-card__ticket-cut--left {
-  left: -20px;
-}
-
-#codex-media-library-root .cml-film-card__ticket-cut--right {
-  right: -20px;
+  min-height: 250px;
+  background:
+    linear-gradient(180deg, rgba(247, 241, 230, 0.985) 0%, rgba(240, 232, 219, 0.985) 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #2f261f;
 }
 
 #codex-media-library-root .cml-film-card__ticket-body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 16px;
-  padding: 22px 22px 16px;
+  gap: 14px;
+  padding: 20px 20px 18px;
 }
 
 #codex-media-library-root .cml-film-card__ticket-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
 }
 
 #codex-media-library-root .cml-film-card__title-block {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
+}
+
+#codex-media-library-root .cml-film-card__eyebrow {
+  margin: 0;
+  color: rgba(92, 77, 61, 0.68);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-film-card__title {
   margin: 0;
-  color: #fff8ed;
+  color: #221b16;
   font-family: "Times New Roman", Times, serif;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.08;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -10875,11 +10949,9 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__original {
   margin: 0;
-  color: rgba(255, 244, 225, 0.7);
-  font-size: 11px;
-  line-height: 1.4;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  color: #7b695a;
+  font-size: 12px;
+  line-height: 1.45;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -10887,125 +10959,124 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card__rating {
-  margin: 4px 0 0;
+  display: grid;
+  gap: 2px;
   flex: 0 0 auto;
-  color: rgba(255, 248, 237, 0.92);
-  font-size: 22px;
-  font-weight: 700;
+  min-width: 64px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: rgba(117, 91, 60, 0.08);
+  border: 1px solid rgba(117, 91, 60, 0.14);
+  text-align: right;
+}
+
+#codex-media-library-root .cml-film-card__rating-value {
+  color: #2b2017;
+  font-size: 19px;
+  font-weight: 800;
   line-height: 1;
-  font-family: "Times New Roman", Times, serif;
+}
+
+#codex-media-library-root .cml-film-card__rating-label {
+  color: rgba(92, 77, 61, 0.78);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-film-card__separator {
-  height: 3px;
+  height: 1px;
   margin: 0;
-  background-image: repeating-linear-gradient(90deg, rgba(255, 248, 237, 0.92) 0 16px, transparent 16px 24px);
+  background-image: radial-gradient(circle, rgba(91, 74, 58, 0.32) 1.1px, transparent 1.2px);
+  background-size: 8px 1px;
   background-repeat: repeat-x;
   background-position: center;
-}
-
-#codex-media-library-root .cml-film-card__detail-line {
-  margin: 0;
-  color: rgba(255, 248, 237, 0.92);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-#codex-media-library-root .cml-film-card__detail-line--strong {
-  font-size: 15px;
-  color: #fff8ed;
-}
-
-#codex-media-library-root .cml-film-card__detail-line--spaced {
-  font-size: 13px;
-  letter-spacing: 0.06em;
 }
 
 #codex-media-library-root .cml-film-card__info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 18px;
+  gap: 12px 14px;
   align-content: start;
 }
 
 #codex-media-library-root .cml-film-card__info-item {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
 #codex-media-library-root .cml-film-card__info-label {
-  color: rgba(255, 244, 225, 0.72);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  color: rgba(92, 77, 61, 0.64);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-film-card__info-value {
-  color: #fff8ed;
+  color: #2d241d;
   font-size: 13px;
-  font-weight: 700;
-  line-height: 1.4;
+  font-weight: 600;
+  line-height: 1.45;
   word-break: break-word;
 }
 
 #codex-media-library-root .cml-film-card__footer {
-  display: flex;
-  padding: 0 22px 22px;
+  display: grid;
+  gap: 12px;
+  padding: 0 20px 18px;
+  margin-top: auto;
+}
+
+#codex-media-library-root .cml-film-card__perforation {
+  height: 1px;
+  background-image: radial-gradient(circle, rgba(91, 74, 58, 0.26) 1px, transparent 1.1px);
+  background-size: 8px 1px;
+  background-repeat: repeat-x;
+  background-position: center;
 }
 
 #codex-media-library-root .cml-film-card__footer-row {
   display: flex;
-  align-items: center;
-  width: 100%;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 #codex-media-library-root .cml-film-card__barcode {
   display: flex;
   align-items: flex-end;
-  gap: 2px;
-  width: calc(100% - 20px);
-  height: 62px;
-  padding: 12px 16px;
-  margin: 0 auto;
-  border-radius: 1px;
-  background:
-    linear-gradient(180deg, rgba(246, 240, 229, 0.98) 0%, rgba(230, 222, 208, 0.98) 100%),
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 42%),
-    repeating-linear-gradient(0deg, rgba(76, 62, 49, 0.03) 0 1px, rgba(0, 0, 0, 0) 1px 4px);
-  box-shadow:
-    inset 0 0 0 1px rgba(66, 54, 43, 0.12),
-    inset 0 -8px 18px rgba(120, 103, 84, 0.08);
+  gap: 3px;
+  height: 18px;
+  opacity: 0.58;
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar {
   width: 3px;
   height: 100%;
-  background: rgba(22, 20, 18, 0.94);
+  border-radius: 1px;
+  background: rgba(42, 35, 30, 0.74);
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar.is-narrow {
   width: 1px;
 }
 
-#codex-media-library-root .cml-film-card__ticket-serration {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -22px;
-  height: 44px;
-  background:
-    radial-gradient(circle at 22px 0, transparent 21px, rgba(235, 227, 214, 0.98) 21.5px) repeat-x;
-  background-size: 44px 44px;
-  background-position: left top;
-  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.18));
+#codex-media-library-root .cml-film-card__footer-copy {
+  color: rgba(88, 72, 58, 0.58);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-film-card:hover,
 #codex-media-library-root .cml-film-card:focus-visible {
   transform: translateY(-3px);
-  box-shadow: 0 32px 78px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 32px 72px rgba(5, 7, 11, 0.34);
 }
 
 #codex-media-library-root .cml-film-modal {
@@ -11270,62 +11341,61 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card {
-    border-radius: 24px 24px 0 0;
+    border-radius: 24px;
   }
 
-  #codex-media-library-root .cml-film-card__poster-panel {
-    border-radius: 24px 24px 0 0;
+  #codex-media-library-root .cml-film-card__cover-top,
+  #codex-media-library-root .cml-film-card__cover-bottom {
+    left: 14px;
+    right: 14px;
+  }
+
+  #codex-media-library-root .cml-film-card__cover-top {
+    top: 14px;
+  }
+
+  #codex-media-library-root .cml-film-card__cover-bottom {
+    bottom: 14px;
+  }
+
+  #codex-media-library-root .cml-film-card__cover-title {
+    font-size: 21px;
+  }
+
+  #codex-media-library-root .cml-film-card__cover-caption {
+    max-width: 100%;
+    font-size: 11px;
   }
 
   #codex-media-library-root .cml-film-card__ticket-panel {
-    min-height: 308px;
-  }
-
-  #codex-media-library-root .cml-film-card__ticket-cut {
-    top: -16px;
-    width: 32px;
-    height: 32px;
-  }
-
-  #codex-media-library-root .cml-film-card__ticket-cut--left {
-    left: -16px;
-  }
-
-  #codex-media-library-root .cml-film-card__ticket-cut--right {
-    right: -16px;
+    min-height: 234px;
   }
 
   #codex-media-library-root .cml-film-card__ticket-body {
-    gap: 14px;
-    padding: 18px 16px 14px;
+    gap: 12px;
+    padding: 16px 15px 14px;
+  }
+
+  #codex-media-library-root .cml-film-card__ticket-head {
+    gap: 10px;
   }
 
   #codex-media-library-root .cml-film-card__title {
-    font-size: 20px;
-  }
-
-  #codex-media-library-root .cml-film-card__original {
-    font-size: 10px;
-  }
-
-  #codex-media-library-root .cml-film-card__rating {
     font-size: 18px;
   }
 
-  #codex-media-library-root .cml-film-card__detail-line {
-    font-size: 12px;
+  #codex-media-library-root .cml-film-card__rating {
+    min-width: 56px;
+    padding: 8px 10px;
+    border-radius: 15px;
   }
 
-  #codex-media-library-root .cml-film-card__detail-line--strong {
-    font-size: 14px;
+  #codex-media-library-root .cml-film-card__rating-value {
+    font-size: 17px;
   }
 
   #codex-media-library-root .cml-film-card__info-grid {
-    gap: 10px 12px;
-  }
-
-  #codex-media-library-root .cml-film-card__info-label {
-    font-size: 10px;
+    gap: 10px;
   }
 
   #codex-media-library-root .cml-film-card__info-value {
@@ -11333,19 +11403,11 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__footer {
-    padding: 0 16px 18px;
+    padding: 0 15px 14px;
   }
 
-  #codex-media-library-root .cml-film-card__barcode {
-    width: calc(100% - 12px);
-    height: 52px;
-    padding: 10px 12px;
-  }
-
-  #codex-media-library-root .cml-film-card__ticket-serration {
-    bottom: -16px;
-    height: 32px;
-    background-size: 32px 32px;
+  #codex-media-library-root .cml-film-card__footer-row {
+    align-items: center;
   }
 }
 
