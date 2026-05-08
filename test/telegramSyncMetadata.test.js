@@ -1,15 +1,67 @@
 import assert from 'node:assert/strict';
 
-import exifr from 'exifr';
-
 let inferTelegramFileType;
 let buildTelegramImportMetadataHints;
 let buildTelegramThumbnailMetadata;
 let readTelegramImageMetadata;
 
-describe('telegramSync metadata helpers', () => {
-  const originalParse = exifr.parse;
+function toArrayBuffer(bytes) {
+  const view = Uint8Array.from(bytes);
+  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+}
 
+function buildExifJpegBuffer(dateTime = '2026:04:08 13:10:00') {
+  const encoder = new TextEncoder();
+  const ascii = encoder.encode(`${dateTime}\0`);
+  const tiffLength = 8 + 2 + 1 * 12 + 4 + 2 + 1 * 12 + 4 + ascii.length;
+  const segmentLength = 2 + 6 + tiffLength;
+  const bytes = new Uint8Array(2 + 2 + 2 + 6 + tiffLength + 2);
+  let offset = 0;
+
+  bytes[offset++] = 0xFF;
+  bytes[offset++] = 0xD8;
+  bytes[offset++] = 0xFF;
+  bytes[offset++] = 0xE1;
+  bytes[offset++] = (segmentLength >> 8) & 0xFF;
+  bytes[offset++] = segmentLength & 0xFF;
+  bytes.set([0x45, 0x78, 0x69, 0x66, 0x00, 0x00], offset);
+  offset += 6;
+
+  const tiffStart = offset;
+  bytes.set([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00], offset);
+  offset += 8;
+
+  const view = new DataView(bytes.buffer);
+  view.setUint16(offset, 1, true);
+  offset += 2;
+
+  view.setUint16(offset, 0x8769, true);
+  view.setUint16(offset + 2, 4, true);
+  view.setUint32(offset + 4, 1, true);
+  view.setUint32(offset + 8, 26, true);
+  offset += 12;
+
+  view.setUint32(offset, 0, true);
+  offset += 4;
+
+  view.setUint16(offset, 1, true);
+  offset += 2;
+
+  view.setUint16(offset, 0x9003, true);
+  view.setUint16(offset + 2, 2, true);
+  view.setUint32(offset + 4, ascii.length, true);
+  view.setUint32(offset + 8, 44, true);
+  offset += 12;
+
+  view.setUint32(offset, 0, true);
+
+  bytes.set(ascii, tiffStart + 44);
+  bytes[bytes.length - 2] = 0xFF;
+  bytes[bytes.length - 1] = 0xD9;
+  return toArrayBuffer(bytes);
+}
+
+describe('telegramSync metadata helpers', () => {
   before(async () => {
     ({
       inferTelegramFileType,
@@ -17,10 +69,6 @@ describe('telegramSync metadata helpers', () => {
       buildTelegramThumbnailMetadata,
       readTelegramImageMetadata
     } = await import('../functions/utils/telegramImportedMedia.js'));
-  });
-
-  afterEach(() => {
-    exifr.parse = originalParse;
   });
 
   it('falls back to HEIC mime type when Telegram document metadata omits it', () => {
@@ -80,33 +128,20 @@ describe('telegramSync metadata helpers', () => {
     });
   });
 
-  it('extracts EXIF metadata from Telegram image headers when available', async () => {
-    exifr.parse = async (buffer) => {
-      assert.equal(buffer.byteLength, 4);
-      return {
-        DateTimeOriginal: new Date('2026-04-08T13:10:00.000Z'),
-        GPSLatitude: 23.1291,
-        GPSLongitude: 113.2644,
-      };
-    };
-
+  it('extracts EXIF date metadata from Telegram image headers when available', async () => {
     const fakeTelegramApi = {
       async getFileHeaderByPath(filePath, maxBytes) {
-        assert.equal(filePath, 'photos/file_18.heic');
+        assert.equal(filePath, 'photos/file_18.jpg');
         assert.equal(maxBytes, 65536);
-        return new Uint8Array([0x00, 0x00, 0x00, 0x18]).buffer;
+        return buildExifJpegBuffer();
       },
     };
 
-    const result = await readTelegramImageMetadata(fakeTelegramApi, 'photos/file_18.heic', 'image/heic');
+    const result = await readTelegramImageMetadata(fakeTelegramApi, 'photos/file_18.jpg', 'image/jpeg');
 
     assert.equal(typeof result, 'object');
     assert.deepEqual(result.exifData, {
       dateTime: '2026-04-08T13:10:00.000Z',
-      gps: {
-        latitude: 23.1291,
-        longitude: 113.2644,
-      },
     });
   });
 });

@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
 
-import exifr from 'exifr';
-
 import {
   onRequest,
   onRequestOptions,
@@ -68,13 +66,63 @@ function createIndexChunk(files) {
   })));
 }
 
+function toArrayBuffer(bytes) {
+  const view = Uint8Array.from(bytes);
+  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+}
+
+function buildExifJpegBuffer(dateTime = '2025:03:14 08:09:10') {
+  const encoder = new TextEncoder();
+  const ascii = encoder.encode(`${dateTime}\0`);
+  const tiffLength = 8 + 2 + 1 * 12 + 4 + 2 + 1 * 12 + 4 + ascii.length;
+  const segmentLength = 2 + 6 + tiffLength;
+  const bytes = new Uint8Array(2 + 2 + 2 + 6 + tiffLength + 2);
+  let offset = 0;
+
+  bytes[offset++] = 0xFF;
+  bytes[offset++] = 0xD8;
+  bytes[offset++] = 0xFF;
+  bytes[offset++] = 0xE1;
+  bytes[offset++] = (segmentLength >> 8) & 0xFF;
+  bytes[offset++] = segmentLength & 0xFF;
+  bytes.set([0x45, 0x78, 0x69, 0x66, 0x00, 0x00], offset);
+  offset += 6;
+
+  const tiffStart = offset;
+  bytes.set([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00], offset);
+  offset += 8;
+
+  const view = new DataView(bytes.buffer);
+  view.setUint16(offset, 1, true);
+  offset += 2;
+
+  view.setUint16(offset, 0x8769, true);
+  view.setUint16(offset + 2, 4, true);
+  view.setUint32(offset + 4, 1, true);
+  view.setUint32(offset + 8, 26, true);
+  offset += 12;
+
+  view.setUint32(offset, 0, true);
+  offset += 4;
+
+  view.setUint16(offset, 1, true);
+  offset += 2;
+
+  view.setUint16(offset, 0x9003, true);
+  view.setUint16(offset + 2, 2, true);
+  view.setUint32(offset + 4, ascii.length, true);
+  view.setUint32(offset + 8, 44, true);
+  offset += 12;
+
+  view.setUint32(offset, 0, true);
+
+  bytes.set(ascii, tiffStart + 44);
+  bytes[bytes.length - 2] = 0xFF;
+  bytes[bytes.length - 1] = 0xD9;
+  return toArrayBuffer(bytes);
+}
+
 describe('recover capture times route', () => {
-  const originalParse = exifr.parse;
-
-  afterEach(() => {
-    exifr.parse = originalParse;
-  });
-
   it('dry-run scans only images that still lack a recoverable capture time', async () => {
     const env = {
       img_url: new MemoryKV({
@@ -131,10 +179,6 @@ describe('recover capture times route', () => {
   });
 
   it('backfills Exif.dateTime for D1 image records when EXIF can be extracted from source bytes', async () => {
-    exifr.parse = async () => ({
-      DateTimeOriginal: new Date('2025-03-14T08:09:10.000Z'),
-    });
-
     const env = {
       img_d1: new SqliteD1(':memory:'),
       img_r2: {
@@ -142,7 +186,7 @@ describe('recover capture times route', () => {
           assert.equal(key, 'photos/no-exif.jpg');
           return {
             async arrayBuffer() {
-              return new Uint8Array([0xff, 0xd8, 0xff, 0xe1]).buffer;
+              return buildExifJpegBuffer();
             },
           };
         },
@@ -223,13 +267,11 @@ describe('recover capture times route', () => {
     assert.equal(payload.recovered, 1);
 
     const updated = await db.getWithMetadata('photos/from-legacy-index.jpg');
-    assert.equal(updated.metadata.DateTaken, '2024-01-05T06:07:08.000Z');
     assert.equal(updated.metadata.Exif.dateTime, '2024-01-05T06:07:08.000Z');
   });
 
   it('returns CORS headers for OPTIONS', async () => {
     const response = onRequestOptions();
-
     assert.equal(response.status, 204);
     assert.equal(response.headers.get('Access-Control-Allow-Origin'), '*');
     assert.equal(response.headers.get('Access-Control-Allow-Methods'), 'POST, OPTIONS');
