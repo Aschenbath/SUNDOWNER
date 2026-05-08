@@ -9,3 +9,4 @@ wrangler.toml
 .claude/
 
 *.log
+*.gz

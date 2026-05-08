@@ -1,4 +1,4 @@
-/* media library placeholder */
+/* force pages static asset reupload */
 html[data-ui-theme-mode='dark'].codex-media-library-active,
 html[data-ui-theme-mode='dark'] body.codex-media-library-active {
   overflow: hidden !important;
