@@ -1,6 +1,5 @@
 ﻿import { shouldDisplayMediaItem } from './media-support.js';
 import { FilmsPage } from './films-components.js?v=8';
-/* force pages static asset reupload 2026-05-08 */
 
 import { THEME_COLOR_OPTIONS, THEME_MODE_OPTIONS, formatThemeModeLabel } from '../theme-system.js?v=2';
 
