@@ -115,21 +115,21 @@ function renderTicketMetaRow(label, value) {
   `;
 }
 
-function renderFilmCardMetaBlock(label, value) {
+function renderFilmCardInfoItem(label, value) {
   if (!normalizeText(value)) {
     return '';
   }
   return `
-    <div class="cml-film-card__meta-block">
-      <span class="cml-film-card__meta-label">${escapeHtml(label)}</span>
-      <strong class="cml-film-card__meta-value">${escapeHtml(value)}</strong>
+    <div class="cml-film-card__info-item">
+      <span class="cml-film-card__info-label">${escapeHtml(label)}</span>
+      <strong class="cml-film-card__info-value">${escapeHtml(value)}</strong>
     </div>
   `;
 }
 
 function buildCardBarcode() {
-  return Array.from({ length: 16 }, (_, index) => {
-    const narrow = index % 4 === 1 || index % 4 === 3 ? 'is-narrow' : '';
+  return Array.from({ length: 14 }, (_, index) => {
+    const narrow = index % 4 === 1 || index % 5 === 3 ? 'is-narrow' : '';
     return `<span class="cml-film-card__barcode-bar ${narrow}"></span>`;
   }).join('');
 }
@@ -137,44 +137,61 @@ function buildCardBarcode() {
 export function FilmCard(record = {}) {
   const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
   const originalTitle = normalizeText(record.originalTitle || record.title || '');
+  const coverTitle = originalTitle && originalTitle !== localTitle ? originalTitle : localTitle;
   const directorLine = normalizeText(record.director || '');
   const localeLine = [record.country, record.language].filter(Boolean).join(' / ');
-  const genresLine = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' / ') : '';
+  const genresLine = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' · ') : '';
   const runtime = formatRuntime(record.runtime);
   const watchedDate = record.status === 'watched' ? formatWatchedDate(record.watchedAt) : '';
   const normalizedRating = Number(record.rating);
   const hasRating = Number.isFinite(normalizedRating) && normalizedRating > 0;
   const ratingValue = hasRating ? normalizedRating.toFixed(1) : '';
   const ratingLabel = hasRating ? getFilmRatingLabel(record.rating) : '';
-  const primaryInfo = directorLine || [record.year, runtime].filter(Boolean).join(' • ');
-  const secondaryInfo = directorLine ? [record.year, runtime].filter(Boolean).join(' • ') : localeLine;
-  const tertiaryInfo = directorLine ? localeLine : genresLine;
-  const metaBlocks = [
-    renderFilmCardMetaBlock('Year', record.year ? String(record.year) : ''),
-    renderFilmCardMetaBlock('Runtime', runtime),
-    renderFilmCardMetaBlock('Watched', watchedDate),
-    renderFilmCardMetaBlock('Rating', hasRating ? `${ratingValue} ${ratingLabel}` : '')
+  const coverMeta = [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ');
+  const coverCaption = genresLine || localeLine || directorLine;
+  const infoItems = [
+    renderFilmCardInfoItem('Director', directorLine),
+    renderFilmCardInfoItem('Release', [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ')),
+    renderFilmCardInfoItem('Locale', localeLine),
+    renderFilmCardInfoItem('Watched', watchedDate)
   ].filter(Boolean).join('');
   return `
     <article class="cml-film-card" data-film-id="${escapeHtml(record.id || '')}" data-action="open-film-detail" tabindex="0" role="button" aria-label="Open ${escapeHtml(localTitle)} details">
       <div class="cml-film-card__poster-panel">
         <img class="cml-film-card__poster" src="${escapeHtml(record.posterUrl || '')}" alt="${escapeHtml(localTitle)}" loading="eager" decoding="async" />
+        <div class="cml-film-card__cover-top">
+          <span class="cml-film-card__cover-kicker">Movie diary</span>
+          ${coverMeta ? `<span class="cml-film-card__cover-chip">${escapeHtml(coverMeta)}</span>` : ''}
+        </div>
+        <div class="cml-film-card__cover-bottom">
+          <h3 class="cml-film-card__cover-title">${escapeHtml(coverTitle)}</h3>
+          ${coverCaption ? `<p class="cml-film-card__cover-caption">${escapeHtml(coverCaption)}</p>` : ''}
+        </div>
       </div>
       <div class="cml-film-card__ticket-panel">
-        <div class="cml-film-card__notch cml-film-card__notch--left" aria-hidden="true"></div>
-        <div class="cml-film-card__notch cml-film-card__notch--right" aria-hidden="true"></div>
         <div class="cml-film-card__ticket-body">
-          <h3 class="cml-film-card__title">${escapeHtml(localTitle)}</h3>
-          ${originalTitle && originalTitle !== localTitle ? `<p class="cml-film-card__original">${escapeHtml(originalTitle)}</p>` : ''}
+          <div class="cml-film-card__ticket-head">
+            <div class="cml-film-card__title-block">
+              <p class="cml-film-card__eyebrow">Private archive</p>
+              <h4 class="cml-film-card__title">${escapeHtml(localTitle)}</h4>
+              ${originalTitle && originalTitle !== localTitle ? `<p class="cml-film-card__original">${escapeHtml(originalTitle)}</p>` : ''}
+            </div>
+            ${hasRating ? `
+              <div class="cml-film-card__rating" aria-label="Rating ${escapeHtml(ratingValue)} ${escapeHtml(ratingLabel)}">
+                <span class="cml-film-card__rating-value">${escapeHtml(ratingValue)}</span>
+                <span class="cml-film-card__rating-label">${escapeHtml(ratingLabel)}</span>
+              </div>
+            ` : ''}
+          </div>
           <div class="cml-film-card__separator" aria-hidden="true"></div>
-          ${primaryInfo ? `<p class="cml-film-card__line cml-film-card__line--strong">${escapeHtml(primaryInfo)}</p>` : ''}
-          ${secondaryInfo ? `<p class="cml-film-card__line">${escapeHtml(secondaryInfo)}</p>` : ''}
-          ${tertiaryInfo ? `<p class="cml-film-card__line">${escapeHtml(tertiaryInfo)}</p>` : ''}
-          ${metaBlocks ? `<div class="cml-film-card__meta-grid">${metaBlocks}</div>` : ''}
+          ${infoItems ? `<div class="cml-film-card__info-grid">${infoItems}</div>` : ''}
         </div>
         <footer class="cml-film-card__footer" aria-hidden="true">
-          <div class="cml-film-card__barcode">${buildCardBarcode()}</div>
-          <span class="cml-film-card__footer-copy">FILM DIARY</span>
+          <div class="cml-film-card__perforation"></div>
+          <div class="cml-film-card__footer-row">
+            <div class="cml-film-card__barcode">${buildCardBarcode()}</div>
+            <span class="cml-film-card__footer-copy">Archive note</span>
+          </div>
         </footer>
       </div>
     </article>

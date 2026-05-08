@@ -1,5 +1,5 @@
 ﻿import { shouldDisplayMediaItem } from './media-support.js';
-import { FilmsPage } from './films-components.js?v=1';
+import { FilmsPage } from './films-components.js?v=7';
 
 import { THEME_COLOR_OPTIONS, THEME_MODE_OPTIONS, formatThemeModeLabel } from '../theme-system.js?v=2';
 
