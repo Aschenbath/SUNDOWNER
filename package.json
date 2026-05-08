@@ -11,7 +11,7 @@
     "test": "mocha",
     "start": "npx wrangler pages dev ./ --kv \"img_url\" --r2 \"img_r2\" --ip 0.0.0.0 --port 8080 --persist-to ./data",
     "start:docker": "D:/DevTools/nvm/v22.14.0/node.exe --import ./server/register.mjs server/index.js",
-    "postinstall": "npm --prefix ./functions install --no-package-lock --progress=false"
+    "install": "npm --prefix ./functions install --no-package-lock --progress=false"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.726.1",
