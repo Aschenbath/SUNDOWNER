@@ -5,11 +5,12 @@
 
 const EXIF_CAPABLE_TYPES = /^image\/(jpeg|jpg|tiff|heic|heif|png|webp|avif|dng)/;
 const JPEG_CAPABLE_TYPES = /^image\/(jpeg|jpg)/;
-const EMBEDDED_PREVIEW_CAPABLE_TYPES = /^$/;
+const EMBEDDED_PREVIEW_CAPABLE_TYPES = /^image\/(heic|heif)/;
 const TIFF_TYPE_ASCII = 2;
 const TIFF_TYPE_LONG = 4;
 const DATE_TIME_TAGS = [0x9003, 0x9004, 0x0132];
 const EXIF_IFD_POINTER_TAG = 0x8769;
+let embeddedThumbnailExtractor = null;
 
 /**
  * 从图片 buffer 中提取 EXIF 元数据
@@ -46,15 +47,43 @@ export function supportsEmbeddedPreviewExtraction(fileType) {
 }
 
 export async function extractEmbeddedPreview(buffer, fileType) {
-    void buffer;
-    void fileType;
-    return null;
+    if (!supportsEmbeddedPreviewExtraction(fileType) || !buffer) {
+        return null;
+    }
+
+    if (typeof embeddedThumbnailExtractor !== 'function') {
+        return null;
+    }
+
+    try {
+        const rawThumbnail = await embeddedThumbnailExtractor(buffer);
+        if (!rawThumbnail) {
+            return null;
+        }
+
+        const bytes = rawThumbnail instanceof Uint8Array
+            ? rawThumbnail
+            : new Uint8Array(rawThumbnail);
+        if (!bytes.byteLength) {
+            return null;
+        }
+
+        return {
+            bytes,
+            mimeType: detectPreviewMimeType(bytes),
+        };
+    } catch (error) {
+        console.error('Embedded preview extraction failed:', error.message || error);
+        return null;
+    }
 }
 
-export function __setEmbeddedThumbnailExtractorForTests() {
+export function __setEmbeddedThumbnailExtractorForTests(extractor) {
+    embeddedThumbnailExtractor = typeof extractor === 'function' ? extractor : null;
 }
 
 export function __resetEmbeddedThumbnailExtractorForTests() {
+    embeddedThumbnailExtractor = null;
 }
 
 function extractJpegExifDateTime(buffer) {
@@ -234,4 +263,32 @@ function normalizeExifDateTime(value) {
 
     const [, year, month, day, hour, minute, second] = match;
     return `${year}-${month}-${day}T${hour}:${minute}:${second}.000Z`;
+}
+
+function detectPreviewMimeType(bytes) {
+    if (!(bytes instanceof Uint8Array) || bytes.length < 4) {
+        return 'image/jpeg';
+    }
+
+    if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+        return 'image/png';
+    }
+
+    if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+        return 'image/jpeg';
+    }
+
+    if (bytes.length >= 12
+        && bytes[0] === 0x52
+        && bytes[1] === 0x49
+        && bytes[2] === 0x46
+        && bytes[3] === 0x46
+        && bytes[8] === 0x57
+        && bytes[9] === 0x45
+        && bytes[10] === 0x42
+        && bytes[11] === 0x50) {
+        return 'image/webp';
+    }
+
+    return 'image/jpeg';
 }

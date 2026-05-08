@@ -16,6 +16,7 @@ function createEnv(overrides = {}) {
   return {
     img_url: new MemoryKV(),
     FETCH_RES_ALLOWED_HOSTS: 'example.com',
+    AUTH_CODE: 'test-auth-code',
     ...overrides,
   };
 }
@@ -25,6 +26,7 @@ function createRequest(url, { method = 'POST', body } = {}) {
     method,
     headers: {
       'content-type': 'application/json',
+      authCode: 'test-auth-code',
     },
   };
   if (!['GET', 'HEAD'].includes(method)) {
