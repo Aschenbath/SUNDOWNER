@@ -3,7 +3,7 @@
  * 从图片文件的 ArrayBuffer 中解析 EXIF 信息（拍摄时间、GPS、相机参数等）
  * 使用 exifr 库，纯 JS 实现，兼容 Cloudflare Workers
  */
-import exifr from 'exifr';
+import exifr from 'exifr/dist/full.esm.mjs';
 
 const EXIF_OPTIONS = {
     tiff: true,
