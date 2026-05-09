@@ -158,6 +158,38 @@ function buildCardBarcode() {
   }).join('');
 }
 
+function getCleanStatusLabel(status) {
+  const labels = {
+    watchlist: '想看',
+    wantToWatch: '想看',
+    watching: '在看',
+    watched: '已看',
+    paused: '暂停',
+    dropped: '弃看'
+  };
+  return labels[status] || FILM_STATUS_LABELS[status] || '想看';
+}
+
+function getCleanRatingLabel(rating) {
+  const normalized = Number(rating);
+  if (!Number.isFinite(normalized)) {
+    return '';
+  }
+  if (normalized <= 2.9) {
+    return '不推荐';
+  }
+  if (normalized <= 5.9) {
+    return '一般';
+  }
+  if (normalized <= 7.4) {
+    return '还行';
+  }
+  if (normalized <= 8.9) {
+    return '推荐';
+  }
+  return '私心最爱';
+}
+
 export function FilmCard(record = {}) {
   const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
   const originalTitle = normalizeText(record.originalTitle || record.title || '');
@@ -170,7 +202,8 @@ export function FilmCard(record = {}) {
   const normalizedRating = Number(record.rating);
   const hasRating = Number.isFinite(normalizedRating) && normalizedRating > 0;
   const ratingValue = hasRating ? normalizedRating.toFixed(1) : '';
-  const ratingLabel = hasRating ? getFilmRatingLabel(record.rating) : '';
+  const ratingLabel = hasRating ? getCleanRatingLabel(record.rating) : '';
+  const statusLabel = getCleanStatusLabel(record.status);
   const coverMeta = [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ');
   const coverCaption = genresLine || localeLine || directorLine;
   const infoItems = [
@@ -185,7 +218,7 @@ export function FilmCard(record = {}) {
         <img class="cml-film-card__poster" src="${escapeHtml(getRecordPosterUrl(record))}" alt="${escapeHtml(localTitle)}" loading="eager" decoding="async" />
         <div class="cml-film-card__cover-top">
           <span class="cml-film-card__cover-kicker">Movie diary</span>
-          ${coverMeta ? `<span class="cml-film-card__cover-chip">${escapeHtml(coverMeta)}</span>` : ''}
+          <span class="cml-film-card__cover-chip">${escapeHtml(statusLabel)}</span>
         </div>
         <div class="cml-film-card__cover-bottom">
           <h3 class="cml-film-card__cover-title">${escapeHtml(coverTitle)}</h3>
@@ -193,10 +226,12 @@ export function FilmCard(record = {}) {
         </div>
       </div>
       <div class="cml-film-card__ticket-panel">
+        <span class="cml-film-card__notch cml-film-card__notch--left" aria-hidden="true"></span>
+        <span class="cml-film-card__notch cml-film-card__notch--right" aria-hidden="true"></span>
         <div class="cml-film-card__ticket-body">
           <div class="cml-film-card__ticket-head">
             <div class="cml-film-card__title-block">
-              <p class="cml-film-card__eyebrow">Private archive</p>
+              <p class="cml-film-card__eyebrow">${escapeHtml(coverMeta || 'Sundowner ticket')}</p>
               <h4 class="cml-film-card__title">${escapeHtml(localTitle)}</h4>
               ${originalTitle && originalTitle !== localTitle ? `<p class="cml-film-card__original">${escapeHtml(originalTitle)}</p>` : ''}
             </div>

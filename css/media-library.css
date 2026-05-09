@@ -10963,8 +10963,8 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-films-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 20px;
 }
 
 #codex-media-library-root .cml-film-card {
@@ -10972,14 +10972,14 @@ body.codex-media-library-active #app {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  border-radius: 30px;
+  border-radius: 28px;
   overflow: hidden;
   cursor: pointer;
   color: inherit;
   text-decoration: none;
-  background: linear-gradient(180deg, rgba(17, 20, 27, 0.96) 0%, rgba(14, 16, 22, 0.98) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 24px 64px rgba(5, 7, 11, 0.28);
+  background: #07080a;
+  border: 1px solid rgba(238, 219, 178, 0.12);
+  box-shadow: 0 24px 62px rgba(0, 0, 0, 0.34);
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
@@ -10991,12 +10991,11 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__poster-panel {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 0.9;
+  aspect-ratio: 0.74;
   min-height: 0;
   background:
-    radial-gradient(circle at top right, rgba(224, 192, 137, 0.28) 0%, rgba(224, 192, 137, 0) 34%),
-    radial-gradient(circle at 14% 18%, rgba(138, 180, 248, 0.18) 0%, rgba(138, 180, 248, 0) 30%),
-    linear-gradient(180deg, rgba(26, 31, 40, 0.4) 0%, rgba(14, 17, 24, 0.76) 100%);
+    radial-gradient(circle at top right, rgba(205, 166, 99, 0.26) 0%, rgba(205, 166, 99, 0) 34%),
+    linear-gradient(180deg, rgba(17, 20, 25, 0.72) 0%, rgba(5, 6, 8, 0.92) 100%);
 }
 
 #codex-media-library-root .cml-film-card__poster-panel::before {
@@ -11004,9 +11003,9 @@ body.codex-media-library-active #app {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(6, 9, 13, 0.18) 0%, rgba(6, 9, 13, 0.22) 20%, rgba(6, 9, 13, 0.68) 100%),
-    radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 58%),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, rgba(0, 0, 0, 0) 1px 3px);
+    linear-gradient(180deg, rgba(6, 7, 9, 0.08) 0%, rgba(6, 7, 9, 0.16) 24%, rgba(6, 7, 9, 0.72) 100%),
+    radial-gradient(circle at center, rgba(255, 246, 224, 0.08) 0%, rgba(255, 246, 224, 0) 58%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0 1px, rgba(0, 0, 0, 0) 1px 3px);
   pointer-events: none;
 }
 
@@ -11024,7 +11023,7 @@ body.codex-media-library-active #app {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.94;
+  opacity: 0.96;
   transform: scale(1.01);
 }
 
@@ -11058,9 +11057,9 @@ body.codex-media-library-active #app {
   padding: 6px 10px;
   border-radius: 999px;
   backdrop-filter: blur(10px);
-  background: rgba(11, 14, 18, 0.44);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(245, 239, 228, 0.88);
+  background: rgba(8, 9, 11, 0.58);
+  border: 1px solid rgba(238, 219, 178, 0.18);
+  color: rgba(252, 241, 214, 0.9);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -11070,7 +11069,9 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__cover-chip {
   justify-content: flex-end;
   text-align: right;
-  letter-spacing: 0.08em;
+  background: rgba(11, 13, 16, 0.78);
+  color: #f4d37a;
+  letter-spacing: 0.18em;
 }
 
 #codex-media-library-root .cml-film-card__cover-title {
@@ -11104,19 +11105,51 @@ body.codex-media-library-active #app {
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-height: 250px;
+  min-height: 236px;
   background:
-    linear-gradient(180deg, rgba(247, 241, 230, 0.985) 0%, rgba(240, 232, 219, 0.985) 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  color: #2f261f;
+    radial-gradient(circle at 12% 0%, rgba(178, 132, 63, 0.22) 0%, rgba(178, 132, 63, 0) 36%),
+    linear-gradient(180deg, #111114 0%, #08090b 100%);
+  border-top: 1px dashed rgba(238, 219, 178, 0.32);
+  color: #f4ead5;
+}
+
+#codex-media-library-root .cml-film-card__ticket-panel::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: -1px;
+  height: 12px;
+  background-image: radial-gradient(circle at 6px 12px, transparent 0 6px, #08090b 6.5px);
+  background-size: 16px 12px;
+  pointer-events: none;
+}
+
+#codex-media-library-root .cml-film-card__notch {
+  position: absolute;
+  top: -13px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--cml-theme-bg, #f6f0e5);
+  box-shadow: inset 0 0 0 1px rgba(238, 219, 178, 0.1);
+}
+
+#codex-media-library-root .cml-film-card__notch--left {
+  left: -13px;
+}
+
+#codex-media-library-root .cml-film-card__notch--right {
+  right: -13px;
 }
 
 #codex-media-library-root .cml-film-card__ticket-body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 14px;
-  padding: 20px 20px 18px;
+  gap: 13px;
+  padding: 19px 18px 16px;
 }
 
 #codex-media-library-root .cml-film-card__ticket-head {
@@ -11134,7 +11167,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__eyebrow {
   margin: 0;
-  color: rgba(92, 77, 61, 0.68);
+  color: rgba(244, 211, 122, 0.7);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -11143,7 +11176,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__title {
   margin: 0;
-  color: #221b16;
+  color: #fff6e2;
   font-family: "Times New Roman", Times, serif;
   font-size: 22px;
   font-weight: 700;
@@ -11156,7 +11189,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__original {
   margin: 0;
-  color: #7b695a;
+  color: rgba(244, 234, 213, 0.58);
   font-size: 12px;
   line-height: 1.45;
   display: -webkit-box;
@@ -11172,20 +11205,20 @@ body.codex-media-library-active #app {
   min-width: 64px;
   padding: 10px 12px;
   border-radius: 18px;
-  background: rgba(117, 91, 60, 0.08);
-  border: 1px solid rgba(117, 91, 60, 0.14);
+  background: rgba(244, 211, 122, 0.08);
+  border: 1px solid rgba(244, 211, 122, 0.2);
   text-align: right;
 }
 
 #codex-media-library-root .cml-film-card__rating-value {
-  color: #2b2017;
+  color: #f4d37a;
   font-size: 19px;
   font-weight: 800;
   line-height: 1;
 }
 
 #codex-media-library-root .cml-film-card__rating-label {
-  color: rgba(92, 77, 61, 0.78);
+  color: rgba(244, 234, 213, 0.66);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -11195,7 +11228,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__separator {
   height: 1px;
   margin: 0;
-  background-image: radial-gradient(circle, rgba(91, 74, 58, 0.32) 1.1px, transparent 1.2px);
+  background-image: radial-gradient(circle, rgba(244, 211, 122, 0.38) 1.1px, transparent 1.2px);
   background-size: 8px 1px;
   background-repeat: repeat-x;
   background-position: center;
@@ -11215,7 +11248,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card__info-label {
-  color: rgba(92, 77, 61, 0.64);
+  color: rgba(244, 211, 122, 0.58);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -11223,7 +11256,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card__info-value {
-  color: #2d241d;
+  color: rgba(255, 246, 226, 0.86);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.45;
@@ -11233,13 +11266,13 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__footer {
   display: grid;
   gap: 12px;
-  padding: 0 20px 18px;
+  padding: 0 18px 19px;
   margin-top: auto;
 }
 
 #codex-media-library-root .cml-film-card__perforation {
   height: 1px;
-  background-image: radial-gradient(circle, rgba(91, 74, 58, 0.26) 1px, transparent 1.1px);
+  background-image: radial-gradient(circle, rgba(244, 211, 122, 0.3) 1px, transparent 1.1px);
   background-size: 8px 1px;
   background-repeat: repeat-x;
   background-position: center;
@@ -11257,14 +11290,14 @@ body.codex-media-library-active #app {
   align-items: flex-end;
   gap: 3px;
   height: 18px;
-  opacity: 0.58;
+  opacity: 0.72;
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar {
   width: 3px;
   height: 100%;
   border-radius: 1px;
-  background: rgba(42, 35, 30, 0.74);
+  background: rgba(250, 236, 204, 0.74);
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar.is-narrow {
@@ -11272,7 +11305,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card__footer-copy {
-  color: rgba(88, 72, 58, 0.58);
+  color: rgba(244, 211, 122, 0.48);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -11282,8 +11315,8 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card:hover,
 #codex-media-library-root .cml-film-card:focus-visible {
   transform: translateY(-3px);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 32px 72px rgba(5, 7, 11, 0.34);
+  border-color: rgba(244, 211, 122, 0.22);
+  box-shadow: 0 32px 72px rgba(0, 0, 0, 0.42);
 }
 
 #codex-media-library-root .cml-film-modal {
@@ -11573,7 +11606,7 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card {
-    border-radius: 24px;
+    border-radius: 22px;
   }
 
   #codex-media-library-root .cml-film-card__cover-top,
@@ -11600,12 +11633,12 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__ticket-panel {
-    min-height: 234px;
+    min-height: 218px;
   }
 
   #codex-media-library-root .cml-film-card__ticket-body {
-    gap: 12px;
-    padding: 16px 15px 14px;
+    gap: 11px;
+    padding: 16px 14px 13px;
   }
 
   #codex-media-library-root .cml-film-card__ticket-head {
@@ -11613,7 +11646,7 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__title {
-    font-size: 18px;
+    font-size: 19px;
   }
 
   #codex-media-library-root .cml-film-card__rating {
@@ -11635,7 +11668,7 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__footer {
-    padding: 0 15px 14px;
+    padding: 0 14px 16px;
   }
 
   #codex-media-library-root .cml-film-card__footer-row {
@@ -11645,7 +11678,65 @@ body.codex-media-library-active #app {
 
 @media (max-width: 420px) {
   #codex-media-library-root .cml-films-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  #codex-media-library-root .cml-film-card__cover-kicker {
+    display: none;
+  }
+
+  #codex-media-library-root .cml-film-card__cover-chip {
+    margin-left: auto;
+    padding: 5px 8px;
+    font-size: 9px;
+  }
+
+  #codex-media-library-root .cml-film-card__cover-title {
+    font-size: 18px;
+  }
+
+  #codex-media-library-root .cml-film-card__cover-caption,
+  #codex-media-library-root .cml-film-card__original,
+  #codex-media-library-root .cml-film-card__footer-copy {
+    display: none;
+  }
+
+  #codex-media-library-root .cml-film-card__ticket-panel {
+    min-height: 178px;
+  }
+
+  #codex-media-library-root .cml-film-card__ticket-body {
+    padding: 14px 12px 11px;
+  }
+
+  #codex-media-library-root .cml-film-card__ticket-head {
+    display: block;
+  }
+
+  #codex-media-library-root .cml-film-card__eyebrow {
+    font-size: 9px;
+  }
+
+  #codex-media-library-root .cml-film-card__title {
+    font-size: 17px;
+  }
+
+  #codex-media-library-root .cml-film-card__rating {
+    display: none;
+  }
+
+  #codex-media-library-root .cml-film-card__info-grid {
     grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  #codex-media-library-root .cml-film-card__info-item:nth-child(n+3) {
+    display: none;
+  }
+
+  #codex-media-library-root .cml-film-card__footer {
+    padding: 0 12px 14px;
   }
 }
 
