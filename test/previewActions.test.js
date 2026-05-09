@@ -90,7 +90,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-film-card__eyebrow/);
   });
 
-  it('renders saved film card footers as barcode-only ticket stubs', () => {
+  it('renders saved film card footers as ticket metadata rows without barcode', () => {
     const html = FilmCard({
       id: 'tmdb-42',
       tmdbId: 42,
@@ -102,9 +102,10 @@ describe('media library download actions', () => {
       posterPath: '/poster.jpg',
     });
 
-    assert.match(html, /cml-film-card__barcode/);
-    assert.doesNotMatch(html, /Archive note/i);
-    assert.equal((html.match(/cml-film-card__barcode-bar/g) || []).length, 46);
+    assert.match(html, /cml-film-card__ticket-meta/);
+    assert.match(html, /TMDB #000042/);
+    assert.match(html, /WATCHED/);
+    assert.doesNotMatch(html, /cml-film-card__barcode/);
   });
 
   it('renders saving state for movie add actions', () => {

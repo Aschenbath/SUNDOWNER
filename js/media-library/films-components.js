@@ -151,12 +151,25 @@ function renderFilmCardInfoItem(label, value) {
   `;
 }
 
-function buildCardBarcode() {
-  return Array.from({ length: 46 }, (_, index) => {
-    const narrow = index % 3 === 0 || index % 7 === 2 ? 'is-narrow' : '';
-    const wide = index % 11 === 5 ? 'is-wide' : '';
-    return `<span class="cml-film-card__barcode-bar ${narrow} ${wide}"></span>`;
-  }).join('');
+function getTicketStatusLabel(status) {
+  const map = {
+    watchlist: 'WISHLIST',
+    wantToWatch: 'WISHLIST',
+    watching: 'WATCHING',
+    watched: 'WATCHED',
+    paused: 'PAUSED',
+    dropped: 'DROPPED'
+  };
+  return map[status] || 'WISHLIST';
+}
+
+function buildTicketSerial(record = {}) {
+  const tmdbId = Number(record.tmdbId);
+  if (Number.isFinite(tmdbId) && tmdbId > 0) {
+    return `TMDB #${String(tmdbId).padStart(6, '0')}`;
+  }
+  const fallbackId = normalizeText(record.id || '').replace(/^tmdb-/, '');
+  return fallbackId ? `ENTRY #${fallbackId}` : 'ENTRY #LOCAL';
 }
 
 function getCleanStatusLabel(status) {
@@ -254,7 +267,10 @@ export function FilmCard(record = {}) {
         </div>
         <footer class="cml-film-card__footer" aria-hidden="true">
           <div class="cml-film-card__perforation"></div>
-          <div class="cml-film-card__barcode">${buildCardBarcode()}</div>
+          <div class="cml-film-card__ticket-meta">
+            <span class="cml-film-card__ticket-meta-item">${escapeHtml(buildTicketSerial(record))}</span>
+            <span class="cml-film-card__ticket-meta-item">${escapeHtml(getTicketStatusLabel(record.status))}</span>
+          </div>
         </footer>
       </div>
     </article>
