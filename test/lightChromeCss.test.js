@@ -72,4 +72,10 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-avatar-menu__name \{[\s\S]*color: var\(--cml-theme-avatar-menu-name\);/);
     assert.match(css, /#codex-media-library-root \.cml-avatar-menu__item \{[\s\S]*color: var\(--cml-theme-avatar-menu-item\);/);
   });
+
+  it('keeps film ticket cutouts tied to the active content panel surface', () => {
+    assert.match(css, /#codex-media-library-root \.cml-film-card \{[\s\S]*--cml-film-cutout-bg: var\(--cml-theme-content-panel-bg, rgb\(21, 23, 27\)\);/);
+    assert.match(css, /#codex-media-library-root \.cml-film-card__notch \{[\s\S]*background: var\(--cml-film-cutout-bg\);/);
+    assert.match(css, /#codex-media-library-root \.cml-film-card__ticket-panel::after \{[\s\S]*radial-gradient\(circle at 8px 15px, var\(--cml-film-cutout-bg\)/);
+  });
 });

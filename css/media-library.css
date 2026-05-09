@@ -10980,6 +10980,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card {
+  --cml-film-cutout-bg: var(--cml-theme-content-panel-bg, rgb(21, 23, 27));
   position: relative;
   display: flex;
   flex-direction: column;
@@ -11128,12 +11129,13 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__ticket-panel::after {
   content: '';
   position: absolute;
-  left: 18px;
-  right: 18px;
+  left: 0;
+  right: 0;
   bottom: -1px;
-  height: 12px;
-  background-image: radial-gradient(circle at 6px 12px, transparent 0 6px, #08090b 6.5px);
-  background-size: 16px 12px;
+  z-index: 1;
+  height: 15px;
+  background:
+    radial-gradient(circle at 8px 15px, var(--cml-film-cutout-bg) 0 7px, transparent 7.4px) 0 0 / 18px 15px repeat-x;
   pointer-events: none;
 }
 
@@ -11144,7 +11146,7 @@ body.codex-media-library-active #app {
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  background: var(--cml-theme-content-panel-bg, rgb(21, 23, 27));
+  background: var(--cml-film-cutout-bg);
   box-shadow: inset 0 0 0 1px rgba(232, 236, 242, 0.1);
 }
 
@@ -11276,9 +11278,11 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card__footer {
+  position: relative;
+  z-index: 2;
   display: grid;
-  gap: 12px;
-  padding: 0 18px 19px;
+  gap: 13px;
+  padding: 0 18px 24px;
   margin-top: auto;
 }
 
@@ -11300,16 +11304,16 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__barcode {
   display: flex;
   align-items: flex-end;
-  gap: 3px;
-  height: 18px;
-  opacity: 0.72;
+  gap: 2px;
+  height: 32px;
+  opacity: 0.96;
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar {
-  width: 3px;
+  width: 4px;
   height: 100%;
-  border-radius: 1px;
-  background: rgba(232, 236, 242, 0.66);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.88);
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar.is-narrow {
@@ -11722,7 +11726,7 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__footer {
-    padding: 0 14px 16px;
+    padding: 0 14px 21px;
   }
 
   #codex-media-library-root .cml-film-card__footer-row {
@@ -11790,7 +11794,7 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__footer {
-    padding: 0 12px 14px;
+    padding: 0 12px 19px;
   }
 }
 
