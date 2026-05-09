@@ -954,7 +954,7 @@ async function handleDiscordFile(context, metadata, encodedFileName, fileType) {
         }
 
         if (!fileUrl) {
-            return new Response('Error: Discord file URL not found', { status: 500 });
+            return new Response('Error: Image Not Found', { status: 404 });
         }
 
         // 如果配置了代理 URL，替换 Discord CDN 域名
