@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=14';
+import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=15';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -8348,7 +8348,7 @@ function normalizeMovieRecord(movie = {}, entry = null) {
     journal: '',
     watchedAt: entry?.watchedAt || '',
     addedAt: entry?.createdAt || movie.updatedAt || '',
-    director: '',
+    director: movie.director || '',
     genres: Array.isArray(movie.genres) ? movie.genres : [],
     country: '',
     language: '',

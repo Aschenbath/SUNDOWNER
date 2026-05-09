@@ -24,6 +24,7 @@ describe('TMDbClient', () => {
       tmdbId: 550,
       title: 'Fight Club',
       originalTitle: 'Fight Club',
+      director: '',
       overview: 'A detail payload',
       posterPath: '/poster.jpg',
       backdropPath: '/backdrop.jpg',
@@ -64,7 +65,7 @@ describe('TMDbClient', () => {
               results: [{
                 id: 129,
                 title: 'Spirited Away',
-                original_title: '千と千尋の神隠し',
+                original_title: '鍗冦仺鍗冨皨銇闅犮仐',
                 poster_path: '/poster.jpg',
                 release_date: '2001-07-20',
                 vote_average: 8.5,
@@ -86,7 +87,8 @@ describe('TMDbClient', () => {
     assert.deepEqual(result.results, [{
       tmdbId: 129,
       title: 'Spirited Away',
-      originalTitle: '千と千尋の神隠し',
+      originalTitle: '鍗冦仺鍗冨皨銇闅犮仐',
+      director: '',
       overview: '',
       posterPath: '/poster.jpg',
       backdropPath: '',
@@ -113,10 +115,42 @@ describe('TMDbClient', () => {
       },
     });
 
-    await client.searchMovies('花样年华');
+    await client.searchMovies('鑺辨牱骞村崕');
 
     const url = new URL(calls[0].url);
     assert.equal(url.searchParams.get('api_key'), 'key-123');
     assert.equal(calls[0].options.headers.Authorization, undefined);
+  });
+
+  it('requests movie detail credits and normalizes directors', async () => {
+    const calls = [];
+    const client = new TMDbClient({ TMDB_ACCESS_TOKEN: 'token-123' }, {
+      fetchImpl: async (url) => {
+        calls.push(url);
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return {
+              id: 597,
+              title: 'Titanic',
+              original_title: 'Titanic',
+              credits: {
+                crew: [
+                  { job: 'Director', name: 'James Cameron' },
+                  { job: 'Producer', name: 'Jon Landau' },
+                ],
+              },
+            };
+          },
+        };
+      },
+    });
+
+    const movie = await client.movieDetail(597);
+    const detailUrl = new URL(calls[0]);
+
+    assert.equal(detailUrl.searchParams.get('append_to_response'), 'credits');
+    assert.equal(movie.director, 'James Cameron');
   });
 });

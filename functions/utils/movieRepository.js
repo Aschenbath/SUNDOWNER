@@ -75,6 +75,7 @@ export function normalizeMovieCache(input = {}, timestamp = nowIso()) {
     tmdbId,
     title: normalizeText(input.title, 240),
     originalTitle: normalizeText(input.originalTitle || input.title, 240),
+    director: normalizeText(input.director, 240),
     overview: normalizeText(input.overview, 4000),
     posterPath: normalizeText(input.posterPath, 240),
     backdropPath: normalizeText(input.backdropPath, 240),
@@ -114,6 +115,9 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
 }
 
 function isCacheFresh(movieCache, timestamp = Date.now()) {
+  if (!normalizeText(movieCache?.director)) {
+    return false;
+  }
   const updatedTime = new Date(movieCache?.updatedAt || '').getTime();
   return Number.isFinite(updatedTime) && timestamp - updatedTime <= CACHE_TTL_MS;
 }

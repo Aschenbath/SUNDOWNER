@@ -31,6 +31,7 @@ function createMovie(overrides = {}) {
     releaseDate: '2026-01-01',
     runtime: 100,
     genres: ['Drama'],
+    director: 'Jane Director',
     voteAverage: 7.2,
     ...overrides,
   };
@@ -101,6 +102,7 @@ describe('MovieRepository', () => {
 
     const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
     assert.equal(cachedMovie.title, 'Movie');
+    assert.equal(cachedMovie.director, 'Jane Director');
     assert.equal(cachedMovie.userRating, undefined);
     assert.equal(cachedMovie.note, undefined);
     assert.equal(cachedMovie.watchStatus, undefined);

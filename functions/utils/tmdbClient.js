@@ -81,11 +81,18 @@ export function normalizeTmdbMovie(dto = {}) {
   if (!tmdbId) {
     return null;
   }
+  const directors = Array.isArray(dto.credits?.crew)
+    ? dto.credits.crew
+      .filter((person) => normalizeText(person?.job, 80) === 'Director')
+      .map((person) => normalizeText(person?.name, 120))
+      .filter(Boolean)
+    : [];
 
   return {
     tmdbId,
     title: normalizeText(dto.title || dto.name, 240),
     originalTitle: normalizeText(dto.original_title || dto.original_name || dto.title || dto.name, 240),
+    director: directors.slice(0, 3).join(' / '),
     overview: normalizeText(dto.overview, 4000),
     posterPath: normalizeText(dto.poster_path, 240),
     backdropPath: normalizeText(dto.backdrop_path, 240),
@@ -148,7 +155,9 @@ export class TMDbClient {
       throw new Error('TMDb movie id is required');
     }
 
-    const payload = await fetchTmdbJson(this.env, `/movie/${encodeURIComponent(String(normalizedId))}`, {}, this.fetchImpl);
+    const payload = await fetchTmdbJson(this.env, `/movie/${encodeURIComponent(String(normalizedId))}`, {
+      append_to_response: 'credits',
+    }, this.fetchImpl);
     const movie = normalizeTmdbMovie(payload);
     if (!movie) {
       throw new Error('Invalid TMDb movie detail payload');

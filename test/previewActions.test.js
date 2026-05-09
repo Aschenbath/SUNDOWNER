@@ -108,6 +108,26 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-film-card__barcode/);
   });
 
+  it('renders saved film card directors and only shows rating rings for user ratings', () => {
+    const html = FilmCard({
+      id: 'tmdb-42',
+      tmdbId: 42,
+      title: 'Movie',
+      originalTitle: 'Movie',
+      status: 'watched',
+      year: '2026',
+      runtime: 121,
+      director: 'James Cameron',
+      posterPath: '/poster.jpg',
+      voteAverage: 9,
+    });
+
+    assert.match(html, /Director/);
+    assert.match(html, /James Cameron/);
+    assert.doesNotMatch(html, /cml-film-card__rating/);
+    assert.doesNotMatch(html, />9\.0<\/span>/);
+  });
+
   it('renders saving state for movie add actions', () => {
     const html = FilmSearchResults({
       query: 'Movie',
