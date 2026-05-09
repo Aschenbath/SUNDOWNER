@@ -10978,7 +10978,7 @@ body.codex-media-library-active #app {
   color: inherit;
   text-decoration: none;
   background: #07080a;
-  border: 1px solid rgba(238, 219, 178, 0.12);
+  border: 1px solid rgba(232, 236, 242, 0.1);
   box-shadow: 0 24px 62px rgba(0, 0, 0, 0.34);
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
@@ -10994,8 +10994,8 @@ body.codex-media-library-active #app {
   aspect-ratio: 0.74;
   min-height: 0;
   background:
-    radial-gradient(circle at top right, rgba(205, 166, 99, 0.26) 0%, rgba(205, 166, 99, 0) 34%),
-    linear-gradient(180deg, rgba(17, 20, 25, 0.72) 0%, rgba(5, 6, 8, 0.92) 100%);
+    radial-gradient(circle at top right, rgba(155, 164, 178, 0.18) 0%, rgba(155, 164, 178, 0) 34%),
+    linear-gradient(180deg, rgba(18, 20, 24, 0.76) 0%, rgba(5, 6, 8, 0.94) 100%);
 }
 
 #codex-media-library-root .cml-film-card__poster-panel::before {
@@ -11004,7 +11004,7 @@ body.codex-media-library-active #app {
   inset: 0;
   background:
     linear-gradient(180deg, rgba(6, 7, 9, 0.08) 0%, rgba(6, 7, 9, 0.16) 24%, rgba(6, 7, 9, 0.72) 100%),
-    radial-gradient(circle at center, rgba(255, 246, 224, 0.08) 0%, rgba(255, 246, 224, 0) 58%),
+    radial-gradient(circle at center, rgba(235, 238, 242, 0.07) 0%, rgba(235, 238, 242, 0) 58%),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0 1px, rgba(0, 0, 0, 0) 1px 3px);
   pointer-events: none;
 }
@@ -11058,8 +11058,8 @@ body.codex-media-library-active #app {
   border-radius: 999px;
   backdrop-filter: blur(10px);
   background: rgba(8, 9, 11, 0.58);
-  border: 1px solid rgba(238, 219, 178, 0.18);
-  color: rgba(252, 241, 214, 0.9);
+  border: 1px solid rgba(232, 236, 242, 0.18);
+  color: rgba(242, 244, 247, 0.9);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -11070,7 +11070,7 @@ body.codex-media-library-active #app {
   justify-content: flex-end;
   text-align: right;
   background: rgba(11, 13, 16, 0.78);
-  color: #f4d37a;
+  color: #f2f4f7;
   letter-spacing: 0.18em;
 }
 
@@ -11107,10 +11107,10 @@ body.codex-media-library-active #app {
   flex-direction: column;
   min-height: 236px;
   background:
-    radial-gradient(circle at 12% 0%, rgba(178, 132, 63, 0.22) 0%, rgba(178, 132, 63, 0) 36%),
-    linear-gradient(180deg, #111114 0%, #08090b 100%);
-  border-top: 1px dashed rgba(238, 219, 178, 0.32);
-  color: #f4ead5;
+    radial-gradient(circle at 12% 0%, rgba(148, 156, 168, 0.16) 0%, rgba(148, 156, 168, 0) 36%),
+    linear-gradient(180deg, #121316 0%, #08090b 100%);
+  border-top: 1px dashed rgba(232, 236, 242, 0.26);
+  color: #f2f4f7;
 }
 
 #codex-media-library-root .cml-film-card__ticket-panel::after {
@@ -11133,7 +11133,7 @@ body.codex-media-library-active #app {
   height: 26px;
   border-radius: 999px;
   background: var(--cml-theme-bg, #f6f0e5);
-  box-shadow: inset 0 0 0 1px rgba(238, 219, 178, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(232, 236, 242, 0.1);
 }
 
 #codex-media-library-root .cml-film-card__notch--left {
@@ -11167,7 +11167,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__eyebrow {
   margin: 0;
-  color: rgba(244, 211, 122, 0.7);
+  color: rgba(195, 201, 211, 0.74);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -11176,7 +11176,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__title {
   margin: 0;
-  color: #fff6e2;
+  color: #f7f7f8;
   font-family: "Times New Roman", Times, serif;
   font-size: 22px;
   font-weight: 700;
@@ -11189,7 +11189,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__original {
   margin: 0;
-  color: rgba(244, 234, 213, 0.58);
+  color: rgba(209, 213, 219, 0.58);
   font-size: 12px;
   line-height: 1.45;
   display: -webkit-box;
@@ -11205,20 +11205,20 @@ body.codex-media-library-active #app {
   min-width: 64px;
   padding: 10px 12px;
   border-radius: 18px;
-  background: rgba(244, 211, 122, 0.08);
-  border: 1px solid rgba(244, 211, 122, 0.2);
+  background: rgba(232, 236, 242, 0.07);
+  border: 1px solid rgba(232, 236, 242, 0.18);
   text-align: right;
 }
 
 #codex-media-library-root .cml-film-card__rating-value {
-  color: #f4d37a;
+  color: #f2f4f7;
   font-size: 19px;
   font-weight: 800;
   line-height: 1;
 }
 
 #codex-media-library-root .cml-film-card__rating-label {
-  color: rgba(244, 234, 213, 0.66);
+  color: rgba(209, 213, 219, 0.66);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -11228,7 +11228,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__separator {
   height: 1px;
   margin: 0;
-  background-image: radial-gradient(circle, rgba(244, 211, 122, 0.38) 1.1px, transparent 1.2px);
+  background-image: radial-gradient(circle, rgba(232, 236, 242, 0.3) 1.1px, transparent 1.2px);
   background-size: 8px 1px;
   background-repeat: repeat-x;
   background-position: center;
@@ -11248,7 +11248,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card__info-label {
-  color: rgba(244, 211, 122, 0.58);
+  color: rgba(195, 201, 211, 0.62);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -11256,7 +11256,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card__info-value {
-  color: rgba(255, 246, 226, 0.86);
+  color: rgba(242, 244, 247, 0.84);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.45;
@@ -11272,7 +11272,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__perforation {
   height: 1px;
-  background-image: radial-gradient(circle, rgba(244, 211, 122, 0.3) 1px, transparent 1.1px);
+  background-image: radial-gradient(circle, rgba(232, 236, 242, 0.24) 1px, transparent 1.1px);
   background-size: 8px 1px;
   background-repeat: repeat-x;
   background-position: center;
@@ -11297,7 +11297,7 @@ body.codex-media-library-active #app {
   width: 3px;
   height: 100%;
   border-radius: 1px;
-  background: rgba(250, 236, 204, 0.74);
+  background: rgba(232, 236, 242, 0.66);
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar.is-narrow {
@@ -11305,7 +11305,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card__footer-copy {
-  color: rgba(244, 211, 122, 0.48);
+  color: rgba(195, 201, 211, 0.48);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -11315,7 +11315,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card:hover,
 #codex-media-library-root .cml-film-card:focus-visible {
   transform: translateY(-3px);
-  border-color: rgba(244, 211, 122, 0.22);
+  border-color: rgba(232, 236, 242, 0.22);
   box-shadow: 0 32px 72px rgba(0, 0, 0, 0.42);
 }
 
