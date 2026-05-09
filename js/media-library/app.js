@@ -3102,6 +3102,20 @@ async function fetchJson(url, options = {}) {
   return response.json();
 }
 
+async function fetchMovieJson(url, options = {}) {
+  const response = await apiFetch(url, options);
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  if (!response.ok) {
+    throw new Error(data?.error || `${url} returned ${response.status}`);
+  }
+  return data;
+}
+
 async function postJson(url, payload) {
   const response = await apiFetch(url, {
     method: 'POST',
@@ -8379,7 +8393,7 @@ async function searchFilms() {
   state.filmError = '';
   render();
   try {
-    const payload = await fetchJson(`/api/manage/movies?action=search&q=${encodeURIComponent(query)}`);
+    const payload = await fetchMovieJson(`/api/manage/movies?action=search&q=${encodeURIComponent(query)}`);
     state.filmSearchResults = Array.isArray(payload?.results) ? payload.results : [];
   } catch (error) {
     state.filmSearchResults = [];
@@ -8396,7 +8410,7 @@ async function openTmdbFilmDetail(tmdbId) {
     return;
   }
   try {
-    const payload = await fetchJson(`/api/manage/movies?action=detail&tmdbId=${encodeURIComponent(String(normalizedId))}`);
+    const payload = await fetchMovieJson(`/api/manage/movies?action=detail&tmdbId=${encodeURIComponent(String(normalizedId))}`);
     const record = normalizeMovieRecord(payload?.movie || {});
     state.films = [
       record,

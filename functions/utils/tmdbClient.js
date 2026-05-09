@@ -24,6 +24,10 @@ function resolveAccessToken(env = {}) {
   return normalizeText(env.TMDB_ACCESS_TOKEN || env.TMDB_API_TOKEN || '');
 }
 
+function resolveApiKey(env = {}) {
+  return normalizeText(env.TMDB_API_KEY || '');
+}
+
 function buildTmdbUrl(pathname, params = {}) {
   const url = new URL(`${TMDB_API_BASE_URL}${pathname}`);
   Object.entries(params).forEach(([key, value]) => {
@@ -36,14 +40,24 @@ function buildTmdbUrl(pathname, params = {}) {
 
 async function fetchTmdbJson(env, pathname, params = {}, fetchImpl = fetch) {
   const accessToken = resolveAccessToken(env);
-  if (!accessToken) {
-    throw new Error('TMDb access token is not configured. Set TMDB_ACCESS_TOKEN.');
+  const apiKey = resolveApiKey(env);
+  if (!accessToken && !apiKey) {
+    throw new Error('TMDb credentials are not configured. Set TMDB_ACCESS_TOKEN or TMDB_API_KEY.');
   }
 
-  const response = await fetchImpl(buildTmdbUrl(pathname, params), {
+  const requestParams = apiKey && !accessToken
+    ? { ...params, api_key: apiKey }
+    : params;
+  const requestHeaders = {
+    Accept: 'application/json',
+  };
+  if (accessToken) {
+    requestHeaders.Authorization = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetchImpl(buildTmdbUrl(pathname, requestParams), {
     headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${accessToken}`,
+      ...requestHeaders,
     },
   });
 

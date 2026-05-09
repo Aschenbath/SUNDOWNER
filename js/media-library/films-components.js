@@ -336,7 +336,9 @@ export function FilmSearchResults({ results = [], loading = false, error = '', q
     return '';
   }
   const friendlyError = error && /TMDb access token is not configured/i.test(error)
-    ? 'TMDb token is not configured. Add TMDB_ACCESS_TOKEN in Cloudflare Pages environment variables, then redeploy.'
+    ? 'TMDb credentials are not configured. Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables, then redeploy.'
+    : error && /TMDb credentials are not configured/i.test(error)
+    ? 'TMDb credentials are not configured. Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables, then redeploy.'
     : error;
   return `
     <section class="cml-films-mvp">

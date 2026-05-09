@@ -29,7 +29,7 @@ class MemoryKV {
 }
 
 describe('manage movies route', () => {
-  it('returns a clear 503 when searching without TMDb token', async () => {
+  it('returns a clear 503 when searching without TMDb credentials', async () => {
     const response = await onRequest({
       request: new Request('https://example.com/api/manage/movies?action=search&q=yi+yi'),
       env: { img_url: new MemoryKV() },
@@ -37,7 +37,7 @@ describe('manage movies route', () => {
 
     const payload = await response.json();
     assert.equal(response.status, 503);
-    assert.match(payload.error, /TMDb access token is not configured/);
+    assert.match(payload.error, /TMDb credentials are not configured/);
   });
 
   it('lists locally saved movie entries', async () => {

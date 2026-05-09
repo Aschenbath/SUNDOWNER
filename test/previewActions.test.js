@@ -7,7 +7,7 @@ import { FilmSearchResults, FilmsPage } from '../js/media-library/films-componen
 describe('media library download actions', () => {
   it('renders Films search as a submit form and keeps TMDb feedback above the local film list', () => {
     const panel = FilmSearchResults({
-      error: 'TMDb access token is not configured. Set TMDB_ACCESS_TOKEN.',
+      error: 'TMDb credentials are not configured. Set TMDB_ACCESS_TOKEN or TMDB_API_KEY.',
       query: '花样',
     });
     const html = FilmsPage({
@@ -18,7 +18,7 @@ describe('media library download actions', () => {
 
     assert.match(html, /data-form="films-search"/);
     assert.match(html, /type="submit" class="cml-films-page__add-button"/);
-    assert.match(html, /Add TMDB_ACCESS_TOKEN in Cloudflare Pages environment variables/);
+    assert.match(html, /Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables/);
     assert.ok(html.indexOf('cml-films-mvp') < html.indexOf('cml-films-filters'));
   });
 

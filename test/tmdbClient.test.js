@@ -33,7 +33,7 @@ describe('TMDbClient', () => {
     });
   });
 
-  it('requires TMDB_ACCESS_TOKEN before remote requests', async () => {
+  it('requires TMDb credentials before remote requests', async () => {
     const client = new TMDbClient({}, {
       fetchImpl: async () => {
         throw new Error('fetch should not run');
@@ -42,7 +42,7 @@ describe('TMDbClient', () => {
 
     await assert.rejects(
       () => client.searchMovies('yi yi'),
-      /TMDb access token is not configured/
+      /TMDb credentials are not configured/
     );
   });
 
@@ -92,5 +92,27 @@ describe('TMDbClient', () => {
       genres: [],
       voteAverage: 8.5,
     }]);
+  });
+
+  it('supports TMDB_API_KEY when a v4 access token is not configured', async () => {
+    const calls = [];
+    const client = new TMDbClient({ TMDB_API_KEY: 'key-123' }, {
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { page: 1, total_pages: 0, total_results: 0, results: [] };
+          },
+        };
+      },
+    });
+
+    await client.searchMovies('花样年华');
+
+    const url = new URL(calls[0].url);
+    assert.equal(url.searchParams.get('api_key'), 'key-123');
+    assert.equal(calls[0].options.headers.Authorization, undefined);
   });
 });
