@@ -232,10 +232,8 @@ export function FilmCard(record = {}) {
   const runtime = formatRuntime(record.runtime);
   const watchedDate = record.status === 'watched' ? formatWatchedDate(record.watchedAt) : '';
   const ratingValue = formatUserRating(record.userRating ?? record.rating);
-  const tmdbRatingValue = formatTmdbRating(record).replace(/^TMDb\s+/, '').replace(/\s+\(.+\)$/, '');
-  const footerRatingValue = ratingValue || tmdbRatingValue;
-  const hasFooterRating = Boolean(footerRatingValue);
-  const ratingLabel = ratingValue ? 'My rating' : 'TMDb rating';
+  const hasFooterRating = Boolean(ratingValue);
+  const ratingLabel = hasFooterRating ? 'My rating' : '';
   const coverMeta = [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ');
   const infoItems = [
     renderFilmCardInfoItem('Release', [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ')),
@@ -270,8 +268,8 @@ export function FilmCard(record = {}) {
               </div>
             ` : ''}
             ${hasFooterRating ? `
-              <div class="cml-film-card__rating ${ratingValue ? '' : 'is-external'}" aria-label="${escapeHtml(ratingLabel)} ${escapeHtml(footerRatingValue)}">
-                <span class="cml-film-card__rating-value">${escapeHtml(footerRatingValue)}</span>
+              <div class="cml-film-card__rating" aria-label="${escapeHtml(ratingLabel)} ${escapeHtml(ratingValue)}">
+                <span class="cml-film-card__rating-value">${escapeHtml(ratingValue)}</span>
                 <span class="cml-film-card__rating-label">${escapeHtml(ratingLabel)}</span>
               </div>
             ` : ''}

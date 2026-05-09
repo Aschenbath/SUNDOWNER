@@ -110,7 +110,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-film-card__barcode/);
   });
 
-  it('renders TMDb scores in the footer ring without treating them as user ratings', () => {
+  it('does not render TMDb scores as saved film card rating rings', () => {
     const html = FilmCard({
       id: 'tmdb-42',
       tmdbId: 42,
@@ -126,10 +126,9 @@ describe('media library download actions', () => {
 
     assert.match(html, /Director/);
     assert.match(html, /James Cameron/);
-    assert.match(html, /cml-film-card__rating is-external/);
-    assert.match(html, /TMDb rating 9\.0/);
-    assert.match(html, />9\.0<\/span>/);
-    assert.doesNotMatch(html, /My rating 9\.0/);
+    assert.doesNotMatch(html, /cml-film-card__rating/);
+    assert.doesNotMatch(html, /TMDb rating 9\.0/);
+    assert.doesNotMatch(html, />9\.0<\/span>/);
   });
 
   it('renders saving state for movie add actions', () => {
