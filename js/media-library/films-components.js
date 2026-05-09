@@ -328,7 +328,6 @@ export function FilmDetailPage({ record = null } = {}) {
   const statusLabel = getDetailStatusLabel(record.status);
   const posterUrl = getRecordPosterUrl(record);
   const backdropUrl = buildTmdbImageUrl(record.backdropPath, 'w1280') || posterUrl;
-  const backdropStyle = backdropUrl ? ` style="--film-detail-backdrop: url('${escapeHtml(backdropUrl)}');"` : '';
   const chips = [
     renderDetailChip(record.year ? String(record.year) : ''),
     renderDetailChip(runtime),
@@ -338,8 +337,10 @@ export function FilmDetailPage({ record = null } = {}) {
   const synopsis = getDetailSynopsis(record);
   const personalNote = getDetailPersonalNote(record);
   return `
-    <section class="cml-film-detail-page" data-film-detail-page${backdropStyle}>
-      <div class="cml-film-detail-page__backdrop" aria-hidden="true"></div>
+    <section class="cml-film-detail-page" data-film-detail-page>
+      <div class="cml-film-detail-page__backdrop" aria-hidden="true">
+        ${backdropUrl ? `<img class="cml-film-detail-page__backdrop-image" src="${escapeHtml(backdropUrl)}" alt="" loading="eager" decoding="async" />` : ''}
+      </div>
       <div class="cml-film-detail-page__scrim" aria-hidden="true"></div>
       <div class="cml-film-detail-page__content">
         <button type="button" class="cml-film-detail__back" data-action="close-film-detail">← Back to Films</button>
