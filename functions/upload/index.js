@@ -40,6 +40,18 @@ export function onRequestOptions() {
     });
 }
 
+export function normalizeExternalUploadUrl(rawUrl) {
+    try {
+        const parsedUrl = new URL(String(rawUrl || '').trim());
+        if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+            return null;
+        }
+        return parsedUrl.toString();
+    } catch {
+        return null;
+    }
+}
+
 
 export async function onRequest(context) {  // Contents of context object
     const { request, env, params, waitUntil, next, data } = context;
@@ -623,7 +635,11 @@ async function uploadFileToExternal(context, fullId, metadata, returnLink) {
     if (extUrl === null || extUrl === undefined) {
         return createResponse('Error: No url provided', { status: 400 });
     }
-    metadata.ExternalLink = extUrl;
+    const externalUrl = normalizeExternalUploadUrl(extUrl);
+    if (!externalUrl) {
+        return createResponse('Error: Invalid external URL', { status: 400 });
+    }
+    metadata.ExternalLink = externalUrl;
     // 写入KV数据库
     try {
         await db.put(fullId, "", {
