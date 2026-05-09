@@ -1639,7 +1639,7 @@ async function cleanupOperations(context, operationIds, concurrency = 10) {
  * @returns {Object} 删除结果 { success, deletedCount, errors?, totalFound? }
  */
 export async function deleteAllOperations(context) {
-    const { request, env } = context;
+    const { env } = context;
     const db = getDatabase(env);
     
     try {
@@ -1687,6 +1687,7 @@ export async function deleteAllOperations(context) {
         }
         
         console.log(`Found ${totalFound} atomic operations to delete`);
+        return await deleteOperationsInProcess(context, allOperationIds, totalFound);
 
         // 限制单次删除的数量
         const MAX_DELETE_BATCH = 40;
@@ -1724,6 +1725,38 @@ export async function deleteAllOperations(context) {
  * 获取索引（内部函数）
  * @param {Object} context - 上下文对象
  */
+async function deleteOperationsInProcess(context, allOperationIds, totalFound) {
+    const MAX_DELETE_BATCH = 40;
+    let remainingOperationIds = allOperationIds;
+    let deletedCount = 0;
+    let errorCount = 0;
+
+    while (remainingOperationIds.length > 0) {
+        const toDeleteOperationIds = remainingOperationIds.slice(0, MAX_DELETE_BATCH);
+        const cleanupResult = await cleanupOperations(context, toDeleteOperationIds);
+        deletedCount += cleanupResult.deletedCount;
+        errorCount += cleanupResult.errorCount;
+
+        if (cleanupResult.deletedCount === 0 && cleanupResult.errorCount > 0) {
+            console.warn('Delete operations made no progress, stopping early.');
+            break;
+        }
+
+        remainingOperationIds = remainingOperationIds.slice(toDeleteOperationIds.length);
+        if (remainingOperationIds.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+    }
+
+    console.log(`Delete all operations completed. Deleted ${deletedCount}, errors ${errorCount}.`);
+    return {
+        success: errorCount === 0,
+        deletedCount,
+        errorCount,
+        totalFound
+    };
+}
+
 async function getIndex(context) {
     const { waitUntil } = context;
     try {

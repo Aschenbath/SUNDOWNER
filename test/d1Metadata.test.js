@@ -4,7 +4,7 @@ import { onRequest as listRoute } from '../functions/api/manage/list.js';
 import { onRequest as migrateKvToD1 } from '../functions/api/manage/migrate/kv-to-d1.js';
 import { KV_TO_D1_MIGRATION_STATE_KEY, getDatabase } from '../functions/utils/databaseAdapter.js';
 import { D1Database } from '../functions/utils/d1Database.js';
-import { addFileToIndex, getIndexMeta, readIndex } from '../functions/utils/indexManager.js';
+import { addFileToIndex, deleteAllOperations, getIndexMeta, readIndex } from '../functions/utils/indexManager.js';
 import { SqliteD1 } from '../server/sqliteD1.js';
 
 class MemoryKV {
@@ -658,5 +658,31 @@ describe('D1 metadata migration path', () => {
         assert.equal(result.success, true);
         assert.equal(result.totalCount, 31);
         assert.equal(result.files.length, 31);
+    });
+
+    it('deleteAllOperations clears more than one delete batch without recursive self-fetch', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+        };
+        const context = createContext(env);
+
+        for (let i = 0; i < 41; i += 1) {
+            const operationId = String(i + 1).padStart(4, '0');
+            await env.img_url.put(`manage@index@operation_${operationId}`, JSON.stringify({
+                type: 'remove',
+                timestamp: i + 1,
+                data: {
+                    fileId: `photos/${operationId}.jpg`,
+                },
+            }));
+        }
+
+        const result = await deleteAllOperations(context);
+
+        assert.equal(result.success, true);
+        assert.equal(result.deletedCount, 41);
+        assert.equal(result.errorCount, 0);
+        const remaining = [...env.img_url.store.keys()].filter((key) => key.startsWith('manage@index@operation_'));
+        assert.deepEqual(remaining, []);
     });
 });
