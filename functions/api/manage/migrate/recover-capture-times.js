@@ -3,7 +3,7 @@ import { getDatabase, KV_TO_D1_MIGRATION_STATE_KEY, checkDatabaseConfig } from '
 import { addFileToIndex } from '../../../utils/indexManager.js';
 import { extractExifData } from '../../../upload/exifExtractor.js';
 import { TelegramAPI } from '../../../utils/telegramAPI.js';
-import { DiscordAPI } from '../../../utils/discordAPI.js';
+import { DiscordAPI, resolveDiscordFileUrl } from '../../../utils/discordAPI.js';
 import {
     resolveDiscordAccess,
     resolveHuggingFaceAccess,
@@ -253,7 +253,7 @@ async function fetchDiscordHeaderBuffer(env, metadata = {}) {
     }
 
     if (discordAccess.proxyUrl) {
-        fileUrl = fileUrl.replace('https://cdn.discordapp.com', `https://${discordAccess.proxyUrl}`);
+        fileUrl = resolveDiscordFileUrl(fileUrl, discordAccess.proxyUrl);
     }
 
     return fetchBinaryBuffer(fileUrl, {

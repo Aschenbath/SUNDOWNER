@@ -1,7 +1,7 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { fetchSecurityConfig } from "../utils/sysConfig.js";
 import { TelegramAPI, buildTelegramFileUrl } from "../utils/telegramAPI.js";
-import { DiscordAPI } from "../utils/discordAPI.js";
+import { DiscordAPI, resolveDiscordFileUrl } from "../utils/discordAPI.js";
 import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
 import {
     setCommonHeaders, setRangeHeaders, handleHeadRequest, getFileContent, isTgChannel,
@@ -695,9 +695,7 @@ async function fetchDiscordChunkWithRetry(botToken, channelId, chunk, proxyUrl, 
             }
 
             // 如果配置了代理 URL，替换 Discord CDN 域名
-            if (proxyUrl) {
-                fileUrl = fileUrl.replace('https://cdn.discordapp.com', `https://${proxyUrl}`);
-            }
+            fileUrl = resolveDiscordFileUrl(fileUrl, proxyUrl);
 
             const response = await fetch(fileUrl);
 
@@ -960,9 +958,7 @@ async function handleDiscordFile(context, metadata, encodedFileName, fileType) {
         }
 
         // 如果配置了代理 URL，替换 Discord CDN 域名
-        if (discordAccess?.proxyUrl) {
-            fileUrl = fileUrl.replace('https://cdn.discordapp.com', `https://${discordAccess.proxyUrl}`);
-        }
+        fileUrl = resolveDiscordFileUrl(fileUrl, discordAccess?.proxyUrl || '');
 
         // 处理 HEAD 请求
         if (request.method === 'HEAD') {

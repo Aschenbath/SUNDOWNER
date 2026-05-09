@@ -184,3 +184,29 @@ export class DiscordAPI {
         }
     }
 }
+
+export function resolveDiscordFileUrl(fileUrl, proxyUrl = '') {
+    const originalUrl = String(fileUrl || '').trim();
+    if (!originalUrl) {
+        return '';
+    }
+
+    const normalizedProxy = String(proxyUrl || '').trim();
+    if (!normalizedProxy) {
+        return originalUrl;
+    }
+
+    try {
+        const original = new URL(originalUrl);
+        if (original.hostname !== 'cdn.discordapp.com') {
+            return originalUrl;
+        }
+
+        const proxyOrigin = normalizedProxy.includes('://')
+            ? new URL(normalizedProxy).origin
+            : new URL(`https://${normalizedProxy}`).origin;
+        return `${proxyOrigin}${original.pathname}${original.search}`;
+    } catch {
+        return originalUrl;
+    }
+}

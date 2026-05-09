@@ -8,7 +8,7 @@ import {
 import { initializeChunkedUpload, handleChunkUpload, uploadLargeFileToTelegram, handleCleanupRequest } from "./chunkUpload.js";
 import { handleChunkMerge } from "./chunkMerge.js";
 import { TelegramAPI, buildTelegramFileUrl } from "../utils/telegramAPI.js";
-import { DiscordAPI } from "../utils/discordAPI.js";
+import { DiscordAPI, resolveDiscordFileUrl } from "../utils/discordAPI.js";
 import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getDatabase } from '../utils/databaseAdapter.js';
@@ -713,7 +713,7 @@ async function uploadFileToDiscord(context, fullId, metadata, returnLink) {
         // 图像审查（使用 Discord CDN URL 或代理 URL）
         let moderateUrl = fileInfo.url;
         if (discordChannel.proxyUrl) {
-            moderateUrl = fileInfo.url.replace('https://cdn.discordapp.com', `https://${discordChannel.proxyUrl}`);
+            moderateUrl = resolveDiscordFileUrl(fileInfo.url, discordChannel.proxyUrl);
         }
         metadata.Label = await moderateContent(env, moderateUrl);
 
