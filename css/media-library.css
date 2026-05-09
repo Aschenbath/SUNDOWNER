@@ -11144,7 +11144,7 @@ body.codex-media-library-active #app {
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  background: var(--cml-theme-bg, #f6f0e5);
+  background: var(--cml-theme-content-panel-bg, rgb(21, 23, 27));
   box-shadow: inset 0 0 0 1px rgba(232, 236, 242, 0.1);
 }
 
