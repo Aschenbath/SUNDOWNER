@@ -618,4 +618,45 @@ describe('D1 metadata migration path', () => {
         assert.equal(payload.error, 'Index unavailable');
         assert.equal(payload.message, 'Indexed metadata query failed');
     });
+
+    it('readIndex still succeeds when pending operations exceed one merge batch', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+        };
+        const context = createContext(env);
+
+        await env.img_url.put('manage@index@meta', JSON.stringify({
+            lastUpdated: Date.now(),
+            totalCount: 0,
+            lastOperationId: null,
+            chunkCount: 0,
+            chunkSize: 5000,
+        }));
+
+        for (let i = 0; i < 31; i += 1) {
+            const operationId = String(i + 1).padStart(4, '0');
+            await env.img_url.put(`manage@index@operation_${operationId}`, JSON.stringify({
+                type: 'add',
+                timestamp: i + 1,
+                data: {
+                    fileId: `photos/${operationId}.jpg`,
+                    metadata: {
+                        FileName: `${operationId}.jpg`,
+                        Directory: 'photos/',
+                        TimeStamp: i + 1,
+                    },
+                },
+            }));
+        }
+
+        const result = await readIndex(context, {
+            directory: 'photos',
+            count: -1,
+            includeSubdirFiles: true,
+        });
+
+        assert.equal(result.success, true);
+        assert.equal(result.totalCount, 31);
+        assert.equal(result.files.length, 31);
+    });
 });

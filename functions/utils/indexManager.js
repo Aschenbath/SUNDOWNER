@@ -478,7 +478,6 @@ export async function batchMoveFilesInIndex(context, moveOperations) {
  * @returns {Object} 合并结果
  */
 export async function mergeOperationsToIndex(context, options = {}) {
-    const { request } = context;
     const { cleanupAfterMerge = true } = options;
     
     try {
@@ -503,6 +502,8 @@ export async function mergeOperationsToIndex(context, options = {}) {
 
         // 获取所有待处理的操作
         const operationsResult = await getAllPendingOperations(context, currentIndex.lastOperationId);
+
+        return await mergeOperationsInProcess(context, currentIndex, cleanupAfterMerge);
 
         const operations = operationsResult.operations;
         const isALLOperations = operationsResult.isAll;
@@ -669,6 +670,134 @@ export async function mergeOperationsToIndex(context, options = {}) {
  * @param {boolean} options.countOnly - 仅返回总数
  * @param {boolean} options.includeSubdirFiles - 是否包含子目录下的文件
  */
+async function mergeOperationsInProcess(context, currentIndex, cleanupAfterMerge) {
+    const workingIndex = currentIndex;
+    let operationsProcessed = 0;
+    let addedCount = 0;
+    let removedCount = 0;
+    let movedCount = 0;
+    let updatedCount = 0;
+    let passes = 0;
+
+    while (true) {
+        const operationsResult = await getAllPendingOperations(context, workingIndex.lastOperationId);
+        const operations = operationsResult.operations;
+        const isAllOperations = operationsResult.isAll;
+
+        if (operations.length === 0) {
+            if (passes === 0) {
+                console.log('No pending operations to merge');
+                return {
+                    success: true,
+                    processedOperations: 0,
+                    message: 'No pending operations'
+                };
+            }
+            break;
+        }
+
+        console.log(`Found ${operations.length} pending operations to merge. Is all operations: ${isAllOperations}`);
+        operations.sort((a, b) => a.timestamp - b.timestamp);
+
+        const batchProcessedIds = [];
+        let batchProcessed = 0;
+
+        for (const operation of operations) {
+            try {
+                switch (operation.type) {
+                    case 'add': {
+                        const addResult = applyAddOperation(workingIndex, operation.data);
+                        if (addResult.added) addedCount++;
+                        if (addResult.updated) updatedCount++;
+                        break;
+                    }
+                    case 'remove':
+                        if (applyRemoveOperation(workingIndex, operation.data)) {
+                            removedCount++;
+                        }
+                        break;
+                    case 'move':
+                        if (applyMoveOperation(workingIndex, operation.data)) {
+                            movedCount++;
+                        }
+                        break;
+                    case 'batch_add': {
+                        const batchAddResult = applyBatchAddOperation(workingIndex, operation.data);
+                        addedCount += batchAddResult.addedCount;
+                        updatedCount += batchAddResult.updatedCount;
+                        break;
+                    }
+                    case 'batch_remove':
+                        removedCount += applyBatchRemoveOperation(workingIndex, operation.data);
+                        break;
+                    case 'batch_move':
+                        movedCount += applyBatchMoveOperation(workingIndex, operation.data);
+                        break;
+                    default:
+                        console.warn(`Unknown operation type: ${operation.type}`);
+                        continue;
+                }
+
+                operationsProcessed++;
+                batchProcessed++;
+                batchProcessedIds.push(operation.id);
+
+                if (batchProcessed % 3 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+            } catch (error) {
+                console.error(`Error applying operation ${operation.id}:`, error);
+            }
+        }
+
+        if (batchProcessedIds.length === 0) {
+            return {
+                success: false,
+                error: 'Failed to make progress while merging operations'
+            };
+        }
+
+        workingIndex.lastUpdated = Date.now();
+        workingIndex.totalCount = workingIndex.files.length;
+        workingIndex.lastOperationId = batchProcessedIds[batchProcessedIds.length - 1];
+
+        const saveSuccess = await saveChunkedIndex(context, workingIndex);
+        if (!saveSuccess) {
+            console.error('Failed to save chunked index');
+            return {
+                success: false,
+                error: 'Failed to save index'
+            };
+        }
+
+        console.log(`Index updated: ${addedCount} added, ${updatedCount} updated, ${removedCount} removed, ${movedCount} moved`);
+
+        if (cleanupAfterMerge) {
+            await cleanupOperations(context, batchProcessedIds);
+        }
+
+        passes++;
+        if (isAllOperations) {
+            break;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    const result = {
+        success: true,
+        processedOperations: operationsProcessed,
+        addedCount,
+        updatedCount,
+        removedCount,
+        movedCount,
+        totalFiles: workingIndex.totalCount
+    };
+
+    console.log('Operations merge completed:', result);
+    return result;
+}
+
 export async function readIndex(context, options = {}) {
     try {
         const {
