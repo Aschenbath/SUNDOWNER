@@ -11294,12 +11294,16 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__barcode {
   display: flex;
-  width: 100%;
+  width: calc(100% - 6px);
   align-items: flex-end;
-  gap: 1px;
-  height: 40px;
-  padding: 0 2px;
-  opacity: 1;
+  gap: 1.5px;
+  height: 28px;
+  justify-self: center;
+  padding: 3px 7px 4px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.94), rgba(246, 247, 244, 0.98) 52%, rgba(255, 255, 255, 0.93)),
+    repeating-linear-gradient(0deg, rgba(20, 20, 20, 0.035) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar {
@@ -11307,7 +11311,8 @@ body.codex-media-library-active #app {
   max-width: 5px;
   height: 100%;
   border-radius: 0;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(5, 6, 7, 0.88);
+  opacity: 0.92;
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar.is-narrow {
