@@ -11240,6 +11240,17 @@ body.codex-media-library-active #app {
     );
 }
 
+#codex-media-library-root .cml-film-card__rating.is-pending::before {
+  background:
+    radial-gradient(circle, rgba(7, 8, 10, 0.96) 0 66%, transparent 67%),
+    conic-gradient(
+      from -28deg,
+      rgba(118, 125, 138, 0.12) 0deg 18deg,
+      rgba(118, 125, 138, 0.5) 18deg 324deg,
+      rgba(118, 125, 138, 0.24) 324deg 360deg
+    );
+}
+
 #codex-media-library-root .cml-film-card__rating-value {
   position: relative;
   z-index: 1;
@@ -11247,6 +11258,11 @@ body.codex-media-library-active #app {
   font-size: 28px;
   font-weight: 800;
   line-height: 1;
+}
+
+#codex-media-library-root .cml-film-card__rating.is-pending .cml-film-card__rating-value {
+  color: rgba(230, 234, 242, 0.72);
+  font-size: 23px;
 }
 
 #codex-media-library-root .cml-film-card__rating-label {

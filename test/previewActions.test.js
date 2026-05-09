@@ -106,11 +106,13 @@ describe('media library download actions', () => {
     assert.match(html, /cml-film-card__footer-spotlight/);
     assert.match(html, /cml-film-card__director/);
     assert.match(html, /James Cameron/);
+    assert.match(html, /cml-film-card__rating is-pending/);
+    assert.match(html, />待<\/span>/);
     assert.doesNotMatch(html, /TMDB #000042/);
     assert.doesNotMatch(html, /cml-film-card__barcode/);
   });
 
-  it('does not render TMDb scores as saved film card rating rings', () => {
+  it('keeps saved film card rating rings user-controlled instead of using TMDb scores', () => {
     const html = FilmCard({
       id: 'tmdb-42',
       tmdbId: 42,
@@ -126,7 +128,8 @@ describe('media library download actions', () => {
 
     assert.match(html, /Director/);
     assert.match(html, /James Cameron/);
-    assert.doesNotMatch(html, /cml-film-card__rating/);
+    assert.match(html, /cml-film-card__rating is-pending/);
+    assert.match(html, />待<\/span>/);
     assert.doesNotMatch(html, /TMDb rating 9\.0/);
     assert.doesNotMatch(html, />9\.0<\/span>/);
   });

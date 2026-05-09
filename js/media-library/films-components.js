@@ -232,8 +232,7 @@ export function FilmCard(record = {}) {
   const runtime = formatRuntime(record.runtime);
   const watchedDate = record.status === 'watched' ? formatWatchedDate(record.watchedAt) : '';
   const ratingValue = formatUserRating(record.userRating ?? record.rating);
-  const hasFooterRating = Boolean(ratingValue);
-  const ratingLabel = hasFooterRating ? 'My rating' : '';
+  const ratingLabel = ratingValue ? 'My rating' : 'Not rated';
   const coverMeta = [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ');
   const infoItems = [
     renderFilmCardInfoItem('Release', [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ')),
@@ -267,12 +266,10 @@ export function FilmCard(record = {}) {
                 <strong class="cml-film-card__director-value">${escapeHtml(directorLine)}</strong>
               </div>
             ` : ''}
-            ${hasFooterRating ? `
-              <div class="cml-film-card__rating" aria-label="${escapeHtml(ratingLabel)} ${escapeHtml(ratingValue)}">
-                <span class="cml-film-card__rating-value">${escapeHtml(ratingValue)}</span>
+            <div class="cml-film-card__rating ${ratingValue ? '' : 'is-pending'}" aria-label="${escapeHtml(ratingLabel)} ${escapeHtml(ratingValue || 'pending')}">
+                <span class="cml-film-card__rating-value">${escapeHtml(ratingValue || '待')}</span>
                 <span class="cml-film-card__rating-label">${escapeHtml(ratingLabel)}</span>
               </div>
-            ` : ''}
           </div>
         </footer>
       </div>

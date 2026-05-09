@@ -145,6 +145,23 @@ describe('MovieRepository', () => {
     assert.equal(list[0].movie.director, 'James Cameron');
   });
 
+  it('preserves cached directors when saving user rating updates with partial movie payloads', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, { db, client: {} });
+    await db.put('manage@sysConfig@movieCache@42', JSON.stringify(createMovie({ director: 'James Cameron' })));
+
+    const result = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      userRating: 5,
+      movie: createMovie({ director: '' }),
+    });
+
+    const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
+    assert.equal(result.movie.director, 'James Cameron');
+    assert.equal(cachedMovie.director, 'James Cameron');
+  });
+
   it('validates five-star half-step user ratings and allows clearing them', async () => {
     const db = new MemoryDB();
     const repository = new MovieRepository({}, {

@@ -195,7 +195,12 @@ export class MovieRepository {
 
     let movie = null;
     if (input.movie) {
-      movie = await putMovieCache(db, input.movie, timestamp);
+      const existingMovie = await getRawMovieCache(db, tmdbId);
+      movie = await putMovieCache(db, {
+        ...(existingMovie || {}),
+        ...input.movie,
+        director: normalizeText(input.movie.director) || normalizeText(existingMovie?.director),
+      }, timestamp);
     } else {
       movie = await this.getMovieDetail(tmdbId);
     }
