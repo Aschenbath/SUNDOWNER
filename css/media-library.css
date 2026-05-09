@@ -11406,7 +11406,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-detail-page__backdrop {
   position: absolute;
   inset: 0 0 0 auto;
-  width: 62%;
+  width: 60%;
   height: 100%;
   overflow: visible;
   border-radius: inherit;
@@ -11416,20 +11416,20 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-detail-page__backdrop::before {
   content: '';
   position: absolute;
-  left: -18%;
-  top: -8%;
+  left: -14%;
+  top: -6%;
   z-index: 2;
-  width: 52%;
-  height: 116%;
+  width: 42%;
+  height: 112%;
   background:
     linear-gradient(
       90deg,
       #0b0f14 0%,
-      rgba(11, 15, 20, 0.94) 24%,
-      rgba(11, 15, 20, 0.62) 58%,
+      rgba(11, 15, 20, 0.60) 36%,
       rgba(11, 15, 20, 0.10) 100%
     );
-  filter: blur(28px);
+  filter: blur(20px);
+  opacity: 0.66;
 }
 
 #codex-media-library-root .cml-film-detail-page__backdrop::after {
@@ -11440,19 +11440,21 @@ body.codex-media-library-active #app {
   background:
     linear-gradient(
       90deg,
-      #10141b 0%,
-      rgba(16, 20, 27, 0.94) 16%,
-      rgba(16, 20, 27, 0.72) 34%,
-      rgba(16, 20, 27, 0.34) 58%,
-      rgba(16, 20, 27, 0.24) 74%,
-      rgba(8, 10, 14, 0.46) 100%
+      rgba(16, 20, 27, 0.88) 0%,
+      rgba(16, 20, 27, 0.70) 12%,
+      rgba(16, 20, 27, 0.42) 26%,
+      rgba(16, 20, 27, 0.16) 44%,
+      rgba(16, 20, 27, 0.04) 58%,
+      rgba(16, 20, 27, 0.00) 68%,
+      rgba(16, 20, 27, 0.06) 84%,
+      rgba(8, 10, 14, 0.18) 100%
     ),
     linear-gradient(
       180deg,
-      rgba(8, 10, 14, 0.16) 0%,
-      rgba(8, 10, 14, 0.08) 18%,
-      rgba(8, 10, 14, 0.22) 58%,
-      rgba(8, 10, 14, 0.68) 100%
+      rgba(8, 10, 14, 0.05) 0%,
+      rgba(8, 10, 14, 0.00) 18%,
+      rgba(8, 10, 14, 0.05) 70%,
+      rgba(8, 10, 14, 0.26) 100%
     );
 }
 
@@ -11465,25 +11467,25 @@ body.codex-media-library-active #app {
   height: 110%;
   object-fit: cover;
   object-position: center right;
-  opacity: 0.46;
-  filter: saturate(0.9) contrast(1.05) brightness(0.78) blur(0.8px);
+  opacity: 0.58;
+  filter: saturate(0.94) contrast(1.03) brightness(0.88) blur(0.15px);
   -webkit-mask-image:
     linear-gradient(
       to right,
       transparent 0%,
-      rgba(0, 0, 0, 0.06) 9%,
-      rgba(0, 0, 0, 0.28) 22%,
-      rgba(0, 0, 0, 0.68) 38%,
-      rgba(0, 0, 0, 0.94) 56%,
+      rgba(0, 0, 0, 0.06) 10%,
+      rgba(0, 0, 0, 0.22) 22%,
+      rgba(0, 0, 0, 0.56) 36%,
+      rgba(0, 0, 0, 0.86) 54%,
       #000 76%
     ),
     linear-gradient(
       to bottom,
       transparent 0%,
-      rgba(0, 0, 0, 0.72) 11%,
-      #000 27%,
-      #000 76%,
-      rgba(0, 0, 0, 0.78) 90%,
+      rgba(0, 0, 0, 0.68) 10%,
+      #000 26%,
+      #000 78%,
+      rgba(0, 0, 0, 0.66) 90%,
       transparent 100%
     );
   -webkit-mask-composite: source-in;
@@ -11491,19 +11493,19 @@ body.codex-media-library-active #app {
     linear-gradient(
       to right,
       transparent 0%,
-      rgba(0, 0, 0, 0.06) 9%,
-      rgba(0, 0, 0, 0.28) 22%,
-      rgba(0, 0, 0, 0.68) 38%,
-      rgba(0, 0, 0, 0.94) 56%,
+      rgba(0, 0, 0, 0.06) 10%,
+      rgba(0, 0, 0, 0.22) 22%,
+      rgba(0, 0, 0, 0.56) 36%,
+      rgba(0, 0, 0, 0.86) 54%,
       #000 76%
     ),
     linear-gradient(
       to bottom,
       transparent 0%,
-      rgba(0, 0, 0, 0.72) 11%,
-      #000 27%,
-      #000 76%,
-      rgba(0, 0, 0, 0.78) 90%,
+      rgba(0, 0, 0, 0.68) 10%,
+      #000 26%,
+      #000 78%,
+      rgba(0, 0, 0, 0.66) 90%,
       transparent 100%
     );
   mask-composite: intersect;
