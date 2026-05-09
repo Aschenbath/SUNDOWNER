@@ -90,6 +90,23 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-film-card__eyebrow/);
   });
 
+  it('renders saved film card footers as barcode-only ticket stubs', () => {
+    const html = FilmCard({
+      id: 'tmdb-42',
+      tmdbId: 42,
+      title: 'Movie',
+      originalTitle: 'Movie',
+      status: 'watched',
+      year: '2026',
+      runtime: 121,
+      posterPath: '/poster.jpg',
+    });
+
+    assert.match(html, /cml-film-card__barcode/);
+    assert.doesNotMatch(html, /Archive note/i);
+    assert.equal((html.match(/cml-film-card__barcode-bar/g) || []).length, 46);
+  });
+
   it('renders saving state for movie add actions', () => {
     const html = FilmSearchResults({
       query: 'Movie',

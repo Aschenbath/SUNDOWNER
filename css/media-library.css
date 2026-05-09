@@ -11133,9 +11133,9 @@ body.codex-media-library-active #app {
   right: 0;
   bottom: -1px;
   z-index: 1;
-  height: 15px;
+  height: 18px;
   background:
-    radial-gradient(circle at 8px 15px, var(--cml-film-cutout-bg) 0 7px, transparent 7.4px) 0 0 / 18px 15px repeat-x;
+    radial-gradient(circle at 10px 18px, var(--cml-film-cutout-bg) 0 9px, transparent 9.4px) 0 0 / 21px 18px repeat-x;
   pointer-events: none;
 }
 
@@ -11281,51 +11281,45 @@ body.codex-media-library-active #app {
   position: relative;
   z-index: 2;
   display: grid;
-  gap: 13px;
-  padding: 0 18px 24px;
+  gap: 18px;
+  padding: 0 18px 28px;
   margin-top: auto;
 }
 
 #codex-media-library-root .cml-film-card__perforation {
-  height: 1px;
-  background-image: radial-gradient(circle, rgba(232, 236, 242, 0.24) 1px, transparent 1.1px);
-  background-size: 8px 1px;
-  background-repeat: repeat-x;
-  background-position: center;
-}
-
-#codex-media-library-root .cml-film-card__footer-row {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
+  height: 2px;
+  background-image: repeating-linear-gradient(90deg, rgba(244, 246, 250, 0.9) 0 10px, transparent 10px 18px);
+  opacity: 0.78;
 }
 
 #codex-media-library-root .cml-film-card__barcode {
   display: flex;
+  width: 100%;
   align-items: flex-end;
-  gap: 2px;
-  height: 32px;
-  opacity: 0.96;
+  gap: 1px;
+  height: 40px;
+  padding: 0 2px;
+  opacity: 1;
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar {
-  width: 4px;
+  flex: 1 0 2px;
+  max-width: 5px;
   height: 100%;
   border-radius: 0;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 #codex-media-library-root .cml-film-card__barcode-bar.is-narrow {
-  width: 1px;
+  flex-grow: 0.45;
+}
+
+#codex-media-library-root .cml-film-card__barcode-bar.is-wide {
+  flex-grow: 1.75;
 }
 
 #codex-media-library-root .cml-film-card__footer-copy {
-  color: rgba(195, 201, 211, 0.48);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  display: none;
 }
 
 #codex-media-library-root .cml-film-card:hover,

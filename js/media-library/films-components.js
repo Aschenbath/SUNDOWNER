@@ -152,9 +152,10 @@ function renderFilmCardInfoItem(label, value) {
 }
 
 function buildCardBarcode() {
-  return Array.from({ length: 14 }, (_, index) => {
-    const narrow = index % 4 === 1 || index % 5 === 3 ? 'is-narrow' : '';
-    return `<span class="cml-film-card__barcode-bar ${narrow}"></span>`;
+  return Array.from({ length: 46 }, (_, index) => {
+    const narrow = index % 3 === 0 || index % 7 === 2 ? 'is-narrow' : '';
+    const wide = index % 11 === 5 ? 'is-wide' : '';
+    return `<span class="cml-film-card__barcode-bar ${narrow} ${wide}"></span>`;
   }).join('');
 }
 
@@ -253,10 +254,7 @@ export function FilmCard(record = {}) {
         </div>
         <footer class="cml-film-card__footer" aria-hidden="true">
           <div class="cml-film-card__perforation"></div>
-          <div class="cml-film-card__footer-row">
-            <div class="cml-film-card__barcode">${buildCardBarcode()}</div>
-            <span class="cml-film-card__footer-copy">Archive note</span>
-          </div>
+          <div class="cml-film-card__barcode">${buildCardBarcode()}</div>
         </footer>
       </div>
     </article>
