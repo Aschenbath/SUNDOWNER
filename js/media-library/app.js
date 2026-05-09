@@ -68,10 +68,9 @@ import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
 import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js';
 import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
-  FILM_FILTERS,
-  mockFilmRecords
+  FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=8';
+import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=9';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -426,7 +425,7 @@ const state = {
   docsMoveCreateOpen: false,
   docsMoveCreateName: '',
   docsContextMenu: null,
-  films: mockFilmRecords.slice(),
+  films: [],
   activeFilmId: '',
   filmDetailOpen: false,
   filmSearchQuery: '',
@@ -8358,11 +8357,7 @@ function applyMovieEntries(entries = []) {
   const remoteRecords = (Array.isArray(entries) ? entries : [])
     .map((item) => item?.movie ? normalizeMovieRecord(item.movie, item.entry) : null)
     .filter(Boolean);
-  const remoteIds = new Set(remoteRecords.map((record) => record.id));
-  state.films = [
-    ...remoteRecords,
-    ...mockFilmRecords.filter((record) => !remoteIds.has(record.id))
-  ];
+  state.films = remoteRecords;
 }
 
 async function loadMovieEntries({ forceRender = false } = {}) {

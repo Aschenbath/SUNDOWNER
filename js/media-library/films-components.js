@@ -75,6 +75,15 @@ function buildTmdbImageUrl(path, size = 'w342') {
   return `https://image.tmdb.org/t/p/${size}${normalized.startsWith('/') ? normalized : `/${normalized}`}`;
 }
 
+function renderPosterFallback(title = '') {
+  const label = normalizeText(title || 'Film').slice(0, 28) || 'Film';
+  return `
+    <div class="cml-films-poster-fallback" aria-hidden="true">
+      <span>${escapeHtml(label)}</span>
+    </div>
+  `;
+}
+
 function getRecordPosterUrl(record = {}) {
   return record.posterUrl || buildTmdbImageUrl(record.posterPath, 'w342') || '';
 }
@@ -324,13 +333,19 @@ export function FilmsPage({ records = [], activeFilter = 'All', searchQuery = ''
       <div class="cml-films-page__content">
         ${sections.length
           ? sections.map((section) => FilmTimelineSection(section)).join('')
-          : '<div class="cml-films-empty">No films yet.</div>'}
+          : `
+            <section class="cml-films-empty">
+              <p class="cml-films-empty__eyebrow">Start from TMDb</p>
+              <h2 class="cml-films-empty__title">No saved films yet.</h2>
+              <p class="cml-films-empty__copy">Search a title above, then save a TMDb result as 想看 or 看过. Only movies you save will appear in this diary.</p>
+            </section>
+          `}
       </div>
     </section>
   `;
 }
 
-export function FilmSearchResults({ results = [], loading = false, error = '', query = '' } = {}) {
+function LegacyFilmSearchResults({ results = [], loading = false, error = '', query = '' } = {}) {
   const normalizedQuery = normalizeText(query);
   if (!normalizedQuery && !results.length && !error) {
     return '';
@@ -360,6 +375,51 @@ export function FilmSearchResults({ results = [], loading = false, error = '', q
             </div>
           </article>
         `).join('') : `<p class="cml-films-mvp__empty">${loading ? 'Contacting TMDb...' : 'No search results yet.'}</p>`}
+      </div>
+    </section>
+  `;
+}
+
+export function FilmSearchResults({ results = [], loading = false, error = '', query = '' } = {}) {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery && !results.length && !error) {
+    return '';
+  }
+  const friendlyError = error && /TMDb access token is not configured/i.test(error)
+    ? 'TMDb credentials are not configured. Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables, then redeploy.'
+    : error && /TMDb credentials are not configured/i.test(error)
+    ? 'TMDb credentials are not configured. Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables, then redeploy.'
+    : error;
+  const resultCards = results.length ? results.map((movie) => `
+    <article class="cml-films-result" data-action="open-tmdb-film-detail" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}">
+      <div class="cml-films-result__poster-wrap">
+        ${movie.posterPath
+          ? `<img class="cml-films-result__poster" src="${escapeHtml(buildTmdbImageUrl(movie.posterPath, 'w342'))}" alt="${escapeHtml(movie.title || 'Movie poster')}" loading="lazy" decoding="async" />`
+          : renderPosterFallback(movie.title)}
+      </div>
+      <div class="cml-films-result__body">
+        <p class="cml-films-result__source">TMDb result</p>
+        <h3 class="cml-films-result__title">${escapeHtml(movie.title || 'Untitled film')}</h3>
+        <p class="cml-films-result__meta">${escapeHtml([movie.releaseDate ? String(movie.releaseDate).slice(0, 4) : '', movie.voteAverage ? `TMDb ${Number(movie.voteAverage).toFixed(1)}` : ''].filter(Boolean).join(' · '))}</p>
+        ${movie.overview ? `<p class="cml-films-result__overview">${escapeHtml(movie.overview)}</p>` : ''}
+        <div class="cml-films-result__actions">
+          <button type="button" class="cml-films-result__button" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}">想看</button>
+          <button type="button" class="cml-films-result__button cml-films-result__button--primary" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}">看过</button>
+        </div>
+      </div>
+    </article>
+  `).join('') : `<p class="cml-films-mvp__empty">${loading ? 'Contacting TMDb...' : 'No search results yet.'}</p>`;
+  return `
+    <section class="cml-films-mvp">
+      <div class="cml-films-mvp__head">
+        <div>
+          <p class="cml-films-mvp__eyebrow">TMDb search</p>
+          <h2 class="cml-films-mvp__title">${loading ? 'Searching...' : 'Add from TMDb'}</h2>
+        </div>
+        ${friendlyError ? `<p class="cml-films-mvp__error">${escapeHtml(friendlyError)}</p>` : ''}
+      </div>
+      <div class="cml-films-mvp__results">
+        ${resultCards}
       </div>
     </section>
   `;

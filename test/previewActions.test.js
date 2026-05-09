@@ -19,7 +19,28 @@ describe('media library download actions', () => {
     assert.match(html, /data-form="films-search"/);
     assert.match(html, /type="submit" class="cml-films-page__add-button"/);
     assert.match(html, /Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables/);
+    assert.match(html, /No saved films yet/);
     assert.ok(html.indexOf('cml-films-mvp') < html.indexOf('cml-films-filters'));
+    assert.ok(html.indexOf('cml-films-filters') < html.indexOf('cml-films-empty'));
+  });
+
+  it('renders TMDb results as addable movie cards', () => {
+    const html = FilmSearchResults({
+      query: 'Inception',
+      results: [{
+        tmdbId: 27205,
+        title: 'Inception',
+        posterPath: '/poster.jpg',
+        releaseDate: '2010-07-16',
+        voteAverage: 8.4,
+        overview: 'A thief who steals corporate secrets through dream-sharing technology.',
+      }],
+    });
+
+    assert.match(html, /cml-films-result__poster-wrap/);
+    assert.match(html, /data-action="open-tmdb-film-detail"/);
+    assert.match(html, /data-action="save-film-status" data-watch-status="wantToWatch"/);
+    assert.match(html, /data-action="save-film-status" data-watch-status="watched"/);
   });
 
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
