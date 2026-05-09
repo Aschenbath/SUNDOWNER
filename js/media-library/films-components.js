@@ -1,4 +1,4 @@
-import { FILM_FILTERS, FILM_STATUS_LABELS, getFilmRatingLabel } from './films-data.js?v=3';
+import { FILM_FILTERS, FILM_STATUS_LABELS, getFilmRatingLabel } from './films-data.js?v=4';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -62,6 +62,21 @@ function formatRuntime(value) {
     return `${rest} min`;
   }
   return `${hours}h ${String(rest).padStart(2, '0')}m`;
+}
+
+function buildTmdbImageUrl(path, size = 'w342') {
+  const normalized = normalizeText(path);
+  if (!normalized) {
+    return '';
+  }
+  if (/^https?:\/\//i.test(normalized) || normalized.startsWith('data:')) {
+    return normalized;
+  }
+  return `https://image.tmdb.org/t/p/${size}${normalized.startsWith('/') ? normalized : `/${normalized}`}`;
+}
+
+function getRecordPosterUrl(record = {}) {
+  return record.posterUrl || buildTmdbImageUrl(record.posterPath, 'w342') || '';
 }
 
 function groupFilmsByTimeline(records = []) {
@@ -158,7 +173,7 @@ export function FilmCard(record = {}) {
   return `
     <article class="cml-film-card" data-film-id="${escapeHtml(record.id || '')}" data-action="open-film-detail" tabindex="0" role="button" aria-label="Open ${escapeHtml(localTitle)} details">
       <div class="cml-film-card__poster-panel">
-        <img class="cml-film-card__poster" src="${escapeHtml(record.posterUrl || '')}" alt="${escapeHtml(localTitle)}" loading="eager" decoding="async" />
+        <img class="cml-film-card__poster" src="${escapeHtml(getRecordPosterUrl(record))}" alt="${escapeHtml(localTitle)}" loading="eager" decoding="async" />
         <div class="cml-film-card__cover-top">
           <span class="cml-film-card__cover-kicker">Movie diary</span>
           ${coverMeta ? `<span class="cml-film-card__cover-chip">${escapeHtml(coverMeta)}</span>` : ''}
@@ -226,6 +241,7 @@ export function FilmDetailModal({ record = null } = {}) {
   const genres = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' · ') : '';
   const localeLine = [record.country, record.language].filter(Boolean).join(' · ');
   const runtime = formatRuntime(record.runtime);
+  const canSaveEntry = Boolean(record.tmdbId);
   const barcodeBars = Array.from({ length: 22 }, (_, index) => {
     const narrow = index % 3 === 0 ? 'is-narrow' : '';
     return `<span class="cml-film-ticket__barcode-bar ${narrow}"></span>`;
@@ -236,7 +252,7 @@ export function FilmDetailModal({ record = null } = {}) {
       <article class="cml-film-ticket" role="dialog" aria-modal="true" aria-label="${escapeHtml(localTitle)} film details">
         <button type="button" class="cml-film-ticket__close" data-action="close-film-detail" aria-label="Close film detail">×</button>
         <div class="cml-film-ticket__hero">
-          <img class="cml-film-ticket__poster" src="${escapeHtml(record.posterUrl || '')}" alt="${escapeHtml(localTitle)}" />
+          <img class="cml-film-ticket__poster" src="${escapeHtml(getRecordPosterUrl(record))}" alt="${escapeHtml(localTitle)}" />
           <div class="cml-film-ticket__hero-copy">
             <span class="cml-film-ticket__badge">${escapeHtml(statusLabel)}</span>
             <h2 class="cml-film-ticket__title">${escapeHtml(localTitle)}</h2>
@@ -265,6 +281,10 @@ export function FilmDetailModal({ record = null } = {}) {
             <p class="cml-film-ticket__journal">${escapeHtml(record.journal)}</p>
           </section>
         ` : ''}
+        ${canSaveEntry ? `<div class="cml-film-ticket__actions">
+          <button type="button" class="cml-film-ticket__action" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(record.tmdbId || '')}">加入想看</button>
+          <button type="button" class="cml-film-ticket__action cml-film-ticket__action--primary" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(record.tmdbId || '')}">标记看过</button>
+        </div>` : ''}
         <footer class="cml-film-ticket__footer" aria-hidden="true">
           <div class="cml-film-ticket__barcode">${barcodeBars}</div>
           <p class="cml-film-ticket__footer-copy">SUNDOWNER FILM DIARY</p>
@@ -288,9 +308,9 @@ export function FilmsPage({ records = [], activeFilter = 'All', searchQuery = ''
         <div class="cml-films-page__hero-actions">
           <label class="cml-films-search" aria-label="Search films">
             <span class="cml-films-search__icon">⌕</span>
-            <input type="search" class="cml-films-search__input" value="${searchValue}" placeholder="Search films / notes..." readonly />
+            <input type="search" class="cml-films-search__input" data-films-search-input value="${searchValue}" placeholder="Search TMDb movies..." />
           </label>
-          <button type="button" class="cml-films-page__add-button" disabled aria-disabled="true">+ Add film</button>
+          <button type="button" class="cml-films-page__add-button" data-action="search-films">Search</button>
         </div>
       </header>
       <div class="cml-films-filters" role="tablist" aria-label="Film filters">
@@ -304,6 +324,36 @@ export function FilmsPage({ records = [], activeFilter = 'All', searchQuery = ''
         ${sections.length
           ? sections.map((section) => FilmTimelineSection(section)).join('')
           : '<div class="cml-films-empty">No films yet.</div>'}
+      </div>
+    </section>
+  `;
+}
+
+export function FilmSearchResults({ results = [], loading = false, error = '', query = '' } = {}) {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery && !results.length && !error) {
+    return '';
+  }
+  return `
+    <section class="cml-films-mvp">
+      <div class="cml-films-mvp__head">
+        <div>
+          <p class="cml-films-mvp__eyebrow">TMDb MVP</p>
+          <h2 class="cml-films-mvp__title">${loading ? 'Searching...' : 'Search results'}</h2>
+        </div>
+        ${error ? `<p class="cml-films-mvp__error">${escapeHtml(error)}</p>` : ''}
+      </div>
+      <div class="cml-films-mvp__results">
+        ${results.length ? results.map((movie) => `
+          <article class="cml-films-result" data-action="open-tmdb-film-detail" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}">
+            <img class="cml-films-result__poster" src="${escapeHtml(buildTmdbImageUrl(movie.posterPath, 'w185'))}" alt="${escapeHtml(movie.title || 'Movie poster')}" loading="lazy" decoding="async" />
+            <div class="cml-films-result__body">
+              <h3 class="cml-films-result__title">${escapeHtml(movie.title || 'Untitled film')}</h3>
+              <p class="cml-films-result__meta">${escapeHtml([movie.releaseDate ? String(movie.releaseDate).slice(0, 4) : '', movie.voteAverage ? `TMDb ${Number(movie.voteAverage).toFixed(1)}` : ''].filter(Boolean).join(' · '))}</p>
+              ${movie.overview ? `<p class="cml-films-result__overview">${escapeHtml(movie.overview)}</p>` : ''}
+            </div>
+          </article>
+        `).join('') : `<p class="cml-films-mvp__empty">${loading ? 'Contacting TMDb...' : 'No search results yet.'}</p>`}
       </div>
     </section>
   `;

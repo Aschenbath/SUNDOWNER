@@ -45,8 +45,11 @@ export const FILM_FILTERS = ['All', 'Watched', 'Watching', 'Watchlist', 'Favorit
 
 export const FILM_STATUS_LABELS = {
   watchlist: '想看',
+  wantToWatch: '想看',
   watching: '在看',
-  watched: '已看'
+  watched: '已看',
+  paused: 'Paused',
+  dropped: 'Dropped'
 };
 
 export function getFilmRatingLabel(rating) {

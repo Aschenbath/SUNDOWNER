@@ -1,0 +1,82 @@
+import assert from 'node:assert/strict';
+
+import { onRequest } from '../functions/api/manage/movies.js';
+
+class MemoryKV {
+  constructor() {
+    this.store = new Map();
+  }
+
+  async get(key) {
+    return this.store.has(key) ? this.store.get(key) : null;
+  }
+
+  async put(key, value) {
+    this.store.set(key, String(value));
+  }
+
+  async delete(key) {
+    this.store.delete(key);
+  }
+
+  async getWithMetadata(key) {
+    return { value: await this.get(key), metadata: null };
+  }
+
+  async list() {
+    return { keys: [], list_complete: true, cursor: '' };
+  }
+}
+
+describe('manage movies route', () => {
+  it('returns a clear 503 when searching without TMDb token', async () => {
+    const response = await onRequest({
+      request: new Request('https://example.com/api/manage/movies?action=search&q=yi+yi'),
+      env: { img_url: new MemoryKV() },
+    });
+
+    const payload = await response.json();
+    assert.equal(response.status, 503);
+    assert.match(payload.error, /TMDb access token is not configured/);
+  });
+
+  it('lists locally saved movie entries', async () => {
+    const env = { img_url: new MemoryKV() };
+    await env.img_url.put('manage@sysConfig@movieCache@42', JSON.stringify({
+      tmdbId: 42,
+      title: 'Movie',
+      originalTitle: 'Movie',
+      overview: '',
+      posterPath: '',
+      backdropPath: '',
+      releaseDate: '2026-01-01',
+      runtime: 100,
+      genres: ['Drama'],
+      voteAverage: 7,
+      updatedAt: new Date().toISOString(),
+    }));
+    await env.img_url.put('manage@sysConfig@userMovieEntries', JSON.stringify([{
+      id: 'tmdb-42',
+      tmdbId: 42,
+      watchStatus: 'watched',
+      userRating: 8,
+      note: 'local only',
+      tags: [],
+      isFavorite: false,
+      watchedAt: '2026-05-09',
+      createdAt: '2026-05-09T00:00:00.000Z',
+      updatedAt: '2026-05-09T00:00:00.000Z',
+    }]));
+
+    const response = await onRequest({
+      request: new Request('https://example.com/api/manage/movies?action=entries&status=watched'),
+      env,
+    });
+
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(payload.entries.length, 1);
+    assert.equal(payload.entries[0].entry.note, 'local only');
+    assert.equal(payload.entries[0].movie.title, 'Movie');
+  });
+});

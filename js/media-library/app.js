@@ -70,8 +70,8 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS,
   mockFilmRecords
-} from './films-data.js?v=3';
-import { FilmDetailModal, FilmsPage } from './films-components.js?v=7';
+} from './films-data.js?v=4';
+import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=8';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -428,7 +428,11 @@ const state = {
   docsContextMenu: null,
   films: mockFilmRecords.slice(),
   activeFilmId: '',
-  filmDetailOpen: false
+  filmDetailOpen: false,
+  filmSearchQuery: '',
+  filmSearchResults: [],
+  filmSearchLoading: false,
+  filmError: ''
 };
 
 let dimensionPatchTimer = 0;
@@ -8307,6 +8311,134 @@ function getActiveFilmRecord() {
   return state.films.find((record) => record.id === state.activeFilmId) || null;
 }
 
+function normalizeMovieRecord(movie = {}, entry = null) {
+  const releaseYear = String(movie.releaseDate || '').slice(0, 4);
+  const watchStatus = entry?.watchStatus || 'watchlist';
+  const status = watchStatus === 'wantToWatch' ? 'watchlist' : watchStatus;
+  return {
+    id: `tmdb-${movie.tmdbId}`,
+    tmdbId: movie.tmdbId,
+    title: movie.title || movie.originalTitle || 'Untitled film',
+    localTitle: movie.title || movie.originalTitle || 'Untitled film',
+    originalTitle: movie.originalTitle || movie.title || '',
+    year: releaseYear,
+    status,
+    favorite: Boolean(entry?.isFavorite),
+    rating: entry?.userRating ?? movie.voteAverage ?? null,
+    note: entry?.note || movie.overview || '',
+    journal: '',
+    watchedAt: entry?.watchedAt || '',
+    addedAt: entry?.createdAt || movie.updatedAt || '',
+    director: '',
+    genres: Array.isArray(movie.genres) ? movie.genres : [],
+    country: '',
+    language: '',
+    runtime: movie.runtime,
+    posterPath: movie.posterPath,
+    backdropPath: movie.backdropPath,
+    voteAverage: movie.voteAverage
+  };
+}
+
+function applyMovieEntries(entries = []) {
+  const remoteRecords = (Array.isArray(entries) ? entries : [])
+    .map((item) => item?.movie ? normalizeMovieRecord(item.movie, item.entry) : null)
+    .filter(Boolean);
+  const remoteIds = new Set(remoteRecords.map((record) => record.id));
+  state.films = [
+    ...remoteRecords,
+    ...mockFilmRecords.filter((record) => !remoteIds.has(record.id))
+  ];
+}
+
+async function loadMovieEntries({ forceRender = false } = {}) {
+  try {
+    const payload = await fetchJson('/api/manage/movies?action=entries');
+    applyMovieEntries(payload?.entries || []);
+    state.filmError = '';
+    if (forceRender) {
+      render();
+    }
+  } catch (error) {
+    state.filmError = error.message || 'Failed to load local film list';
+    if (forceRender) {
+      render();
+    }
+  }
+}
+
+async function searchFilms() {
+  const query = normalizeText(state.filmSearchQuery);
+  if (!query) {
+    state.filmSearchResults = [];
+    state.filmError = '';
+    render();
+    return;
+  }
+  state.filmSearchLoading = true;
+  state.filmError = '';
+  render();
+  try {
+    const payload = await fetchJson(`/api/manage/movies?action=search&q=${encodeURIComponent(query)}`);
+    state.filmSearchResults = Array.isArray(payload?.results) ? payload.results : [];
+  } catch (error) {
+    state.filmSearchResults = [];
+    state.filmError = error.message || 'TMDb search failed';
+  } finally {
+    state.filmSearchLoading = false;
+    render();
+  }
+}
+
+async function openTmdbFilmDetail(tmdbId) {
+  const normalizedId = Number(tmdbId);
+  if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+    return;
+  }
+  try {
+    const payload = await fetchJson(`/api/manage/movies?action=detail&tmdbId=${encodeURIComponent(String(normalizedId))}`);
+    const record = normalizeMovieRecord(payload?.movie || {});
+    state.films = [
+      record,
+      ...state.films.filter((item) => item.id !== record.id)
+    ];
+    state.activeFilmId = record.id;
+    state.filmDetailOpen = true;
+    state.filmError = '';
+    render();
+  } catch (error) {
+    state.filmError = error.message || 'Failed to load movie detail';
+    render();
+  }
+}
+
+async function saveFilmStatus(tmdbId, watchStatus) {
+  const normalizedId = Number(tmdbId);
+  if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+    return;
+  }
+  try {
+    const payload = await postJson('/api/manage/movies', {
+      tmdbId: normalizedId,
+      watchStatus,
+      watchedAt: watchStatus === 'watched' ? new Date().toISOString().slice(0, 10) : ''
+    });
+    const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
+    state.films = [
+      record,
+      ...state.films.filter((item) => item.id !== record.id)
+    ];
+    state.activeFilmId = record.id;
+    state.filmDetailOpen = true;
+    state.filmError = '';
+    showToast(watchStatus === 'watched' ? 'Marked as watched' : 'Added to watchlist', 'success');
+    render();
+  } catch (error) {
+    state.filmError = error.message || 'Failed to save movie';
+    render();
+  }
+}
+
 function openFilmDetail(filmId) {
   const film = state.films.find((record) => record.id === filmId);
   if (!film) {
@@ -8710,7 +8842,12 @@ function render() {
                 ? FilmsPage({
                     records: state.films,
                     activeFilter: FILM_FILTERS[0],
-                    searchQuery: ''
+                    searchQuery: state.filmSearchQuery
+                  }) + FilmSearchResults({
+                    results: state.filmSearchResults,
+                    loading: state.filmSearchLoading,
+                    error: state.filmError,
+                    query: state.filmSearchQuery
                   })
                 : viewModel.isMusicView
                 ? `${MusicSummary({
@@ -9572,6 +9709,7 @@ function mount() {
   state.liveSyncAttempts = 0;
   void loadPersistedAlbumState({ forceRender: true });
   void loadPersistedPlaylistState({ forceRender: true });
+  void loadMovieEntries({ forceRender: true });
   if (state.primaryFilter === 'Mind') {
     void loadMindState({ forceRender: true, mirrorAfterLoad: true });
   }
@@ -11415,6 +11553,15 @@ function handleAction(actionTarget) {
     case 'close-film-detail':
       closeFilmDetail();
       return true;
+    case 'search-films':
+      void searchFilms();
+      return true;
+    case 'open-tmdb-film-detail':
+      void openTmdbFilmDetail(actionTarget.dataset.tmdbId);
+      return true;
+    case 'save-film-status':
+      void saveFilmStatus(actionTarget.dataset.tmdbId, actionTarget.dataset.watchStatus || 'wantToWatch');
+      return true;
     case 'preview-next':
       movePreview(1);
       return true;
@@ -11768,6 +11915,10 @@ function handleInput(event) {
     });
     return;
   }
+  if (input.hasAttribute('data-films-search-input')) {
+    state.filmSearchQuery = input.value;
+    return;
+  }
   if (input.dataset.focusKey === 'album-search') {
     state.albumDrawerSearch = input.value;
     if (!patchAlbumDialogSearchResults()) {
@@ -12086,6 +12237,14 @@ function handleKeyDown(event) {
       event.target.value = state.searchQuery;
       state.searchDraft = state.searchQuery;
       event.target.select();
+    }
+    return;
+  }
+
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-films-search-input')) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void searchFilms();
     }
     return;
   }
