@@ -60,6 +60,10 @@ function fileMetadataUnavailableResponse() {
     return new Response('File metadata is unavailable', { status: 500 });
 }
 
+function imageNotFoundResponse() {
+    return new Response('Error: Image Not Found', { status: 404 });
+}
+
 function isS3MissingObjectError(error) {
     return error?.$metadata?.httpStatusCode === 404
         || error?.name === 'NoSuchKey'
@@ -68,6 +72,18 @@ function isS3MissingObjectError(error) {
         || error?.name === 'NotFound'
         || error?.Code === 'NotFound'
         || error?.code === 'NotFound';
+}
+
+function resolveExternalRedirectUrl(externalLink) {
+    try {
+        const parsedUrl = new URL(String(externalLink || '').trim());
+        if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+            return null;
+        }
+        return parsedUrl.toString();
+    } catch {
+        return null;
+    }
 }
 
 function parseChunkMetadata(rawValue) {
@@ -252,7 +268,7 @@ export async function onRequest(context) {  // Contents of context object
     const db = getDatabase(env);
     const imgRecord = await db.getWithMetadata(fileId);
     if (!imgRecord) {
-        return new Response('Error: Image Not Found', { status: 404 });
+        return imageNotFoundResponse();
     }
 
     // 如果metadata不存在，只可能是之前未设置KV，且存储在Telegraph上的图片
@@ -302,7 +318,11 @@ export async function onRequest(context) {  // Contents of context object
     /* 外链渠道 */
     if (imgRecord.metadata?.Channel === 'External') {
         // 直接重定向到外链
-        return Response.redirect(imgRecord.metadata?.ExternalLink, 302);
+        const externalUrl = resolveExternalRedirectUrl(imgRecord.metadata?.ExternalLink);
+        if (!externalUrl) {
+            return imageNotFoundResponse();
+        }
+        return Response.redirect(externalUrl, 302);
     }
 
     /* Telegram及Telegraph渠道 */
@@ -792,7 +812,7 @@ async function handleR2File(context, fileId, encodedFileName, fileType) {
         }
 
         if (object === null) {
-            return new Response('Error: Image Not Found', { status: 404 });
+            return imageNotFoundResponse();
         }
 
         const headers = new Headers();
@@ -957,7 +977,7 @@ async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType) 
 
     } catch (error) {
         if (isS3MissingObjectError(error)) {
-            return new Response('Error: Image Not Found', { status: 404 });
+            return imageNotFoundResponse();
         }
 
         console.error('S3 fetch error:', error);
@@ -980,7 +1000,7 @@ async function handleDiscordFile(context, metadata, encodedFileName, fileType) {
         }
 
         if (!fileUrl) {
-            return new Response('Error: Image Not Found', { status: 404 });
+            return imageNotFoundResponse();
         }
 
         // 如果配置了代理 URL，替换 Discord CDN 域名
