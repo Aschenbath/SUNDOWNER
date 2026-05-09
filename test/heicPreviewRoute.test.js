@@ -103,4 +103,44 @@ describe('/file HEIC preview responses', () => {
     assert.match(response.headers.get('Content-Disposition') || '', /IMG_2038\.jpg/);
     assert.equal((await response.arrayBuffer()).byteLength, 4);
   });
+
+  it('returns 404 when the R2 object is missing even if metadata still exists', async () => {
+    const records = new Map([
+      ['photos/missing.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'missing.HEIC',
+          FileType: 'image/heic',
+          Channel: 'CloudflareR2',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      img_r2: {
+        async get() {
+          return null;
+        },
+      },
+    };
+
+    const response = await onRequest({
+      request: new Request('https://example.com/file/photos/missing.HEIC', {
+        headers: {
+          Referer: 'https://example.com/dashboard',
+        },
+      }),
+      env,
+      params: { path: 'photos/missing.HEIC' },
+      waitUntil() {},
+      next() {},
+      data: {},
+    });
+
+    assert.equal(response.status, 404);
+    assert.equal(await response.text(), 'Error: Image Not Found');
+  });
 });

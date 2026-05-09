@@ -770,7 +770,7 @@ async function handleR2File(context, fileId, encodedFileName, fileType) {
         }
 
         if (object === null) {
-            return new Response('Error: Failed to fetch file', { status: 500 });
+            return new Response('Error: Image Not Found', { status: 404 });
         }
 
         const headers = new Headers();
