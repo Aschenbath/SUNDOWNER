@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar, AlbumDialog } from '../js/media-library/components.js';
-import { FilmCard, FilmDetailModal, FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
+import { FilmCard, FilmDetailPage, FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
 
 describe('media library download actions', () => {
   it('renders Films search as a submit form and keeps TMDb feedback above the local film list', () => {
@@ -46,39 +46,44 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="save-film-status" data-watch-status="watched"/);
   });
 
-  it('renders film detail with separate TMDb and user ratings plus a half-star slider', () => {
-    const html = FilmDetailModal({
+  it('renders film detail as an inner Films page instead of a modal', () => {
+    const html = FilmDetailPage({
       record: {
         id: 'tmdb-42',
         tmdbId: 42,
-        title: 'Movie',
-        originalTitle: 'Movie',
+        title: 'Silence of the Sea',
+        originalTitle: 'Le silence de la mer',
         status: 'watched',
-        year: '2026',
-        runtime: 120,
-        userRating: 4.5,
-        watchedAt: '2026-05-08',
-        voteAverage: 8.2,
-        voteCount: 12345,
-        genres: ['Drama'],
+        year: '2004',
+        runtime: 100,
+        director: 'Pierre Boutron',
+        userRating: 5,
+        watchedAt: '2026-05-09',
+        voteAverage: 7.5,
+        voteCount: 38,
+        genres: ['Romance', 'Drama', 'War', 'TV Movie'],
+        note: 'In a small coastal town of Nazi-occupied France, an elderly man and his niece maintain absolute silence as an act of quiet resistance against the German officer billeted in their home.',
+        journal: 'A masterclass in restraint.',
+        posterPath: '/poster.jpg',
+        backdropPath: '/backdrop.jpg',
       },
     });
 
-    assert.match(html, /TMDb rating/);
-    assert.match(html, /TMDb 8\.2/);
-    assert.match(html, /My rating/);
-    assert.match(html, /4\.5 \/ 5\.0/);
-    assert.match(html, /--film-rating-fill: 90%/);
-    assert.match(html, /cml-film-ticket__section--rating/);
-    assert.match(html, /data-film-rating-input/);
-    assert.match(html, /data-film-rating-mood/);
-    assert.match(html, /min="0\.5" max="5" step="0\.5" value="4\.5"/);
-    assert.match(html, /data-action="clear-film-rating"/);
-    assert.match(html, /Watched date/);
-    assert.match(html, /data-film-watched-at-output/);
-    assert.match(html, /data-film-watched-at-input/);
-    assert.match(html, /value="2026-05-08"/);
-    assert.match(html, /data-action="save-film-watched-date"/);
+    assert.match(html, /cml-film-detail-page/);
+    assert.match(html, /data-film-detail-page/);
+    assert.match(html, /← Back to Films/);
+    assert.match(html, /Silence of the Sea/);
+    assert.match(html, /Le silence de la mer/);
+    assert.match(html, /Pierre Boutron/);
+    assert.match(html, /Romance \/ Drama \/ War \/ TV Movie/);
+    assert.match(html, /5\.0 \/ 5\.0/);
+    assert.match(html, /★ 7\.5 \(38\)/);
+    assert.match(html, /May 9, 2026/);
+    assert.match(html, /Synopsis/);
+    assert.match(html, /My notes/);
+    assert.match(html, /Save to Favourites/);
+    assert.doesNotMatch(html, /cml-film-modal/);
+    assert.doesNotMatch(html, /role="dialog"/);
   });
 
   it('keeps saved film card posters free of overlay labels', () => {

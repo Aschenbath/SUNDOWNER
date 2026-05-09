@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=20';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=21';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -9060,7 +9060,9 @@ function render() {
                     layoutWidth: state.layoutWidth
                   }))
                 : viewModel.isFilmsView
-                ? FilmsPage({
+                ? (state.filmDetailOpen && viewModel.filmRecord
+                  ? FilmDetailPage({ record: viewModel.filmRecord })
+                  : FilmsPage({
                     records: getVisibleFilmRecords(),
                     totalCount: state.films.length,
                     activeFilter: state.filmActiveFilter,
@@ -9072,7 +9074,7 @@ function render() {
                       query: state.filmSearchQuery,
                       savingTmdbIds: state.filmSavingTmdbIds
                     })
-                  })
+                  }))
                 : viewModel.isMusicView
                 ? `${MusicSummary({
                     totalCount: viewModel.musicItems.length,
@@ -9187,7 +9189,6 @@ function render() {
             })
           : ''}
       </div>
-      ${FilmDetailModal({ record: state.filmDetailOpen ? viewModel.filmRecord : null })}
       ${PreviewModal(getPreviewOverlayModel())}
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
       ${StoragePanel({ state, insights: storageInsights })}
@@ -11868,12 +11869,10 @@ function handleClick(event) {
   }
 
   if (state.filmDetailOpen && actionTarget instanceof HTMLElement && actionTarget.dataset.action === 'close-film-detail') {
-    if (event.target === actionTarget || event.target.closest('.cml-film-ticket__close')) {
-      event.preventDefault();
-      event.stopPropagation();
-      closeFilmDetail();
-      return;
-    }
+    event.preventDefault();
+    event.stopPropagation();
+    closeFilmDetail();
+    return;
   }
 
   if (filmCardTarget instanceof HTMLElement && !(clickedControl instanceof HTMLElement) && filmCardTarget.dataset.filmId) {

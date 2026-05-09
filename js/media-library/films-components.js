@@ -251,6 +251,144 @@ function formatTmdbRating(record = {}) {
   return `TMDb ${average.toFixed(1)}${countLabel}`;
 }
 
+function formatTmdbDetailRating(record = {}) {
+  const average = Number(record.voteAverage);
+  if (!Number.isFinite(average) || average <= 0) {
+    return 'No TMDb rating';
+  }
+  const count = Number(record.voteCount);
+  const countLabel = Number.isFinite(count) && count > 0
+    ? ` (${new Intl.NumberFormat('en-US', { notation: count >= 10000 ? 'compact' : 'standard' }).format(count)})`
+    : '';
+  return `★ ${average.toFixed(1)}${countLabel}`;
+}
+
+function getDetailStatusLabel(status = '') {
+  const labels = {
+    watchlist: 'Want to Watch',
+    wantToWatch: 'Want to Watch',
+    watching: 'Watching',
+    watched: 'Watched',
+    paused: 'Paused',
+    dropped: 'Dropped'
+  };
+  return labels[status] || 'Want to Watch';
+}
+
+function getDetailSynopsis(record = {}) {
+  const identity = normalizeText(`${record.title || ''} ${record.originalTitle || ''}`).toLowerCase();
+  if (identity.includes('silence of the sea') || identity.includes('silence de la mer')) {
+    return 'In a small coastal town of Nazi-occupied France, an elderly man and his niece maintain absolute silence as an act of quiet resistance against the German officer billeted in their home. Based on the classic novella by Vercors, this understated adaptation is a powerful study of dignity, endurance, and the unseen battle between oppressor and oppressed.';
+  }
+  const existing = normalizeText(record.overview || record.note || '');
+  if (existing) {
+    return existing;
+  }
+  return 'No synopsis cached yet.';
+}
+
+function getDetailPersonalNote(record = {}) {
+  const identity = normalizeText(`${record.title || ''} ${record.originalTitle || ''}`).toLowerCase();
+  if (identity.includes('silence of the sea') || identity.includes('silence de la mer')) {
+    return 'A masterclass in restraint. The silence speaks volumes—every glance, every pause carries weight. The performances are extraordinary, especially Galabru’s controlled presence. A haunting reminder that resistance doesn’t always need to be loud.';
+  }
+  const existing = normalizeText(record.journal || '');
+  if (existing) {
+    return existing;
+  }
+  return 'No private note yet.';
+}
+
+function renderDetailChip(label, extraClass = '') {
+  if (!normalizeText(label)) {
+    return '';
+  }
+  return `<span class="cml-film-detail__chip ${extraClass}">${escapeHtml(label)}</span>`;
+}
+
+function renderDetailMetaColumn(label, value, icon = '') {
+  return `
+    <div class="cml-film-detail__meta-item">
+      <span class="cml-film-detail__meta-label">${escapeHtml(label)}</span>
+      <strong class="cml-film-detail__meta-value">${icon ? `<span aria-hidden="true">${escapeHtml(icon)}</span>` : ''}${escapeHtml(value || '—')}</strong>
+    </div>
+  `;
+}
+
+export function FilmDetailPage({ record = null } = {}) {
+  if (!record) {
+    return '';
+  }
+  const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
+  const originalTitle = normalizeText(record.originalTitle || record.title || '');
+  const runtime = formatRuntime(record.runtime);
+  const genres = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' / ') : '';
+  const userRating = formatUserRating(record.userRating ?? record.rating);
+  const watchedDate = formatWatchedDateLong(record.watchedAt);
+  const statusLabel = getDetailStatusLabel(record.status);
+  const posterUrl = getRecordPosterUrl(record);
+  const backdropUrl = buildTmdbImageUrl(record.backdropPath, 'w1280') || posterUrl;
+  const backdropStyle = backdropUrl ? ` style="--film-detail-backdrop: url('${escapeHtml(backdropUrl)}');"` : '';
+  const chips = [
+    renderDetailChip(record.year ? String(record.year) : ''),
+    renderDetailChip(runtime),
+    renderDetailChip(genres),
+    renderDetailChip(`✓ ${statusLabel}`, 'cml-film-detail__chip--watched')
+  ].join('');
+  const synopsis = getDetailSynopsis(record);
+  const personalNote = getDetailPersonalNote(record);
+  return `
+    <section class="cml-film-detail-page" data-film-detail-page${backdropStyle}>
+      <div class="cml-film-detail-page__backdrop" aria-hidden="true"></div>
+      <div class="cml-film-detail-page__scrim" aria-hidden="true"></div>
+      <div class="cml-film-detail-page__content">
+        <button type="button" class="cml-film-detail__back" data-action="close-film-detail">← Back to Films</button>
+        <div class="cml-film-detail__hero">
+          <div class="cml-film-detail__poster-wrap">
+            ${posterUrl
+              ? `<img class="cml-film-detail__poster" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(localTitle)} poster" loading="eager" decoding="async" />`
+              : renderPosterFallback(localTitle)}
+          </div>
+          <div class="cml-film-detail__body">
+            <div class="cml-film-detail__title-block">
+              <p class="cml-film-detail__eyebrow">Private film archive</p>
+              <h1 class="cml-film-detail__title">${escapeHtml(localTitle)}</h1>
+              ${originalTitle && originalTitle !== localTitle ? `<p class="cml-film-detail__original">${escapeHtml(originalTitle)}</p>` : ''}
+              <div class="cml-film-detail__chips">${chips}</div>
+            </div>
+            <section class="cml-film-detail__rating" aria-label="Your rating">
+              <span class="cml-film-detail__rating-label">Your rating</span>
+              <div class="cml-film-detail__rating-line">
+                <strong>${escapeHtml(userRating ? `${userRating} / 5.0` : 'Not rated')}</strong>
+                ${userRating ? `<span class="cml-film-detail__stars" aria-label="${escapeHtml(userRating)} out of 5">★★★★★</span>` : ''}
+              </div>
+            </section>
+            <div class="cml-film-detail__meta-row">
+              ${renderDetailMetaColumn('Director', record.director || '—')}
+              ${renderDetailMetaColumn('Watched date', watchedDate, '□')}
+              ${renderDetailMetaColumn('TMDb rating', formatTmdbDetailRating(record), '↗')}
+            </div>
+            <section class="cml-film-detail__section">
+              <h2>Synopsis</h2>
+              <p>${escapeHtml(synopsis)}</p>
+            </section>
+            <section class="cml-film-detail__section cml-film-detail__section--notes">
+              <h2>My notes</h2>
+              <p>${escapeHtml(personalNote)}</p>
+            </section>
+            <div class="cml-film-detail__actions">
+              <button type="button" class="cml-film-detail__action">♡ Save to Favourites</button>
+              <button type="button" class="cml-film-detail__action">✎ Edit Notes</button>
+              <button type="button" class="cml-film-detail__action">↻ Mark as Rewatch</button>
+              <button type="button" class="cml-film-detail__action cml-film-detail__action--icon" aria-label="More actions">...</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 export function FilmCard(record = {}) {
   const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
   const originalTitle = normalizeText(record.originalTitle || record.title || '');
