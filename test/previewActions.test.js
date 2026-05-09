@@ -2,8 +2,26 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar, AlbumDialog } from '../js/media-library/components.js';
+import { FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
 
 describe('media library download actions', () => {
+  it('renders Films search as a submit form and keeps TMDb feedback above the local film list', () => {
+    const panel = FilmSearchResults({
+      error: 'TMDb access token is not configured. Set TMDB_ACCESS_TOKEN.',
+      query: '花样',
+    });
+    const html = FilmsPage({
+      records: [],
+      searchQuery: '花样',
+      searchPanelHtml: panel,
+    });
+
+    assert.match(html, /data-form="films-search"/);
+    assert.match(html, /type="submit" class="cml-films-page__add-button"/);
+    assert.match(html, /Add TMDB_ACCESS_TOKEN in Cloudflare Pages environment variables/);
+    assert.ok(html.indexOf('cml-films-mvp') < html.indexOf('cml-films-filters'));
+  });
+
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {
     const html = Sidebar({
       navigationModel: {

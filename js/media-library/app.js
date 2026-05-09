@@ -8842,12 +8842,13 @@ function render() {
                 ? FilmsPage({
                     records: state.films,
                     activeFilter: FILM_FILTERS[0],
-                    searchQuery: state.filmSearchQuery
-                  }) + FilmSearchResults({
-                    results: state.filmSearchResults,
-                    loading: state.filmSearchLoading,
-                    error: state.filmError,
-                    query: state.filmSearchQuery
+                    searchQuery: state.filmSearchQuery,
+                    searchPanelHtml: FilmSearchResults({
+                      results: state.filmSearchResults,
+                      loading: state.filmSearchLoading,
+                      error: state.filmError,
+                      query: state.filmSearchQuery
+                    })
                   })
                 : viewModel.isMusicView
                 ? `${MusicSummary({
@@ -9746,6 +9747,11 @@ function mount() {
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'mind') {
         e.preventDefault();
         void sendMindMessage();
+        return;
+      }
+      if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'films-search') {
+        e.preventDefault();
+        void searchFilms();
         return;
       }
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'mind-settings') {

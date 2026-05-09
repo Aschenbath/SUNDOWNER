@@ -294,7 +294,7 @@ export function FilmDetailModal({ record = null } = {}) {
   `;
 }
 
-export function FilmsPage({ records = [], activeFilter = 'All', searchQuery = '' } = {}) {
+export function FilmsPage({ records = [], activeFilter = 'All', searchQuery = '', searchPanelHtml = '' } = {}) {
   const sections = groupFilmsByTimeline(records);
   const searchValue = escapeHtml(searchQuery);
   return `
@@ -305,14 +305,15 @@ export function FilmsPage({ records = [], activeFilter = 'All', searchQuery = ''
           <h1 class="cml-films-page__title">Films</h1>
           <p class="cml-films-page__subtitle">Your private film diary.</p>
         </div>
-        <div class="cml-films-page__hero-actions">
+        <form class="cml-films-page__hero-actions" data-form="films-search">
           <label class="cml-films-search" aria-label="Search films">
             <span class="cml-films-search__icon">⌕</span>
             <input type="search" class="cml-films-search__input" data-films-search-input value="${searchValue}" placeholder="Search TMDb movies..." />
           </label>
-          <button type="button" class="cml-films-page__add-button" data-action="search-films">Search</button>
-        </div>
+          <button type="submit" class="cml-films-page__add-button">Search</button>
+        </form>
       </header>
+      ${searchPanelHtml}
       <div class="cml-films-filters" role="tablist" aria-label="Film filters">
         ${FILM_FILTERS.map((filter) => `
           <button type="button" class="cml-films-filters__chip ${filter === activeFilter ? 'is-active' : ''}" aria-pressed="${filter === activeFilter ? 'true' : 'false'}" disabled>
@@ -334,6 +335,9 @@ export function FilmSearchResults({ results = [], loading = false, error = '', q
   if (!normalizedQuery && !results.length && !error) {
     return '';
   }
+  const friendlyError = error && /TMDb access token is not configured/i.test(error)
+    ? 'TMDb token is not configured. Add TMDB_ACCESS_TOKEN in Cloudflare Pages environment variables, then redeploy.'
+    : error;
   return `
     <section class="cml-films-mvp">
       <div class="cml-films-mvp__head">
@@ -341,7 +345,7 @@ export function FilmSearchResults({ results = [], loading = false, error = '', q
           <p class="cml-films-mvp__eyebrow">TMDb MVP</p>
           <h2 class="cml-films-mvp__title">${loading ? 'Searching...' : 'Search results'}</h2>
         </div>
-        ${error ? `<p class="cml-films-mvp__error">${escapeHtml(error)}</p>` : ''}
+        ${friendlyError ? `<p class="cml-films-mvp__error">${escapeHtml(friendlyError)}</p>` : ''}
       </div>
       <div class="cml-films-mvp__results">
         ${results.length ? results.map((movie) => `
