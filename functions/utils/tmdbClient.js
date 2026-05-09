@@ -93,6 +93,7 @@ export function normalizeTmdbMovie(dto = {}) {
     runtime: normalizeNumber(dto.runtime, null),
     genres: normalizeGenres(dto.genres || dto.genre_names),
     voteAverage: normalizeNumber(dto.vote_average, null),
+    voteCount: normalizeNumber(dto.vote_count, null),
   };
 }
 

@@ -190,6 +190,25 @@ function getCleanRatingLabel(rating) {
   return '私心最爱';
 }
 
+function formatUserRating(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0.5 && numeric <= 5
+    ? numeric.toFixed(1)
+    : '';
+}
+
+function formatTmdbRating(record = {}) {
+  const average = Number(record.voteAverage);
+  if (!Number.isFinite(average) || average <= 0) {
+    return '';
+  }
+  const count = Number(record.voteCount);
+  const countLabel = Number.isFinite(count) && count > 0
+    ? ` (${new Intl.NumberFormat('en-US', { notation: count >= 10000 ? 'compact' : 'standard' }).format(count)})`
+    : '';
+  return `TMDb ${average.toFixed(1)}${countLabel}`;
+}
+
 export function FilmCard(record = {}) {
   const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
   const originalTitle = normalizeText(record.originalTitle || record.title || '');
@@ -199,10 +218,9 @@ export function FilmCard(record = {}) {
   const genresLine = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' · ') : '';
   const runtime = formatRuntime(record.runtime);
   const watchedDate = record.status === 'watched' ? formatWatchedDate(record.watchedAt) : '';
-  const normalizedRating = Number(record.rating);
-  const hasRating = Number.isFinite(normalizedRating) && normalizedRating > 0;
-  const ratingValue = hasRating ? normalizedRating.toFixed(1) : '';
-  const ratingLabel = hasRating ? getCleanRatingLabel(record.rating) : '';
+  const ratingValue = formatUserRating(record.userRating ?? record.rating);
+  const hasRating = Boolean(ratingValue);
+  const ratingLabel = hasRating ? 'My rating' : '';
   const statusLabel = getCleanStatusLabel(record.status);
   const coverMeta = [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ');
   const coverCaption = genresLine || localeLine || directorLine;
@@ -273,7 +291,7 @@ export function FilmTimelineSection(section = {}) {
   `;
 }
 
-export function FilmDetailModal({ record = null } = {}) {
+function LegacyFilmDetailModal({ record = null } = {}) {
   if (!record) {
     return '';
   }
@@ -328,6 +346,87 @@ export function FilmDetailModal({ record = null } = {}) {
         ${canSaveEntry ? `<div class="cml-film-ticket__actions">
           <button type="button" class="cml-film-ticket__action" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(record.tmdbId || '')}">加入想看</button>
           <button type="button" class="cml-film-ticket__action cml-film-ticket__action--primary" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(record.tmdbId || '')}">标记看过</button>
+        </div>` : ''}
+        <footer class="cml-film-ticket__footer" aria-hidden="true">
+          <div class="cml-film-ticket__barcode">${barcodeBars}</div>
+          <p class="cml-film-ticket__footer-copy">SUNDOWNER FILM DIARY</p>
+        </footer>
+      </article>
+    </div>
+  `;
+}
+
+export function FilmDetailModal({ record = null } = {}) {
+  if (!record) {
+    return '';
+  }
+  const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
+  const originalTitle = normalizeText(record.originalTitle || record.title || '');
+  const statusLabel = getCleanStatusLabel(record.status);
+  const userRating = formatUserRating(record.userRating ?? record.rating);
+  const ratingInputValue = userRating || '4.0';
+  const tmdbRating = formatTmdbRating(record);
+  const genres = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' / ') : '';
+  const localeLine = [record.country, record.language].filter(Boolean).join(' / ');
+  const runtime = formatRuntime(record.runtime);
+  const canSaveEntry = Boolean(record.tmdbId);
+  const isSaving = Boolean(record.isSaving);
+  const barcodeBars = Array.from({ length: 22 }, (_, index) => {
+    const narrow = index % 3 === 0 ? 'is-narrow' : '';
+    return `<span class="cml-film-ticket__barcode-bar ${narrow}"></span>`;
+  }).join('');
+  return `
+    <div class="cml-film-modal" data-action="close-film-detail">
+      <div class="cml-film-modal__backdrop"></div>
+      <article class="cml-film-ticket" role="dialog" aria-modal="true" aria-label="${escapeHtml(localTitle)} film details">
+        <button type="button" class="cml-film-ticket__close" data-action="close-film-detail" aria-label="Close film detail">×</button>
+        <div class="cml-film-ticket__hero">
+          <img class="cml-film-ticket__poster" src="${escapeHtml(getRecordPosterUrl(record))}" alt="${escapeHtml(localTitle)}" />
+          <div class="cml-film-ticket__hero-copy">
+            <span class="cml-film-ticket__badge">${escapeHtml(statusLabel)}</span>
+            <h2 class="cml-film-ticket__title">${escapeHtml(localTitle)}</h2>
+            ${originalTitle && originalTitle !== localTitle ? `<p class="cml-film-ticket__original">${escapeHtml(originalTitle)}</p>` : ''}
+            ${localeLine ? `<p class="cml-film-ticket__locale">${escapeHtml(localeLine)}</p>` : ''}
+          </div>
+        </div>
+        <div class="cml-film-ticket__perforation" aria-hidden="true"></div>
+        <dl class="cml-film-ticket__meta">
+          ${renderTicketMetaRow('Director', record.director)}
+          ${renderTicketMetaRow('Genres', genres)}
+          ${renderTicketMetaRow('Year', record.year ? String(record.year) : '')}
+          ${renderTicketMetaRow('Runtime', runtime)}
+          ${renderTicketMetaRow('Watched', formatWatchedDateLong(record.watchedAt))}
+          ${renderTicketMetaRow('TMDb rating', tmdbRating || 'No TMDb rating')}
+          ${renderTicketMetaRow('My rating', userRating ? `${userRating} / 5.0` : 'Not rated')}
+        </dl>
+        ${canSaveEntry ? `
+          <section class="cml-film-ticket__section cml-film-ticket__section--rating">
+            <div class="cml-film-ticket__rating-head">
+              <p class="cml-film-ticket__section-label">My rating</p>
+              <strong class="cml-film-ticket__rating-output" data-film-rating-output>${escapeHtml(userRating ? `${userRating} ★` : 'Not rated')}</strong>
+            </div>
+            <div class="cml-film-ticket__rating-control">
+              <input type="range" class="cml-film-ticket__rating-slider" data-film-rating-input data-tmdb-id="${escapeHtml(record.tmdbId || '')}" min="0.5" max="5" step="0.5" value="${escapeHtml(ratingInputValue)}" ${isSaving ? 'disabled' : ''} />
+              <button type="button" class="cml-film-ticket__rating-clear" data-action="clear-film-rating" data-tmdb-id="${escapeHtml(record.tmdbId || '')}" ${(!userRating || isSaving) ? 'disabled' : ''}>Clear rating</button>
+            </div>
+            <p class="cml-film-ticket__rating-note">User rating is local. TMDb rating stays external.</p>
+          </section>
+        ` : ''}
+        ${record.note ? `
+          <section class="cml-film-ticket__section">
+            <p class="cml-film-ticket__section-label">Short note</p>
+            <p class="cml-film-ticket__note">${escapeHtml(record.note)}</p>
+          </section>
+        ` : ''}
+        ${record.journal ? `
+          <section class="cml-film-ticket__section cml-film-ticket__section--journal">
+            <p class="cml-film-ticket__section-label">Journal</p>
+            <p class="cml-film-ticket__journal">${escapeHtml(record.journal)}</p>
+          </section>
+        ` : ''}
+        ${canSaveEntry ? `<div class="cml-film-ticket__actions">
+          <button type="button" class="cml-film-ticket__action" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(record.tmdbId || '')}" ${isSaving ? 'disabled' : ''}>${isSaving ? 'Saving...' : '加入想看'}</button>
+          <button type="button" class="cml-film-ticket__action cml-film-ticket__action--primary" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(record.tmdbId || '')}" ${isSaving ? 'disabled' : ''}>${isSaving ? 'Saving...' : '标记看过'}</button>
         </div>` : ''}
         <footer class="cml-film-ticket__footer" aria-hidden="true">
           <div class="cml-film-ticket__barcode">${barcodeBars}</div>
@@ -415,7 +514,7 @@ function LegacyFilmSearchResults({ results = [], loading = false, error = '', qu
   `;
 }
 
-export function FilmSearchResults({ results = [], loading = false, error = '', query = '' } = {}) {
+function LegacyAddableFilmSearchResults({ results = [], loading = false, error = '', query = '', savingTmdbIds = new Set() } = {}) {
   const normalizedQuery = normalizeText(query);
   if (!normalizedQuery && !results.length && !error) {
     return '';
@@ -444,6 +543,54 @@ export function FilmSearchResults({ results = [], loading = false, error = '', q
       </div>
     </article>
   `).join('') : `<p class="cml-films-mvp__empty">${loading ? 'Contacting TMDb...' : 'No search results yet.'}</p>`;
+  return `
+    <section class="cml-films-mvp">
+      <div class="cml-films-mvp__head">
+        <div>
+          <p class="cml-films-mvp__eyebrow">TMDb search</p>
+          <h2 class="cml-films-mvp__title">${loading ? 'Searching...' : 'Add from TMDb'}</h2>
+        </div>
+        ${friendlyError ? `<p class="cml-films-mvp__error">${escapeHtml(friendlyError)}</p>` : ''}
+      </div>
+      <div class="cml-films-mvp__results">
+        ${resultCards}
+      </div>
+    </section>
+  `;
+}
+
+export function FilmSearchResults({ results = [], loading = false, error = '', query = '', savingTmdbIds = new Set() } = {}) {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery && !results.length && !error) {
+    return '';
+  }
+  const friendlyError = error && /TMDb access token is not configured/i.test(error)
+    ? 'TMDb credentials are not configured. Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables, then redeploy.'
+    : error && /TMDb credentials are not configured/i.test(error)
+    ? 'TMDb credentials are not configured. Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables, then redeploy.'
+    : error;
+  const resultCards = results.length ? results.map((movie) => {
+    const isSaving = savingTmdbIds instanceof Set && savingTmdbIds.has(Number(movie.tmdbId));
+    return `
+      <article class="cml-films-result ${isSaving ? 'is-saving' : ''}" data-action="open-tmdb-film-detail" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}">
+        <div class="cml-films-result__poster-wrap">
+          ${movie.posterPath
+            ? `<img class="cml-films-result__poster" src="${escapeHtml(buildTmdbImageUrl(movie.posterPath, 'w342'))}" alt="${escapeHtml(movie.title || 'Movie poster')}" loading="lazy" decoding="async" />`
+            : renderPosterFallback(movie.title)}
+        </div>
+        <div class="cml-films-result__body">
+          <p class="cml-films-result__source">TMDb result</p>
+          <h3 class="cml-films-result__title">${escapeHtml(movie.title || 'Untitled film')}</h3>
+          <p class="cml-films-result__meta">${escapeHtml([movie.releaseDate ? String(movie.releaseDate).slice(0, 4) : '', movie.voteAverage ? `TMDb ${Number(movie.voteAverage).toFixed(1)}` : ''].filter(Boolean).join(' · '))}</p>
+          ${movie.overview ? `<p class="cml-films-result__overview">${escapeHtml(movie.overview)}</p>` : ''}
+          <div class="cml-films-result__actions">
+            <button type="button" class="cml-films-result__button" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}" ${isSaving ? 'disabled' : ''}>${isSaving ? 'Saving...' : '想看'}</button>
+            <button type="button" class="cml-films-result__button cml-films-result__button--primary" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}" ${isSaving ? 'disabled' : ''}>${isSaving ? 'Saving...' : '看过'}</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('') : `<p class="cml-films-mvp__empty">${loading ? 'Contacting TMDb...' : 'No search results yet.'}</p>`;
   return `
     <section class="cml-films-mvp">
       <div class="cml-films-mvp__head">

@@ -15,6 +15,7 @@ describe('TMDbClient', () => {
       runtime: 139,
       genres: [{ id: 18, name: 'Drama' }],
       vote_average: 8.4,
+      vote_count: 26000,
       userRating: 10,
       watchStatus: 'watched',
     });
@@ -30,6 +31,7 @@ describe('TMDbClient', () => {
       runtime: 139,
       genres: ['Drama'],
       voteAverage: 8.4,
+      voteCount: 26000,
     });
   });
 
@@ -66,6 +68,7 @@ describe('TMDbClient', () => {
                 poster_path: '/poster.jpg',
                 release_date: '2001-07-20',
                 vote_average: 8.5,
+                vote_count: 12000,
               }],
             };
           },
@@ -91,6 +94,7 @@ describe('TMDbClient', () => {
       runtime: null,
       genres: [],
       voteAverage: 8.5,
+      voteCount: 12000,
     }]);
   });
 

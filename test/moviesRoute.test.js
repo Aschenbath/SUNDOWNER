@@ -53,13 +53,14 @@ describe('manage movies route', () => {
       runtime: 100,
       genres: ['Drama'],
       voteAverage: 7,
+      voteCount: 1200,
       updatedAt: new Date().toISOString(),
     }));
     await env.img_url.put('manage@sysConfig@userMovieEntries', JSON.stringify([{
       id: 'tmdb-42',
       tmdbId: 42,
       watchStatus: 'watched',
-      userRating: 8,
+      userRating: 4.5,
       note: 'local only',
       tags: [],
       isFavorite: false,
@@ -77,6 +78,9 @@ describe('manage movies route', () => {
     assert.equal(response.status, 200);
     assert.equal(payload.entries.length, 1);
     assert.equal(payload.entries[0].entry.note, 'local only');
+    assert.equal(payload.entries[0].entry.userRating, 4.5);
+    assert.equal(payload.entries[0].movie.voteAverage, 7);
+    assert.equal(payload.entries[0].movie.voteCount, 1200);
     assert.equal(payload.entries[0].movie.title, 'Movie');
   });
 });

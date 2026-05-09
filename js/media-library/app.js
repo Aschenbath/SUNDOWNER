@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=10';
+import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=11';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -431,6 +431,7 @@ const state = {
   filmSearchQuery: '',
   filmSearchResults: [],
   filmSearchLoading: false,
+  filmSavingTmdbIds: new Set(),
   filmError: ''
 };
 
@@ -8328,6 +8329,10 @@ function normalizeMovieRecord(movie = {}, entry = null) {
   const releaseYear = String(movie.releaseDate || '').slice(0, 4);
   const watchStatus = entry?.watchStatus || 'watchlist';
   const status = watchStatus === 'wantToWatch' ? 'watchlist' : watchStatus;
+  const tmdbId = Number(movie.tmdbId);
+  const userRating = entry?.userRating === null || entry?.userRating === undefined
+    ? null
+    : Number(entry.userRating);
   return {
     id: `tmdb-${movie.tmdbId}`,
     tmdbId: movie.tmdbId,
@@ -8337,7 +8342,8 @@ function normalizeMovieRecord(movie = {}, entry = null) {
     year: releaseYear,
     status,
     favorite: Boolean(entry?.isFavorite),
-    rating: entry?.userRating ?? movie.voteAverage ?? null,
+    userRating: Number.isFinite(userRating) ? userRating : null,
+    rating: Number.isFinite(userRating) ? userRating : null,
     note: entry?.note || movie.overview || '',
     journal: '',
     watchedAt: entry?.watchedAt || '',
@@ -8349,7 +8355,73 @@ function normalizeMovieRecord(movie = {}, entry = null) {
     runtime: movie.runtime,
     posterPath: movie.posterPath,
     backdropPath: movie.backdropPath,
-    voteAverage: movie.voteAverage
+    voteAverage: movie.voteAverage,
+    voteCount: movie.voteCount,
+    isSaving: Number.isFinite(tmdbId) && state.filmSavingTmdbIds.has(tmdbId)
+  };
+}
+
+function upsertFilmRecord(record) {
+  if (!record?.id) {
+    return;
+  }
+  state.films = [
+    record,
+    ...state.films.filter((item) => item.id !== record.id)
+  ];
+}
+
+function findMovieSourceByTmdbId(tmdbId) {
+  const normalizedId = Number(tmdbId);
+  if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+    return null;
+  }
+  return state.films.find((record) => Number(record.tmdbId) === normalizedId)
+    || state.filmSearchResults.find((movie) => Number(movie.tmdbId) === normalizedId)
+    || null;
+}
+
+function toMoviePayload(source = {}, tmdbId = 0) {
+  return {
+    tmdbId: Number(source.tmdbId || tmdbId),
+    title: source.title || source.localTitle || source.originalTitle || 'Untitled film',
+    originalTitle: source.originalTitle || source.title || source.localTitle || '',
+    overview: source.overview || source.note || '',
+    posterPath: source.posterPath || '',
+    backdropPath: source.backdropPath || '',
+    releaseDate: source.releaseDate || (source.year ? `${source.year}-01-01` : ''),
+    runtime: source.runtime ?? null,
+    genres: Array.isArray(source.genres) ? source.genres : [],
+    voteAverage: source.voteAverage ?? source.tmdbRating ?? null,
+    voteCount: source.voteCount ?? null
+  };
+}
+
+function normalizeWatchStatusForPayload(status = '') {
+  return status === 'watchlist' ? 'wantToWatch' : (status || 'wantToWatch');
+}
+
+function createOptimisticFilmRecord(tmdbId, patch = {}) {
+  const source = findMovieSourceByTmdbId(tmdbId) || { tmdbId };
+  const movie = source.movie ? source.movie : toMoviePayload(source, tmdbId);
+  const existing = state.films.find((record) => Number(record.tmdbId) === Number(tmdbId));
+  const watchStatus = patch.watchStatus || normalizeWatchStatusForPayload(existing?.status || source.status || 'wantToWatch');
+  const entry = {
+    tmdbId: Number(tmdbId),
+    watchStatus,
+    userRating: Object.prototype.hasOwnProperty.call(patch, 'userRating')
+      ? patch.userRating
+      : existing?.userRating ?? null,
+    note: existing?.note && existing.note !== movie.overview ? existing.note : '',
+    tags: [],
+    isFavorite: Boolean(existing?.favorite),
+    watchedAt: patch.watchedAt ?? existing?.watchedAt ?? '',
+    createdAt: existing?.addedAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  return {
+    ...normalizeMovieRecord(movie, entry),
+    isSaving: true
   };
 }
 
@@ -8407,10 +8479,7 @@ async function openTmdbFilmDetail(tmdbId) {
   try {
     const payload = await fetchMovieJson(`/api/manage/movies?action=detail&tmdbId=${encodeURIComponent(String(normalizedId))}`);
     const record = normalizeMovieRecord(payload?.movie || {});
-    state.films = [
-      record,
-      ...state.films.filter((item) => item.id !== record.id)
-    ];
+    upsertFilmRecord(record);
     state.activeFilmId = record.id;
     state.filmDetailOpen = true;
     state.filmError = '';
@@ -8426,24 +8495,81 @@ async function saveFilmStatus(tmdbId, watchStatus) {
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
     return;
   }
+  const previousFilms = state.films.slice();
+  const watchedAt = watchStatus === 'watched' ? new Date().toISOString().slice(0, 10) : '';
+  state.filmSavingTmdbIds.add(normalizedId);
+  const optimisticRecord = createOptimisticFilmRecord(normalizedId, { watchStatus, watchedAt });
+  upsertFilmRecord(optimisticRecord);
+  state.activeFilmId = optimisticRecord.id;
+  state.filmDetailOpen = true;
+  state.filmError = '';
+  render();
   try {
     const payload = await postJson('/api/manage/movies', {
       tmdbId: normalizedId,
       watchStatus,
-      watchedAt: watchStatus === 'watched' ? new Date().toISOString().slice(0, 10) : ''
+      watchedAt,
+      movie: toMoviePayload(findMovieSourceByTmdbId(normalizedId), normalizedId)
     });
     const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
-    state.films = [
-      record,
-      ...state.films.filter((item) => item.id !== record.id)
-    ];
+    upsertFilmRecord(record);
     state.activeFilmId = record.id;
     state.filmDetailOpen = true;
     state.filmError = '';
     showToast(watchStatus === 'watched' ? 'Marked as watched' : 'Added to watchlist', 'success');
-    render();
   } catch (error) {
+    state.films = previousFilms;
     state.filmError = error.message || 'Failed to save movie';
+  } finally {
+    state.filmSavingTmdbIds.delete(normalizedId);
+    state.films = state.films.map((record) =>
+      Number(record.tmdbId) === normalizedId ? { ...record, isSaving: false } : record
+    );
+    render();
+  }
+}
+
+async function saveFilmRating(tmdbId, userRating) {
+  const normalizedId = Number(tmdbId);
+  if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+    return;
+  }
+  const existing = state.films.find((record) => Number(record.tmdbId) === normalizedId) || null;
+  const watchStatus = normalizeWatchStatusForPayload(existing?.status || 'watched');
+  const previousFilms = state.films.slice();
+  state.filmSavingTmdbIds.add(normalizedId);
+  const optimisticRecord = createOptimisticFilmRecord(normalizedId, {
+    watchStatus,
+    userRating,
+    watchedAt: watchStatus === 'watched' ? (existing?.watchedAt || new Date().toISOString().slice(0, 10)) : existing?.watchedAt || ''
+  });
+  upsertFilmRecord(optimisticRecord);
+  state.activeFilmId = optimisticRecord.id;
+  state.filmDetailOpen = true;
+  state.filmError = '';
+  render();
+  try {
+    const payload = await postJson('/api/manage/movies', {
+      tmdbId: normalizedId,
+      watchStatus,
+      userRating,
+      watchedAt: optimisticRecord.watchedAt || '',
+      movie: toMoviePayload(findMovieSourceByTmdbId(normalizedId), normalizedId)
+    });
+    const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
+    upsertFilmRecord(record);
+    state.activeFilmId = record.id;
+    state.filmDetailOpen = true;
+    state.filmError = '';
+    showToast(userRating === null ? 'Rating cleared' : `Rating saved: ${Number(userRating).toFixed(1)} stars`, 'success');
+  } catch (error) {
+    state.films = previousFilms;
+    state.filmError = error.message || 'Failed to save rating';
+  } finally {
+    state.filmSavingTmdbIds.delete(normalizedId);
+    state.films = state.films.map((record) =>
+      Number(record.tmdbId) === normalizedId ? { ...record, isSaving: false } : record
+    );
     render();
   }
 }
@@ -8856,7 +8982,8 @@ function render() {
                       results: state.filmSearchResults,
                       loading: state.filmSearchLoading,
                       error: state.filmError,
-                      query: state.filmSearchQuery
+                      query: state.filmSearchQuery,
+                      savingTmdbIds: state.filmSavingTmdbIds
                     })
                   })
                 : viewModel.isMusicView
@@ -11577,6 +11704,9 @@ function handleAction(actionTarget) {
     case 'save-film-status':
       void saveFilmStatus(actionTarget.dataset.tmdbId, actionTarget.dataset.watchStatus || 'wantToWatch');
       return true;
+    case 'clear-film-rating':
+      void saveFilmRating(actionTarget.dataset.tmdbId, null);
+      return true;
     case 'preview-next':
       movePreview(1);
       return true;
@@ -11934,6 +12064,13 @@ function handleInput(event) {
     state.filmSearchQuery = input.value;
     return;
   }
+  if (input.hasAttribute('data-film-rating-input')) {
+    const output = input.closest('.cml-film-ticket__rating-control')?.querySelector('[data-film-rating-output]');
+    if (output instanceof HTMLElement) {
+      output.textContent = `${Number(input.value || 0).toFixed(1)} ★`;
+    }
+    return;
+  }
   if (input.dataset.focusKey === 'album-search') {
     state.albumDrawerSearch = input.value;
     if (!patchAlbumDialogSearchResults()) {
@@ -12023,6 +12160,10 @@ function handleChange(event) {
   if (target.dataset.mindFile) {
     void handleMindAssetSelection(target.dataset.mindFile, target.files && target.files[0] ? target.files[0] : null);
     target.value = '';
+    return;
+  }
+  if (target.hasAttribute('data-film-rating-input')) {
+    void saveFilmRating(target.dataset.tmdbId, Number(target.value));
   }
 }
 

@@ -17,6 +17,29 @@ function normalizeNumber(value, fallback = null) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object || {}, key);
+}
+
+function normalizeUserRating(value, { strict = false } = {}) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  const rounded = Math.round(numeric * 2) / 2;
+  const valid = Number.isFinite(numeric)
+    && numeric >= 0.5
+    && numeric <= 5
+    && Math.abs(numeric - rounded) < 0.000001;
+  if (!valid) {
+    if (strict) {
+      throw new Error('userRating must be between 0.5 and 5.0 in 0.5 steps');
+    }
+    return null;
+  }
+  return rounded;
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -59,6 +82,7 @@ export function normalizeMovieCache(input = {}, timestamp = nowIso()) {
     runtime: normalizeNumber(input.runtime, null),
     genres: normalizeStringArray(input.genres, 60),
     voteAverage: normalizeNumber(input.voteAverage, null),
+    voteCount: normalizeNumber(input.voteCount, null),
     updatedAt: normalizeText(input.updatedAt || timestamp, 40),
   };
 }
@@ -72,12 +96,14 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
   if (!WATCH_STATUSES.has(watchStatus)) {
     throw new Error('Unsupported watchStatus');
   }
-  const rating = normalizeNumber(input.userRating ?? existing?.userRating, null);
+  const rating = hasOwn(input, 'userRating')
+    ? normalizeUserRating(input.userRating, { strict: true })
+    : normalizeUserRating(existing?.userRating);
   return {
     id: normalizeText(existing?.id || input.id || `tmdb-${tmdbId}`, 120),
     tmdbId,
     watchStatus,
-    userRating: rating === null ? null : Math.max(0, Math.min(10, Math.round(rating * 10) / 10)),
+    userRating: rating,
     note: normalizeText(input.note ?? existing?.note, 4000),
     tags: normalizeStringArray(input.tags ?? existing?.tags, 40),
     isFavorite: Boolean(input.isFavorite ?? existing?.isFavorite ?? false),

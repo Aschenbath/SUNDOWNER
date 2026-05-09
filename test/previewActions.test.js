@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar, AlbumDialog } from '../js/media-library/components.js';
-import { FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
+import { FilmDetailModal, FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
 
 describe('media library download actions', () => {
   it('renders Films search as a submit form and keeps TMDb feedback above the local film list', () => {
@@ -41,6 +41,49 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="open-tmdb-film-detail"/);
     assert.match(html, /data-action="save-film-status" data-watch-status="wantToWatch"/);
     assert.match(html, /data-action="save-film-status" data-watch-status="watched"/);
+  });
+
+  it('renders film detail with separate TMDb and user ratings plus a half-star slider', () => {
+    const html = FilmDetailModal({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Movie',
+        originalTitle: 'Movie',
+        status: 'watched',
+        year: '2026',
+        runtime: 120,
+        userRating: 4.5,
+        voteAverage: 8.2,
+        voteCount: 12345,
+        genres: ['Drama'],
+      },
+    });
+
+    assert.match(html, /TMDb rating/);
+    assert.match(html, /TMDb 8\.2/);
+    assert.match(html, /My rating/);
+    assert.match(html, /4\.5 \/ 5\.0/);
+    assert.match(html, /data-film-rating-input/);
+    assert.match(html, /min="0\.5" max="5" step="0\.5" value="4\.5"/);
+    assert.match(html, /data-action="clear-film-rating"/);
+  });
+
+  it('renders saving state for movie add actions', () => {
+    const html = FilmSearchResults({
+      query: 'Movie',
+      savingTmdbIds: new Set([42]),
+      results: [{
+        tmdbId: 42,
+        title: 'Movie',
+        posterPath: '/poster.jpg',
+        releaseDate: '2026-01-01',
+        voteAverage: 8.2,
+      }],
+    });
+
+    assert.match(html, /cml-films-result is-saving/);
+    assert.match(html, /disabled>Saving\.\.\.<\/button>/);
   });
 
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {

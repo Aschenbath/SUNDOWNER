@@ -88,7 +88,7 @@ describe('MovieRepository', () => {
     const result = await repository.saveOrUpdateUserEntry({
       tmdbId: 42,
       watchStatus: 'watched',
-      userRating: 9,
+      userRating: 4.5,
       note: 'My private note',
       tags: ['favorite'],
       isFavorite: true,
@@ -96,7 +96,7 @@ describe('MovieRepository', () => {
     });
 
     assert.equal(result.entry.watchStatus, 'watched');
-    assert.equal(result.entry.userRating, 9);
+    assert.equal(result.entry.userRating, 4.5);
     assert.equal(result.movie.title, 'Movie');
 
     const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
@@ -109,6 +109,47 @@ describe('MovieRepository', () => {
     assert.equal(list.length, 1);
     assert.equal(list[0].entry.note, 'My private note');
     assert.equal(list[0].movie.title, 'Movie');
+  });
+
+  it('validates five-star half-step user ratings and allows clearing them', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie({ voteAverage: 8.6 });
+        },
+      },
+    });
+
+    await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      userRating: 4,
+    });
+    const updated = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      userRating: 4.5,
+    });
+    assert.equal(updated.entry.userRating, 4.5);
+
+    await assert.rejects(
+      () => repository.saveOrUpdateUserEntry({ tmdbId: 42, watchStatus: 'watched', userRating: 4.25 }),
+      /userRating must be between 0\.5 and 5\.0/
+    );
+    await assert.rejects(
+      () => repository.saveOrUpdateUserEntry({ tmdbId: 42, watchStatus: 'watched', userRating: 5.5 }),
+      /userRating must be between 0\.5 and 5\.0/
+    );
+
+    const cleared = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      userRating: null,
+    });
+    assert.equal(cleared.entry.userRating, null);
+    assert.equal(cleared.movie.voteAverage, 8.6);
   });
 
   it('deletes user entries without deleting cached movie data', async () => {
