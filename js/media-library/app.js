@@ -8524,6 +8524,7 @@ async function openTmdbFilmDetail(tmdbId) {
     state.activeFilmId = record.id;
     state.filmDetailOpen = true;
     state.filmError = '';
+    pushNavigationHash({ mode: 'push' });
     render();
   } catch (error) {
     state.filmError = error.message || 'Failed to load movie detail';
@@ -8531,7 +8532,7 @@ async function openTmdbFilmDetail(tmdbId) {
   }
 }
 
-async function saveFilmStatus(tmdbId, watchStatus) {
+async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false } = {}) {
   const normalizedId = Number(tmdbId);
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
     return;
@@ -8541,8 +8542,11 @@ async function saveFilmStatus(tmdbId, watchStatus) {
   state.filmSavingTmdbIds.add(normalizedId);
   const optimisticRecord = createOptimisticFilmRecord(normalizedId, { watchStatus, watchedAt });
   upsertFilmRecord(optimisticRecord);
-  state.activeFilmId = optimisticRecord.id;
-  state.filmDetailOpen = true;
+  if (openAfterSave) {
+    state.activeFilmId = optimisticRecord.id;
+    state.filmDetailOpen = true;
+    pushNavigationHash({ mode: 'push' });
+  }
   state.filmError = '';
   render();
   try {
@@ -8554,10 +8558,13 @@ async function saveFilmStatus(tmdbId, watchStatus) {
     });
     const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
     upsertFilmRecord(record);
-    state.activeFilmId = record.id;
-    state.filmDetailOpen = true;
+    if (openAfterSave) {
+      state.activeFilmId = record.id;
+      state.filmDetailOpen = true;
+      pushNavigationHash();
+    }
     state.filmError = '';
-    showToast(watchStatus === 'watched' ? 'Marked as watched' : 'Added to watchlist', 'success');
+    showToast(watchStatus === 'watched' ? 'Marked watched' : 'Added to Films', 'success');
   } catch (error) {
     state.films = previousFilms;
     state.filmError = error.message || 'Failed to save movie';
@@ -8667,6 +8674,7 @@ function openFilmDetail(filmId) {
   }
   state.activeFilmId = film.id;
   state.filmDetailOpen = true;
+  pushNavigationHash({ mode: 'push' });
   render();
 }
 
@@ -8676,6 +8684,7 @@ function closeFilmDetail() {
   }
   state.filmDetailOpen = false;
   state.activeFilmId = '';
+  pushNavigationHash({ mode: 'push' });
   render();
 }
 function patchTopbarStorageTrigger() {
@@ -11868,10 +11877,18 @@ function handleClick(event) {
     }
   }
 
-  if (state.filmDetailOpen && actionTarget instanceof HTMLElement && actionTarget.dataset.action === 'close-film-detail') {
+  const filmActionNames = new Set([
+    'save-film-status',
+    'open-tmdb-film-detail',
+    'clear-film-rating',
+    'save-film-watched-date',
+    'close-film-detail'
+  ]);
+
+  if (actionTarget instanceof HTMLElement && filmActionNames.has(actionTarget.dataset.action || '')) {
     event.preventDefault();
     event.stopPropagation();
-    closeFilmDetail();
+    handleAction(actionTarget);
     return;
   }
 
@@ -12697,6 +12714,9 @@ function buildNavigationHash() {
     return '#/albums';
   }
   if (primary === 'Films') {
+    if (state.filmDetailOpen && state.activeFilmId) {
+      return '#/films/' + encodeURIComponent(state.activeFilmId);
+    }
     return '#/films';
   }
   if (primary === 'Music') {
@@ -12713,10 +12733,14 @@ function buildNavigationHash() {
   return '#/photos';
 }
 
-function pushNavigationHash() {
+function pushNavigationHash({ mode = 'replace' } = {}) {
   const nextHash = buildNavigationHash();
   if (window.location.hash !== nextHash) {
-    history.replaceState(null, '', nextHash);
+    if (mode === 'push') {
+      history.pushState(null, '', nextHash);
+    } else {
+      history.replaceState(null, '', nextHash);
+    }
   }
 }
 
@@ -12784,6 +12808,13 @@ function restoreNavigationFromHash() {
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       state.activePlaylistName = '';
+      if (parts[1]) {
+        state.activeFilmId = parts.slice(1).join('/');
+        state.filmDetailOpen = true;
+      } else {
+        state.activeFilmId = '';
+        state.filmDetailOpen = false;
+      }
       clearPrivateViewState();
       break;
     case 'mind':
@@ -12848,8 +12879,14 @@ function restoreNavigationFromHash() {
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       state.activePlaylistName = '';
+      state.activeFilmId = '';
+      state.filmDetailOpen = false;
       clearPrivateViewState();
       break;
+  }
+  if (state.primaryFilter !== 'Films') {
+    state.activeFilmId = '';
+    state.filmDetailOpen = false;
   }
   if (state.primaryFilter !== 'Mind') {
     clearMindVisitStickyMessages();

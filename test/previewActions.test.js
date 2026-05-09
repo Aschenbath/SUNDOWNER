@@ -46,6 +46,17 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="save-film-status" data-watch-status="watched"/);
   });
 
+  it('keeps TMDb search-result save actions on the Films index route', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false \} = \{\}\)/);
+    assert.match(appSource, /const filmActionNames = new Set\(\[/);
+    assert.match(appSource, /filmActionNames\.has\(actionTarget\.dataset\.action \|\| ''\)/);
+    assert.match(appSource, /return '#\/films\/' \+ encodeURIComponent\(state\.activeFilmId\)/);
+    assert.match(appSource, /state\.filmDetailOpen = false;\s+}\s+clearPrivateViewState\(\);/);
+    assert.doesNotMatch(appSource, /case 'save-film-status':\s+void saveFilmStatus\([^;]+openAfterSave:\s*true/s);
+  });
+
   it('renders film detail as an inner Films page instead of a modal', () => {
     const html = FilmDetailPage({
       record: {
