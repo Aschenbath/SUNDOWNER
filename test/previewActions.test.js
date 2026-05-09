@@ -90,7 +90,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-film-card__eyebrow/);
   });
 
-  it('renders saved film card footers as ticket metadata rows without barcode', () => {
+  it('renders saved film card footers as director spotlights without barcode', () => {
     const html = FilmCard({
       id: 'tmdb-42',
       tmdbId: 42,
@@ -99,16 +99,18 @@ describe('media library download actions', () => {
       status: 'watched',
       year: '2026',
       runtime: 121,
+      director: 'James Cameron',
       posterPath: '/poster.jpg',
     });
 
-    assert.match(html, /cml-film-card__ticket-meta/);
-    assert.match(html, /TMDB #000042/);
-    assert.match(html, /WATCHED/);
+    assert.match(html, /cml-film-card__footer-spotlight/);
+    assert.match(html, /cml-film-card__director/);
+    assert.match(html, /James Cameron/);
+    assert.doesNotMatch(html, /TMDB #000042/);
     assert.doesNotMatch(html, /cml-film-card__barcode/);
   });
 
-  it('renders saved film card directors and only shows rating rings for user ratings', () => {
+  it('renders TMDb scores in the footer ring without treating them as user ratings', () => {
     const html = FilmCard({
       id: 'tmdb-42',
       tmdbId: 42,
@@ -124,8 +126,10 @@ describe('media library download actions', () => {
 
     assert.match(html, /Director/);
     assert.match(html, /James Cameron/);
-    assert.doesNotMatch(html, /cml-film-card__rating/);
-    assert.doesNotMatch(html, />9\.0<\/span>/);
+    assert.match(html, /cml-film-card__rating is-external/);
+    assert.match(html, /TMDb rating 9\.0/);
+    assert.match(html, />9\.0<\/span>/);
+    assert.doesNotMatch(html, /My rating 9\.0/);
   });
 
   it('renders saving state for movie add actions', () => {

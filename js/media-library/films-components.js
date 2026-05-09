@@ -232,11 +232,12 @@ export function FilmCard(record = {}) {
   const runtime = formatRuntime(record.runtime);
   const watchedDate = record.status === 'watched' ? formatWatchedDate(record.watchedAt) : '';
   const ratingValue = formatUserRating(record.userRating ?? record.rating);
-  const hasRating = Boolean(ratingValue);
-  const ratingLabel = hasRating ? 'My rating' : '';
+  const tmdbRatingValue = formatTmdbRating(record).replace(/^TMDb\s+/, '').replace(/\s+\(.+\)$/, '');
+  const footerRatingValue = ratingValue || tmdbRatingValue;
+  const hasFooterRating = Boolean(footerRatingValue);
+  const ratingLabel = ratingValue ? 'My rating' : 'TMDb rating';
   const coverMeta = [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ');
   const infoItems = [
-    renderFilmCardInfoItem('Director', directorLine),
     renderFilmCardInfoItem('Release', [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ')),
     renderFilmCardInfoItem('Locale', localeLine),
     renderFilmCardInfoItem('Watched', watchedDate)
@@ -255,21 +256,25 @@ export function FilmCard(record = {}) {
               <h4 class="cml-film-card__title">${escapeHtml(localTitle)}</h4>
               ${originalTitle && originalTitle !== localTitle ? `<p class="cml-film-card__original">${escapeHtml(originalTitle)}</p>` : ''}
             </div>
-            ${hasRating ? `
-              <div class="cml-film-card__rating" aria-label="Rating ${escapeHtml(ratingValue)} ${escapeHtml(ratingLabel)}">
-                <span class="cml-film-card__rating-value">${escapeHtml(ratingValue)}</span>
-                <span class="cml-film-card__rating-label">${escapeHtml(ratingLabel)}</span>
-              </div>
-            ` : ''}
           </div>
           <div class="cml-film-card__separator" aria-hidden="true"></div>
           ${infoItems ? `<div class="cml-film-card__info-grid">${infoItems}</div>` : ''}
         </div>
         <footer class="cml-film-card__footer" aria-hidden="true">
           <div class="cml-film-card__perforation"></div>
-          <div class="cml-film-card__ticket-meta">
-            <span class="cml-film-card__ticket-meta-item">${escapeHtml(buildTicketSerial(record))}</span>
-            <span class="cml-film-card__ticket-meta-item">${escapeHtml(getTicketStatusLabel(record.status))}</span>
+          <div class="cml-film-card__footer-spotlight">
+            ${directorLine ? `
+              <div class="cml-film-card__director">
+                <span class="cml-film-card__director-label">Director</span>
+                <strong class="cml-film-card__director-value">${escapeHtml(directorLine)}</strong>
+              </div>
+            ` : ''}
+            ${hasFooterRating ? `
+              <div class="cml-film-card__rating ${ratingValue ? '' : 'is-external'}" aria-label="${escapeHtml(ratingLabel)} ${escapeHtml(footerRatingValue)}">
+                <span class="cml-film-card__rating-value">${escapeHtml(footerRatingValue)}</span>
+                <span class="cml-film-card__rating-label">${escapeHtml(ratingLabel)}</span>
+              </div>
+            ` : ''}
           </div>
         </footer>
       </div>
