@@ -10,7 +10,10 @@ const TIFF_TYPE_ASCII = 2;
 const TIFF_TYPE_LONG = 4;
 const DATE_TIME_TAGS = [0x9003, 0x9004, 0x0132];
 const EXIF_IFD_POINTER_TAG = 0x8769;
+const defaultEmbeddedThumbnailModuleLoader = () => import('exifr/dist/full.esm.mjs');
 let embeddedThumbnailExtractor = null;
+let embeddedThumbnailModuleLoader = defaultEmbeddedThumbnailModuleLoader;
+let embeddedThumbnailLoaderAttempted = false;
 
 /**
  * 从图片 buffer 中提取 EXIF 元数据
@@ -51,12 +54,13 @@ export async function extractEmbeddedPreview(buffer, fileType) {
         return null;
     }
 
-    if (typeof embeddedThumbnailExtractor !== 'function') {
-        return null;
-    }
-
     try {
-        const rawThumbnail = await embeddedThumbnailExtractor(buffer);
+        const extractor = await getEmbeddedThumbnailExtractor();
+        if (typeof extractor !== 'function') {
+            return null;
+        }
+
+        const rawThumbnail = await extractor(buffer);
         if (!rawThumbnail) {
             return null;
         }
@@ -80,10 +84,42 @@ export async function extractEmbeddedPreview(buffer, fileType) {
 
 export function __setEmbeddedThumbnailExtractorForTests(extractor) {
     embeddedThumbnailExtractor = typeof extractor === 'function' ? extractor : null;
+    embeddedThumbnailLoaderAttempted = typeof embeddedThumbnailExtractor === 'function';
+}
+
+export function __setEmbeddedThumbnailModuleLoaderForTests(loader) {
+    embeddedThumbnailModuleLoader = typeof loader === 'function'
+        ? loader
+        : defaultEmbeddedThumbnailModuleLoader;
+    embeddedThumbnailExtractor = null;
+    embeddedThumbnailLoaderAttempted = false;
 }
 
 export function __resetEmbeddedThumbnailExtractorForTests() {
     embeddedThumbnailExtractor = null;
+    embeddedThumbnailModuleLoader = defaultEmbeddedThumbnailModuleLoader;
+    embeddedThumbnailLoaderAttempted = false;
+}
+
+async function getEmbeddedThumbnailExtractor() {
+    if (typeof embeddedThumbnailExtractor === 'function') {
+        return embeddedThumbnailExtractor;
+    }
+
+    if (embeddedThumbnailLoaderAttempted) {
+        return null;
+    }
+
+    embeddedThumbnailLoaderAttempted = true;
+    const loadedModule = await embeddedThumbnailModuleLoader();
+    const defaultExport = loadedModule?.default;
+    const thumbnail = defaultExport?.thumbnail || loadedModule?.thumbnail;
+    if (typeof thumbnail !== 'function') {
+        return null;
+    }
+
+    embeddedThumbnailExtractor = (buffer) => thumbnail.call(defaultExport || loadedModule, buffer);
+    return embeddedThumbnailExtractor;
 }
 
 function extractJpegExifDateTime(buffer) {
