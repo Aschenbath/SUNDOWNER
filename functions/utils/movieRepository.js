@@ -143,10 +143,17 @@ async function putUserEntries(db, entries) {
   return normalized;
 }
 
-async function hydrateEntries(db, entries) {
+async function hydrateEntries(db, entries, detailLoader = null) {
   const hydrated = [];
   for (const entry of entries) {
-    const movie = await getRawMovieCache(db, entry.tmdbId);
+    let movie = await getRawMovieCache(db, entry.tmdbId);
+    if (movie && !normalizeText(movie.director) && typeof detailLoader === 'function') {
+      try {
+        movie = await detailLoader(entry.tmdbId);
+      } catch {
+        // Listing should remain local-first even if a director backfill request fails.
+      }
+    }
     hydrated.push({ entry, movie });
   }
   return hydrated;
@@ -213,7 +220,7 @@ export class MovieRepository {
       .map((entry) => normalizeUserMovieEntry(entry, entry, entry.updatedAt || nowIso()))
       .filter((entry) => !status || entry.watchStatus === status)
       .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')));
-    return hydrateEntries(db, entries);
+    return hydrateEntries(db, entries, (tmdbId) => this.getMovieDetail(tmdbId));
   }
 
   async deleteUserEntry(idOrTmdbId) {

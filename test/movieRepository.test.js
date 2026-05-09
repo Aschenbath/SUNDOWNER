@@ -113,6 +113,38 @@ describe('MovieRepository', () => {
     assert.equal(list[0].movie.title, 'Movie');
   });
 
+  it('backfills missing directors while listing saved entries', async () => {
+    const db = new MemoryDB();
+    let detailCalls = 0;
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          detailCalls += 1;
+          return createMovie({ director: 'James Cameron' });
+        },
+      },
+    });
+    await db.put('manage@sysConfig@movieCache@42', JSON.stringify(createMovie({ director: '' })));
+    await db.put('manage@sysConfig@userMovieEntries', JSON.stringify([{
+      id: 'tmdb-42',
+      tmdbId: 42,
+      watchStatus: 'watched',
+      userRating: null,
+      note: '',
+      tags: [],
+      isFavorite: false,
+      watchedAt: '2026-05-09',
+      createdAt: '2026-05-09T00:00:00.000Z',
+      updatedAt: '2026-05-09T00:00:00.000Z',
+    }]));
+
+    const list = await repository.listUserEntries();
+
+    assert.equal(detailCalls, 1);
+    assert.equal(list[0].movie.director, 'James Cameron');
+  });
+
   it('validates five-star half-step user ratings and allows clearing them', async () => {
     const db = new MemoryDB();
     const repository = new MovieRepository({}, {
