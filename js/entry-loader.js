@@ -75,18 +75,8 @@
         var hasPassword = isString && value.indexOf('"password"') !== -1;
         var hasChineseLogin = isString && value.indexOf('登录') !== -1;
         var length = isString ? value.length : 0;
-        console.warn('[legacy-locale] JSON.parse candidate', {
-          type: typeof value,
-          length: length,
-          preview: isString ? value.slice(0, 120) : value,
-          hasLogin: hasLogin,
-          hasUpload: hasUpload,
-          hasPassword: hasPassword,
-          hasChineseLogin: hasChineseLogin
-        });
         var isLegacyLocalePayload = isString && length > 1000 && hasLogin && (hasPassword || hasUpload || hasChineseLogin);
         if (isLegacyLocalePayload) {
-          console.warn('[legacy-locale] corrupted built-in locale payload ignored', error);
           return legacyLocaleFallback;
         }
         throw error;

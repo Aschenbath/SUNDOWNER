@@ -1813,6 +1813,9 @@ describe('media library download actions', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
     assert.match(gateHtml, /data-form="private-access"/);
+    assert.match(gateHtml, /name="username"/);
+    assert.match(gateHtml, /autocomplete="username"/);
+    assert.match(gateHtml, /name="password"/);
     assert.match(gateHtml, /data-private-access="password"/);
     assert.match(gateHtml, /Unlock private album/);
     assert.match(gateHtml, />Unlock</);

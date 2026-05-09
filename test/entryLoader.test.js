@@ -136,9 +136,7 @@ describe('legacy entry loader', () => {
     assert.equal(locale.login.adminTitle, 'Admin Login');
     assert.equal(locale.login.password, 'Password');
     assert.equal(Object.keys(locale.upload).length, 0);
-    assert.equal(harness.warnings.length, 2);
-    assert.match(String(harness.warnings[0][0]), /legacy-locale/);
-    assert.match(String(harness.warnings[1][0]), /corrupted built-in locale payload ignored/);
+    assert.equal(harness.warnings.length, 0);
   });
 
   it('still throws for broken non-legacy JSON payloads', () => {
@@ -147,8 +145,7 @@ describe('legacy entry loader', () => {
     assert.throws(() => {
       harness.context.JSON.parse('{"foo":');
     });
-    assert.equal(harness.warnings.length, 1);
-    assert.match(String(harness.warnings[0][0]), /legacy-locale/);
+    assert.equal(harness.warnings.length, 0);
   });
 
   it('restores native JSON.parse after legacy app onload', () => {

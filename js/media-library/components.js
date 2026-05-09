@@ -2909,7 +2909,16 @@ export function PrivateAlbumGate({ error = '', value = '' }) {
       </div>
       <form class="cml-private-access__form" data-form="private-access">
         <input
+          type="text"
+          name="username"
+          autocomplete="username"
+          value="private"
+          hidden
+          tabindex="-1"
+        />
+        <input
           type="password"
+          name="password"
           class="cml-private-access__input"
           data-private-access="password"
           placeholder="Password"
