@@ -103,9 +103,9 @@ const LEGACY_ALBUM_STORAGE_KEYS = [
   ALBUM_ASSIGNMENTS_STORAGE_KEY,
   ALBUM_COVERS_STORAGE_KEY
 ];
-const API_PAGE_SIZE = 400;
+const API_PAGE_SIZE = 200;
 const API_MAX_ITEMS = 1600;
-const API_REQUEST_TIMEOUT_MS = 8000;
+const API_REQUEST_TIMEOUT_MS = 12000;
 const STORAGE_REQUEST_TIMEOUT_MS = 5000;
 const SEARCH_INPUT_DEBOUNCE_MS = 160;
 const MEDIA_LIBRARY_UPLOAD_ACCEPT = 'image/*,video/*,audio/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
@@ -9431,7 +9431,7 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
   } catch (error) {
     console.warn('[media-library] falling back to DOM extraction', error);
     state.librarySyncMeta = {
-      source: 'dom',
+      source: error?.message === 'Request timed out' ? 'timeout' : 'dom',
       totalCount: domItems.length,
       loadedCount: domItems.length,
       isTruncated: false
@@ -9481,7 +9481,12 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
     }
   }
 
-  const shouldKeepLoading = items.length === 0 && (!surfaceReady || state.liveSyncAttempts < 4);
+  const timedOutWithoutFallback = items.length === 0
+    && state.librarySyncMeta?.source === 'timeout'
+    && state.liveSyncAttempts >= 3;
+  const shouldKeepLoading = !timedOutWithoutFallback
+    && items.length === 0
+    && (!surfaceReady || state.liveSyncAttempts < 4);
   if (state.isLibraryLoading !== shouldKeepLoading) {
     state.isLibraryLoading = shouldKeepLoading;
     changed = true;

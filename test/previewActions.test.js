@@ -1499,6 +1499,15 @@ describe('media library download actions', () => {
     assert.doesNotMatch(appSource, /if \(normalizedType === 'success'\) \{/);
   });
 
+  it('stops indefinite library loading after repeated indexed timeouts without DOM fallback items', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    assert.match(appSource, /source: error\?\.message === 'Request timed out' \? 'timeout' : 'dom'/);
+    assert.match(appSource, /const timedOutWithoutFallback = items\.length === 0/);
+    assert.match(appSource, /state\.librarySyncMeta\?\.source === 'timeout'/);
+    assert.match(appSource, /state\.liveSyncAttempts >= 3/);
+    assert.match(appSource, /const shouldKeepLoading = !timedOutWithoutFallback/);
+  });
+
   it('uses optimistic local deletion and parallel delete requests for faster photo removal', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const deleteSectionMatch = appSource.match(/async function deleteSelectedItems\(options = \{\}\) \{[\s\S]*?\n\}/);
