@@ -11133,9 +11133,9 @@ body.codex-media-library-active #app {
   right: 0;
   bottom: -1px;
   z-index: 1;
-  height: 18px;
+  height: 24px;
   background:
-    radial-gradient(circle at 10px 18px, var(--cml-film-cutout-bg) 0 9px, transparent 9.4px) 0 0 / 21px 18px repeat-x;
+    radial-gradient(circle at 16px 24px, var(--cml-film-cutout-bg) 0 12px, transparent 12.6px) 0 0 / 32px 24px repeat-x;
   pointer-events: none;
 }
 

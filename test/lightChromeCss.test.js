@@ -76,7 +76,7 @@ describe('light chrome CSS', () => {
   it('keeps film ticket cutouts tied to the active content panel surface', () => {
     assert.match(css, /#codex-media-library-root \.cml-film-card \{[\s\S]*--cml-film-cutout-bg: var\(--cml-theme-content-panel-bg, rgb\(21, 23, 27\)\);/);
     assert.match(css, /#codex-media-library-root \.cml-film-card__notch \{[\s\S]*background: var\(--cml-film-cutout-bg\);/);
-    assert.match(css, /#codex-media-library-root \.cml-film-card__ticket-panel::after \{[\s\S]*radial-gradient\(circle at 10px 18px, var\(--cml-film-cutout-bg\)/);
+    assert.match(css, /#codex-media-library-root \.cml-film-card__ticket-panel::after \{[\s\S]*radial-gradient\(circle at 16px 24px, var\(--cml-film-cutout-bg\)/);
     assert.match(css, /#codex-media-library-root \.cml-film-card__perforation \{[\s\S]*repeating-linear-gradient\(90deg, rgba\(244, 246, 250, 0\.9\) 0 10px, transparent 10px 18px\)/);
   });
 });
