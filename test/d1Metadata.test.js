@@ -599,4 +599,23 @@ describe('D1 metadata migration path', () => {
         assert.equal(payload.pageSize, 500);
         assert.equal(payload.files.length, 3);
     });
+
+    it('list route fails closed when the KV index is unavailable instead of scanning KV directly', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+        };
+        await env.img_url.put('manage@index@meta', '{broken-json');
+
+        const response = await listRoute(createContext(
+            env,
+            new Request('https://example.com/api/manage/list?dir=photos/&count=10', {
+                method: 'GET',
+            }),
+        ));
+
+        assert.equal(response.status, 503);
+        const payload = await response.json();
+        assert.equal(payload.error, 'Index unavailable');
+        assert.equal(payload.message, 'Indexed metadata query failed');
+    });
 });

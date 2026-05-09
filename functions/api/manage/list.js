@@ -318,32 +318,12 @@ export async function onRequest(context) {
             includeSubdirFiles: recursive,
         });
 
-        // 索引读取失败，直接从 KV 中获取所有文件记录
         if (!result.success) {
-            const dbConfig = checkDatabaseConfig(context.env);
-            if (dbConfig.usingD1) {
-                return new Response(JSON.stringify({
-                    error: 'Index unavailable',
-                    message: 'D1-backed metadata query failed'
-                }), {
-                    status: 503,
-                    headers: { "Content-Type": "application/json", ...corsHeaders }
-                });
-            }
-
-            console.error('Index read failed, falling back to direct database scan.');
-            const dbRecords = await getAllFileRecords(context.env, dir, recycleBinMode);
-
             return new Response(JSON.stringify({
-                files: dbRecords.files,
-                directories: dbRecords.directories,
-                totalCount: dbRecords.totalCount,
-                directFileCount: dbRecords.directFileCount,
-                directFolderCount: dbRecords.directFolderCount,
-                returnedCount: dbRecords.returnedCount,
-                indexLastUpdated: Date.now(),
-                isIndexedResponse: false // 标记这是来自 KV 的响应
+                error: 'Index unavailable',
+                message: 'Indexed metadata query failed'
             }), {
+                status: 503,
                 headers: { "Content-Type": "application/json", ...corsHeaders }
             });
         }
