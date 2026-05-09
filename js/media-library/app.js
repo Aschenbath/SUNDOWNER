@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=22';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=23';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -8346,50 +8346,104 @@ function getActiveFilmRecord() {
   return state.films.find((record) => record.id === state.activeFilmId) || null;
 }
 
-function normalizeMovieRecord(movie = {}, entry = null) {
-  const releaseYear = String(movie.releaseDate || '').slice(0, 4);
-  const watchStatus = entry?.watchStatus || 'watchlist';
+function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
+  const releaseYear = String(movie.releaseDate || '').slice(0, 4) || String(movie.year || existingRecord?.year || '');
+  const watchStatus = entry?.watchStatus
+    || normalizeWatchStatusForPayload(movie.status || existingRecord?.status || '')
+    || 'wantToWatch';
   const status = watchStatus === 'wantToWatch' ? 'watchlist' : watchStatus;
-  const tmdbId = Number(movie.tmdbId);
+  const tmdbId = Number(movie.tmdbId ?? existingRecord?.tmdbId);
   const userRating = entry?.userRating === null || entry?.userRating === undefined
-    ? null
+    ? (movie.userRating ?? movie.rating ?? existingRecord?.userRating ?? null)
     : Number(entry.userRating);
+  const id = Number.isFinite(tmdbId) && tmdbId > 0
+    ? `tmdb-${tmdbId}`
+    : normalizeText(movie.id || existingRecord?.id || `film-${Date.now()}`);
+  const overview = normalizeText(movie.overview || existingRecord?.overview || '');
+  const localNote = normalizeText(entry?.note || existingRecord?.note || '');
+  const localJournal = normalizeText(entry?.journal || entry?.noteMarkdown || existingRecord?.journal || existingRecord?.noteMarkdown || '');
   return {
-    id: `tmdb-${movie.tmdbId}`,
-    tmdbId: movie.tmdbId,
-    title: movie.title || movie.originalTitle || 'Untitled film',
-    localTitle: movie.title || movie.originalTitle || 'Untitled film',
-    originalTitle: movie.originalTitle || movie.title || '',
+    id,
+    tmdbId: Number.isFinite(tmdbId) ? tmdbId : null,
+    title: movie.title || movie.originalTitle || existingRecord?.title || 'Untitled film',
+    localTitle: movie.title || movie.originalTitle || existingRecord?.localTitle || existingRecord?.title || 'Untitled film',
+    originalTitle: movie.originalTitle || movie.title || existingRecord?.originalTitle || '',
     year: releaseYear,
     status,
-    favorite: Boolean(entry?.isFavorite),
+    favorite: Boolean(entry?.isFavorite ?? movie.favorite ?? existingRecord?.favorite),
     userRating: Number.isFinite(userRating) ? userRating : null,
     rating: Number.isFinite(userRating) ? userRating : null,
-    note: entry?.note || movie.overview || '',
-    journal: '',
-    watchedAt: entry?.watchedAt || '',
-    addedAt: entry?.createdAt || movie.updatedAt || '',
-    director: movie.director || '',
-    genres: Array.isArray(movie.genres) ? movie.genres : [],
-    country: '',
-    language: '',
-    runtime: movie.runtime,
-    posterPath: movie.posterPath,
-    backdropPath: movie.backdropPath,
-    voteAverage: movie.voteAverage,
-    voteCount: movie.voteCount,
+    overview,
+    note: localNote,
+    journal: localJournal,
+    noteMarkdown: localJournal,
+    watchedAt: entry?.watchedAt || existingRecord?.watchedAt || '',
+    addedAt: entry?.createdAt || existingRecord?.addedAt || movie.updatedAt || '',
+    updatedAt: entry?.updatedAt || movie.updatedAt || existingRecord?.updatedAt || '',
+    director: movie.director || existingRecord?.director || '',
+    genres: Array.isArray(movie.genres) ? movie.genres : (Array.isArray(existingRecord?.genres) ? existingRecord.genres : []),
+    country: existingRecord?.country || '',
+    language: existingRecord?.language || '',
+    runtime: movie.runtime ?? existingRecord?.runtime ?? null,
+    posterPath: movie.posterPath || existingRecord?.posterPath || '',
+    posterUrl: movie.posterUrl || existingRecord?.posterUrl || '',
+    backdropPath: movie.backdropPath || existingRecord?.backdropPath || '',
+    backdropUrl: movie.backdropUrl || existingRecord?.backdropUrl || '',
+    voteAverage: movie.voteAverage ?? existingRecord?.voteAverage ?? null,
+    voteCount: movie.voteCount ?? existingRecord?.voteCount ?? null,
     isSaving: Number.isFinite(tmdbId) && state.filmSavingTmdbIds.has(tmdbId)
   };
 }
 
-function upsertFilmRecord(record) {
+function normalizeMovieRecord(movie = {}, entry = null) {
+  return normalizeFilmRecord(movie, entry);
+}
+
+function preferLocalText(...values) {
+  for (const value of values) {
+    const normalized = normalizeText(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return '';
+}
+
+function upsertFilmRecord(record, { preserveLocal = false } = {}) {
   if (!record?.id) {
     return;
   }
-  state.films = [
-    record,
-    ...state.films.filter((item) => item.id !== record.id)
-  ];
+  const normalizedTmdbId = Number(record.tmdbId);
+  const existingIndex = state.films.findIndex((item) => {
+    const itemTmdbId = Number(item.tmdbId);
+    return (Number.isFinite(normalizedTmdbId) && normalizedTmdbId > 0 && itemTmdbId === normalizedTmdbId)
+      || item.id === record.id;
+  });
+  const existing = existingIndex >= 0 ? state.films[existingIndex] : null;
+  const merged = normalizeFilmRecord(record, null, existing);
+  const preserved = {
+    ...merged,
+    userRating: preserveLocal ? (existing?.userRating ?? record.userRating ?? null) : (record.userRating ?? existing?.userRating ?? null),
+    rating: preserveLocal ? (existing?.userRating ?? record.userRating ?? null) : (record.userRating ?? existing?.userRating ?? null),
+    note: preserveLocal
+      ? preferLocalText(existing?.note, record.note, merged.note)
+      : preferLocalText(record.note, existing?.note, merged.note),
+    journal: preserveLocal
+      ? preferLocalText(existing?.journal, existing?.noteMarkdown, record.journal, record.noteMarkdown, merged.journal)
+      : preferLocalText(record.journal, record.noteMarkdown, existing?.journal, existing?.noteMarkdown, merged.journal),
+    noteMarkdown: preserveLocal
+      ? preferLocalText(existing?.noteMarkdown, existing?.journal, record.noteMarkdown, record.journal, merged.noteMarkdown)
+      : preferLocalText(record.noteMarkdown, record.journal, existing?.noteMarkdown, existing?.journal, merged.noteMarkdown),
+    watchedAt: preserveLocal ? (existing?.watchedAt ?? record.watchedAt ?? '') : (record.watchedAt ?? existing?.watchedAt ?? ''),
+    status: preserveLocal ? (existing?.status ?? record.status ?? merged.status) : (record.status ?? existing?.status ?? merged.status),
+    favorite: preserveLocal ? (existing?.favorite ?? record.favorite ?? false) : (record.favorite ?? existing?.favorite ?? false),
+    isSaving: Boolean(record.isSaving)
+  };
+  const nextFilms = state.films.slice();
+  if (existingIndex >= 0) {
+    nextFilms.splice(existingIndex, 1);
+  }
+  state.films = [preserved, ...nextFilms];
 }
 
 function findMovieSourceByTmdbId(tmdbId) {
@@ -8520,7 +8574,7 @@ async function openTmdbFilmDetail(tmdbId) {
   try {
     const payload = await fetchMovieJson(`/api/manage/movies?action=detail&tmdbId=${encodeURIComponent(String(normalizedId))}`);
     const record = normalizeMovieRecord(payload?.movie || {});
-    upsertFilmRecord(record);
+    upsertFilmRecord(record, { preserveLocal: true });
     state.activeFilmId = record.id;
     state.filmDetailOpen = true;
     state.filmError = '';
@@ -8538,9 +8592,13 @@ async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false } = {
     return;
   }
   const previousFilms = state.films.slice();
-  const watchedAt = watchStatus === 'watched' ? new Date().toISOString().slice(0, 10) : '';
+  const watchedAt = watchStatus === 'watched' ? new Date().toISOString().slice(0, 10) : undefined;
   state.filmSavingTmdbIds.add(normalizedId);
-  const optimisticRecord = createOptimisticFilmRecord(normalizedId, { watchStatus, watchedAt });
+  const optimisticPatch = { watchStatus };
+  if (watchedAt) {
+    optimisticPatch.watchedAt = watchedAt;
+  }
+  const optimisticRecord = createOptimisticFilmRecord(normalizedId, optimisticPatch);
   upsertFilmRecord(optimisticRecord);
   if (openAfterSave) {
     state.activeFilmId = optimisticRecord.id;
@@ -8550,12 +8608,15 @@ async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false } = {
   state.filmError = '';
   render();
   try {
-    const payload = await postJson('/api/manage/movies', {
+    const body = {
       tmdbId: normalizedId,
       watchStatus,
-      watchedAt,
       movie: toMoviePayload(findMovieSourceByTmdbId(normalizedId), normalizedId)
-    });
+    };
+    if (watchedAt) {
+      body.watchedAt = watchedAt;
+    }
+    const payload = await postJson('/api/manage/movies', body);
     const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
     upsertFilmRecord(record);
     if (openAfterSave) {

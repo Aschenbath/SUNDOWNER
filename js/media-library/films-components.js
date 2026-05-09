@@ -378,10 +378,10 @@ export function FilmDetailPage({ record = null } = {}) {
               <p>${escapeHtml(personalNote)}</p>
             </section>
             <div class="cml-film-detail__actions">
-              <button type="button" class="cml-film-detail__action">♡ Save to Favourites</button>
-              <button type="button" class="cml-film-detail__action">✎ Edit Notes</button>
-              <button type="button" class="cml-film-detail__action">↻ Mark as Rewatch</button>
-              <button type="button" class="cml-film-detail__action cml-film-detail__action--icon" aria-label="More actions">...</button>
+              <button type="button" class="cml-film-detail__action" data-action="film-toggle-favourite" data-film-id="${escapeHtml(record.id || '')}">♡ Save to Favourites</button>
+              <button type="button" class="cml-film-detail__action" data-action="film-edit-notes" data-film-id="${escapeHtml(record.id || '')}">✎ Edit Notes</button>
+              <button type="button" class="cml-film-detail__action" data-action="film-mark-rewatch" data-film-id="${escapeHtml(record.id || '')}">↻ Mark as Rewatch</button>
+              <button type="button" class="cml-film-detail__action cml-film-detail__action--icon" data-action="film-more-actions" data-film-id="${escapeHtml(record.id || '')}" aria-label="More actions">...</button>
             </div>
           </div>
         </div>

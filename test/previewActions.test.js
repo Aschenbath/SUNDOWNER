@@ -49,6 +49,13 @@ describe('media library download actions', () => {
   it('keeps TMDb search-result save actions on the Films index route', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
+    assert.match(appSource, /function normalizeFilmRecord\(movie = \{\}, entry = null, existingRecord = null\)/);
+    assert.match(appSource, /function upsertFilmRecord\(record, \{ preserveLocal = false \} = \{\}\)/);
+    assert.match(appSource, /const existingIndex = state\.films\.findIndex/);
+    assert.match(appSource, /Number\.isFinite\(normalizedTmdbId\) && normalizedTmdbId > 0 && itemTmdbId === normalizedTmdbId/);
+    assert.match(appSource, /upsertFilmRecord\(record, \{ preserveLocal: true \}\)/);
+    assert.match(appSource, /journal: preserveLocal/);
+    assert.match(appSource, /const watchedAt = watchStatus === 'watched' \? new Date\(\)\.toISOString\(\)\.slice\(0, 10\) : undefined/);
     assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false \} = \{\}\)/);
     assert.match(appSource, /const filmActionNames = new Set\(\[/);
     assert.match(appSource, /filmActionNames\.has\(actionTarget\.dataset\.action \|\| ''\)/);
@@ -93,6 +100,10 @@ describe('media library download actions', () => {
     assert.match(html, /Synopsis/);
     assert.match(html, /My notes/);
     assert.match(html, /Save to Favourites/);
+    assert.match(html, /data-action="film-toggle-favourite"/);
+    assert.match(html, /data-action="film-edit-notes"/);
+    assert.match(html, /data-action="film-mark-rewatch"/);
+    assert.match(html, /data-action="film-more-actions"/);
     assert.doesNotMatch(html, /cml-film-modal/);
     assert.doesNotMatch(html, /role="dialog"/);
   });
