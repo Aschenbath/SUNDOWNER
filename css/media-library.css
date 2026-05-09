@@ -11549,11 +11549,20 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-ticket__section--rating {
-  gap: 12px;
+  gap: 16px;
+  margin-top: 8px;
+  padding: 24px 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 30px;
+  background:
+    linear-gradient(180deg, rgba(42, 43, 47, 0.92), rgba(20, 21, 24, 0.9)),
+    rgba(24, 25, 28, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 22px 42px rgba(22, 18, 14, 0.16);
 }
 
 #codex-media-library-root .cml-film-ticket__rating-head,
-#codex-media-library-root .cml-film-ticket__rating-control,
 #codex-media-library-root .cml-film-ticket__date-head,
 #codex-media-library-root .cml-film-ticket__date-control {
   display: flex;
@@ -11562,15 +11571,107 @@ body.codex-media-library-active #app {
   gap: 14px;
 }
 
+#codex-media-library-root .cml-film-ticket__section--rating .cml-film-ticket__section-label {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+#codex-media-library-root .cml-film-ticket__rating-control {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "stars output"
+    "slider slider"
+    "clear clear";
+  align-items: center;
+  gap: 14px 18px;
+}
+
+#codex-media-library-root .cml-film-ticket__rating-control::before {
+  grid-area: stars;
+  content: "★★★★★";
+  position: relative;
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  color: transparent;
+  background:
+    linear-gradient(90deg, #ffffff 0 var(--film-rating-fill, 80%), rgba(255, 255, 255, 0.2) var(--film-rating-fill, 80%) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-stroke: 2px rgba(255, 255, 255, 0.56);
+  font-size: clamp(42px, 6vw, 66px);
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+
 #codex-media-library-root .cml-film-ticket__rating-output {
-  color: #1f2937;
-  font-size: 15px;
+  grid-area: output;
+  color: #ffffff;
+  font-size: clamp(46px, 7vw, 72px);
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  line-height: 0.95;
+  text-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
 }
 
 #codex-media-library-root .cml-film-ticket__rating-slider {
+  grid-area: slider;
   flex: 1;
-  min-width: 160px;
-  accent-color: #24272d;
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-film-ticket__rating-slider::-webkit-slider-runnable-track {
+  height: 9px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, #2f8cff 0 var(--film-rating-fill, 80%), rgba(255, 255, 255, 0.18) var(--film-rating-fill, 80%) 100%);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.32);
+}
+
+#codex-media-library-root .cml-film-ticket__rating-slider::-webkit-slider-thumb {
+  width: 44px;
+  height: 44px;
+  margin-top: -17px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 38% 32%, rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.12) 38%, rgba(42, 43, 47, 0.86) 100%);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#codex-media-library-root .cml-film-ticket__rating-slider::-moz-range-track {
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+#codex-media-library-root .cml-film-ticket__rating-slider::-moz-range-progress {
+  height: 9px;
+  border-radius: 999px;
+  background: #2f8cff;
+}
+
+#codex-media-library-root .cml-film-ticket__rating-slider::-moz-range-thumb {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(42, 43, 47, 0.92);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
 }
 
 #codex-media-library-root .cml-film-ticket__date-current {
@@ -11594,6 +11695,8 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-ticket__rating-clear,
 #codex-media-library-root .cml-film-ticket__date-save {
+  grid-area: clear;
+  justify-self: end;
   height: 34px;
   padding: 0 13px;
   border: 1px solid rgba(71, 85, 105, 0.24);
@@ -11607,9 +11710,15 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-ticket__rating-note {
   margin: 0;
-  color: #8a7764;
-  font-size: 12px;
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 13px;
   line-height: 1.45;
+}
+
+#codex-media-library-root .cml-film-ticket__rating-note [data-film-rating-mood] {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 20px;
+  font-weight: 800;
 }
 
 #codex-media-library-root .cml-film-ticket__action {

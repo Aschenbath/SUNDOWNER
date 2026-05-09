@@ -64,6 +64,34 @@ function formatRuntime(value) {
   return `${hours}h ${String(rest).padStart(2, '0')}m`;
 }
 
+function normalizeUserRatingValue(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  return Math.min(5, Math.max(0.5, Math.round(numeric * 2) / 2));
+}
+
+function getUserRatingMood(value) {
+  const rating = normalizeUserRatingValue(value);
+  if (rating === null) {
+    return 'Not rated';
+  }
+  if (rating < 2) {
+    return '\u4e0d\u63a8\u8350';
+  }
+  if (rating < 3) {
+    return '\u4e00\u822c';
+  }
+  if (rating < 4) {
+    return '\u8fd8\u884c';
+  }
+  if (rating < 4.5) {
+    return '\u63a8\u8350';
+  }
+  return '\u79c1\u5fc3\u6700\u7231';
+}
+
 function buildTmdbImageUrl(path, size = 'w342') {
   const normalized = normalizeText(path);
   if (!normalized) {
@@ -367,6 +395,8 @@ export function FilmDetailModal({ record = null } = {}) {
   const statusLabel = getCleanStatusLabel(record.status);
   const userRating = formatUserRating(record.userRating ?? record.rating);
   const ratingInputValue = userRating || '4.0';
+  const ratingMood = getUserRatingMood(userRating);
+  const ratingFill = normalizeUserRatingValue(ratingInputValue) ? `${(normalizeUserRatingValue(ratingInputValue) / 5) * 100}%` : '80%';
   const tmdbRating = formatTmdbRating(record);
   const watchedDateValue = normalizeText(record.watchedAt || '').slice(0, 10);
   const genres = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' / ') : '';
@@ -403,16 +433,16 @@ export function FilmDetailModal({ record = null } = {}) {
           ${renderTicketMetaRow('My rating', userRating ? `${userRating} / 5.0` : 'Not rated')}
         </dl>
         ${canSaveEntry ? `
-          <section class="cml-film-ticket__section cml-film-ticket__section--rating">
+          <section class="cml-film-ticket__section cml-film-ticket__section--rating" style="--film-rating-fill: ${escapeHtml(ratingFill)};">
             <div class="cml-film-ticket__rating-head">
               <p class="cml-film-ticket__section-label">My rating</p>
-              <strong class="cml-film-ticket__rating-output" data-film-rating-output>${escapeHtml(userRating ? `${userRating} ★` : 'Not rated')}</strong>
+              <strong class="cml-film-ticket__rating-output" data-film-rating-output>${escapeHtml(userRating || '4.0')}</strong>
             </div>
             <div class="cml-film-ticket__rating-control">
               <input type="range" class="cml-film-ticket__rating-slider" data-film-rating-input data-tmdb-id="${escapeHtml(record.tmdbId || '')}" min="0.5" max="5" step="0.5" value="${escapeHtml(ratingInputValue)}" ${isSaving ? 'disabled' : ''} />
               <button type="button" class="cml-film-ticket__rating-clear" data-action="clear-film-rating" data-tmdb-id="${escapeHtml(record.tmdbId || '')}" ${(!userRating || isSaving) ? 'disabled' : ''}>Clear rating</button>
             </div>
-            <p class="cml-film-ticket__rating-note">User rating is local. TMDb rating stays external.</p>
+            <p class="cml-film-ticket__rating-note"><span data-film-rating-mood>${escapeHtml(ratingMood)}</span> · User rating is local. TMDb rating stays external.</p>
           </section>
         ` : ''}
         ${canSaveEntry ? `

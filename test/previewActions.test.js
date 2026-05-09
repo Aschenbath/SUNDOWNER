@@ -68,7 +68,10 @@ describe('media library download actions', () => {
     assert.match(html, /TMDb 8\.2/);
     assert.match(html, /My rating/);
     assert.match(html, /4\.5 \/ 5\.0/);
+    assert.match(html, /--film-rating-fill: 90%/);
+    assert.match(html, /cml-film-ticket__section--rating/);
     assert.match(html, /data-film-rating-input/);
+    assert.match(html, /data-film-rating-mood/);
     assert.match(html, /min="0\.5" max="5" step="0\.5" value="4\.5"/);
     assert.match(html, /data-action="clear-film-rating"/);
     assert.match(html, /Watched date/);

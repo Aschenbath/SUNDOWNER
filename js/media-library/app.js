@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=19';
+import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=20';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -1790,6 +1790,26 @@ function ensureRoot() {
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function getFilmUserRatingMood(value) {
+  const rating = Number(value);
+  if (!Number.isFinite(rating)) {
+    return 'Not rated';
+  }
+  if (rating < 2) {
+    return '\u4e0d\u63a8\u8350';
+  }
+  if (rating < 3) {
+    return '\u4e00\u822c';
+  }
+  if (rating < 4) {
+    return '\u8fd8\u884c';
+  }
+  if (rating < 4.5) {
+    return '\u63a8\u8350';
+  }
+  return '\u79c1\u5fc3\u6700\u7231';
 }
 
 function formatScrubberLabel(dateLike) {
@@ -12140,6 +12160,22 @@ function handleInput(event) {
   }
   if (input.hasAttribute('data-films-search-input')) {
     state.filmSearchQuery = input.value;
+    return;
+  }
+  if (input.hasAttribute('data-film-rating-input')) {
+    const section = input.closest('.cml-film-ticket__section--rating');
+    const normalizedRating = Math.min(5, Math.max(0.5, Math.round(Number(input.value || 0) * 2) / 2));
+    const output = section?.querySelector('[data-film-rating-output]');
+    const mood = section?.querySelector('[data-film-rating-mood]');
+    if (section instanceof HTMLElement) {
+      section.style.setProperty('--film-rating-fill', `${(normalizedRating / 5) * 100}%`);
+    }
+    if (output instanceof HTMLElement) {
+      output.textContent = normalizedRating.toFixed(1);
+    }
+    if (mood instanceof HTMLElement) {
+      mood.textContent = getFilmUserRatingMood(normalizedRating);
+    }
     return;
   }
   if (input.hasAttribute('data-film-rating-input')) {
