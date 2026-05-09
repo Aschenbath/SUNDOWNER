@@ -212,7 +212,6 @@ function formatTmdbRating(record = {}) {
 export function FilmCard(record = {}) {
   const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
   const originalTitle = normalizeText(record.originalTitle || record.title || '');
-  const coverTitle = originalTitle && originalTitle !== localTitle ? originalTitle : localTitle;
   const directorLine = normalizeText(record.director || '');
   const localeLine = [record.country, record.language].filter(Boolean).join(' / ');
   const genresLine = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' · ') : '';
@@ -221,9 +220,7 @@ export function FilmCard(record = {}) {
   const ratingValue = formatUserRating(record.userRating ?? record.rating);
   const hasRating = Boolean(ratingValue);
   const ratingLabel = hasRating ? 'My rating' : '';
-  const statusLabel = getCleanStatusLabel(record.status);
   const coverMeta = [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ');
-  const coverCaption = genresLine || localeLine || directorLine;
   const infoItems = [
     renderFilmCardInfoItem('Director', directorLine),
     renderFilmCardInfoItem('Release', [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' • ')),
@@ -234,14 +231,6 @@ export function FilmCard(record = {}) {
     <article class="cml-film-card" data-film-id="${escapeHtml(record.id || '')}" data-action="open-film-detail" tabindex="0" role="button" aria-label="Open ${escapeHtml(localTitle)} details">
       <div class="cml-film-card__poster-panel">
         <img class="cml-film-card__poster" src="${escapeHtml(getRecordPosterUrl(record))}" alt="${escapeHtml(localTitle)}" loading="eager" decoding="async" />
-        <div class="cml-film-card__cover-top">
-          <span class="cml-film-card__cover-kicker">Movie diary</span>
-          <span class="cml-film-card__cover-chip">${escapeHtml(statusLabel)}</span>
-        </div>
-        <div class="cml-film-card__cover-bottom">
-          <h3 class="cml-film-card__cover-title">${escapeHtml(coverTitle)}</h3>
-          ${coverCaption ? `<p class="cml-film-card__cover-caption">${escapeHtml(coverCaption)}</p>` : ''}
-        </div>
       </div>
       <div class="cml-film-card__ticket-panel">
         <span class="cml-film-card__notch cml-film-card__notch--left" aria-hidden="true"></span>
@@ -249,7 +238,6 @@ export function FilmCard(record = {}) {
         <div class="cml-film-card__ticket-body">
           <div class="cml-film-card__ticket-head">
             <div class="cml-film-card__title-block">
-              <p class="cml-film-card__eyebrow">${escapeHtml(coverMeta || 'Sundowner ticket')}</p>
               <h4 class="cml-film-card__title">${escapeHtml(localTitle)}</h4>
               ${originalTitle && originalTitle !== localTitle ? `<p class="cml-film-card__original">${escapeHtml(originalTitle)}</p>` : ''}
             </div>

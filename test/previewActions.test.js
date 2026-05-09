@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar, AlbumDialog } from '../js/media-library/components.js';
-import { FilmDetailModal, FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
+import { FilmCard, FilmDetailModal, FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
 
 describe('media library download actions', () => {
   it('renders Films search as a submit form and keeps TMDb feedback above the local film list', () => {
@@ -67,6 +67,27 @@ describe('media library download actions', () => {
     assert.match(html, /data-film-rating-input/);
     assert.match(html, /min="0\.5" max="5" step="0\.5" value="4\.5"/);
     assert.match(html, /data-action="clear-film-rating"/);
+  });
+
+  it('keeps saved film card posters free of overlay labels', () => {
+    const html = FilmCard({
+      id: 'tmdb-42',
+      tmdbId: 42,
+      title: 'Movie',
+      originalTitle: 'Movie',
+      status: 'watched',
+      year: '2026',
+      runtime: 121,
+      posterPath: '/poster.jpg',
+    });
+
+    const posterPanel = html.slice(
+      html.indexOf('cml-film-card__poster-panel'),
+      html.indexOf('cml-film-card__ticket-panel')
+    );
+    assert.doesNotMatch(posterPanel, /Movie diary/i);
+    assert.doesNotMatch(posterPanel, /已看|想看|watch/i);
+    assert.doesNotMatch(html, /cml-film-card__eyebrow/);
   });
 
   it('renders saving state for movie add actions', () => {
