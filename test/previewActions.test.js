@@ -18,6 +18,9 @@ describe('media library download actions', () => {
 
     assert.match(html, /data-form="films-search"/);
     assert.match(html, /type="submit" class="cml-films-page__add-button"/);
+    assert.match(html, /data-action="filter-films"/);
+    assert.match(html, /data-film-filter="Watched"/);
+    assert.doesNotMatch(html, /cml-films-filters__chip[^>]*disabled/);
     assert.match(html, /Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables/);
     assert.match(html, /No saved films yet/);
     assert.ok(html.indexOf('cml-films-mvp') < html.indexOf('cml-films-filters'));
@@ -54,6 +57,7 @@ describe('media library download actions', () => {
         year: '2026',
         runtime: 120,
         userRating: 4.5,
+        watchedAt: '2026-05-08',
         voteAverage: 8.2,
         voteCount: 12345,
         genres: ['Drama'],
@@ -67,6 +71,11 @@ describe('media library download actions', () => {
     assert.match(html, /data-film-rating-input/);
     assert.match(html, /min="0\.5" max="5" step="0\.5" value="4\.5"/);
     assert.match(html, /data-action="clear-film-rating"/);
+    assert.match(html, /Watched date/);
+    assert.match(html, /data-film-watched-at-output/);
+    assert.match(html, /data-film-watched-at-input/);
+    assert.match(html, /value="2026-05-08"/);
+    assert.match(html, /data-action="save-film-watched-date"/);
   });
 
   it('keeps saved film card posters free of overlay labels', () => {

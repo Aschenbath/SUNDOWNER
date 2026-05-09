@@ -10712,7 +10712,13 @@ body.codex-media-library-active #app {
   color: var(--cml-theme-text-soft);
   font-size: 13px;
   font-weight: 600;
-  cursor: default;
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+#codex-media-library-root .cml-films-filters__chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(var(--cml-theme-accent-rgb), 0.24);
 }
 
 #codex-media-library-root .cml-films-filters__chip.is-active {
@@ -11547,7 +11553,9 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-ticket__rating-head,
-#codex-media-library-root .cml-film-ticket__rating-control {
+#codex-media-library-root .cml-film-ticket__rating-control,
+#codex-media-library-root .cml-film-ticket__date-head,
+#codex-media-library-root .cml-film-ticket__date-control {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -11565,7 +11573,27 @@ body.codex-media-library-active #app {
   accent-color: #24272d;
 }
 
-#codex-media-library-root .cml-film-ticket__rating-clear {
+#codex-media-library-root .cml-film-ticket__date-current {
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#codex-media-library-root .cml-film-ticket__date-input {
+  flex: 1;
+  min-width: 160px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(71, 85, 105, 0.24);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#codex-media-library-root .cml-film-ticket__rating-clear,
+#codex-media-library-root .cml-film-ticket__date-save {
   height: 34px;
   padding: 0 13px;
   border: 1px solid rgba(71, 85, 105, 0.24);
@@ -11861,12 +11889,14 @@ body.codex-media-library-active #app {
     padding-right: 0;
   }
 
-  #codex-media-library-root .cml-film-ticket__rating-control {
+  #codex-media-library-root .cml-film-ticket__rating-control,
+  #codex-media-library-root .cml-film-ticket__date-control {
     align-items: stretch;
     flex-direction: column;
   }
 
-  #codex-media-library-root .cml-film-ticket__rating-slider {
+  #codex-media-library-root .cml-film-ticket__rating-slider,
+  #codex-media-library-root .cml-film-ticket__date-input {
     min-width: 0;
     width: 100%;
   }

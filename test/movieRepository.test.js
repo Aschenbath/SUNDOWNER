@@ -106,10 +106,12 @@ describe('MovieRepository', () => {
     assert.equal(cachedMovie.userRating, undefined);
     assert.equal(cachedMovie.note, undefined);
     assert.equal(cachedMovie.watchStatus, undefined);
+    assert.equal(cachedMovie.watchedAt, undefined);
 
     const list = await repository.listUserEntries({ watchStatus: 'watched' });
     assert.equal(list.length, 1);
     assert.equal(list[0].entry.note, 'My private note');
+    assert.equal(list[0].entry.watchedAt, '2026-05-09');
     assert.equal(list[0].movie.title, 'Movie');
   });
 

@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=18';
+import { FilmDetailModal, FilmSearchResults, FilmsPage } from './films-components.js?v=19';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -431,6 +431,7 @@ const state = {
   filmSearchQuery: '',
   filmSearchResults: [],
   filmSearchLoading: false,
+  filmActiveFilter: FILM_FILTERS[0],
   filmSavingTmdbIds: new Set(),
   filmError: ''
 };
@@ -8386,6 +8387,7 @@ function toMoviePayload(source = {}, tmdbId = 0) {
     tmdbId: Number(source.tmdbId || tmdbId),
     title: source.title || source.localTitle || source.originalTitle || 'Untitled film',
     originalTitle: source.originalTitle || source.title || source.localTitle || '',
+    director: source.director || '',
     overview: source.overview || source.note || '',
     posterPath: source.posterPath || '',
     backdropPath: source.backdropPath || '',
@@ -8430,6 +8432,25 @@ function applyMovieEntries(entries = []) {
     .map((item) => item?.movie ? normalizeMovieRecord(item.movie, item.entry) : null)
     .filter(Boolean);
   state.films = remoteRecords;
+}
+
+function getVisibleFilmRecords() {
+  const activeFilter = FILM_FILTERS.includes(state.filmActiveFilter)
+    ? state.filmActiveFilter
+    : FILM_FILTERS[0];
+  if (activeFilter === 'Favorites') {
+    return state.films.filter((record) => record.favorite);
+  }
+  if (activeFilter === 'Watched') {
+    return state.films.filter((record) => record.status === 'watched');
+  }
+  if (activeFilter === 'Watching') {
+    return state.films.filter((record) => record.status === 'watching');
+  }
+  if (activeFilter === 'Watchlist') {
+    return state.films.filter((record) => record.status === 'watchlist' || record.status === 'wantToWatch');
+  }
+  return state.films;
 }
 
 async function loadMovieEntries({ forceRender = false } = {}) {
@@ -8565,6 +8586,51 @@ async function saveFilmRating(tmdbId, userRating) {
   } catch (error) {
     state.films = previousFilms;
     state.filmError = error.message || 'Failed to save rating';
+  } finally {
+    state.filmSavingTmdbIds.delete(normalizedId);
+    state.films = state.films.map((record) =>
+      Number(record.tmdbId) === normalizedId ? { ...record, isSaving: false } : record
+    );
+    render();
+  }
+}
+
+async function saveFilmWatchedDate(tmdbId, watchedAt) {
+  const normalizedId = Number(tmdbId);
+  if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+    return;
+  }
+  const normalizedDate = normalizeText(watchedAt).slice(0, 10);
+  const existing = state.films.find((record) => Number(record.tmdbId) === normalizedId) || null;
+  const watchStatus = normalizeWatchStatusForPayload(existing?.status || 'watched');
+  const previousFilms = state.films.slice();
+  state.filmSavingTmdbIds.add(normalizedId);
+  const optimisticRecord = createOptimisticFilmRecord(normalizedId, {
+    watchStatus: watchStatus === 'wantToWatch' ? 'watched' : watchStatus,
+    watchedAt: normalizedDate
+  });
+  upsertFilmRecord(optimisticRecord);
+  state.activeFilmId = optimisticRecord.id;
+  state.filmDetailOpen = true;
+  state.filmError = '';
+  render();
+  try {
+    const payload = await postJson('/api/manage/movies', {
+      tmdbId: normalizedId,
+      watchStatus: optimisticRecord.status === 'watchlist' ? 'wantToWatch' : optimisticRecord.status,
+      userRating: existing?.userRating ?? null,
+      watchedAt: normalizedDate,
+      movie: toMoviePayload(findMovieSourceByTmdbId(normalizedId), normalizedId)
+    });
+    const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
+    upsertFilmRecord(record);
+    state.activeFilmId = record.id;
+    state.filmDetailOpen = true;
+    state.filmError = '';
+    showToast('Watched date saved', 'success');
+  } catch (error) {
+    state.films = previousFilms;
+    state.filmError = error.message || 'Failed to save watched date';
   } finally {
     state.filmSavingTmdbIds.delete(normalizedId);
     state.films = state.films.map((record) =>
@@ -8975,8 +9041,9 @@ function render() {
                   }))
                 : viewModel.isFilmsView
                 ? FilmsPage({
-                    records: state.films,
-                    activeFilter: FILM_FILTERS[0],
+                    records: getVisibleFilmRecords(),
+                    totalCount: state.films.length,
+                    activeFilter: state.filmActiveFilter,
                     searchQuery: state.filmSearchQuery,
                     searchPanelHtml: FilmSearchResults({
                       results: state.filmSearchResults,
@@ -11698,6 +11765,12 @@ function handleAction(actionTarget) {
     case 'search-films':
       void searchFilms();
       return true;
+    case 'filter-films':
+      if (FILM_FILTERS.includes(actionTarget.dataset.filmFilter || '')) {
+        state.filmActiveFilter = actionTarget.dataset.filmFilter;
+        render();
+      }
+      return true;
     case 'open-tmdb-film-detail':
       void openTmdbFilmDetail(actionTarget.dataset.tmdbId);
       return true;
@@ -11707,6 +11780,11 @@ function handleAction(actionTarget) {
     case 'clear-film-rating':
       void saveFilmRating(actionTarget.dataset.tmdbId, null);
       return true;
+    case 'save-film-watched-date': {
+      const input = actionTarget.closest('.cml-film-ticket__date-control')?.querySelector('[data-film-watched-at-input]');
+      void saveFilmWatchedDate(actionTarget.dataset.tmdbId, input instanceof HTMLInputElement ? input.value : '');
+      return true;
+    }
     case 'preview-next':
       movePreview(1);
       return true;
@@ -12068,6 +12146,13 @@ function handleInput(event) {
     const output = input.closest('.cml-film-ticket__rating-control')?.querySelector('[data-film-rating-output]');
     if (output instanceof HTMLElement) {
       output.textContent = `${Number(input.value || 0).toFixed(1)} ★`;
+    }
+    return;
+  }
+  if (input.hasAttribute('data-film-watched-at-input')) {
+    const output = input.closest('.cml-film-ticket__section')?.querySelector('[data-film-watched-at-output]');
+    if (output instanceof HTMLElement) {
+      output.textContent = input.value || 'Not set';
     }
     return;
   }

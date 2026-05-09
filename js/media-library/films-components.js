@@ -368,6 +368,7 @@ export function FilmDetailModal({ record = null } = {}) {
   const userRating = formatUserRating(record.userRating ?? record.rating);
   const ratingInputValue = userRating || '4.0';
   const tmdbRating = formatTmdbRating(record);
+  const watchedDateValue = normalizeText(record.watchedAt || '').slice(0, 10);
   const genres = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' / ') : '';
   const localeLine = [record.country, record.language].filter(Boolean).join(' / ');
   const runtime = formatRuntime(record.runtime);
@@ -414,6 +415,19 @@ export function FilmDetailModal({ record = null } = {}) {
             <p class="cml-film-ticket__rating-note">User rating is local. TMDb rating stays external.</p>
           </section>
         ` : ''}
+        ${canSaveEntry ? `
+          <section class="cml-film-ticket__section cml-film-ticket__section--watched-date">
+            <div class="cml-film-ticket__date-head">
+              <p class="cml-film-ticket__section-label">Watched date</p>
+              <span class="cml-film-ticket__date-current" data-film-watched-at-output>${escapeHtml(watchedDateValue ? formatWatchedDateLong(watchedDateValue) : 'Not set')}</span>
+            </div>
+            <div class="cml-film-ticket__date-control">
+              <input type="date" class="cml-film-ticket__date-input" data-film-watched-at-input data-tmdb-id="${escapeHtml(record.tmdbId || '')}" value="${escapeHtml(watchedDateValue)}" ${isSaving ? 'disabled' : ''} />
+              <button type="button" class="cml-film-ticket__date-save" data-action="save-film-watched-date" data-tmdb-id="${escapeHtml(record.tmdbId || '')}" ${isSaving ? 'disabled' : ''}>Save date</button>
+            </div>
+            <p class="cml-film-ticket__rating-note">Defaults to the day you marked watched; edit it if the real viewing date was different.</p>
+          </section>
+        ` : ''}
         ${record.note ? `
           <section class="cml-film-ticket__section">
             <p class="cml-film-ticket__section-label">Short note</p>
@@ -439,9 +453,10 @@ export function FilmDetailModal({ record = null } = {}) {
   `;
 }
 
-export function FilmsPage({ records = [], activeFilter = 'All', searchQuery = '', searchPanelHtml = '' } = {}) {
+export function FilmsPage({ records = [], totalCount = records.length, activeFilter = 'All', searchQuery = '', searchPanelHtml = '' } = {}) {
   const sections = groupFilmsByTimeline(records);
   const searchValue = escapeHtml(searchQuery);
+  const hasAnySavedFilms = Number(totalCount) > 0;
   return `
     <section class="cml-films-page">
       <header class="cml-films-page__hero">
@@ -461,7 +476,7 @@ export function FilmsPage({ records = [], activeFilter = 'All', searchQuery = ''
       ${searchPanelHtml}
       <div class="cml-films-filters" role="tablist" aria-label="Film filters">
         ${FILM_FILTERS.map((filter) => `
-          <button type="button" class="cml-films-filters__chip ${filter === activeFilter ? 'is-active' : ''}" aria-pressed="${filter === activeFilter ? 'true' : 'false'}" disabled>
+          <button type="button" class="cml-films-filters__chip ${filter === activeFilter ? 'is-active' : ''}" data-action="filter-films" data-film-filter="${escapeHtml(filter)}" aria-pressed="${filter === activeFilter ? 'true' : 'false'}">
             ${escapeHtml(filter)}
           </button>
         `).join('')}
@@ -470,7 +485,7 @@ export function FilmsPage({ records = [], activeFilter = 'All', searchQuery = ''
         ${sections.length
           ? sections.map((section) => FilmTimelineSection(section)).join('')
           : `
-            <section class="cml-films-empty">
+            <section class="cml-films-empty" data-has-saved-films="${hasAnySavedFilms ? 'true' : 'false'}">
               <p class="cml-films-empty__eyebrow">Start from TMDb</p>
               <h2 class="cml-films-empty__title">No saved films yet.</h2>
               <p class="cml-films-empty__copy">Search a title above, then save a TMDb result as 想看 or 看过. Only movies you save will appear in this diary.</p>
