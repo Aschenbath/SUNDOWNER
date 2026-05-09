@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 
-import { onRequest } from '../functions/file/[[path]].js';
+import {
+  __resetS3ClientFactoryForTests,
+  __setS3ClientFactoryForTests,
+  onRequest,
+} from '../functions/file/[[path]].js';
 
 class MemoryKV {
   constructor(records = new Map()) {
@@ -61,6 +65,10 @@ function createChunkedRecord({ rawValue, totalChunks = 2, channel = 'TelegramNew
 }
 
 describe('public file metadata parsing', () => {
+  afterEach(() => {
+    __resetS3ClientFactoryForTests();
+  });
+
   it('returns a stable error for malformed chunk metadata JSON', async () => {
     const response = await onRequest({
       env: createEnvWithRecord(createChunkedRecord({ rawValue: '{bad' })),
@@ -110,5 +118,47 @@ describe('public file metadata parsing', () => {
     const text = await response.text();
     assert.equal(text, 'File metadata is unavailable');
     assert.doesNotMatch(text, /Invalid chunks data|Missing chunks|expected|got|SyntaxError|stack/);
+  });
+
+  it('returns 404 when S3 metadata exists but the object is missing', async () => {
+    __setS3ClientFactoryForTests(() => ({
+      async send() {
+        const error = new Error('missing object');
+        error.name = 'NoSuchKey';
+        error.$metadata = { httpStatusCode: 404 };
+        throw error;
+      },
+    }));
+
+    const response = await onRequest({
+      env: {
+        img_url: new MemoryKV(new Map([
+          ['s3/missing.jpg', {
+            value: '',
+            metadata: {
+              Channel: 'S3',
+              ChannelName: 'S3_env',
+              FileName: 'missing.jpg',
+              FileType: 'image/jpeg',
+              S3Endpoint: 'https://s3.example.com',
+              S3BucketName: 'media',
+              S3FileKey: 'missing.jpg',
+              ListType: 'None',
+              Label: 'safe',
+            },
+          }],
+        ])),
+        S3_ACCESS_KEY_ID: 'test-access-key',
+        S3_SECRET_ACCESS_KEY: 'test-secret-key',
+      },
+      params: { path: 's3/missing.jpg' },
+      request: new Request('http://localhost/file/s3/missing.jpg'),
+      waitUntil() {},
+      next() {},
+      data: {},
+    });
+
+    assert.equal(response.status, 404);
+    assert.equal(await response.text(), 'Error: Image Not Found');
   });
 });

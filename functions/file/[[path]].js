@@ -17,6 +17,18 @@ import {
 } from '../utils/mediaSecurity.js';
 import { resolveStoredTelegramReadTarget } from '../utils/telegramFileId.js';
 
+let createS3Client = (options) => new S3Client(options);
+
+export function __setS3ClientFactoryForTests(factory) {
+    createS3Client = typeof factory === 'function'
+        ? factory
+        : (options) => new S3Client(options);
+}
+
+export function __resetS3ClientFactoryForTests() {
+    createS3Client = (options) => new S3Client(options);
+}
+
 function buildPreviewFileName(fileName = 'preview.jpg') {
     const normalized = String(fileName || '').trim();
     if (!normalized) {
@@ -46,6 +58,16 @@ function buildEmbeddedPreviewResponse(context, fileName, preview) {
 
 function fileMetadataUnavailableResponse() {
     return new Response('File metadata is unavailable', { status: 500 });
+}
+
+function isS3MissingObjectError(error) {
+    return error?.$metadata?.httpStatusCode === 404
+        || error?.name === 'NoSuchKey'
+        || error?.Code === 'NoSuchKey'
+        || error?.code === 'NoSuchKey'
+        || error?.name === 'NotFound'
+        || error?.Code === 'NotFound'
+        || error?.code === 'NotFound';
 }
 
 function parseChunkMetadata(rawValue) {
@@ -879,7 +901,7 @@ async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType) 
         return new Response('Error: S3 channel credentials not available', { status: 500 });
     }
 
-    const s3Client = new S3Client({
+    const s3Client = createS3Client({
         region: metadata?.S3Region || "auto",
         endpoint: metadata?.S3Endpoint,
         credentials: {
@@ -934,6 +956,10 @@ async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType) 
         });
 
     } catch (error) {
+        if (isS3MissingObjectError(error)) {
+            return new Response('Error: Image Not Found', { status: 404 });
+        }
+
         console.error('S3 fetch error:', error);
         return new Response('Error: Failed to fetch file', { status: 500 });
     }
