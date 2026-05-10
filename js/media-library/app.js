@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=25';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=26';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -8805,7 +8805,20 @@ function renderFilmMutationState({ allowRenderFallback = true } = {}) {
   }
 }
 
-async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film updated' } = {}) {
+function focusFilmNotesEditor() {
+  window.requestAnimationFrame(() => {
+    const textarea = refs.root?.querySelector('[data-film-notes-draft]');
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    if (document.activeElement !== textarea) {
+      textarea.focus({ preventScroll: true });
+    }
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  });
+}
+
+async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film updated', keepDetailOpen = true } = {}) {
   const existing = state.films.find((record) => record.id === filmId);
   const normalizedId = Number(existing?.tmdbId);
   if (!existing || !Number.isFinite(normalizedId) || normalizedId <= 0) {
@@ -8824,8 +8837,10 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
     watchedAt: Object.prototype.hasOwnProperty.call(patch, 'watchedAt') ? patch.watchedAt : existing.watchedAt || ''
   });
   upsertFilmRecord(optimisticRecord);
-  state.activeFilmId = optimisticRecord.id;
-  state.filmDetailOpen = true;
+  if (keepDetailOpen) {
+    state.activeFilmId = optimisticRecord.id;
+    state.filmDetailOpen = true;
+  }
   state.filmError = '';
   renderFilmMutationState();
   try {
@@ -8842,8 +8857,10 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
     });
     const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
     upsertFilmRecord(record);
-    state.activeFilmId = record.id;
-    state.filmDetailOpen = true;
+    if (keepDetailOpen) {
+      state.activeFilmId = record.id;
+      state.filmDetailOpen = true;
+    }
     state.filmError = '';
     if (successMessage) {
       showToast(successMessage, 'success');
@@ -8873,12 +8890,17 @@ function editFilmNotes(filmId) {
   state.filmNotesDraft = film.noteMarkdown || film.journal || '';
   state.filmNotesPreview = false;
   render();
+  focusFilmNotesEditor();
 }
 
-function cancelFilmNotesEdit() {
+function exitFilmNotesEdit() {
   state.filmNotesEditing = false;
   state.filmNotesDraft = '';
   state.filmNotesPreview = false;
+}
+
+function cancelFilmNotesEdit() {
+  exitFilmNotesEdit();
   render();
 }
 
@@ -8887,18 +8909,32 @@ function toggleFilmNotesPreview() {
   render();
 }
 
-function saveFilmNotes() {
+function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(state.filmDetailOpen) } = {}) {
+  if (!state.filmNotesEditing) {
+    return false;
+  }
   const film = getActiveFilmRecord();
   if (!film) {
-    return;
+    exitFilmNotesEdit();
+    render();
+    return false;
   }
   const draft = normalizeMultilineText(state.filmNotesDraft);
-  state.filmNotesEditing = false;
-  state.filmNotesPreview = false;
+  const savedNote = normalizeMultilineText(film.noteMarkdown || film.journal || '');
+  exitFilmNotesEdit();
+  if (draft === savedNote) {
+    renderFilmMutationState();
+    return false;
+  }
   void saveFilmEntryPatch(film.id, {
     journal: draft,
     noteMarkdown: draft
-  }, { successMessage: draft ? 'Notes saved' : 'Notes cleared' });
+  }, { successMessage: silent ? '' : 'Notes saved', keepDetailOpen });
+  return true;
+}
+
+function saveFilmNotes() {
+  commitFilmNotesEdit({ silent: false });
 }
 
 function toggleFilmFavourite(filmId) {
@@ -8923,6 +8959,7 @@ function markFilmRewatch(filmId) {
 }
 
 function openFilmDetail(filmId) {
+  commitFilmNotesEdit({ silent: false, keepDetailOpen: false });
   const film = state.films.find((record) => record.id === filmId);
   if (!film) {
     return;
@@ -8937,6 +8974,7 @@ function openFilmDetail(filmId) {
 }
 
 function closeFilmDetail() {
+  commitFilmNotesEdit({ silent: false, keepDetailOpen: false });
   if (!state.filmDetailOpen && !state.activeFilmId) {
     return;
   }
@@ -10551,6 +10589,7 @@ function toggleFavorite(itemId) {
 }
 
 function applyLocationRouteToMountedUi() {
+  commitFilmNotesEdit({ silent: false, keepDetailOpen: false });
   restoreNavigationFromHash();
   if (!refs.root) {
     syncMount();
@@ -12090,15 +12129,6 @@ function handleAction(actionTarget) {
     case 'film-edit-notes':
       editFilmNotes(actionTarget.dataset.filmId || state.activeFilmId);
       return true;
-    case 'film-notes-save':
-      saveFilmNotes();
-      return true;
-    case 'film-notes-cancel':
-      cancelFilmNotesEdit();
-      return true;
-    case 'film-notes-preview-toggle':
-      toggleFilmNotesPreview();
-      return true;
     case 'film-more-actions':
       showToast('More film actions are not available yet', 'info');
       return true;
@@ -12120,6 +12150,26 @@ function handleClick(event) {
   const clickedControl = event.target instanceof HTMLElement
     ? event.target.closest('button, a, input, textarea, select, label')
     : null;
+
+  if (state.filmNotesEditing) {
+    const notesEditor = refs.root?.querySelector('.cml-film-notes-editor');
+    const clickedInsideNotesEditor = event.target instanceof Element
+      && notesEditor instanceof HTMLElement
+      && notesEditor.contains(event.target);
+    const clickedNotesEditAction = actionTarget instanceof HTMLElement
+      && actionTarget.dataset.action === 'film-edit-notes';
+    if (!clickedInsideNotesEditor && !clickedNotesEditAction) {
+      const actionName = actionTarget instanceof HTMLElement ? actionTarget.dataset.action || '' : '';
+      const shouldKeepDetailOpenAfterNotesSave = [
+        'film-toggle-favourite',
+        'film-mark-rewatch',
+        'film-more-actions',
+        'clear-film-rating',
+        'save-film-status'
+      ].includes(actionName);
+      commitFilmNotesEdit({ silent: false, keepDetailOpen: shouldKeepDetailOpenAfterNotesSave });
+    }
+  }
 
   if (clickedControl instanceof HTMLElement && clickedControl.hasAttribute('disabled')) {
     event.preventDefault();
@@ -12172,9 +12222,6 @@ function handleClick(event) {
     'close-film-detail',
     'film-toggle-favourite',
     'film-edit-notes',
-    'film-notes-save',
-    'film-notes-cancel',
-    'film-notes-preview-toggle',
     'film-mark-rewatch',
     'film-more-actions'
   ]);
@@ -12602,6 +12649,11 @@ function handleChange(event) {
   }
   if (target.hasAttribute('data-film-rating-input')) {
     void saveFilmRating(target.dataset.tmdbId, Number(target.value));
+    return;
+  }
+  if (target.hasAttribute('data-film-watched-at-input')) {
+    target.dataset.lastSavedValue = target.value;
+    void saveFilmWatchedDate(target.dataset.tmdbId, target.value);
   }
 }
 
@@ -12643,6 +12695,13 @@ function handleFocusOut(event) {
       state.docsNewFolderOpen = false;
       render();
     }
+  }
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-watched-at-input')) {
+    if (event.target.dataset.lastSavedValue !== event.target.value) {
+      event.target.dataset.lastSavedValue = event.target.value;
+      void saveFilmWatchedDate(event.target.dataset.tmdbId, event.target.value);
+    }
+    return;
   }
   if (event.target instanceof HTMLElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
     window.setTimeout(() => {

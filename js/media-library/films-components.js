@@ -392,16 +392,10 @@ function renderDetailWatchedDateColumn(record = {}, watchedDate = '') {
           class="cml-film-detail__date-input"
           data-film-watched-at-input
           data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+          data-last-saved-value="${escapeHtml(value)}"
           value="${escapeHtml(value)}"
           ${record.isSaving ? 'disabled' : ''}
         />
-        <button
-          type="button"
-          class="cml-film-detail__date-save"
-          data-action="save-film-watched-date"
-          data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
-          ${record.isSaving ? 'disabled' : ''}
-        >Save</button>
       </div>
     </div>
   `;
@@ -500,7 +494,7 @@ function renderMarkdownBlocks(source = '') {
   return blocks.join('');
 }
 
-function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '', notesPreview = false } = {}) {
+function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '' } = {}) {
   const savedNote = getSavedFilmNote(record);
   const draft = notesEditing ? normalizeMultilineText(notesDraft) : savedNote;
   if (!notesEditing) {
@@ -512,19 +506,10 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
     `;
   }
   return `
-    <section class="cml-film-detail__section cml-film-detail__section--notes cml-film-detail__section--notes-editing">
-      <div class="cml-film-detail__notes-head">
-        <h2>My notes</h2>
-        <div class="cml-film-detail__notes-tools">
-          <button type="button" class="cml-film-detail__note-mode ${notesPreview ? '' : 'is-active'}" data-action="film-notes-preview-toggle" aria-pressed="${notesPreview ? 'false' : 'true'}">Write</button>
-          <button type="button" class="cml-film-detail__note-mode ${notesPreview ? 'is-active' : ''}" data-action="film-notes-preview-toggle" aria-pressed="${notesPreview ? 'true' : 'false'}">Preview</button>
-          <button type="button" class="cml-film-detail__note-button" data-action="film-notes-save">Save</button>
-          <button type="button" class="cml-film-detail__note-button cml-film-detail__note-button--ghost" data-action="film-notes-cancel">Cancel</button>
-        </div>
-      </div>
-      ${notesPreview
-        ? `<div class="cml-film-detail__markdown cml-film-detail__markdown--preview">${renderMarkdownBlocks(draft)}</div>`
-        : `<textarea class="cml-film-detail__notes-editor" data-film-notes-draft rows="10" placeholder="Write private notes in Markdown...">${escapeHtml(draft)}</textarea>`}
+    <section class="cml-film-detail__section cml-film-detail__section--notes cml-film-detail__section--notes-editing cml-film-notes-editor">
+      <h2>My notes</h2>
+      <textarea class="cml-film-detail__notes-editor cml-film-notes-editor__textarea" data-film-notes-draft rows="10" placeholder="Write private notes in Markdown...">${escapeHtml(draft)}</textarea>
+      <p class="cml-film-notes-editor__hint">Markdown supported · Click outside to save</p>
     </section>
   `;
 }

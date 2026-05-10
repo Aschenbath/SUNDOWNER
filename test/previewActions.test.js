@@ -134,9 +134,11 @@ describe('media library download actions', () => {
     assert.match(viewHtml, /href="https:\/\/example\.com"/);
     assert.doesNotMatch(viewHtml, /javascript:alert/);
     assert.match(editHtml, /data-film-notes-draft/);
-    assert.match(editHtml, /data-action="film-notes-save"/);
-    assert.match(editHtml, /data-action="film-notes-cancel"/);
-    assert.match(editHtml, /data-action="film-notes-preview-toggle"/);
+    assert.match(editHtml, /cml-film-notes-editor/);
+    assert.match(editHtml, /Click outside to save/);
+    assert.doesNotMatch(editHtml, /data-action="film-notes-save"/);
+    assert.doesNotMatch(editHtml, /data-action="film-notes-cancel"/);
+    assert.doesNotMatch(editHtml, /data-action="film-notes-preview-toggle"/);
   });
 
   it('keeps Films detail local actions wired through app handlers', () => {
@@ -145,9 +147,11 @@ describe('media library download actions', () => {
 
     assert.match(appSource, /filmNotesEditing: false/);
     assert.match(appSource, /function saveFilmEntryPatch/);
+    assert.match(appSource, /function commitFilmNotesEdit/);
     assert.match(appSource, /case 'film-toggle-favourite':/);
     assert.match(appSource, /case 'film-edit-notes':/);
-    assert.match(appSource, /case 'film-notes-save':/);
+    assert.match(appSource, /querySelector\('\.cml-film-notes-editor'\)/);
+    assert.match(appSource, /keepDetailOpen: shouldKeepDetailOpenAfterNotesSave/);
     assert.match(appSource, /case 'film-mark-rewatch':/);
     assert.match(appSource, /data-film-notes-draft/);
     assert.match(appSource, /function patchActiveFilmDetailView/);

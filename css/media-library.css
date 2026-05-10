@@ -11910,6 +11910,10 @@ body.codex-media-library-active #app {
   color: rgba(241, 238, 230, 0.72);
 }
 
+#codex-media-library-root .cml-film-notes-editor {
+  gap: 12px;
+}
+
 #codex-media-library-root .cml-film-detail__notes-editor,
 #codex-media-library-root .cml-film-detail__markdown--preview {
   min-height: 260px;
@@ -11937,6 +11941,15 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-detail__notes-editor::placeholder {
   color: rgba(241, 238, 230, 0.38);
+}
+
+#codex-media-library-root .cml-film-notes-editor__hint {
+  margin: 0;
+  color: rgba(241, 238, 230, 0.44) !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-style: normal !important;
+  letter-spacing: 0.02em;
 }
 
 #codex-media-library-root .cml-film-detail__actions {
