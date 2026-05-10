@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=29';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=30';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -432,6 +432,7 @@ const state = {
   filmSearchQuery: '',
   filmSearchResults: [],
   filmSearchLoading: false,
+  filmSearchComposing: false,
   filmActiveFilter: FILM_FILTERS[0],
   filmSavingTmdbIds: new Set(),
   filmError: '',
@@ -2717,6 +2718,11 @@ function isMobileMindRouteActive() {
 }
 
 function handleCompositionStart(event) {
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-films-search-input')) {
+    state.filmSearchComposing = true;
+    clearPendingFilmSearch();
+    return;
+  }
   if (!(event.target instanceof HTMLElement) || event.target.dataset.mindInput !== 'message') {
     return;
   }
@@ -2724,6 +2730,11 @@ function handleCompositionStart(event) {
 }
 
 function handleCompositionEnd(event) {
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-films-search-input')) {
+    state.filmSearchComposing = false;
+    scheduleFilmSearch(event.target.value);
+    return;
+  }
   if (!(event.target instanceof HTMLElement) || event.target.dataset.mindInput !== 'message') {
     return;
   }
@@ -12640,6 +12651,10 @@ function handleInput(event) {
     return;
   }
   if (input.hasAttribute('data-films-search-input')) {
+    state.filmSearchQuery = input.value;
+    if (event.isComposing || state.filmSearchComposing) {
+      return;
+    }
     scheduleFilmSearch(input.value);
     return;
   }
@@ -13020,6 +13035,9 @@ function handleKeyDown(event) {
   }
 
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-films-search-input')) {
+    if (event.isComposing || state.filmSearchComposing || event.key === 'Process') {
+      return;
+    }
     if (event.key === 'Enter') {
       event.preventDefault();
       clearPendingFilmSearch();

@@ -58,6 +58,10 @@ describe('media library download actions', () => {
     assert.match(appSource, /const filmSearchCache = new Map\(\)/);
     assert.match(appSource, /function shouldRunFilmSearch\(query\)/);
     assert.match(appSource, /function scheduleFilmSearch\(query\)/);
+    assert.match(appSource, /filmSearchComposing: false/);
+    assert.match(appSource, /state\.filmSearchComposing = true/);
+    assert.match(appSource, /state\.filmSearchComposing = false/);
+    assert.match(appSource, /event\.isComposing \|\| state\.filmSearchComposing/);
     assert.match(appSource, /void searchFilms\(\{ query: inputQuery \}\)/);
     assert.match(appSource, /scheduleFilmSearch\(input\.value\)/);
     assert.match(appSource, /searchFilms\(\{ query: event\.target\.value \}\)/);
