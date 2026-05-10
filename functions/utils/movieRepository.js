@@ -177,6 +177,7 @@ export function normalizeMovieCache(input = {}, timestamp = nowIso()) {
     director: normalizeText(input.director, 240),
     overview: normalizeText(input.overview, 4000),
     posterPath: normalizeText(input.posterPath, 240),
+    posterPaths: normalizeImagePathArray([input.posterPath, ...(Array.isArray(input.posterPaths) ? input.posterPaths : [])], 240),
     backdropPath: normalizeText(input.backdropPath, 240),
     backdropPaths: normalizeImagePathArray([input.backdropPath, ...(Array.isArray(input.backdropPaths) ? input.backdropPaths : [])], 240),
     releaseDate: normalizeText(input.releaseDate, 40),
@@ -278,7 +279,7 @@ async function hydrateEntries(db, entries, detailLoader = null) {
     let movie = await getRawMovieCache(db, entry.tmdbId);
     const needsDetailRefresh = movie
       && typeof detailLoader === 'function'
-      && (!normalizeText(movie.director) || !Array.isArray(movie.backdropPaths));
+      && (!normalizeText(movie.director) || !Array.isArray(movie.backdropPaths) || !Array.isArray(movie.posterPaths));
     if (needsDetailRefresh) {
       try {
         movie = await detailLoader(entry.tmdbId);

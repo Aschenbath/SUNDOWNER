@@ -40,6 +40,32 @@ describe('manage movies route', () => {
     assert.match(payload.error, /TMDb credentials are not configured/);
   });
 
+  it('passes TMDb search pagination through the route', async () => {
+    let receivedPage = 0;
+    const response = await onRequest({
+      request: new Request('https://example.com/api/manage/movies?action=search&q=movie&page=3'),
+      env: { img_url: new MemoryKV() },
+      repository: {
+        async searchMovies(query, page) {
+          receivedPage = page;
+          return {
+            page,
+            totalPages: 5,
+            totalResults: 91,
+            results: [{ tmdbId: 42, title: query }],
+          };
+        },
+      },
+    });
+
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(receivedPage, 3);
+    assert.equal(payload.page, 3);
+    assert.equal(payload.totalPages, 5);
+    assert.equal(payload.totalResults, 91);
+  });
+
   it('lists locally saved movie entries', async () => {
     const env = { img_url: new MemoryKV() };
     await env.img_url.put('manage@sysConfig@movieCache@42', JSON.stringify({
@@ -48,6 +74,7 @@ describe('manage movies route', () => {
       originalTitle: 'Movie',
       overview: '',
       posterPath: '',
+      posterPaths: ['/cached-poster.jpg'],
       backdropPath: '',
       backdropPaths: ['/cached-backdrop.jpg'],
       releaseDate: '2026-01-01',
@@ -83,6 +110,7 @@ describe('manage movies route', () => {
     assert.equal(payload.entries[0].movie.voteAverage, 7);
     assert.equal(payload.entries[0].movie.voteCount, 1200);
     assert.equal(payload.entries[0].movie.title, 'Movie');
+    assert.deepEqual(payload.entries[0].movie.posterPaths, ['/cached-poster.jpg']);
     assert.deepEqual(payload.entries[0].movie.backdropPaths, ['/cached-backdrop.jpg']);
   });
 

@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=42';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=43';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -452,7 +452,11 @@ const state = {
   filmSearchSettling: false,
   filmSearchClearing: false,
   filmSearchResultKey: 0,
+  filmSearchPage: 0,
+  filmSearchTotalPages: 0,
+  filmSearchTotalResults: 0,
   filmSearchComposing: false,
+  filmLibraryQuery: '',
   filmActiveFilter: FILM_FILTERS[0],
   filmViewMode: 'ticket',
   filmSavingTmdbIds: new Set(),
@@ -464,6 +468,8 @@ const state = {
   filmMetadataDraft: null,
   filmMetadataFocusField: '',
   filmMoreActionsOpen: false,
+  filmImagePickerMode: '',
+  filmImagePickerDraft: '',
   filmRemovedUndoRecord: null,
   filmBackdropIndexByFilmId: {}
 };
@@ -8512,6 +8518,12 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     language: existingRecord?.language || '',
     runtime,
     posterPath: movie.posterPath || existingRecord?.posterPath || '',
+    posterPaths: normalizeFilmBackdropPaths([
+      ...(Array.isArray(movie.posterPaths) ? movie.posterPaths : []),
+      ...(Array.isArray(existingRecord?.posterPaths) ? existingRecord.posterPaths : []),
+      movie.posterPath,
+      existingRecord?.posterPath
+    ]),
     posterUrl: overrides.posterUrlOverride || movie.posterUrl || existingRecord?.posterUrl || '',
     backdropPath: movie.backdropPath || existingRecord?.backdropPath || '',
     backdropPaths: normalizeFilmBackdropPaths([
@@ -8928,6 +8940,7 @@ function toMoviePayload(source = {}, tmdbId = 0) {
     director: source.cacheDirector || source.director || '',
     overview: source.cacheOverview || source.overview || '',
     posterPath: source.posterPath || '',
+    posterPaths: normalizeFilmBackdropPaths(source.posterPaths || []),
     backdropPath: source.backdropPath || '',
     backdropPaths: normalizeFilmBackdropPaths(source.backdropPaths || []),
     releaseDate: source.cacheReleaseDate || source.releaseDate || (source.year ? `${source.year}-01-01` : ''),
@@ -9028,6 +9041,8 @@ async function deleteFilmEntry(filmIdOrTmdbId, { silent = false } = {}) {
     state.filmMetadataDraft = null;
     state.filmMetadataFocusField = '';
     state.filmMoreActionsOpen = false;
+    state.filmImagePickerMode = '';
+    state.filmImagePickerDraft = '';
     state.filmRemovedUndoRecord = null;
     clearTransientFilmDetail();
     pushNavigationHash({ mode: 'push' });
@@ -9080,19 +9095,34 @@ function getVisibleFilmRecords() {
   const activeFilter = FILM_FILTERS.includes(state.filmActiveFilter)
     ? state.filmActiveFilter
     : FILM_FILTERS[0];
+  const libraryQuery = normalizeText(state.filmLibraryQuery).toLowerCase();
+  const matchesLibraryQuery = (record = {}) => {
+    if (!libraryQuery) {
+      return true;
+    }
+    return [
+      record.localTitle,
+      record.title,
+      record.originalTitle,
+      record.director,
+      ...(Array.isArray(record.genres) ? record.genres : []),
+      record.year
+    ].some((value) => normalizeText(value).toLowerCase().includes(libraryQuery));
+  };
+  const filteredByQuery = state.films.filter(matchesLibraryQuery);
   if (activeFilter === 'Favorites') {
-    return state.films.filter((record) => record.favorite);
+    return filteredByQuery.filter((record) => record.favorite);
   }
   if (activeFilter === 'Watched') {
-    return state.films.filter((record) => record.status === 'watched');
+    return filteredByQuery.filter((record) => record.status === 'watched');
   }
   if (activeFilter === 'Watching') {
-    return state.films.filter((record) => record.status === 'watching');
+    return filteredByQuery.filter((record) => record.status === 'watching');
   }
   if (activeFilter === 'Watchlist') {
-    return state.films.filter((record) => record.status === 'watchlist' || record.status === 'wantToWatch');
+    return filteredByQuery.filter((record) => record.status === 'watchlist' || record.status === 'wantToWatch');
   }
-  return state.films;
+  return filteredByQuery;
 }
 
 function getSavedFilmRecordsByTmdbId() {
@@ -9158,8 +9188,16 @@ async function warmFilmSearch() {
   }
 }
 
-function setFilmSearchResults(results) {
-  state.filmSearchResults = Array.isArray(results) ? results : [];
+function setFilmSearchResults(results, { append = false, page = state.filmSearchPage, totalPages = state.filmSearchTotalPages, totalResults = state.filmSearchTotalResults } = {}) {
+  const nextResults = Array.isArray(results) ? results : [];
+  state.filmSearchResults = append
+    ? [...state.filmSearchResults, ...nextResults.filter((movie) =>
+      !state.filmSearchResults.some((existing) => Number(existing.tmdbId) === Number(movie.tmdbId))
+    )]
+    : nextResults;
+  state.filmSearchPage = Number(page) || (state.filmSearchResults.length ? 1 : 0);
+  state.filmSearchTotalPages = Number(totalPages) || 0;
+  state.filmSearchTotalResults = Number(totalResults) || state.filmSearchResults.length;
   state.filmSearchResultKey += 1;
   state.filmSearchSettling = true;
 }
@@ -9177,6 +9215,9 @@ function settleFilmSearchResults(requestId) {
 function clearFilmSearchResultsSmoothly() {
   if (!state.filmSearchResults.length && !state.filmSearchClearing) {
     state.filmSearchResults = [];
+    state.filmSearchPage = 0;
+    state.filmSearchTotalPages = 0;
+    state.filmSearchTotalResults = 0;
     return;
   }
   const clearRequestId = ++filmSearchRequestId;
@@ -9190,9 +9231,42 @@ function clearFilmSearchResultsSmoothly() {
       return;
     }
     state.filmSearchResults = [];
+    state.filmSearchPage = 0;
+    state.filmSearchTotalPages = 0;
+    state.filmSearchTotalResults = 0;
     state.filmSearchClearing = false;
     render();
   }, FILM_SEARCH_CLEAR_TRANSITION_MS);
+}
+
+function readFilmSearchCache(query) {
+  const cached = filmSearchCache.get(normalizeText(query));
+  if (!cached) {
+    return null;
+  }
+  if (Array.isArray(cached)) {
+    return {
+      results: cached,
+      page: cached.length ? 1 : 0,
+      totalPages: 0,
+      totalResults: cached.length
+    };
+  }
+  return {
+    results: Array.isArray(cached.results) ? cached.results : [],
+    page: Number(cached.page) || 0,
+    totalPages: Number(cached.totalPages) || 0,
+    totalResults: Number(cached.totalResults) || 0
+  };
+}
+
+function writeFilmSearchCache(query, payload) {
+  filmSearchCache.set(normalizeText(query), {
+    results: Array.isArray(payload.results) ? payload.results : [],
+    page: Number(payload.page) || 0,
+    totalPages: Number(payload.totalPages) || 0,
+    totalResults: Number(payload.totalResults) || 0
+  });
 }
 
 function delay(ms) {
@@ -9212,8 +9286,12 @@ function scheduleFilmSearch(query) {
     return;
   }
   state.filmSearchClearing = false;
-  if (filmSearchCache.has(normalizedQuery)) {
-    state.filmSearchResults = filmSearchCache.get(normalizedQuery) || [];
+  const cached = readFilmSearchCache(normalizedQuery);
+  if (cached) {
+    state.filmSearchResults = cached.results;
+    state.filmSearchPage = cached.page;
+    state.filmSearchTotalPages = cached.totalPages;
+    state.filmSearchTotalResults = cached.totalResults;
   }
   filmSearchRequestId += 1;
   abortPendingFilmSearch();
@@ -9226,7 +9304,7 @@ function scheduleFilmSearch(query) {
   }, FILM_SEARCH_DEBOUNCE_MS);
 }
 
-async function searchFilms({ query = state.filmSearchQuery } = {}) {
+async function searchFilms({ query = state.filmSearchQuery, page = 1, append = false } = {}) {
   const inputQuery = String(query ?? '');
   const normalizedQuery = normalizeText(query);
   state.filmSearchQuery = inputQuery;
@@ -9240,22 +9318,38 @@ async function searchFilms({ query = state.filmSearchQuery } = {}) {
   const requestId = ++filmSearchRequestId;
   abortPendingFilmSearch();
   filmSearchAbortController = new AbortController();
-  if (filmSearchCache.has(normalizedQuery)) {
-    state.filmSearchResults = filmSearchCache.get(normalizedQuery) || [];
+  const normalizedPage = Math.max(1, Number(page) || 1);
+  const cached = readFilmSearchCache(normalizedQuery);
+  if (!append && cached) {
+    state.filmSearchResults = cached.results;
+    state.filmSearchPage = cached.page;
+    state.filmSearchTotalPages = cached.totalPages;
+    state.filmSearchTotalResults = cached.totalResults;
   }
   state.filmSearchLoading = true;
   state.filmError = '';
   render();
   const startedAt = performance.now();
   try {
-    const payload = await fetchMovieJson(`/api/manage/movies?action=search&q=${encodeURIComponent(normalizedQuery)}`, {
+    const payload = await fetchMovieJson(`/api/manage/movies?action=search&q=${encodeURIComponent(normalizedQuery)}&page=${encodeURIComponent(String(normalizedPage))}`, {
       signal: filmSearchAbortController.signal
     });
     if (requestId !== filmSearchRequestId) {
       return;
     }
     const results = Array.isArray(payload?.results) ? payload.results : [];
-    filmSearchCache.set(normalizedQuery, results);
+    const nextResults = append
+      ? [...state.filmSearchResults, ...results.filter((movie) =>
+        !state.filmSearchResults.some((existing) => Number(existing.tmdbId) === Number(movie.tmdbId))
+      )]
+      : results;
+    const nextTotalResults = Number(payload?.totalResults) || nextResults.length;
+    writeFilmSearchCache(normalizedQuery, {
+      results: nextResults,
+      page: Number(payload?.page) || normalizedPage,
+      totalPages: Number(payload?.totalPages) || 0,
+      totalResults: Number(payload?.totalResults) || nextResults.length
+    });
     const remainingLoadingMs = FILM_SEARCH_MIN_LOADING_MS - (performance.now() - startedAt);
     if (remainingLoadingMs > 0) {
       await delay(remainingLoadingMs);
@@ -9263,7 +9357,12 @@ async function searchFilms({ query = state.filmSearchQuery } = {}) {
         return;
       }
     }
-    setFilmSearchResults(results);
+    setFilmSearchResults(results, {
+      append,
+      page: Number(payload?.page) || normalizedPage,
+      totalPages: Number(payload?.totalPages) || 0,
+      totalResults: nextTotalResults
+    });
     state.filmError = '';
   } catch (error) {
     if (error?.name === 'AbortError' || requestId !== filmSearchRequestId) {
@@ -9307,6 +9406,8 @@ async function openTmdbFilmDetail(tmdbId) {
   state.filmMetadataDraft = null;
   state.filmMetadataFocusField = '';
   state.filmMoreActionsOpen = false;
+  state.filmImagePickerMode = '';
+  state.filmImagePickerDraft = '';
   pushNavigationHash({ mode: 'push' });
   render();
   filmDetailLoadingTmdbIds.add(normalizedId);
@@ -9317,6 +9418,9 @@ async function openTmdbFilmDetail(tmdbId) {
       return;
     }
     const latestExisting = state.films.find((record) => Number(record.tmdbId) === normalizedId) || null;
+    if (latestExisting) {
+      upsertFilmRecord(normalizeMovieRecord(payload?.movie || source, latestExisting), { preserveLocal: true });
+    }
     state.filmTransientDetailRecord = createTransientFilmDetailRecord(payload?.movie || source, latestExisting, { isLoading: false });
     state.activeFilmId = state.filmTransientDetailRecord.id;
     state.filmError = '';
@@ -9519,6 +9623,8 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
     metadataEditing: state.filmMetadataEditing,
     metadataDraft: state.filmMetadataDraft,
     moreActionsOpen: state.filmMoreActionsOpen,
+    imagePickerMode: state.filmImagePickerMode,
+    imagePickerDraft: state.filmImagePickerDraft,
     backdropIndex: getActiveFilmBackdropIndex(record)
   }).trim();
   if (!html) {
@@ -9576,6 +9682,19 @@ function focusFilmMetadataEditor(field = '') {
     if (typeof input.setSelectionRange === 'function') {
       input.setSelectionRange(input.value.length, input.value.length);
     }
+  });
+}
+
+function focusFilmImagePickerInput() {
+  window.requestAnimationFrame(() => {
+    const input = refs.root?.querySelector('[data-film-image-picker-url]');
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    if (document.activeElement !== input) {
+      input.focus({ preventScroll: true });
+    }
+    input.setSelectionRange(input.value.length, input.value.length);
   });
 }
 
@@ -9713,6 +9832,7 @@ function editFilmNotes(filmId) {
   if (!film) {
     return;
   }
+  closeFilmImagePicker({ shouldRender: false });
   clearTransientFilmDetail();
   state.activeFilmId = film.id;
   state.filmDetailOpen = true;
@@ -9729,6 +9849,7 @@ function editFilmMetadata(filmId, { focusField = '' } = {}) {
   if (!film) {
     return;
   }
+  closeFilmImagePicker({ shouldRender: false });
   clearTransientFilmDetail();
   state.activeFilmId = film.id;
   state.filmDetailOpen = true;
@@ -9749,6 +9870,74 @@ function exitFilmMetadataEdit() {
 function cancelFilmMetadataEdit() {
   exitFilmMetadataEdit();
   render();
+}
+
+function closeFilmImagePicker({ shouldRender = true } = {}) {
+  state.filmImagePickerMode = '';
+  state.filmImagePickerDraft = '';
+  if (shouldRender) {
+    renderFilmMutationState();
+  }
+}
+
+function loadMoreFilmSearchResults() {
+  const normalizedQuery = normalizeText(state.filmSearchQuery);
+  if (!shouldRunFilmSearch(normalizedQuery) || state.filmSearchLoading) {
+    return;
+  }
+  const nextPage = (Number(state.filmSearchPage) || 1) + 1;
+  if (state.filmSearchTotalPages > 0 && nextPage > state.filmSearchTotalPages) {
+    return;
+  }
+  void searchFilms({ query: state.filmSearchQuery, page: nextPage, append: true });
+}
+
+function openFilmImagePicker(filmId, mode = 'poster') {
+  const film = state.films.find((record) => record.id === filmId);
+  if (!film) {
+    return;
+  }
+  commitFilmNotesEdit({ silent: true, keepDetailOpen: true });
+  commitFilmMetadataEdit({ keepDetailOpen: true });
+  state.activeFilmId = film.id;
+  state.filmDetailOpen = true;
+  state.filmImagePickerMode = mode === 'backdrop' ? 'backdrop' : 'poster';
+  state.filmImagePickerDraft = state.filmImagePickerMode === 'backdrop'
+    ? normalizeText(film.backdropUrlOverride || '')
+    : normalizeText(film.posterUrlOverride || '');
+  state.filmMoreActionsOpen = false;
+  renderFilmMutationState();
+  focusFilmImagePickerInput();
+}
+
+function buildTmdbImageOverrideUrl(path = '', mode = 'poster') {
+  const normalized = normalizeText(path);
+  if (!normalized) {
+    return '';
+  }
+  if (/^https?:\/\//i.test(normalized) || normalized.startsWith('/file/')) {
+    return normalized;
+  }
+  const size = mode === 'backdrop' ? 'w1280' : 'w500';
+  return `https://image.tmdb.org/t/p/${size}${normalized.startsWith('/') ? normalized : `/${normalized}`}`;
+}
+
+function applyFilmImageOverride(mode = state.filmImagePickerMode, value = state.filmImagePickerDraft) {
+  const film = getActiveFilmRecord();
+  const normalizedMode = mode === 'backdrop' ? 'backdrop' : 'poster';
+  const field = normalizedMode === 'backdrop' ? 'backdropUrlOverride' : 'posterUrlOverride';
+  if (!film?.id) {
+    closeFilmImagePicker();
+    return;
+  }
+  const nextValue = normalizeFilmImageOverride(value);
+  const currentValue = normalizeFilmImageOverride(film[field] || '');
+  if (nextValue === currentValue) {
+    closeFilmImagePicker();
+    return;
+  }
+  closeFilmImagePicker({ shouldRender: false });
+  void saveFilmEntryPatch(film.id, { [field]: nextValue }, { successMessage: '', keepDetailOpen: true });
 }
 
 function commitFilmMetadataEdit({ keepDetailOpen = Boolean(state.filmDetailOpen) } = {}) {
@@ -9811,6 +10000,49 @@ function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(state.fi
   return true;
 }
 
+function editFilmWatchEvent(filmId, previousDate, nextDate) {
+  const film = state.films.find((record) => record.id === filmId);
+  if (!film) {
+    return;
+  }
+  const normalizedPrevious = normalizeText(previousDate).slice(0, 10);
+  const normalizedNext = normalizeText(nextDate).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedPrevious) || !/^\d{4}-\d{2}-\d{2}$/.test(normalizedNext)) {
+    return;
+  }
+  const events = normalizeFilmWatchEvents(film.watchEvents || []);
+  const nextEvents = normalizeFilmWatchEvents(events.map((event) =>
+    event.watchedAt === normalizedPrevious
+      ? { ...event, watchedAt: normalizedNext }
+      : event
+  ));
+  const watchedAt = film.watchedAt === normalizedPrevious ? normalizedNext : (nextEvents[0]?.watchedAt || film.watchedAt || '');
+  void saveFilmEntryPatch(film.id, {
+    watchStatus: 'watched',
+    watchedAt,
+    watchEvents: nextEvents
+  }, { successMessage: '' });
+}
+
+function deleteFilmWatchEvent(filmId, watchedAt) {
+  const film = state.films.find((record) => record.id === filmId);
+  if (!film) {
+    return;
+  }
+  const normalizedDate = normalizeText(watchedAt).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+    return;
+  }
+  const nextEvents = normalizeFilmWatchEvents(film.watchEvents || [])
+    .filter((event) => event.watchedAt !== normalizedDate);
+  const watchedAtPatch = film.watchedAt === normalizedDate ? (nextEvents[0]?.watchedAt || '') : film.watchedAt || '';
+  void saveFilmEntryPatch(film.id, {
+    watchStatus: watchedAtPatch ? 'watched' : normalizeWatchStatusForPayload(film.status || 'wantToWatch'),
+    watchedAt: watchedAtPatch,
+    watchEvents: nextEvents
+  }, { successMessage: '' });
+}
+
 function saveFilmNotes() {
   commitFilmNotesEdit({ silent: false });
 }
@@ -9849,11 +10081,11 @@ function toggleFilmMoreActions() {
 }
 
 function changeFilmPoster(filmId) {
-  editFilmMetadata(filmId, { focusField: 'posterUrlOverride' });
+  openFilmImagePicker(filmId, 'poster');
 }
 
 function changeFilmBackdrop(filmId) {
-  editFilmMetadata(filmId, { focusField: 'backdropUrlOverride' });
+  openFilmImagePicker(filmId, 'backdrop');
 }
 
 function openFilmTmdbPage(tmdbId) {
@@ -9872,6 +10104,7 @@ async function refreshFilmFromTmdb(filmId) {
   }
   commitFilmNotesEdit({ silent: true, keepDetailOpen: true });
   commitFilmMetadataEdit({ keepDetailOpen: true });
+  closeFilmImagePicker({ shouldRender: false });
   state.filmMoreActionsOpen = false;
   state.filmError = '';
   try {
@@ -9961,6 +10194,7 @@ function removeFilmEntry(filmId) {
   commitPendingFilmRemoval();
   exitFilmNotesEdit();
   exitFilmMetadataEdit();
+  closeFilmImagePicker({ shouldRender: false });
   state.filmMoreActionsOpen = false;
   state.filmRemovedUndoRecord = { ...film };
   const target = film.id || String(film.tmdbId || '');
@@ -9999,6 +10233,7 @@ function removeFilmEntry(filmId) {
 function openFilmDetail(filmId) {
   commitFilmNotesEdit({ silent: false, keepDetailOpen: false });
   commitFilmMetadataEdit({ keepDetailOpen: false });
+  closeFilmImagePicker({ shouldRender: false });
   const film = state.films.find((record) => record.id === filmId);
   if (!film) {
     return;
@@ -10016,6 +10251,8 @@ function openFilmDetail(filmId) {
   state.filmMetadataDraft = null;
   state.filmMetadataFocusField = '';
   state.filmMoreActionsOpen = false;
+  state.filmImagePickerMode = '';
+  state.filmImagePickerDraft = '';
   pushNavigationHash({ mode: 'push' });
   render();
 }
@@ -10023,6 +10260,7 @@ function openFilmDetail(filmId) {
 function closeFilmDetail() {
   commitFilmNotesEdit({ silent: false, keepDetailOpen: false });
   commitFilmMetadataEdit({ keepDetailOpen: false });
+  closeFilmImagePicker({ shouldRender: false });
   if (!state.filmDetailOpen && !state.activeFilmId) {
     return;
   }
@@ -10037,6 +10275,8 @@ function closeFilmDetail() {
   state.filmMetadataDraft = null;
   state.filmMetadataFocusField = '';
   state.filmMoreActionsOpen = false;
+  state.filmImagePickerMode = '';
+  state.filmImagePickerDraft = '';
   pushNavigationHash({ mode: 'push' });
   render();
 }
@@ -10304,6 +10544,10 @@ function render() {
     && document.activeElement.hasAttribute('data-films-search-input');
   const filmSearchSelectionStart = filmSearchWasFocused ? document.activeElement.selectionStart : null;
   const filmSearchSelectionEnd = filmSearchWasFocused ? document.activeElement.selectionEnd : null;
+  const filmLibrarySearchWasFocused = document.activeElement instanceof HTMLInputElement
+    && document.activeElement.hasAttribute('data-film-library-search-input');
+  const filmLibrarySearchSelectionStart = filmLibrarySearchWasFocused ? document.activeElement.selectionStart : null;
+  const filmLibrarySearchSelectionEnd = filmLibrarySearchWasFocused ? document.activeElement.selectionEnd : null;
   const viewModel = getViewModel();
   const themeState = getThemeState();
   const contentViewKey = buildContentViewKey(viewModel);
@@ -10433,6 +10677,8 @@ function render() {
                     metadataEditing: state.filmMetadataEditing,
                     metadataDraft: state.filmMetadataDraft,
                     moreActionsOpen: state.filmMoreActionsOpen,
+                    imagePickerMode: state.filmImagePickerMode,
+                    imagePickerDraft: state.filmImagePickerDraft,
                     backdropIndex: getActiveFilmBackdropIndex(viewModel.filmRecord)
                   })
                   : FilmsPage({
@@ -10440,6 +10686,7 @@ function render() {
                     totalCount: state.films.length,
                     activeFilter: state.filmActiveFilter,
                     viewMode: state.filmViewMode,
+                    libraryQuery: state.filmLibraryQuery,
                     searchQuery: state.filmSearchQuery,
                     searchPanelHtml: FilmSearchResults({
                       results: state.filmSearchResults,
@@ -10449,6 +10696,9 @@ function render() {
                       resultKey: state.filmSearchResultKey,
                       error: state.filmError,
                       query: state.filmSearchQuery,
+                      page: state.filmSearchPage,
+                      totalPages: state.filmSearchTotalPages,
+                      totalResults: state.filmSearchTotalResults,
                       savingTmdbIds: state.filmSavingTmdbIds,
                       savedRecordsByTmdbId: getSavedFilmRecordsByTmdbId()
                     })
@@ -10694,6 +10944,23 @@ function render() {
         : cursorStart;
       try {
         filmsSearchInput.setSelectionRange(cursorStart, cursorEnd);
+      } catch {
+        // Search inputs can reject selection APIs in some browsers.
+      }
+    }
+  }
+  if (filmLibrarySearchWasFocused && viewModel.isFilmsView && !state.filmDetailOpen) {
+    const librarySearchInput = refs.root.querySelector('[data-film-library-search-input]');
+    if (librarySearchInput instanceof HTMLInputElement) {
+      librarySearchInput.focus({ preventScroll: true });
+      const cursorStart = Number.isInteger(filmLibrarySearchSelectionStart)
+        ? Math.min(librarySearchInput.value.length, filmLibrarySearchSelectionStart)
+        : librarySearchInput.value.length;
+      const cursorEnd = Number.isInteger(filmLibrarySearchSelectionEnd)
+        ? Math.min(librarySearchInput.value.length, filmLibrarySearchSelectionEnd)
+        : cursorStart;
+      try {
+        librarySearchInput.setSelectionRange(cursorStart, cursorEnd);
       } catch {
         // Search inputs can reject selection APIs in some browsers.
       }
@@ -11371,6 +11638,11 @@ function mount() {
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'films-search') {
         e.preventDefault();
         void searchFilms({ query: state.filmSearchQuery });
+        return;
+      }
+      if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'film-image-picker-url') {
+        e.preventDefault();
+        applyFilmImageOverride(state.filmImagePickerMode, state.filmImagePickerDraft);
         return;
       }
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'mind-settings') {
@@ -13185,6 +13457,13 @@ function handleAction(actionTarget) {
     case 'search-films':
       void searchFilms({ query: state.filmSearchQuery });
       return true;
+    case 'load-more-film-search-results':
+      loadMoreFilmSearchResults();
+      return true;
+    case 'clear-film-library-search':
+      state.filmLibraryQuery = '';
+      render();
+      return true;
     case 'filter-films':
       if (FILM_FILTERS.includes(actionTarget.dataset.filmFilter || '')) {
         state.filmActiveFilter = actionTarget.dataset.filmFilter;
@@ -13235,6 +13514,18 @@ function handleAction(actionTarget) {
     case 'film-change-backdrop':
       changeFilmBackdrop(actionTarget.dataset.filmId || state.activeFilmId);
       return true;
+    case 'film-pick-image':
+      applyFilmImageOverride(actionTarget.dataset.filmImageMode || state.filmImagePickerMode, buildTmdbImageOverrideUrl(actionTarget.dataset.filmImagePath || '', actionTarget.dataset.filmImageMode || state.filmImagePickerMode));
+      return true;
+    case 'film-apply-image-url':
+      applyFilmImageOverride(state.filmImagePickerMode, state.filmImagePickerDraft);
+      return true;
+    case 'film-clear-image-override':
+      applyFilmImageOverride(actionTarget.dataset.filmImageMode || state.filmImagePickerMode, '');
+      return true;
+    case 'film-close-image-picker':
+      closeFilmImagePicker();
+      return true;
     case 'film-refresh-tmdb':
       void refreshFilmFromTmdb(actionTarget.dataset.filmId || state.activeFilmId);
       return true;
@@ -13246,6 +13537,9 @@ function handleAction(actionTarget) {
       return true;
     case 'film-undo-remove-entry':
       void undoRemoveFilmEntry();
+      return true;
+    case 'film-delete-watch-event':
+      deleteFilmWatchEvent(actionTarget.dataset.filmId || state.activeFilmId, actionTarget.dataset.filmWatchEvent || '');
       return true;
     case 'preview-next':
       movePreview(1);
@@ -13296,8 +13590,13 @@ function handleClick(event) {
           'film-toggle-more-actions',
           'film-change-poster',
           'film-change-backdrop',
+          'film-pick-image',
+          'film-apply-image-url',
+          'film-clear-image-override',
+          'film-close-image-picker',
           'film-refresh-tmdb',
-          'film-open-tmdb'
+          'film-open-tmdb',
+          'film-delete-watch-event'
         ].includes(actionName);
         commitFilmNotesEdit({ silent: false, keepDetailOpen: shouldKeepDetailOpenAfterNotesSave });
       }
@@ -13326,8 +13625,13 @@ function handleClick(event) {
           'film-toggle-more-actions',
           'film-change-poster',
           'film-change-backdrop',
+          'film-pick-image',
+          'film-apply-image-url',
+          'film-clear-image-override',
+          'film-close-image-picker',
           'film-refresh-tmdb',
-          'film-open-tmdb'
+          'film-open-tmdb',
+          'film-delete-watch-event'
         ].includes(actionName);
         commitFilmMetadataEdit({ keepDetailOpen: shouldKeepDetailOpenAfterMetadataSave });
       }
@@ -13384,17 +13688,24 @@ function handleClick(event) {
     'save-film-watched-date',
     'close-film-detail',
     'set-film-view-mode',
+    'load-more-film-search-results',
+    'clear-film-library-search',
     'film-toggle-favourite',
     'film-edit-notes',
     'film-toggle-more-actions',
     'film-edit-metadata',
     'film-change-poster',
     'film-change-backdrop',
+    'film-pick-image',
+    'film-apply-image-url',
+    'film-clear-image-override',
+    'film-close-image-picker',
     'film-refresh-tmdb',
     'film-open-tmdb',
     'film-mark-rewatch',
     'film-remove-entry',
-    'film-undo-remove-entry'
+    'film-undo-remove-entry',
+    'film-delete-watch-event'
   ]);
 
   if (actionTarget instanceof HTMLElement && filmActionNames.has(actionTarget.dataset.action || '')) {
@@ -13699,8 +14010,17 @@ function handleInput(event) {
     scheduleFilmSearch(input.value);
     return;
   }
+  if (input.hasAttribute('data-film-library-search-input')) {
+    state.filmLibraryQuery = input.value;
+    render();
+    return;
+  }
   if (input.hasAttribute('data-film-notes-draft')) {
     state.filmNotesDraft = input.value;
+    return;
+  }
+  if (input.hasAttribute('data-film-image-picker-url')) {
+    state.filmImagePickerDraft = input.value;
     return;
   }
   if (input.hasAttribute('data-film-metadata-field')) {
@@ -13735,6 +14055,10 @@ function handleInput(event) {
     if (output instanceof HTMLElement) {
       output.textContent = input.value || 'Not set';
     }
+    return;
+  }
+  if (input.hasAttribute('data-film-watch-event-input')) {
+    input.dataset.filmWatchEventDraft = input.value;
     return;
   }
   if (input.dataset.focusKey === 'album-search') {
@@ -13835,6 +14159,13 @@ function handleChange(event) {
   if (target.hasAttribute('data-film-watched-at-input')) {
     target.dataset.lastSavedValue = target.value;
     void saveFilmWatchedDate(target.dataset.tmdbId, target.value);
+    return;
+  }
+  if (target.hasAttribute('data-film-watch-event-input')) {
+    const previousDate = target.dataset.filmWatchEvent || '';
+    if (target.value && target.value !== previousDate) {
+      editFilmWatchEvent(target.dataset.filmId || state.activeFilmId, previousDate, target.value);
+    }
   }
 }
 
@@ -13884,6 +14215,13 @@ function handleFocusOut(event) {
     if (event.target.dataset.lastSavedValue !== event.target.value) {
       event.target.dataset.lastSavedValue = event.target.value;
       void saveFilmWatchedDate(event.target.dataset.tmdbId, event.target.value);
+    }
+    return;
+  }
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-watch-event-input')) {
+    const previousDate = event.target.dataset.filmWatchEvent || '';
+    if (event.target.value && event.target.value !== previousDate) {
+      editFilmWatchEvent(event.target.dataset.filmId || state.activeFilmId, previousDate, event.target.value);
     }
     return;
   }
@@ -14120,6 +14458,25 @@ function handleKeyDown(event) {
       event.preventDefault();
       cancelFilmMetadataEdit();
     } else if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
+      event.preventDefault();
+      event.target.blur();
+    }
+    return;
+  }
+
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-image-picker-url')) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeFilmImagePicker();
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      applyFilmImageOverride(state.filmImagePickerMode, event.target.value);
+    }
+    return;
+  }
+
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-watch-event-input')) {
+    if (event.key === 'Enter') {
       event.preventDefault();
       event.target.blur();
     }
@@ -14399,6 +14756,8 @@ function restoreNavigationFromHash() {
       state.filmMetadataDraft = null;
       state.filmMetadataFocusField = '';
       state.filmMoreActionsOpen = false;
+      state.filmImagePickerMode = '';
+      state.filmImagePickerDraft = '';
       clearPrivateViewState();
       break;
     case 'mind':

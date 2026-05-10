@@ -44,6 +44,30 @@ function normalizeBackdropPaths(dto = {}) {
   return paths.slice(0, 20);
 }
 
+function normalizePosterPaths(dto = {}) {
+  const paths = [];
+  const addPath = (value) => {
+    const path = normalizeText(value, 240);
+    if (path && !paths.includes(path)) {
+      paths.push(path);
+    }
+  };
+
+  addPath(dto.poster_path);
+
+  const posters = Array.isArray(dto.images?.posters) ? dto.images.posters : [];
+  posters
+    .slice()
+    .sort((left, right) =>
+      normalizeNumber(right?.vote_average, 0) - normalizeNumber(left?.vote_average, 0)
+      || normalizeNumber(right?.vote_count, 0) - normalizeNumber(left?.vote_count, 0)
+      || normalizeNumber(right?.width, 0) - normalizeNumber(left?.width, 0)
+    )
+    .forEach((image) => addPath(image?.file_path));
+
+  return paths.slice(0, 20);
+}
+
 function resolveAccessToken(env = {}) {
   return normalizeText(env.TMDB_ACCESS_TOKEN || env.TMDB_API_TOKEN || '');
 }
@@ -119,6 +143,7 @@ export function normalizeTmdbMovie(dto = {}) {
     director: directors.slice(0, 3).join(' / '),
     overview: normalizeText(dto.overview, 4000),
     posterPath: normalizeText(dto.poster_path, 240),
+    posterPaths: normalizePosterPaths(dto),
     backdropPath: normalizeText(dto.backdrop_path, 240),
     backdropPaths: normalizeBackdropPaths(dto),
     releaseDate: normalizeText(dto.release_date || dto.first_air_date, 40),

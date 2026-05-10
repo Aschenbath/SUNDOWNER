@@ -27,6 +27,7 @@ describe('TMDbClient', () => {
       director: '',
       overview: 'A detail payload',
       posterPath: '/poster.jpg',
+      posterPaths: ['/poster.jpg'],
       backdropPath: '/backdrop.jpg',
       backdropPaths: ['/backdrop.jpg'],
       releaseDate: '1999-10-15',
@@ -92,6 +93,7 @@ describe('TMDbClient', () => {
       director: '',
       overview: '',
       posterPath: '/poster.jpg',
+      posterPaths: ['/poster.jpg'],
       backdropPath: '',
       backdropPaths: [],
       releaseDate: '2001-07-20',
@@ -163,7 +165,13 @@ describe('TMDbClient', () => {
               title: 'Titanic',
               original_title: 'Titanic',
               backdrop_path: '/primary.jpg',
+              poster_path: '/primary-poster.jpg',
               images: {
+                posters: [
+                  { file_path: '/small-poster.jpg', vote_average: 4, vote_count: 1, width: 500 },
+                  { file_path: '/best-poster.jpg', vote_average: 8, vote_count: 10, width: 1000 },
+                  { file_path: '/primary-poster.jpg', vote_average: 9, vote_count: 20, width: 1000 },
+                ],
                 backdrops: [
                   { file_path: '/muted.jpg', vote_average: 4, vote_count: 1, width: 1920 },
                   { file_path: '/wide.jpg', vote_average: 8, vote_count: 12, width: 1920 },
@@ -188,6 +196,7 @@ describe('TMDbClient', () => {
     assert.equal(detailUrl.searchParams.get('append_to_response'), 'credits,images');
     assert.equal(detailUrl.searchParams.get('include_image_language'), 'null,en');
     assert.equal(movie.director, 'James Cameron');
+    assert.deepEqual(movie.posterPaths, ['/primary-poster.jpg', '/best-poster.jpg', '/small-poster.jpg']);
     assert.deepEqual(movie.backdropPaths, ['/primary.jpg', '/wide.jpg', '/muted.jpg']);
   });
 });

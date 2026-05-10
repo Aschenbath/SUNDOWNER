@@ -84,10 +84,23 @@ function buildTmdbImageUrl(path, size = 'w342') {
   if (!normalized) {
     return '';
   }
-  if (/^https?:\/\//i.test(normalized) || normalized.startsWith('data:')) {
+  if (/^https?:\/\//i.test(normalized) || normalized.startsWith('data:') || normalized.startsWith('/file/')) {
     return normalized;
   }
   return `https://image.tmdb.org/t/p/${size}${normalized.startsWith('/') ? normalized : `/${normalized}`}`;
+}
+
+function normalizeImagePathList(values = []) {
+  const paths = [];
+  (Array.isArray(values) ? values : [])
+    .map(normalizeText)
+    .filter(Boolean)
+    .forEach((path) => {
+      if (!paths.includes(path)) {
+        paths.push(path);
+      }
+    });
+  return paths.slice(0, 20);
 }
 
 function renderPosterFallback(title = '') {
@@ -384,6 +397,7 @@ function renderFilmWatchHistory(record = {}) {
     return '';
   }
   const countLabel = events.length === 1 ? '1 watch' : `${events.length} watches`;
+  const filmId = escapeHtml(record.id || '');
   return `
     <section class="cml-film-detail__section cml-film-detail__watch-history" aria-label="Private watch history">
       <div class="cml-film-detail__watch-history-head">
@@ -392,9 +406,25 @@ function renderFilmWatchHistory(record = {}) {
       </div>
       <div class="cml-film-detail__watch-events">
         ${events.slice(0, 8).map((event, index) => `
-          <span class="cml-film-detail__watch-event ${index === 0 ? 'is-latest' : ''}">
-            ${escapeHtml(formatWatchedDateLong(event.watchedAt))}
-          </span>
+          <label class="cml-film-detail__watch-event ${index === 0 ? 'is-latest' : ''}">
+            <input
+              type="date"
+              class="cml-film-detail__watch-event-input"
+              data-film-watch-event-input
+              data-film-id="${filmId}"
+              data-film-watch-event="${escapeHtml(event.watchedAt)}"
+              value="${escapeHtml(event.watchedAt)}"
+              aria-label="Edit watch date ${escapeHtml(formatWatchedDateLong(event.watchedAt))}"
+            />
+            <button
+              type="button"
+              class="cml-film-detail__watch-event-delete"
+              data-action="film-delete-watch-event"
+              data-film-id="${filmId}"
+              data-film-watch-event="${escapeHtml(event.watchedAt)}"
+              aria-label="Delete watch date ${escapeHtml(formatWatchedDateLong(event.watchedAt))}"
+            >×</button>
+          </label>
         `).join('')}
       </div>
     </section>
@@ -569,6 +599,57 @@ function renderFilmMoreActions(record = {}, { open = false, metadataEditing = fa
   `;
 }
 
+function renderFilmImagePicker(record = {}, { mode = '', draft = '' } = {}) {
+  const pickerMode = mode === 'backdrop' ? 'backdrop' : mode === 'poster' ? 'poster' : '';
+  if (!pickerMode) {
+    return '';
+  }
+  const isBackdrop = pickerMode === 'backdrop';
+  const paths = normalizeImagePathList(isBackdrop
+    ? [...(Array.isArray(record.backdropPaths) ? record.backdropPaths : []), record.backdropPath]
+    : [...(Array.isArray(record.posterPaths) ? record.posterPaths : []), record.posterPath]
+  );
+  const overrideField = isBackdrop ? 'backdropUrlOverride' : 'posterUrlOverride';
+  const currentOverride = normalizeText(record[overrideField] || '');
+  const draftValue = normalizeText(draft || currentOverride);
+  const size = isBackdrop ? 'w780' : 'w342';
+  const title = isBackdrop ? 'Change backdrop' : 'Change poster';
+  const description = isBackdrop
+    ? 'Choose a TMDb still or paste a private backdrop URL.'
+    : 'Choose a TMDb poster or paste a private poster URL.';
+  return `
+    <section class="cml-film-detail__section cml-film-image-picker" data-film-image-picker="${escapeHtml(pickerMode)}">
+      <div class="cml-film-image-picker__head">
+        <div>
+          <h2>${escapeHtml(title)}</h2>
+          <p>${escapeHtml(description)}</p>
+        </div>
+        <button type="button" class="cml-film-image-picker__close" data-action="film-close-image-picker" aria-label="Close image picker">×</button>
+      </div>
+      ${paths.length ? `
+        <div class="cml-film-image-picker__grid ${isBackdrop ? 'is-backdrop' : 'is-poster'}">
+          ${paths.slice(0, 12).map((path) => {
+            const url = buildTmdbImageUrl(path, size);
+            const isActive = currentOverride === buildTmdbImageUrl(path, isBackdrop ? 'w1280' : 'w500')
+              || (!currentOverride && normalizeText(path) === normalizeText(isBackdrop ? record.backdropPath : record.posterPath));
+            return `
+              <button type="button" class="cml-film-image-picker__choice ${isActive ? 'is-active' : ''}" data-action="film-pick-image" data-film-image-mode="${escapeHtml(pickerMode)}" data-film-image-path="${escapeHtml(path)}" aria-label="Use this ${escapeHtml(pickerMode)}">
+                <img src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async" />
+              </button>
+            `;
+          }).join('')}
+        </div>
+      ` : `<p class="cml-film-image-picker__empty">No TMDb ${escapeHtml(pickerMode)} images cached yet. Refresh from TMDb or paste a URL below.</p>`}
+      <form class="cml-film-image-picker__url" data-form="film-image-picker-url">
+        <input type="url" data-film-image-picker-url value="${escapeHtml(draftValue)}" placeholder="https://... or /file/..." />
+        <button type="submit" class="cml-film-image-picker__button" data-action="film-apply-image-url">Use URL</button>
+        <button type="button" class="cml-film-image-picker__button cml-film-image-picker__button--ghost" data-action="film-clear-image-override" data-film-image-mode="${escapeHtml(pickerMode)}" ${currentOverride ? '' : 'disabled'}>Reset TMDb</button>
+      </form>
+      <p class="cml-film-image-picker__hint">Saved as a local override. TMDb cache and notes stay untouched.</p>
+    </section>
+  `;
+}
+
 function splitFilmGenres(value) {
   if (Array.isArray(value)) {
     return value.map(normalizeText).filter(Boolean);
@@ -604,7 +685,7 @@ function applyFilmMetadataDraft(record = {}, draft = {}) {
   };
 }
 
-export function FilmDetailPage({ record = null, notesEditing = false, notesDraft = '', notesPreview = false, metadataEditing = false, metadataDraft = null, moreActionsOpen = false, backdropIndex = 0 } = {}) {
+export function FilmDetailPage({ record = null, notesEditing = false, notesDraft = '', notesPreview = false, metadataEditing = false, metadataDraft = null, moreActionsOpen = false, imagePickerMode = '', imagePickerDraft = '', backdropIndex = 0 } = {}) {
   if (!record) {
     return '';
   }
@@ -639,6 +720,9 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const disabledAttr = localActionDisabled ? 'disabled' : '';
   const metadataEditor = isSavedEntry && metadataEditing
     ? renderFilmMetadataEditor(displayRecord, metadataDraft || {})
+    : '';
+  const imagePicker = isSavedEntry
+    ? renderFilmImagePicker(displayRecord, { mode: imagePickerMode, draft: imagePickerDraft })
     : '';
   return `
     <section class="cml-film-detail-page" data-film-detail-page>
@@ -677,6 +761,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
             </div>
             ${isSavedEntry ? renderFilmWatchHistory(displayRecord) : ''}
             ${metadataEditor}
+            ${imagePicker}
             <section class="cml-film-detail__section">
               <h2>Synopsis</h2>
               <p>${escapeHtml(synopsis)}</p>
@@ -786,12 +871,17 @@ export function FilmTimelineSection(section = {}, { viewMode = 'ticket' } = {}) 
   `;
 }
 
-export function FilmsPage({ records = [], totalCount = records.length, activeFilter = 'All', viewMode = 'ticket', searchQuery = '', searchPanelHtml = '' } = {}) {
+export function FilmsPage({ records = [], totalCount = records.length, activeFilter = 'All', viewMode = 'ticket', libraryQuery = '', searchQuery = '', searchPanelHtml = '' } = {}) {
   const sections = groupFilmsByTimeline(records);
   const searchValue = escapeHtml(searchQuery);
+  const librarySearchValue = escapeHtml(libraryQuery);
   const hasAnySavedFilms = Number(totalCount) > 0;
   const hasSearchQuery = Boolean(normalizeText(searchQuery));
+  const hasLibraryQuery = Boolean(normalizeText(libraryQuery));
   const activeViewMode = viewMode === 'poster' ? 'poster' : 'ticket';
+  const emptyCopy = hasLibraryQuery
+    ? 'Try a different saved-library search, or clear the local search field.'
+    : 'Search a title above, then save a TMDb result as 想看 or 看过. Only movies you save will appear in this diary.';
   return `
     <section class="cml-films-page">
       <header class="cml-films-page__hero">
@@ -811,6 +901,11 @@ export function FilmsPage({ records = [], totalCount = records.length, activeFil
       </header>
       ${searchPanelHtml}
       <div class="cml-films-filters" role="tablist" aria-label="Film filters">
+        <label class="cml-films-library-search" aria-label="Search saved films">
+          <span class="cml-films-library-search__icon">⌕</span>
+          <input type="search" data-film-library-search-input value="${librarySearchValue}" placeholder="Search saved films..." />
+          ${hasLibraryQuery ? '<button type="button" data-action="clear-film-library-search" aria-label="Clear saved films search">×</button>' : ''}
+        </label>
         ${FILM_FILTERS.map((filter) => `
           <button type="button" class="cml-films-filters__chip ${filter === activeFilter ? 'is-active' : ''}" data-action="filter-films" data-film-filter="${escapeHtml(filter)}" aria-pressed="${filter === activeFilter ? 'true' : 'false'}">
             ${escapeHtml(filter)}
@@ -827,8 +922,8 @@ export function FilmsPage({ records = [], totalCount = records.length, activeFil
           : `
             <section class="cml-films-empty" data-has-saved-films="${hasAnySavedFilms ? 'true' : 'false'}">
               <p class="cml-films-empty__eyebrow">Start from TMDb</p>
-              <h2 class="cml-films-empty__title">No saved films yet.</h2>
-              <p class="cml-films-empty__copy">Search a title above, then save a TMDb result as 想看 or 看过. Only movies you save will appear in this diary.</p>
+              <h2 class="cml-films-empty__title">${hasLibraryQuery ? 'No saved films found.' : 'No saved films yet.'}</h2>
+              <p class="cml-films-empty__copy">${escapeHtml(emptyCopy)}</p>
             </section>
           `}
       </div>
@@ -836,7 +931,7 @@ export function FilmsPage({ records = [], totalCount = records.length, activeFil
   `;
 }
 
-export function FilmSearchResults({ results = [], loading = false, settling = false, clearing = false, resultKey = 0, error = '', query = '', savingTmdbIds = new Set(), savedRecordsByTmdbId = new Map() } = {}) {
+export function FilmSearchResults({ results = [], loading = false, settling = false, clearing = false, resultKey = 0, error = '', query = '', page = 0, totalPages = 0, totalResults = 0, savingTmdbIds = new Set(), savedRecordsByTmdbId = new Map() } = {}) {
   const normalizedQuery = normalizeText(query);
   if (!normalizedQuery && !results.length && !error) {
     return '';
@@ -851,6 +946,7 @@ export function FilmSearchResults({ results = [], loading = false, settling = fa
     : normalizedQuery
     ? 'No TMDb results found.'
     : 'No search results yet.';
+  const hasMoreResults = normalizedQuery && Number(totalPages) > Number(page || 0);
   const resultCards = results.length ? results.map((movie) => {
     const tmdbId = Number(movie.tmdbId);
     const isSaving = savingTmdbIds instanceof Set && savingTmdbIds.has(tmdbId);
@@ -895,6 +991,12 @@ export function FilmSearchResults({ results = [], loading = false, settling = fa
       <div class="cml-films-mvp__results cml-film-search-results ${loading ? 'is-loading' : ''} ${settling ? 'is-settling' : ''} ${clearing ? 'is-clearing' : ''}">
         ${resultCards}
       </div>
+      ${hasMoreResults ? `
+        <div class="cml-films-mvp__load-more">
+          <button type="button" class="cml-films-mvp__load-more-button" data-action="load-more-film-search-results" ${loading ? 'disabled' : ''}>${loading ? 'Loading...' : 'Load more'}</button>
+          <span>${escapeHtml(String(results.length))}${Number(totalResults) ? ` / ${escapeHtml(String(totalResults))}` : ''}</span>
+        </div>
+      ` : ''}
     </section>
   `;
 }

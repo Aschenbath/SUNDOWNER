@@ -27,6 +27,7 @@ function createMovie(overrides = {}) {
     originalTitle: 'Movie',
     overview: 'Overview',
     posterPath: '/poster.jpg',
+    posterPaths: ['/poster.jpg'],
     backdropPath: '/backdrop.jpg',
     releaseDate: '2026-01-01',
     runtime: 100,
@@ -100,11 +101,13 @@ describe('MovieRepository', () => {
     assert.equal(result.entry.watchStatus, 'watched');
     assert.equal(result.entry.userRating, 4.5);
     assert.equal(result.movie.title, 'Movie');
+    assert.deepEqual(result.movie.posterPaths, ['/poster.jpg']);
     assert.deepEqual(result.movie.backdropPaths, ['/backdrop.jpg']);
 
     const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
     assert.equal(cachedMovie.title, 'Movie');
     assert.equal(cachedMovie.director, 'Jane Director');
+    assert.deepEqual(cachedMovie.posterPaths, ['/poster.jpg']);
     assert.deepEqual(cachedMovie.backdropPaths, ['/backdrop.jpg']);
     assert.equal(cachedMovie.userRating, undefined);
     assert.equal(cachedMovie.note, undefined);
@@ -189,6 +192,37 @@ describe('MovieRepository', () => {
     const list = await repository.listUserEntries();
     assert.equal(list[0].entry.titleOverride, 'Local Title');
     assert.equal(list[0].movie.title, 'TMDb Title');
+  });
+
+  it('normalizes poster and backdrop path choices on MovieCache only', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie({
+            posterPath: '/primary-poster.jpg',
+            posterPaths: ['/alt-poster.jpg', '/primary-poster.jpg'],
+            backdropPath: '/primary-backdrop.jpg',
+            backdropPaths: ['/alt-backdrop.jpg', '/primary-backdrop.jpg'],
+          });
+        },
+      },
+    });
+
+    const result = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'wantToWatch',
+    });
+
+    assert.deepEqual(result.movie.posterPaths, ['/primary-poster.jpg', '/alt-poster.jpg']);
+    assert.deepEqual(result.movie.backdropPaths, ['/primary-backdrop.jpg', '/alt-backdrop.jpg']);
+
+    const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
+    assert.deepEqual(cachedMovie.posterPaths, ['/primary-poster.jpg', '/alt-poster.jpg']);
+    assert.deepEqual(cachedMovie.backdropPaths, ['/primary-backdrop.jpg', '/alt-backdrop.jpg']);
+    assert.equal(cachedMovie.posterUrlOverride, undefined);
+    assert.equal(result.entry.posterUrlOverride, '');
   });
 
   it('preserves local entry fields when patching only metadata overrides', async () => {
