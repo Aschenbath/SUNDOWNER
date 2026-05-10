@@ -11406,12 +11406,13 @@ body.codex-media-library-active #app {
   position: absolute;
   top: 0;
   right: 0;
-  z-index: 0;
-  width: 54%;
-  height: 56%;
+  width: 58%;
+  height: 64%;
   overflow: hidden;
   border-top-right-radius: inherit;
   pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.98) 0%, rgba(0, 0, 0, 0.96) 72%, rgba(0, 0, 0, 0.18) 100%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.98) 0%, rgba(0, 0, 0, 0.96) 72%, rgba(0, 0, 0, 0.18) 100%);
 }
 
 #codex-media-library-root .cml-film-detail-page__backdrop::before {
@@ -11420,40 +11421,17 @@ body.codex-media-library-active #app {
   inset: 0;
   z-index: 1;
   background:
-    linear-gradient(
-      90deg,
-      #0b0e13 0%,
-      rgba(11, 14, 19, 0.96) 14%,
-      rgba(11, 14, 19, 0.78) 30%,
-      rgba(11, 14, 19, 0.34) 54%,
-      rgba(11, 14, 19, 0.12) 74%,
-      rgba(11, 14, 19, 0.22) 100%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(11, 14, 19, 0.02) 0%,
-      rgba(11, 14, 19, 0.08) 44%,
-      rgba(11, 14, 19, 0.34) 72%,
-      rgba(11, 14, 19, 0.72) 100%
-    );
+    linear-gradient(90deg, #11151c 0%, rgba(17, 21, 28, 0.94) 18%, rgba(17, 21, 28, 0.68) 38%, rgba(17, 21, 28, 0.34) 56%, rgba(12, 15, 21, 0.56) 76%, rgba(9, 11, 15, 0.82) 100%),
+    linear-gradient(180deg, rgba(8, 10, 14, 0.18) 0%, rgba(8, 10, 14, 0.36) 52%, rgba(8, 10, 14, 0.72) 100%);
 }
 
 #codex-media-library-root .cml-film-detail-page__backdrop::after {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: auto 0 0;
   z-index: 2;
-  background:
-    radial-gradient(
-      circle at 14% 82%,
-      #0b0e13 0%,
-      rgba(11, 14, 19, 0.96) 16%,
-      rgba(11, 14, 19, 0.82) 28%,
-      rgba(11, 14, 19, 0.48) 44%,
-      rgba(11, 14, 19, 0.16) 60%,
-      transparent 76%
-    );
-  filter: blur(18px);
+  height: 42%;
+  background: linear-gradient(180deg, rgba(11, 14, 19, 0) 0%, rgba(11, 14, 19, 0.3) 38%, #0b0e13 100%);
 }
 
 #codex-media-library-root .cml-film-detail-page__backdrop-image {
@@ -11461,9 +11439,9 @@ body.codex-media-library-active #app {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center right;
-  opacity: 0.34;
-  filter: saturate(0.88) contrast(1.04) brightness(0.74);
+  opacity: 0.38;
+  filter: saturate(0.82) contrast(1.08) brightness(0.82);
+  transform: scale(1.02);
 }
 
 #codex-media-library-root .cml-film-detail-page__scrim {
@@ -11477,7 +11455,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-detail-page__content {
   position: relative;
-  z-index: 5;
+  z-index: 1;
   display: grid;
   gap: clamp(28px, 3vw, 40px);
   padding: clamp(32px, 3.6vw, 52px);
