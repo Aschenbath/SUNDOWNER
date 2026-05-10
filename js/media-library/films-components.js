@@ -604,9 +604,13 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const autoBackdropIndex = autoBackdropUrls.length
     ? Math.max(0, Math.min(autoBackdropUrls.length - 1, Number(backdropIndex) || 0))
     : 0;
+  const hasDedicatedBackdrop = Boolean(autoBackdropUrls.length || normalizeText(displayRecord.backdropUrl || displayRecord.backdropPath));
   const backdropUrl = autoBackdropUrls.length
     ? autoBackdropUrls[autoBackdropIndex]
     : getRecordBackdropUrl(displayRecord);
+  const backdropSourceClass = hasDedicatedBackdrop
+    ? 'cml-film-detail-page__backdrop-image--still'
+    : 'cml-film-detail-page__backdrop-image--poster-fallback';
   const chips = [
     renderDetailChip(displayRecord.year ? String(displayRecord.year) : ''),
     renderDetailChip(runtime),
@@ -623,7 +627,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   return `
     <section class="cml-film-detail-page" data-film-detail-page>
       <div class="cml-film-detail-page__backdrop" aria-hidden="true">
-        ${backdropUrl ? `<img class="cml-film-detail-page__backdrop-image" src="${escapeHtml(backdropUrl)}" alt="" loading="eager" decoding="async" data-film-backdrop-index="${escapeHtml(autoBackdropIndex)}" />` : ''}
+        ${backdropUrl ? `<img class="cml-film-detail-page__backdrop-image ${backdropSourceClass}" src="${escapeHtml(backdropUrl)}" alt="" loading="eager" decoding="async" data-film-backdrop-index="${escapeHtml(autoBackdropIndex)}" />` : ''}
       </div>
       <div class="cml-film-detail-page__scrim" aria-hidden="true"></div>
       <div class="cml-film-detail-page__content">

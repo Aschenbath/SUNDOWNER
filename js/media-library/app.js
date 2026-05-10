@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=40';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=41';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
