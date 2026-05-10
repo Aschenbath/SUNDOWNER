@@ -11421,8 +11421,8 @@ body.codex-media-library-active #app {
   inset: 0;
   z-index: 1;
   background:
-    linear-gradient(90deg, #11151c 0%, rgba(17, 21, 28, 0.94) 18%, rgba(17, 21, 28, 0.68) 38%, rgba(17, 21, 28, 0.34) 56%, rgba(12, 15, 21, 0.56) 76%, rgba(9, 11, 15, 0.82) 100%),
-    linear-gradient(180deg, rgba(8, 10, 14, 0.18) 0%, rgba(8, 10, 14, 0.36) 52%, rgba(8, 10, 14, 0.72) 100%);
+    linear-gradient(90deg, #11151c 0%, rgba(17, 21, 28, 0.94) 18%, rgba(17, 21, 28, 0.68) 38%, rgba(17, 21, 28, 0.34) 56%, rgba(12, 15, 21, 0.36) 76%, rgba(9, 11, 15, 0.56) 100%),
+    linear-gradient(180deg, rgba(8, 10, 14, 0.18) 0%, rgba(8, 10, 14, 0.36) 52%, rgba(8, 10, 14, 0.58) 100%);
 }
 
 #codex-media-library-root .cml-film-detail-page__backdrop::after {
@@ -11439,8 +11439,8 @@ body.codex-media-library-active #app {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.46;
-  filter: saturate(0.86) contrast(1.08) brightness(0.88);
+  opacity: 0.56;
+  filter: saturate(0.94) contrast(1.08) brightness(0.96);
   transform: scale(1.02);
 }
 
