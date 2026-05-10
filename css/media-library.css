@@ -11676,6 +11676,149 @@ body.codex-media-library-active #app {
   font-style: italic;
 }
 
+#codex-media-library-root .cml-film-detail__markdown {
+  display: grid;
+  gap: 14px;
+  color: rgba(241, 238, 230, 0.74);
+  font-size: clamp(15.5px, 1.05vw, 17px);
+  line-height: 1.72;
+}
+
+#codex-media-library-root .cml-film-detail__markdown p,
+#codex-media-library-root .cml-film-detail__markdown ul,
+#codex-media-library-root .cml-film-detail__markdown ol,
+#codex-media-library-root .cml-film-detail__markdown blockquote,
+#codex-media-library-root .cml-film-detail__markdown pre {
+  margin: 0;
+}
+
+#codex-media-library-root .cml-film-detail__markdown h3,
+#codex-media-library-root .cml-film-detail__markdown h4,
+#codex-media-library-root .cml-film-detail__markdown h5 {
+  margin: 0;
+  color: #f1eee6;
+  font-family: Georgia, "Times New Roman", ui-serif, serif;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+#codex-media-library-root .cml-film-detail__markdown a {
+  color: #d7ad54;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(215, 173, 84, 0.36);
+}
+
+#codex-media-library-root .cml-film-detail__markdown code {
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(241, 238, 230, 0.9);
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.92em;
+}
+
+#codex-media-library-root .cml-film-detail__markdown pre {
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+#codex-media-library-root .cml-film-detail__markdown pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  white-space: pre;
+}
+
+#codex-media-library-root .cml-film-detail__markdown blockquote {
+  padding: 4px 0 4px 18px;
+  border-left: 2px solid rgba(201, 169, 106, 0.42);
+  color: rgba(241, 238, 230, 0.66);
+  font-family: Georgia, "Times New Roman", ui-serif, serif;
+  font-style: italic;
+}
+
+#codex-media-library-root .cml-film-detail__markdown ul,
+#codex-media-library-root .cml-film-detail__markdown ol {
+  padding-left: 22px;
+}
+
+#codex-media-library-root .cml-film-detail__notes-empty {
+  color: rgba(241, 238, 230, 0.46) !important;
+}
+
+#codex-media-library-root .cml-film-detail__notes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+#codex-media-library-root .cml-film-detail__notes-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#codex-media-library-root .cml-film-detail__note-mode,
+#codex-media-library-root .cml-film-detail__note-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(241, 238, 230, 0.78);
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-film-detail__note-mode.is-active,
+#codex-media-library-root .cml-film-detail__note-button {
+  border-color: rgba(201, 169, 106, 0.28);
+  background: rgba(201, 169, 106, 0.12);
+  color: #f1eee6;
+}
+
+#codex-media-library-root .cml-film-detail__note-button--ghost {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(241, 238, 230, 0.72);
+}
+
+#codex-media-library-root .cml-film-detail__notes-editor,
+#codex-media-library-root .cml-film-detail__markdown--preview {
+  min-height: 260px;
+  width: 100%;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(241, 238, 230, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+#codex-media-library-root .cml-film-detail__notes-editor {
+  resize: vertical;
+  outline: 0;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.68;
+}
+
+#codex-media-library-root .cml-film-detail__notes-editor:focus {
+  border-color: rgba(201, 169, 106, 0.45);
+  box-shadow: 0 0 0 3px rgba(201, 169, 106, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+#codex-media-library-root .cml-film-detail__notes-editor::placeholder {
+  color: rgba(241, 238, 230, 0.38);
+}
+
 #codex-media-library-root .cml-film-detail__actions {
   display: flex;
   flex-wrap: wrap;
@@ -11693,6 +11836,17 @@ body.codex-media-library-active #app {
   font-size: 13px;
   font-weight: 750;
   cursor: pointer;
+}
+
+#codex-media-library-root .cml-film-detail__action.is-active {
+  border-color: rgba(201, 169, 106, 0.28);
+  background: rgba(201, 169, 106, 0.12);
+  color: #f1eee6;
+}
+
+#codex-media-library-root .cml-film-detail__action:disabled {
+  cursor: wait;
+  opacity: 0.58;
 }
 
 #codex-media-library-root .cml-film-detail__action--icon {
@@ -12352,6 +12506,15 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-film-detail__meta-item + .cml-film-detail__meta-item {
     border-left: 0;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  #codex-media-library-root .cml-film-detail__notes-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  #codex-media-library-root .cml-film-detail__notes-tools {
+    justify-content: flex-start;
   }
 
   #codex-media-library-root .cml-film-modal {

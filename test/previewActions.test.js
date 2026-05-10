@@ -60,7 +60,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /const filmActionNames = new Set\(\[/);
     assert.match(appSource, /filmActionNames\.has\(actionTarget\.dataset\.action \|\| ''\)/);
     assert.match(appSource, /return '#\/films\/' \+ encodeURIComponent\(state\.activeFilmId\)/);
-    assert.match(appSource, /state\.filmDetailOpen = false;\s+}\s+clearPrivateViewState\(\);/);
+    assert.match(appSource, /state\.filmDetailOpen = false;\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesPreview = false;\s+clearPrivateViewState\(\);/);
     assert.doesNotMatch(appSource, /case 'save-film-status':\s+void saveFilmStatus\([^;]+openAfterSave:\s*true/s);
   });
 
@@ -99,6 +99,7 @@ describe('media library download actions', () => {
     assert.match(html, /May 9, 2026/);
     assert.match(html, /Synopsis/);
     assert.match(html, /My notes/);
+    assert.match(html, /cml-film-detail__markdown/);
     assert.match(html, /Save to Favourites/);
     assert.match(html, /data-action="film-toggle-favourite"/);
     assert.match(html, /data-action="film-edit-notes"/);
@@ -106,6 +107,51 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="film-more-actions"/);
     assert.doesNotMatch(html, /cml-film-modal/);
     assert.doesNotMatch(html, /role="dialog"/);
+  });
+
+  it('renders film detail notes as safe inline Markdown and exposes the editor state', () => {
+    const viewHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Movie',
+        journal: '# Private\n\n**Great** [safe](https://example.com) [bad](javascript:alert(1))',
+      },
+    });
+    const editHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Movie',
+        journal: 'Saved note',
+      },
+      notesEditing: true,
+      notesDraft: 'Draft **note**',
+    });
+
+    assert.match(viewHtml, /<h3>Private<\/h3>/);
+    assert.match(viewHtml, /<strong>Great<\/strong>/);
+    assert.match(viewHtml, /href="https:\/\/example\.com"/);
+    assert.doesNotMatch(viewHtml, /javascript:alert/);
+    assert.match(editHtml, /data-film-notes-draft/);
+    assert.match(editHtml, /data-action="film-notes-save"/);
+    assert.match(editHtml, /data-action="film-notes-cancel"/);
+    assert.match(editHtml, /data-action="film-notes-preview-toggle"/);
+  });
+
+  it('keeps Films detail local actions wired through app handlers', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const repositorySource = fs.readFileSync(new URL('../functions/utils/movieRepository.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /filmNotesEditing: false/);
+    assert.match(appSource, /function saveFilmEntryPatch/);
+    assert.match(appSource, /case 'film-toggle-favourite':/);
+    assert.match(appSource, /case 'film-edit-notes':/);
+    assert.match(appSource, /case 'film-notes-save':/);
+    assert.match(appSource, /case 'film-mark-rewatch':/);
+    assert.match(appSource, /data-film-notes-draft/);
+    assert.match(repositorySource, /journal: normalizeMultilineText/);
+    assert.match(repositorySource, /noteMarkdown: normalizeMultilineText/);
   });
 
   it('keeps saved film card posters free of overlay labels', () => {

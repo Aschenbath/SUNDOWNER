@@ -13,6 +13,13 @@ function normalizeText(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
+function normalizeMultilineText(value) {
+  return String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+}
+
 function formatFilmMonthLabel(value) {
   const date = new Date(value || '');
   if (Number.isNaN(date.getTime())) {
@@ -315,7 +322,129 @@ function renderDetailMetaColumn(label, value, icon = '') {
   `;
 }
 
-export function FilmDetailPage({ record = null } = {}) {
+function getSavedFilmNote(record = {}) {
+  return normalizeMultilineText(record.noteMarkdown || record.journal || '');
+}
+
+function isSafeMarkdownHref(href = '') {
+  const normalized = normalizeText(href);
+  return /^(https?:|mailto:|\/|#)/i.test(normalized);
+}
+
+function renderMarkdownInline(source = '') {
+  let html = escapeHtml(source);
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, href) => {
+    const safeHref = normalizeText(href);
+    if (!isSafeMarkdownHref(safeHref)) {
+      return escapeHtml(label);
+    }
+    return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  });
+  return html;
+}
+
+function renderMarkdownBlocks(source = '') {
+  const text = normalizeMultilineText(source);
+  if (!text) {
+    return '<p class="cml-film-detail__notes-empty">No private note yet.</p>';
+  }
+  const lines = text.split('\n');
+  const blocks = [];
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!normalizeText(line)) {
+      index += 1;
+      continue;
+    }
+    if (line.startsWith('```')) {
+      const codeLines = [];
+      index += 1;
+      while (index < lines.length && !lines[index].startsWith('```')) {
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+      index += 1;
+      blocks.push(`<pre><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`);
+      continue;
+    }
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length + 2;
+      blocks.push(`<h${level}>${renderMarkdownInline(heading[2])}</h${level}>`);
+      index += 1;
+      continue;
+    }
+    if (/^>\s?/.test(line)) {
+      const quoteLines = [];
+      while (index < lines.length && /^>\s?/.test(lines[index])) {
+        quoteLines.push(lines[index].replace(/^>\s?/, ''));
+        index += 1;
+      }
+      blocks.push(`<blockquote>${quoteLines.map(renderMarkdownInline).join('<br>')}</blockquote>`);
+      continue;
+    }
+    if (/^[-*]\s+/.test(line)) {
+      const items = [];
+      while (index < lines.length && /^[-*]\s+/.test(lines[index])) {
+        items.push(`<li>${renderMarkdownInline(lines[index].replace(/^[-*]\s+/, ''))}</li>`);
+        index += 1;
+      }
+      blocks.push(`<ul>${items.join('')}</ul>`);
+      continue;
+    }
+    if (/^\d+\.\s+/.test(line)) {
+      const items = [];
+      while (index < lines.length && /^\d+\.\s+/.test(lines[index])) {
+        items.push(`<li>${renderMarkdownInline(lines[index].replace(/^\d+\.\s+/, ''))}</li>`);
+        index += 1;
+      }
+      blocks.push(`<ol>${items.join('')}</ol>`);
+      continue;
+    }
+    const paragraph = [];
+    while (index < lines.length && normalizeText(lines[index]) && !/^(#{1,3})\s+/.test(lines[index]) && !/^>\s?/.test(lines[index]) && !/^[-*]\s+/.test(lines[index]) && !/^\d+\.\s+/.test(lines[index]) && !lines[index].startsWith('```')) {
+      paragraph.push(lines[index]);
+      index += 1;
+    }
+    blocks.push(`<p>${paragraph.map(renderMarkdownInline).join('<br>')}</p>`);
+  }
+  return blocks.join('');
+}
+
+function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '', notesPreview = false } = {}) {
+  const savedNote = getSavedFilmNote(record);
+  const draft = notesEditing ? normalizeMultilineText(notesDraft) : savedNote;
+  if (!notesEditing) {
+    return `
+      <section class="cml-film-detail__section cml-film-detail__section--notes">
+        <h2>My notes</h2>
+        <div class="cml-film-detail__markdown">${renderMarkdownBlocks(savedNote)}</div>
+      </section>
+    `;
+  }
+  return `
+    <section class="cml-film-detail__section cml-film-detail__section--notes cml-film-detail__section--notes-editing">
+      <div class="cml-film-detail__notes-head">
+        <h2>My notes</h2>
+        <div class="cml-film-detail__notes-tools">
+          <button type="button" class="cml-film-detail__note-mode ${notesPreview ? '' : 'is-active'}" data-action="film-notes-preview-toggle" aria-pressed="${notesPreview ? 'false' : 'true'}">Write</button>
+          <button type="button" class="cml-film-detail__note-mode ${notesPreview ? 'is-active' : ''}" data-action="film-notes-preview-toggle" aria-pressed="${notesPreview ? 'true' : 'false'}">Preview</button>
+          <button type="button" class="cml-film-detail__note-button" data-action="film-notes-save">Save</button>
+          <button type="button" class="cml-film-detail__note-button cml-film-detail__note-button--ghost" data-action="film-notes-cancel">Cancel</button>
+        </div>
+      </div>
+      ${notesPreview
+        ? `<div class="cml-film-detail__markdown cml-film-detail__markdown--preview">${renderMarkdownBlocks(draft)}</div>`
+        : `<textarea class="cml-film-detail__notes-editor" data-film-notes-draft rows="10" placeholder="Write private notes in Markdown...">${escapeHtml(draft)}</textarea>`}
+    </section>
+  `;
+}
+
+export function FilmDetailPage({ record = null, notesEditing = false, notesDraft = '', notesPreview = false } = {}) {
   if (!record) {
     return '';
   }
@@ -335,7 +464,8 @@ export function FilmDetailPage({ record = null } = {}) {
     renderDetailChip(`✓ ${statusLabel}`, 'cml-film-detail__chip--watched')
   ].join('');
   const synopsis = getDetailSynopsis(record);
-  const personalNote = getDetailPersonalNote(record);
+  const favoriteActionLabel = record.favorite ? '♥ Saved to Favourites' : '♡ Save to Favourites';
+  const disabledAttr = record.isSaving ? 'disabled' : '';
   return `
     <section class="cml-film-detail-page" data-film-detail-page>
       <div class="cml-film-detail-page__backdrop" aria-hidden="true">
@@ -373,15 +503,12 @@ export function FilmDetailPage({ record = null } = {}) {
               <h2>Synopsis</h2>
               <p>${escapeHtml(synopsis)}</p>
             </section>
-            <section class="cml-film-detail__section cml-film-detail__section--notes">
-              <h2>My notes</h2>
-              <p>${escapeHtml(personalNote)}</p>
-            </section>
+            ${renderFilmNotesSection(record, { notesEditing, notesDraft, notesPreview })}
             <div class="cml-film-detail__actions">
-              <button type="button" class="cml-film-detail__action" data-action="film-toggle-favourite" data-film-id="${escapeHtml(record.id || '')}">♡ Save to Favourites</button>
-              <button type="button" class="cml-film-detail__action" data-action="film-edit-notes" data-film-id="${escapeHtml(record.id || '')}">✎ Edit Notes</button>
-              <button type="button" class="cml-film-detail__action" data-action="film-mark-rewatch" data-film-id="${escapeHtml(record.id || '')}">↻ Mark as Rewatch</button>
-              <button type="button" class="cml-film-detail__action cml-film-detail__action--icon" data-action="film-more-actions" data-film-id="${escapeHtml(record.id || '')}" aria-label="More actions">...</button>
+              <button type="button" class="cml-film-detail__action ${record.favorite ? 'is-active' : ''}" data-action="film-toggle-favourite" data-film-id="${escapeHtml(record.id || '')}" ${disabledAttr}>${escapeHtml(favoriteActionLabel)}</button>
+              <button type="button" class="cml-film-detail__action" data-action="film-edit-notes" data-film-id="${escapeHtml(record.id || '')}" ${disabledAttr}>✎ Edit Notes</button>
+              <button type="button" class="cml-film-detail__action" data-action="film-mark-rewatch" data-film-id="${escapeHtml(record.id || '')}" ${disabledAttr}>↻ Mark as Rewatch</button>
+              <button type="button" class="cml-film-detail__action cml-film-detail__action--icon" data-action="film-more-actions" data-film-id="${escapeHtml(record.id || '')}" aria-label="More actions" ${disabledAttr}>...</button>
             </div>
           </div>
         </div>

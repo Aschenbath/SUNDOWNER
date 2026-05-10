@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=23';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=24';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -433,7 +433,10 @@ const state = {
   filmSearchLoading: false,
   filmActiveFilter: FILM_FILTERS[0],
   filmSavingTmdbIds: new Set(),
-  filmError: ''
+  filmError: '',
+  filmNotesEditing: false,
+  filmNotesDraft: '',
+  filmNotesPreview: false
 };
 
 let dimensionPatchTimer = 0;
@@ -1790,6 +1793,14 @@ function ensureRoot() {
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeMultilineText(value, maxLength = 12000) {
+  const normalized = String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+  return maxLength > 0 ? normalized.slice(0, maxLength) : normalized;
 }
 
 function getFilmUserRatingMood(value) {
@@ -8361,7 +8372,7 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     : normalizeText(movie.id || existingRecord?.id || `film-${Date.now()}`);
   const overview = normalizeText(movie.overview || existingRecord?.overview || '');
   const localNote = normalizeText(entry?.note || existingRecord?.note || '');
-  const localJournal = normalizeText(entry?.journal || entry?.noteMarkdown || existingRecord?.journal || existingRecord?.noteMarkdown || '');
+  const localJournal = normalizeMultilineText(entry?.journal || entry?.noteMarkdown || existingRecord?.journal || existingRecord?.noteMarkdown || '');
   return {
     id,
     tmdbId: Number.isFinite(tmdbId) ? tmdbId : null,
@@ -8409,6 +8420,16 @@ function preferLocalText(...values) {
   return '';
 }
 
+function preferLocalMultilineText(...values) {
+  for (const value of values) {
+    const normalized = normalizeMultilineText(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return '';
+}
+
 function upsertFilmRecord(record, { preserveLocal = false } = {}) {
   if (!record?.id) {
     return;
@@ -8429,11 +8450,11 @@ function upsertFilmRecord(record, { preserveLocal = false } = {}) {
       ? preferLocalText(existing?.note, record.note, merged.note)
       : preferLocalText(record.note, existing?.note, merged.note),
     journal: preserveLocal
-      ? preferLocalText(existing?.journal, existing?.noteMarkdown, record.journal, record.noteMarkdown, merged.journal)
-      : preferLocalText(record.journal, record.noteMarkdown, existing?.journal, existing?.noteMarkdown, merged.journal),
+      ? preferLocalMultilineText(existing?.journal, existing?.noteMarkdown, record.journal, record.noteMarkdown, merged.journal)
+      : preferLocalMultilineText(record.journal, record.noteMarkdown, existing?.journal, existing?.noteMarkdown, merged.journal),
     noteMarkdown: preserveLocal
-      ? preferLocalText(existing?.noteMarkdown, existing?.journal, record.noteMarkdown, record.journal, merged.noteMarkdown)
-      : preferLocalText(record.noteMarkdown, record.journal, existing?.noteMarkdown, existing?.journal, merged.noteMarkdown),
+      ? preferLocalMultilineText(existing?.noteMarkdown, existing?.journal, record.noteMarkdown, record.journal, merged.noteMarkdown)
+      : preferLocalMultilineText(record.noteMarkdown, record.journal, existing?.noteMarkdown, existing?.journal, merged.noteMarkdown),
     watchedAt: preserveLocal ? (existing?.watchedAt ?? record.watchedAt ?? '') : (record.watchedAt ?? existing?.watchedAt ?? ''),
     status: preserveLocal ? (existing?.status ?? record.status ?? merged.status) : (record.status ?? existing?.status ?? merged.status),
     favorite: preserveLocal ? (existing?.favorite ?? record.favorite ?? false) : (record.favorite ?? existing?.favorite ?? false),
@@ -8488,9 +8509,19 @@ function createOptimisticFilmRecord(tmdbId, patch = {}) {
     userRating: Object.prototype.hasOwnProperty.call(patch, 'userRating')
       ? patch.userRating
       : existing?.userRating ?? null,
-    note: existing?.note && existing.note !== movie.overview ? existing.note : '',
+    note: Object.prototype.hasOwnProperty.call(patch, 'note')
+      ? patch.note
+      : existing?.note && existing.note !== movie.overview ? existing.note : '',
+    journal: Object.prototype.hasOwnProperty.call(patch, 'journal')
+      ? patch.journal
+      : existing?.journal || existing?.noteMarkdown || '',
+    noteMarkdown: Object.prototype.hasOwnProperty.call(patch, 'noteMarkdown')
+      ? patch.noteMarkdown
+      : existing?.noteMarkdown || existing?.journal || '',
     tags: [],
-    isFavorite: Boolean(existing?.favorite),
+    isFavorite: Object.prototype.hasOwnProperty.call(patch, 'isFavorite')
+      ? Boolean(patch.isFavorite)
+      : Boolean(existing?.favorite),
     watchedAt: patch.watchedAt ?? existing?.watchedAt ?? '',
     createdAt: existing?.addedAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -8728,6 +8759,121 @@ async function saveFilmWatchedDate(tmdbId, watchedAt) {
   }
 }
 
+async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film updated' } = {}) {
+  const existing = state.films.find((record) => record.id === filmId);
+  const normalizedId = Number(existing?.tmdbId);
+  if (!existing || !Number.isFinite(normalizedId) || normalizedId <= 0) {
+    return;
+  }
+  const previousFilms = state.films.slice();
+  const watchStatus = normalizeWatchStatusForPayload(patch.watchStatus || existing.status || 'wantToWatch');
+  state.filmSavingTmdbIds.add(normalizedId);
+  const optimisticRecord = createOptimisticFilmRecord(normalizedId, {
+    watchStatus,
+    userRating: Object.prototype.hasOwnProperty.call(patch, 'userRating') ? patch.userRating : existing.userRating ?? null,
+    note: Object.prototype.hasOwnProperty.call(patch, 'note') ? patch.note : existing.note || '',
+    journal: Object.prototype.hasOwnProperty.call(patch, 'journal') ? patch.journal : existing.journal || existing.noteMarkdown || '',
+    noteMarkdown: Object.prototype.hasOwnProperty.call(patch, 'noteMarkdown') ? patch.noteMarkdown : existing.noteMarkdown || existing.journal || '',
+    isFavorite: Object.prototype.hasOwnProperty.call(patch, 'isFavorite') ? patch.isFavorite : Boolean(existing.favorite),
+    watchedAt: Object.prototype.hasOwnProperty.call(patch, 'watchedAt') ? patch.watchedAt : existing.watchedAt || ''
+  });
+  upsertFilmRecord(optimisticRecord);
+  state.activeFilmId = optimisticRecord.id;
+  state.filmDetailOpen = true;
+  state.filmError = '';
+  render();
+  try {
+    const payload = await postJson('/api/manage/movies', {
+      tmdbId: normalizedId,
+      watchStatus,
+      userRating: Object.prototype.hasOwnProperty.call(patch, 'userRating') ? patch.userRating : existing.userRating ?? null,
+      note: Object.prototype.hasOwnProperty.call(patch, 'note') ? patch.note : existing.note || '',
+      journal: Object.prototype.hasOwnProperty.call(patch, 'journal') ? patch.journal : existing.journal || existing.noteMarkdown || '',
+      noteMarkdown: Object.prototype.hasOwnProperty.call(patch, 'noteMarkdown') ? patch.noteMarkdown : existing.noteMarkdown || existing.journal || '',
+      isFavorite: Object.prototype.hasOwnProperty.call(patch, 'isFavorite') ? Boolean(patch.isFavorite) : Boolean(existing.favorite),
+      watchedAt: Object.prototype.hasOwnProperty.call(patch, 'watchedAt') ? patch.watchedAt : existing.watchedAt || '',
+      movie: toMoviePayload(findMovieSourceByTmdbId(normalizedId), normalizedId)
+    });
+    const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
+    upsertFilmRecord(record);
+    state.activeFilmId = record.id;
+    state.filmDetailOpen = true;
+    state.filmError = '';
+    if (successMessage) {
+      showToast(successMessage, 'success');
+    }
+  } catch (error) {
+    state.films = previousFilms;
+    state.filmError = error.message || 'Failed to update film';
+  } finally {
+    state.filmSavingTmdbIds.delete(normalizedId);
+    state.films = state.films.map((record) =>
+      Number(record.tmdbId) === normalizedId ? { ...record, isSaving: false } : record
+    );
+    render();
+  }
+}
+
+function editFilmNotes(filmId) {
+  const film = state.films.find((record) => record.id === filmId);
+  if (!film) {
+    return;
+  }
+  state.activeFilmId = film.id;
+  state.filmDetailOpen = true;
+  state.filmNotesEditing = true;
+  state.filmNotesDraft = film.noteMarkdown || film.journal || '';
+  state.filmNotesPreview = false;
+  render();
+}
+
+function cancelFilmNotesEdit() {
+  state.filmNotesEditing = false;
+  state.filmNotesDraft = '';
+  state.filmNotesPreview = false;
+  render();
+}
+
+function toggleFilmNotesPreview() {
+  state.filmNotesPreview = !state.filmNotesPreview;
+  render();
+}
+
+function saveFilmNotes() {
+  const film = getActiveFilmRecord();
+  if (!film) {
+    return;
+  }
+  const draft = normalizeMultilineText(state.filmNotesDraft);
+  state.filmNotesEditing = false;
+  state.filmNotesPreview = false;
+  void saveFilmEntryPatch(film.id, {
+    journal: draft,
+    noteMarkdown: draft
+  }, { successMessage: draft ? 'Notes saved' : 'Notes cleared' });
+}
+
+function toggleFilmFavourite(filmId) {
+  const film = state.films.find((record) => record.id === filmId);
+  if (!film) {
+    return;
+  }
+  void saveFilmEntryPatch(film.id, {
+    isFavorite: !film.favorite
+  }, { successMessage: film.favorite ? 'Removed from favourites' : 'Saved to favourites' });
+}
+
+function markFilmRewatch(filmId) {
+  const film = state.films.find((record) => record.id === filmId);
+  if (!film) {
+    return;
+  }
+  void saveFilmEntryPatch(film.id, {
+    watchStatus: 'watched',
+    watchedAt: new Date().toISOString().slice(0, 10)
+  }, { successMessage: 'Marked as rewatch' });
+}
+
 function openFilmDetail(filmId) {
   const film = state.films.find((record) => record.id === filmId);
   if (!film) {
@@ -8735,6 +8881,9 @@ function openFilmDetail(filmId) {
   }
   state.activeFilmId = film.id;
   state.filmDetailOpen = true;
+  state.filmNotesEditing = false;
+  state.filmNotesDraft = '';
+  state.filmNotesPreview = false;
   pushNavigationHash({ mode: 'push' });
   render();
 }
@@ -8745,6 +8894,9 @@ function closeFilmDetail() {
   }
   state.filmDetailOpen = false;
   state.activeFilmId = '';
+  state.filmNotesEditing = false;
+  state.filmNotesDraft = '';
+  state.filmNotesPreview = false;
   pushNavigationHash({ mode: 'push' });
   render();
 }
@@ -9131,7 +9283,12 @@ function render() {
                   }))
                 : viewModel.isFilmsView
                 ? (state.filmDetailOpen && viewModel.filmRecord
-                  ? FilmDetailPage({ record: viewModel.filmRecord })
+                  ? FilmDetailPage({
+                    record: viewModel.filmRecord,
+                    notesEditing: state.filmNotesEditing,
+                    notesDraft: state.filmNotesDraft,
+                    notesPreview: state.filmNotesPreview
+                  })
                   : FilmsPage({
                     records: getVisibleFilmRecords(),
                     totalCount: state.films.length,
@@ -11876,6 +12033,27 @@ function handleAction(actionTarget) {
       void saveFilmWatchedDate(actionTarget.dataset.tmdbId, input instanceof HTMLInputElement ? input.value : '');
       return true;
     }
+    case 'film-toggle-favourite':
+      toggleFilmFavourite(actionTarget.dataset.filmId || state.activeFilmId);
+      return true;
+    case 'film-mark-rewatch':
+      markFilmRewatch(actionTarget.dataset.filmId || state.activeFilmId);
+      return true;
+    case 'film-edit-notes':
+      editFilmNotes(actionTarget.dataset.filmId || state.activeFilmId);
+      return true;
+    case 'film-notes-save':
+      saveFilmNotes();
+      return true;
+    case 'film-notes-cancel':
+      cancelFilmNotesEdit();
+      return true;
+    case 'film-notes-preview-toggle':
+      toggleFilmNotesPreview();
+      return true;
+    case 'film-more-actions':
+      showToast('More film actions are not available yet', 'info');
+      return true;
     case 'preview-next':
       movePreview(1);
       return true;
@@ -11943,7 +12121,14 @@ function handleClick(event) {
     'open-tmdb-film-detail',
     'clear-film-rating',
     'save-film-watched-date',
-    'close-film-detail'
+    'close-film-detail',
+    'film-toggle-favourite',
+    'film-edit-notes',
+    'film-notes-save',
+    'film-notes-cancel',
+    'film-notes-preview-toggle',
+    'film-mark-rewatch',
+    'film-more-actions'
   ]);
 
   if (actionTarget instanceof HTMLElement && filmActionNames.has(actionTarget.dataset.action || '')) {
@@ -12237,6 +12422,10 @@ function handleInput(event) {
   }
   if (input.hasAttribute('data-films-search-input')) {
     state.filmSearchQuery = input.value;
+    return;
+  }
+  if (input.hasAttribute('data-film-notes-draft')) {
+    state.filmNotesDraft = input.value;
     return;
   }
   if (input.hasAttribute('data-film-rating-input')) {
@@ -12617,6 +12806,14 @@ function handleKeyDown(event) {
     return;
   }
 
+  if (event.target instanceof HTMLTextAreaElement && event.target.hasAttribute('data-film-notes-draft')) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelFilmNotesEdit();
+    }
+    return;
+  }
+
   if (event.target instanceof HTMLElement && event.target.dataset.mindInput === 'message' && event.target.isContentEditable) {
     if (event.isComposing || state.mindComposerComposing) {
       return;
@@ -12876,6 +13073,9 @@ function restoreNavigationFromHash() {
         state.activeFilmId = '';
         state.filmDetailOpen = false;
       }
+      state.filmNotesEditing = false;
+      state.filmNotesDraft = '';
+      state.filmNotesPreview = false;
       clearPrivateViewState();
       break;
     case 'mind':
@@ -12942,12 +13142,18 @@ function restoreNavigationFromHash() {
       state.activePlaylistName = '';
       state.activeFilmId = '';
       state.filmDetailOpen = false;
+      state.filmNotesEditing = false;
+      state.filmNotesDraft = '';
+      state.filmNotesPreview = false;
       clearPrivateViewState();
       break;
   }
   if (state.primaryFilter !== 'Films') {
     state.activeFilmId = '';
     state.filmDetailOpen = false;
+    state.filmNotesEditing = false;
+    state.filmNotesDraft = '';
+    state.filmNotesPreview = false;
   }
   if (state.primaryFilter !== 'Mind') {
     clearMindVisitStickyMessages();

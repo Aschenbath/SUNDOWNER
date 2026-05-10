@@ -12,6 +12,14 @@ function normalizeText(value, maxLength = 0) {
   return maxLength > 0 ? normalized.slice(0, maxLength) : normalized;
 }
 
+function normalizeMultilineText(value, maxLength = 0) {
+  const normalized = String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+  return maxLength > 0 ? normalized.slice(0, maxLength) : normalized;
+}
+
 function normalizeNumber(value, fallback = null) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
@@ -106,6 +114,8 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
     watchStatus,
     userRating: rating,
     note: normalizeText(input.note ?? existing?.note, 4000),
+    journal: normalizeMultilineText(input.journal ?? input.noteMarkdown ?? existing?.journal ?? existing?.noteMarkdown, 12000),
+    noteMarkdown: normalizeMultilineText(input.noteMarkdown ?? input.journal ?? existing?.noteMarkdown ?? existing?.journal, 12000),
     tags: normalizeStringArray(input.tags ?? existing?.tags, 40),
     isFavorite: Boolean(input.isFavorite ?? existing?.isFavorite ?? false),
     watchedAt: normalizeText(input.watchedAt ?? existing?.watchedAt, 40),
