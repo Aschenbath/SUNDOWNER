@@ -50,14 +50,17 @@ describe('media library download actions', () => {
   it('wires Films TMDb search as live debounced input with stale-response guards', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const emptyHtml = FilmSearchResults({ query: 'No Match', results: [] });
-    const loadingHtml = FilmSearchResults({ query: 'Pearl', loading: true, results: [] });
+    const loadingHtml = FilmSearchResults({ query: 'Pearl', loading: true, settling: true, resultKey: 3, results: [] });
 
     assert.match(appSource, /const FILM_SEARCH_DEBOUNCE_MS = 350/);
+    assert.match(appSource, /const FILM_SEARCH_MIN_LOADING_MS = 180/);
     assert.match(appSource, /let filmSearchRequestId = 0/);
     assert.match(appSource, /let filmSearchAbortController = null/);
     assert.match(appSource, /const filmSearchCache = new Map\(\)/);
     assert.match(appSource, /function shouldRunFilmSearch\(query\)/);
     assert.match(appSource, /function scheduleFilmSearch\(query\)/);
+    assert.match(appSource, /function setFilmSearchResults\(results\)/);
+    assert.match(appSource, /function settleFilmSearchResults\(requestId\)/);
     assert.match(appSource, /filmSearchComposing: false/);
     assert.match(appSource, /state\.filmSearchComposing = true/);
     assert.match(appSource, /state\.filmSearchComposing = false/);
@@ -69,6 +72,9 @@ describe('media library download actions', () => {
     assert.match(appSource, /signal: filmSearchAbortController\.signal/);
     assert.match(emptyHtml, /No TMDb results found\./);
     assert.match(loadingHtml, /Searching TMDb\.\.\./);
+    assert.match(loadingHtml, /cml-film-search-panel is-searching is-settling/);
+    assert.match(loadingHtml, /data-film-search-result-key="3"/);
+    assert.match(loadingHtml, /cml-film-search-results is-loading is-settling/);
   });
 
   it('keeps TMDb search-result save actions on the Films index route', () => {
@@ -264,7 +270,7 @@ describe('media library download actions', () => {
       }],
     });
 
-    assert.match(html, /cml-films-result is-saving/);
+    assert.match(html, /cml-films-result cml-film-search-result is-saving/);
     assert.match(html, /disabled>Saving\.\.\.<\/button>/);
   });
 

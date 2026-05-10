@@ -957,7 +957,7 @@ function LegacyAddableFilmSearchResults({ results = [], loading = false, error =
   `;
 }
 
-export function FilmSearchResults({ results = [], loading = false, error = '', query = '', savingTmdbIds = new Set() } = {}) {
+export function FilmSearchResults({ results = [], loading = false, settling = false, resultKey = 0, error = '', query = '', savingTmdbIds = new Set() } = {}) {
   const normalizedQuery = normalizeText(query);
   if (!normalizedQuery && !results.length && !error) {
     return '';
@@ -975,7 +975,7 @@ export function FilmSearchResults({ results = [], loading = false, error = '', q
   const resultCards = results.length ? results.map((movie) => {
     const isSaving = savingTmdbIds instanceof Set && savingTmdbIds.has(Number(movie.tmdbId));
     return `
-      <article class="cml-films-result ${isSaving ? 'is-saving' : ''}" data-action="open-tmdb-film-detail" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}">
+      <article class="cml-films-result cml-film-search-result ${isSaving ? 'is-saving' : ''}" data-action="open-tmdb-film-detail" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}">
         <div class="cml-films-result__poster-wrap">
           ${movie.posterPath
             ? `<img class="cml-films-result__poster" src="${escapeHtml(buildTmdbImageUrl(movie.posterPath, 'w342'))}" alt="${escapeHtml(movie.title || 'Movie poster')}" loading="lazy" decoding="async" />`
@@ -995,15 +995,16 @@ export function FilmSearchResults({ results = [], loading = false, error = '', q
     `;
   }).join('') : `<p class="cml-films-mvp__empty">${emptyMessage}</p>`;
   return `
-    <section class="cml-films-mvp">
+    <section class="cml-films-mvp cml-film-search-panel ${loading ? 'is-searching' : ''} ${settling ? 'is-settling' : ''}" data-film-search-result-key="${escapeHtml(resultKey)}">
       <div class="cml-films-mvp__head">
         <div>
           <p class="cml-films-mvp__eyebrow">TMDb search</p>
           <h2 class="cml-films-mvp__title">${loading ? 'Searching...' : 'Add from TMDb'}</h2>
         </div>
+        <p class="cml-film-search-status ${loading ? 'is-visible' : ''}" aria-live="polite">${loading ? 'Searching...' : ''}</p>
         ${friendlyError ? `<p class="cml-films-mvp__error">${escapeHtml(friendlyError)}</p>` : ''}
       </div>
-      <div class="cml-films-mvp__results">
+      <div class="cml-films-mvp__results cml-film-search-results ${loading ? 'is-loading' : ''} ${settling ? 'is-settling' : ''}">
         ${resultCards}
       </div>
     </section>

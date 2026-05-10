@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=30';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=31';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -108,6 +108,7 @@ const API_REQUEST_TIMEOUT_MS = 12000;
 const STORAGE_REQUEST_TIMEOUT_MS = 5000;
 const SEARCH_INPUT_DEBOUNCE_MS = 160;
 const FILM_SEARCH_DEBOUNCE_MS = 350;
+const FILM_SEARCH_MIN_LOADING_MS = 180;
 const MEDIA_LIBRARY_UPLOAD_ACCEPT = 'image/*,video/*,audio/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
 const COLLECTION_PAGE_SIZE = 24;
 const TIMELINE_ROW_GAP = 2;
@@ -432,6 +433,8 @@ const state = {
   filmSearchQuery: '',
   filmSearchResults: [],
   filmSearchLoading: false,
+  filmSearchSettling: false,
+  filmSearchResultKey: 0,
   filmSearchComposing: false,
   filmActiveFilter: FILM_FILTERS[0],
   filmSavingTmdbIds: new Set(),
@@ -8624,6 +8627,28 @@ function abortPendingFilmSearch() {
   }
 }
 
+function setFilmSearchResults(results) {
+  state.filmSearchResults = Array.isArray(results) ? results : [];
+  state.filmSearchResultKey += 1;
+  state.filmSearchSettling = true;
+}
+
+function settleFilmSearchResults(requestId) {
+  requestAnimationFrame(() => {
+    if (requestId !== undefined && requestId !== filmSearchRequestId) {
+      return;
+    }
+    state.filmSearchSettling = false;
+    render();
+  });
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, Math.max(0, ms));
+  });
+}
+
 function scheduleFilmSearch(query) {
   const inputQuery = String(query ?? '');
   const normalizedQuery = normalizeText(inputQuery);
@@ -8633,6 +8658,7 @@ function scheduleFilmSearch(query) {
     abortPendingFilmSearch();
     filmSearchRequestId += 1;
     state.filmSearchLoading = false;
+    state.filmSearchSettling = false;
     state.filmSearchResults = [];
     state.filmError = '';
     render();
@@ -8661,6 +8687,7 @@ async function searchFilms({ query = state.filmSearchQuery } = {}) {
     abortPendingFilmSearch();
     filmSearchRequestId += 1;
     state.filmSearchLoading = false;
+    state.filmSearchSettling = false;
     state.filmSearchResults = [];
     state.filmError = '';
     render();
@@ -8675,6 +8702,7 @@ async function searchFilms({ query = state.filmSearchQuery } = {}) {
   state.filmSearchLoading = true;
   state.filmError = '';
   render();
+  const startedAt = performance.now();
   try {
     const payload = await fetchMovieJson(`/api/manage/movies?action=search&q=${encodeURIComponent(normalizedQuery)}`, {
       signal: filmSearchAbortController.signal
@@ -8684,7 +8712,14 @@ async function searchFilms({ query = state.filmSearchQuery } = {}) {
     }
     const results = Array.isArray(payload?.results) ? payload.results : [];
     filmSearchCache.set(normalizedQuery, results);
-    state.filmSearchResults = results;
+    const remainingLoadingMs = FILM_SEARCH_MIN_LOADING_MS - (performance.now() - startedAt);
+    if (remainingLoadingMs > 0) {
+      await delay(remainingLoadingMs);
+      if (requestId !== filmSearchRequestId) {
+        return;
+      }
+    }
+    setFilmSearchResults(results);
     state.filmError = '';
   } catch (error) {
     if (error?.name === 'AbortError' || requestId !== filmSearchRequestId) {
@@ -8696,6 +8731,9 @@ async function searchFilms({ query = state.filmSearchQuery } = {}) {
       state.filmSearchLoading = false;
       filmSearchAbortController = null;
       render();
+      if (state.filmSearchSettling) {
+        settleFilmSearchResults(requestId);
+      }
     }
   }
 }
@@ -9498,6 +9536,8 @@ function render() {
                     searchPanelHtml: FilmSearchResults({
                       results: state.filmSearchResults,
                       loading: state.filmSearchLoading,
+                      settling: state.filmSearchSettling,
+                      resultKey: state.filmSearchResultKey,
                       error: state.filmError,
                       query: state.filmSearchQuery,
                       savingTmdbIds: state.filmSavingTmdbIds
