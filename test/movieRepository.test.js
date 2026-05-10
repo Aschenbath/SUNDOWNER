@@ -112,7 +112,38 @@ describe('MovieRepository', () => {
     assert.equal(list.length, 1);
     assert.equal(list[0].entry.note, 'My private note');
     assert.equal(list[0].entry.watchedAt, '2026-05-09');
+    assert.deepEqual(list[0].entry.watchEvents.map((event) => event.watchedAt), ['2026-05-09']);
     assert.equal(list[0].movie.title, 'Movie');
+  });
+
+  it('tracks private watch history on UserMovieEntry without touching MovieCache', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie();
+        },
+      },
+    });
+
+    await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      watchedAt: '2026-05-01',
+    });
+    const updated = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      appendWatchEvent: '2026-05-10',
+      watchedAt: '2026-05-10',
+    });
+
+    assert.equal(updated.entry.watchStatus, 'watched');
+    assert.equal(updated.entry.watchedAt, '2026-05-10');
+    assert.deepEqual(updated.entry.watchEvents.map((event) => event.watchedAt), ['2026-05-10', '2026-05-01']);
+
+    const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
+    assert.equal(cachedMovie.watchEvents, undefined);
   });
 
   it('stores manual metadata and image overrides on UserMovieEntry only', async () => {

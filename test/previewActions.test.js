@@ -158,6 +158,10 @@ describe('media library download actions', () => {
         director: 'Pierre Boutron',
         userRating: 5,
         watchedAt: '2026-05-09',
+        watchEvents: [
+          { watchedAt: '2026-05-09', createdAt: '2026-05-09T00:00:00.000Z' },
+          { watchedAt: '2026-05-01', createdAt: '2026-05-01T00:00:00.000Z' },
+        ],
         voteAverage: 7.5,
         voteCount: 38,
         genres: ['Romance', 'Drama', 'War', 'TV Movie'],
@@ -178,6 +182,9 @@ describe('media library download actions', () => {
     assert.match(html, /5\.0 \/ 5\.0/);
     assert.match(html, /★ 7\.5 \(38\)/);
     assert.match(html, /May 9, 2026/);
+    assert.match(html, /Watch history/);
+    assert.match(html, /2 watches/);
+    assert.match(html, /May 1, 2026/);
     assert.match(html, /Synopsis/);
     assert.match(html, /My notes/);
     assert.match(html, /cml-film-detail__markdown/);
@@ -311,6 +318,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /querySelector\('\.cml-film-notes-editor'\)/);
     assert.match(appSource, /keepDetailOpen: shouldKeepDetailOpenAfterNotesSave/);
     assert.match(appSource, /case 'film-mark-rewatch':/);
+    assert.match(appSource, /appendWatchEvent: watchedAt/);
     assert.match(appSource, /data-film-notes-draft/);
     assert.match(appSource, /data-film-metadata-field/);
     assert.match(appSource, /querySelector\('\.cml-film-metadata-editor'\)/);

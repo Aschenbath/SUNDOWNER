@@ -355,6 +355,34 @@ function renderDetailWatchedDateColumn(record = {}, watchedDate = '', { editable
   `;
 }
 
+function renderFilmWatchHistory(record = {}) {
+  const events = (Array.isArray(record.watchEvents) ? record.watchEvents : [])
+    .map((event) => ({
+      watchedAt: normalizeText(typeof event === 'string' ? event : event?.watchedAt || event?.date)
+    }))
+    .filter((event) => event.watchedAt)
+    .sort((left, right) => String(right.watchedAt || '').localeCompare(String(left.watchedAt || '')));
+  if (!events.length) {
+    return '';
+  }
+  const countLabel = events.length === 1 ? '1 watch' : `${events.length} watches`;
+  return `
+    <section class="cml-film-detail__section cml-film-detail__watch-history" aria-label="Private watch history">
+      <div class="cml-film-detail__watch-history-head">
+        <h2>Watch history</h2>
+        <span>${escapeHtml(countLabel)}</span>
+      </div>
+      <div class="cml-film-detail__watch-events">
+        ${events.slice(0, 8).map((event, index) => `
+          <span class="cml-film-detail__watch-event ${index === 0 ? 'is-latest' : ''}">
+            ${escapeHtml(formatWatchedDateLong(event.watchedAt))}
+          </span>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
 function getSavedFilmNote(record = {}) {
   return normalizeMultilineText(record.noteMarkdown || record.journal || '');
 }
@@ -601,6 +629,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
               ${renderDetailWatchedDateColumn(displayRecord, watchedDate, { editable: isSavedEntry })}
               ${renderDetailMetaColumn('TMDb rating', formatTmdbDetailRating(displayRecord), '↗')}
             </div>
+            ${isSavedEntry ? renderFilmWatchHistory(displayRecord) : ''}
             ${metadataEditor}
             <section class="cml-film-detail__section">
               <h2>Synopsis</h2>

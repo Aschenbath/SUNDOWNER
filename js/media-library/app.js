@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=38';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=39';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -8459,6 +8459,7 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     journal: localJournal,
     noteMarkdown: localJournal,
     watchedAt: entry?.watchedAt || existingRecord?.watchedAt || '',
+    watchEvents: normalizeFilmWatchEvents(entry?.watchEvents || existingRecord?.watchEvents || []),
     addedAt: entry?.createdAt || existingRecord?.addedAt || movie.updatedAt || '',
     updatedAt: entry?.updatedAt || movie.updatedAt || existingRecord?.updatedAt || '',
     director: overrides.directorOverride || cacheDirector,
@@ -8565,6 +8566,54 @@ function normalizeFilmMetadataOverrides(source = {}) {
   };
 }
 
+function normalizeFilmWatchEvents(value = []) {
+  const source = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  return source
+    .map((item) => {
+      const watchedAt = normalizeText(typeof item === 'string' ? item : item?.watchedAt || item?.date).slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(watchedAt) || seen.has(watchedAt)) {
+        return null;
+      }
+      seen.add(watchedAt);
+      return {
+        watchedAt,
+        createdAt: normalizeText(typeof item === 'object' ? item?.createdAt : '') || new Date().toISOString()
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) =>
+      String(right.watchedAt || '').localeCompare(String(left.watchedAt || ''))
+      || String(right.createdAt || '').localeCompare(String(left.createdAt || ''))
+    );
+}
+
+function appendFilmWatchEvent(events = [], watchedAt = new Date().toISOString().slice(0, 10)) {
+  const normalizedDate = normalizeText(watchedAt).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+    return normalizeFilmWatchEvents(events);
+  }
+  return normalizeFilmWatchEvents([
+    ...normalizeFilmWatchEvents(events),
+    { watchedAt: normalizedDate, createdAt: new Date().toISOString() }
+  ]);
+}
+
+function replacePrimaryFilmWatchEvent(events = [], previousWatchedAt = '', nextWatchedAt = '') {
+  const previousDate = normalizeText(previousWatchedAt).slice(0, 10);
+  const nextDate = normalizeText(nextWatchedAt).slice(0, 10);
+  const normalizedEvents = normalizeFilmWatchEvents(events);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) {
+    return normalizedEvents;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(previousDate) && previousDate !== nextDate && normalizedEvents.some((event) => event.watchedAt === previousDate)) {
+    return normalizeFilmWatchEvents(normalizedEvents.map((event) =>
+      event.watchedAt === previousDate ? { ...event, watchedAt: nextDate } : event
+    ));
+  }
+  return appendFilmWatchEvent(normalizedEvents, nextDate);
+}
+
 function hasFilmMetadataOverrides(source = {}) {
   const overrides = normalizeFilmMetadataOverrides(source);
   return FILM_METADATA_FIELDS.some((field) => {
@@ -8615,6 +8664,9 @@ function upsertFilmRecord(record, { preserveLocal = false } = {}) {
       ? preferLocalMultilineText(existing?.noteMarkdown, existing?.journal, record.noteMarkdown, record.journal, merged.noteMarkdown)
       : preferLocalMultilineText(record.noteMarkdown, record.journal, existing?.noteMarkdown, existing?.journal, merged.noteMarkdown),
     watchedAt: preserveLocal ? (existing?.watchedAt ?? record.watchedAt ?? '') : (record.watchedAt ?? existing?.watchedAt ?? ''),
+    watchEvents: preserveLocal
+      ? normalizeFilmWatchEvents(existing?.watchEvents?.length ? existing.watchEvents : record.watchEvents || [])
+      : normalizeFilmWatchEvents(record.watchEvents?.length ? record.watchEvents : existing?.watchEvents || []),
     status: preserveLocal ? (existing?.status ?? record.status ?? merged.status) : (record.status ?? existing?.status ?? merged.status),
     favorite: preserveLocal ? (existing?.favorite ?? record.favorite ?? false) : (record.favorite ?? existing?.favorite ?? false),
     ...normalizeFilmMetadataOverrides(preserveLocal ? { ...record, ...existing } : { ...existing, ...record }),
@@ -8677,6 +8729,7 @@ function createTransientFilmDetailRecord(source = {}, existing = null, { isLoadi
     journal: '',
     noteMarkdown: '',
     watchedAt: '',
+    watchEvents: [],
     addedAt: '',
     isSavedEntry: false,
     isSaving: Boolean(isLoading)
@@ -8744,6 +8797,13 @@ function createOptimisticFilmRecord(tmdbId, patch = {}, { isSaving = true } = {}
       ? Boolean(patch.isFavorite)
       : Boolean(existing?.favorite),
     watchedAt: patch.watchedAt ?? existing?.watchedAt ?? '',
+    watchEvents: Object.prototype.hasOwnProperty.call(patch, 'watchEvents')
+      ? normalizeFilmWatchEvents(patch.watchEvents)
+      : (Object.prototype.hasOwnProperty.call(patch, 'appendWatchEvent')
+        ? appendFilmWatchEvent(existing?.watchEvents || [], patch.appendWatchEvent)
+        : (Object.prototype.hasOwnProperty.call(patch, 'watchedAt')
+          ? replacePrimaryFilmWatchEvent(existing?.watchEvents || [], existing?.watchedAt || '', patch.watchedAt)
+          : normalizeFilmWatchEvents(existing?.watchEvents || []))),
     createdAt: existing?.addedAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -9093,6 +9153,7 @@ async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false, sile
   const optimisticPatch = { watchStatus };
   if (watchedAt) {
     optimisticPatch.watchedAt = watchedAt;
+    optimisticPatch.appendWatchEvent = watchedAt;
   }
   const optimisticRecord = createOptimisticFilmRecord(normalizedId, optimisticPatch, { isSaving: showSaving });
   upsertFilmRecord(optimisticRecord);
@@ -9112,6 +9173,7 @@ async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false, sile
     };
     if (watchedAt) {
       body.watchedAt = watchedAt;
+      body.appendWatchEvent = watchedAt;
     }
     const payload = await postJson('/api/manage/movies', body);
     const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
@@ -9206,7 +9268,8 @@ async function saveFilmWatchedDate(tmdbId, watchedAt, { silent = true } = {}) {
   const previousFilms = state.films.slice();
   const optimisticRecord = createOptimisticFilmRecord(normalizedId, {
     watchStatus: watchStatus === 'wantToWatch' ? 'watched' : watchStatus,
-    watchedAt: normalizedDate
+    watchedAt: normalizedDate,
+    watchEvents: replacePrimaryFilmWatchEvent(existing?.watchEvents || [], existing?.watchedAt || '', normalizedDate)
   }, { isSaving: false });
   upsertFilmRecord(optimisticRecord);
   clearMatchingTransientFilmDetail(normalizedId);
@@ -9220,6 +9283,7 @@ async function saveFilmWatchedDate(tmdbId, watchedAt, { silent = true } = {}) {
       watchStatus: optimisticRecord.status === 'watchlist' ? 'wantToWatch' : optimisticRecord.status,
       userRating: existing?.userRating ?? null,
       watchedAt: normalizedDate,
+      watchEvents: optimisticRecord.watchEvents || [],
       movie: toMoviePayload(findMovieSourceByTmdbId(normalizedId), normalizedId)
     });
     const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
@@ -9362,7 +9426,14 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
     noteMarkdown: Object.prototype.hasOwnProperty.call(patch, 'noteMarkdown') ? patch.noteMarkdown : existing.noteMarkdown || existing.journal || '',
     ...changedMetadataPatch,
     isFavorite: Object.prototype.hasOwnProperty.call(patch, 'isFavorite') ? patch.isFavorite : Boolean(existing.favorite),
-    watchedAt: Object.prototype.hasOwnProperty.call(patch, 'watchedAt') ? patch.watchedAt : existing.watchedAt || ''
+    watchedAt: Object.prototype.hasOwnProperty.call(patch, 'watchedAt') ? patch.watchedAt : existing.watchedAt || '',
+    watchEvents: Object.prototype.hasOwnProperty.call(patch, 'watchEvents')
+      ? patch.watchEvents
+      : (Object.prototype.hasOwnProperty.call(patch, 'appendWatchEvent')
+        ? appendFilmWatchEvent(existing.watchEvents || [], patch.appendWatchEvent)
+        : (Object.prototype.hasOwnProperty.call(patch, 'watchedAt')
+          ? replacePrimaryFilmWatchEvent(existing.watchEvents || [], existing.watchedAt || '', patch.watchedAt)
+          : normalizeFilmWatchEvents(existing.watchEvents || [])))
   };
   const optimisticRecord = createOptimisticFilmRecord(normalizedId, optimisticPatch, { isSaving: showSaving });
   upsertFilmRecord(optimisticRecord);
@@ -9398,6 +9469,12 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'watchedAt')) {
       body.watchedAt = patch.watchedAt;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'watchEvents')) {
+      body.watchEvents = patch.watchEvents;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'appendWatchEvent')) {
+      body.appendWatchEvent = patch.appendWatchEvent;
     }
     Object.assign(body, changedMetadataPatch);
     const payload = await postJson('/api/manage/movies', body);
@@ -9548,10 +9625,12 @@ function markFilmRewatch(filmId) {
   if (!film) {
     return;
   }
+  const watchedAt = new Date().toISOString().slice(0, 10);
   commitFilmMetadataEdit({ keepDetailOpen: true });
   void saveFilmEntryPatch(film.id, {
     watchStatus: 'watched',
-    watchedAt: new Date().toISOString().slice(0, 10)
+    watchedAt,
+    appendWatchEvent: watchedAt
   }, { successMessage: '' });
 }
 

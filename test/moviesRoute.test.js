@@ -140,4 +140,51 @@ describe('manage movies route', () => {
     assert.equal(payload.movie.title, 'TMDb Movie');
     assert.equal(payload.movie.posterUrlOverride, undefined);
   });
+
+  it('appends private watch history through the route entry payload', async () => {
+    const env = { img_url: new MemoryKV() };
+    await env.img_url.put('manage@sysConfig@movieCache@42', JSON.stringify({
+      tmdbId: 42,
+      title: 'TMDb Movie',
+      originalTitle: 'TMDb Movie',
+      overview: '',
+      posterPath: '/poster.jpg',
+      backdropPath: '/backdrop.jpg',
+      releaseDate: '2026-01-01',
+      runtime: 100,
+      genres: ['Drama'],
+      director: 'TMDb Director',
+      voteAverage: 7,
+      voteCount: 1200,
+      updatedAt: new Date().toISOString(),
+    }));
+    await env.img_url.put('manage@sysConfig@userMovieEntries', JSON.stringify([{
+      id: 'tmdb-42',
+      tmdbId: 42,
+      watchStatus: 'watched',
+      watchedAt: '2026-05-01',
+      watchEvents: [{ watchedAt: '2026-05-01', createdAt: '2026-05-01T00:00:00.000Z' }],
+      createdAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:00.000Z',
+    }]));
+
+    const response = await onRequest({
+      request: new Request('https://example.com/api/manage/movies', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tmdbId: 42,
+          watchedAt: '2026-05-10',
+          appendWatchEvent: '2026-05-10',
+        }),
+      }),
+      env,
+    });
+
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(payload.entry.watchedAt, '2026-05-10');
+    assert.deepEqual(payload.entry.watchEvents.map((event) => event.watchedAt), ['2026-05-10', '2026-05-01']);
+    assert.equal(payload.movie.watchEvents, undefined);
+  });
 });

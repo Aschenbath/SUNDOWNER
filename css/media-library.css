@@ -12002,6 +12002,55 @@ body.codex-media-library-active #app {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+#codex-media-library-root .cml-film-detail__watch-history {
+  gap: 12px;
+  padding-top: 18px;
+}
+
+#codex-media-library-root .cml-film-detail__watch-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+#codex-media-library-root .cml-film-detail__watch-history-head h2 {
+  margin: 0;
+}
+
+#codex-media-library-root .cml-film-detail__watch-history-head span {
+  color: rgba(241, 238, 230, 0.44);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+#codex-media-library-root .cml-film-detail__watch-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+#codex-media-library-root .cml-film-detail__watch-event {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(241, 238, 230, 0.68);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#codex-media-library-root .cml-film-detail__watch-event.is-latest {
+  border-color: rgba(201, 169, 106, 0.2);
+  background: rgba(201, 169, 106, 0.08);
+  color: rgba(241, 238, 230, 0.86);
+}
+
 #codex-media-library-root .cml-film-detail__section--notes p {
   color: rgba(241, 238, 230, 0.72);
   font-family: Georgia, "Times New Roman", ui-serif, serif;

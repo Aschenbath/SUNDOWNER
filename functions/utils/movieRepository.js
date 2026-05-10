@@ -98,6 +98,60 @@ function normalizeStringArray(values = [], maxItemLength = 60) {
     .slice(0, 40);
 }
 
+function normalizeWatchDate(value) {
+  const normalized = normalizeText(value, 40).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : '';
+}
+
+function normalizeWatchEvents(value = [], timestamp = nowIso()) {
+  const source = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  return source
+    .map((item) => {
+      const watchedAt = normalizeWatchDate(typeof item === 'string' ? item : item?.watchedAt || item?.date);
+      if (!watchedAt || seen.has(watchedAt)) {
+        return null;
+      }
+      seen.add(watchedAt);
+      return {
+        watchedAt,
+        createdAt: normalizeText(typeof item === 'object' ? item?.createdAt : '', 40) || timestamp
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) =>
+      String(right.watchedAt || '').localeCompare(String(left.watchedAt || ''))
+      || String(right.createdAt || '').localeCompare(String(left.createdAt || ''))
+    )
+    .slice(0, 80);
+}
+
+function ensureWatchEvent(events = [], watchedAt = '', timestamp = nowIso()) {
+  const normalizedDate = normalizeWatchDate(watchedAt);
+  const normalizedEvents = normalizeWatchEvents(events, timestamp);
+  if (!normalizedDate || normalizedEvents.some((event) => event.watchedAt === normalizedDate)) {
+    return normalizedEvents;
+  }
+  return normalizeWatchEvents([...normalizedEvents, { watchedAt: normalizedDate, createdAt: timestamp }], timestamp);
+}
+
+function replaceWatchEvent(events = [], previousWatchedAt = '', nextWatchedAt = '', timestamp = nowIso()) {
+  const previousDate = normalizeWatchDate(previousWatchedAt);
+  const nextDate = normalizeWatchDate(nextWatchedAt);
+  const normalizedEvents = normalizeWatchEvents(events, timestamp);
+  if (!nextDate) {
+    return normalizedEvents;
+  }
+  if (previousDate && previousDate !== nextDate && normalizedEvents.some((event) => event.watchedAt === previousDate)) {
+    return normalizeWatchEvents(normalizedEvents.map((event) =>
+      event.watchedAt === previousDate
+        ? { ...event, watchedAt: nextDate, createdAt: event.createdAt || timestamp }
+        : event
+    ), timestamp);
+  }
+  return ensureWatchEvent(normalizedEvents, nextDate, timestamp);
+}
+
 export function normalizeMovieCache(input = {}, timestamp = nowIso()) {
   const tmdbId = normalizeNumber(input.tmdbId, 0);
   if (!tmdbId) {
@@ -132,6 +186,18 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
   const rating = hasOwn(input, 'userRating')
     ? normalizeUserRating(input.userRating, { strict: true })
     : normalizeUserRating(existing?.userRating);
+  const watchedAt = normalizeText(input.watchedAt ?? existing?.watchedAt, 40);
+  let watchEvents = normalizeWatchEvents(
+    hasOwn(input, 'watchEvents') ? input.watchEvents : existing?.watchEvents,
+    timestamp
+  );
+  if (hasOwn(input, 'appendWatchEvent')) {
+    watchEvents = ensureWatchEvent(watchEvents, input.appendWatchEvent || watchedAt, timestamp);
+  } else if (hasOwn(input, 'watchedAt') && watchedAt) {
+    watchEvents = replaceWatchEvent(watchEvents, existing?.watchedAt, watchedAt, timestamp);
+  } else if (watchStatus === 'watched' && watchedAt && watchEvents.length === 0) {
+    watchEvents = ensureWatchEvent(watchEvents, watchedAt, timestamp);
+  }
   return {
     id: normalizeText(existing?.id || input.id || `tmdb-${tmdbId}`, 120),
     tmdbId,
@@ -153,7 +219,8 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
     backdropUrlOverride: normalizeImageUrlOverride(input.backdropUrlOverride ?? existing?.backdropUrlOverride),
     tags: normalizeStringArray(input.tags ?? existing?.tags, 40),
     isFavorite: Boolean(input.isFavorite ?? existing?.isFavorite ?? false),
-    watchedAt: normalizeText(input.watchedAt ?? existing?.watchedAt, 40),
+    watchedAt,
+    watchEvents,
     createdAt: normalizeText(existing?.createdAt || input.createdAt || timestamp, 40),
     updatedAt: timestamp,
   };
