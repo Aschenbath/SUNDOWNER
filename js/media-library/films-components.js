@@ -113,15 +113,21 @@ function renderPosterFallback(title = '') {
 }
 
 function getRecordPosterUrl(record = {}) {
-  return record.posterUrl || buildTmdbImageUrl(record.posterPath, 'w342') || '';
+  return record.posterUrlOverride
+    || record.posterUrl
+    || buildTmdbImageUrl(record.posterPathOverride || record.posterPath, 'w342')
+    || '';
 }
 
 function getRecordBackdropUrl(record = {}) {
-  return record.backdropUrl || buildTmdbImageUrl(record.backdropPath, 'w1280') || getRecordPosterUrl(record);
+  return record.backdropUrlOverride
+    || record.backdropUrl
+    || buildTmdbImageUrl(record.backdropPathOverride || record.backdropPath, 'w1280')
+    || getRecordPosterUrl(record);
 }
 
 function getRecordAutoBackdropUrls(record = {}) {
-  if (normalizeText(record.backdropUrlOverride)) {
+  if (normalizeText(record.backdropUrlOverride) || normalizeText(record.backdropPathOverride)) {
     return [];
   }
   const urls = [];
@@ -253,22 +259,10 @@ function getSavedSearchRecord(savedRecordsByTmdbId, tmdbId) {
 }
 
 function getDetailSynopsis(record = {}) {
-  const identity = normalizeText(`${record.title || ''} ${record.originalTitle || ''}`).toLowerCase();
-  if (identity.includes('silence of the sea') || identity.includes('silence de la mer')) {
-    return 'In a small coastal town of Nazi-occupied France, an elderly man and his niece maintain absolute silence as an act of quiet resistance against the German officer billeted in their home. Based on the classic novella by Vercors, this understated adaptation is a powerful study of dignity, endurance, and the unseen battle between oppressor and oppressed.';
-  }
-  const existing = normalizeText(record.overview || record.note || '');
-  if (existing) {
-    return existing;
-  }
-  return 'No synopsis cached yet.';
+  return normalizeText(record.overview || '');
 }
 
 function getDetailPersonalNote(record = {}) {
-  const identity = normalizeText(`${record.title || ''} ${record.originalTitle || ''}`).toLowerCase();
-  if (identity.includes('silence of the sea') || identity.includes('silence de la mer')) {
-    return 'A masterclass in restraint. The silence speaks volumes—every glance, every pause carries weight. The performances are extraordinary, especially Galabru’s controlled presence. A haunting reminder that resistance doesn’t always need to be loud.';
-  }
   const existing = normalizeText(record.journal || '');
   if (existing) {
     return existing;
@@ -398,9 +392,12 @@ function renderDetailWatchedDateColumn(record = {}, watchedDate = '', { editable
 
 function renderFilmWatchHistory(record = {}) {
   const events = (Array.isArray(record.watchEvents) ? record.watchEvents : [])
-    .map((event) => ({
-      watchedAt: normalizeText(typeof event === 'string' ? event : event?.watchedAt || event?.date)
-    }))
+    .map((event, index) => {
+      const watchedAt = normalizeText(typeof event === 'string' ? event : event?.watchedAt || event?.date);
+      const id = normalizeText(typeof event === 'object' ? event?.id || event?.watchEventId : '')
+        || (watchedAt ? `watch-${String(watchedAt).replace(/[^0-9a-z]/gi, '')}-${index}` : '');
+      return { id, watchedAt };
+    })
     .filter((event) => event.watchedAt)
     .sort((left, right) => String(right.watchedAt || '').localeCompare(String(left.watchedAt || '')));
   if (!events.length) {
@@ -422,6 +419,7 @@ function renderFilmWatchHistory(record = {}) {
               class="cml-film-detail__watch-event-input"
               data-film-watch-event-input
               data-film-id="${filmId}"
+              data-film-watch-event-id="${escapeHtml(event.id)}"
               data-film-watch-event="${escapeHtml(event.watchedAt)}"
               value="${escapeHtml(event.watchedAt)}"
               aria-label="Edit watch date ${escapeHtml(formatWatchedDateLong(event.watchedAt))}"
@@ -431,6 +429,7 @@ function renderFilmWatchHistory(record = {}) {
               class="cml-film-detail__watch-event-delete"
               data-action="film-delete-watch-event"
               data-film-id="${filmId}"
+              data-film-watch-event-id="${escapeHtml(event.id)}"
               data-film-watch-event="${escapeHtml(event.watchedAt)}"
               aria-label="Delete watch date ${escapeHtml(formatWatchedDateLong(event.watchedAt))}"
             >x</button>
@@ -640,10 +639,19 @@ function renderFilmImagePicker(record = {}, { mode = '', draft = '' } = {}) {
     ? [...(Array.isArray(record.backdropPaths) ? record.backdropPaths : []), record.backdropPath]
     : [...(Array.isArray(record.posterPaths) ? record.posterPaths : []), record.posterPath]
   );
-  const overrideField = isBackdrop ? 'backdropUrlOverride' : 'posterUrlOverride';
-  const currentOverride = normalizeText(record[overrideField] || '');
-  const draftValue = normalizeText(draft || currentOverride);
-  const previewUrl = draftValue || (isBackdrop ? getRecordBackdropUrl(record) : getRecordPosterUrl(record));
+  const pathOverrideField = isBackdrop ? 'backdropPathOverride' : 'posterPathOverride';
+  const urlOverrideField = isBackdrop ? 'backdropUrlOverride' : 'posterUrlOverride';
+  const currentPathOverride = normalizeText(record[pathOverrideField] || '');
+  const currentUrlOverride = normalizeText(record[urlOverrideField] || '');
+  const draftValue = normalizeText(draft || currentUrlOverride);
+  const selectedTmdbPath = currentPathOverride || normalizeText(isBackdrop ? record.backdropPath : record.posterPath);
+  const selectedTmdbUrl = buildTmdbImageUrl(selectedTmdbPath, isBackdrop ? 'w1280' : 'w500');
+  const previewUrl = draftValue || currentUrlOverride || selectedTmdbUrl || (isBackdrop ? getRecordBackdropUrl(record) : getRecordPosterUrl(record));
+  const previewLabel = draftValue || currentUrlOverride
+    ? 'Custom URL'
+    : currentPathOverride
+    ? 'TMDb override'
+    : 'TMDb image';
   const size = isBackdrop ? 'w780' : 'w342';
   const title = isBackdrop ? 'Change backdrop' : 'Change poster';
   const description = isBackdrop
@@ -661,15 +669,15 @@ function renderFilmImagePicker(record = {}, { mode = '', draft = '' } = {}) {
       ${previewUrl ? `
         <div class="cml-film-image-picker__preview ${isBackdrop ? 'is-backdrop' : 'is-poster'}">
           <img src="${escapeHtml(previewUrl)}" alt="" loading="eager" decoding="async" />
-          <span>${currentOverride ? 'Local override' : 'TMDb image'}</span>
+          <span>${escapeHtml(previewLabel)}</span>
         </div>
       ` : ''}
       ${paths.length ? `
         <div class="cml-film-image-picker__grid ${isBackdrop ? 'is-backdrop' : 'is-poster'}">
           ${paths.slice(0, 12).map((path) => {
             const url = buildTmdbImageUrl(path, size);
-            const isActive = currentOverride === buildTmdbImageUrl(path, isBackdrop ? 'w1280' : 'w500')
-              || (!currentOverride && normalizeText(path) === normalizeText(isBackdrop ? record.backdropPath : record.posterPath));
+            const normalizedPath = normalizeText(path);
+            const isActive = !currentUrlOverride && normalizedPath === normalizeText(selectedTmdbPath);
             return `
               <button type="button" class="cml-film-image-picker__choice ${isActive ? 'is-active' : ''}" data-action="film-pick-image" data-film-image-mode="${escapeHtml(pickerMode)}" data-film-image-path="${escapeHtml(path)}" aria-label="Use this ${escapeHtml(pickerMode)}">
                 <img src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async" />
@@ -682,7 +690,7 @@ function renderFilmImagePicker(record = {}, { mode = '', draft = '' } = {}) {
       <form class="cml-film-image-picker__url" data-form="film-image-picker-url">
         <input type="url" data-film-image-picker-url value="${escapeHtml(draftValue)}" placeholder="https://... or /file/..." />
         <button type="submit" class="cml-film-image-picker__button" data-action="film-apply-image-url">Save URL</button>
-        <button type="button" class="cml-film-image-picker__button cml-film-image-picker__button--ghost" data-action="film-clear-image-override" data-film-image-mode="${escapeHtml(pickerMode)}" ${currentOverride ? '' : 'disabled'}>Reset TMDb</button>
+        <button type="button" class="cml-film-image-picker__button cml-film-image-picker__button--ghost" data-action="film-clear-image-override" data-film-image-mode="${escapeHtml(pickerMode)}" ${(currentPathOverride || currentUrlOverride) ? '' : 'disabled'}>Reset TMDb</button>
       </form>
       <p class="cml-film-image-picker__hint">Saved as a local override. TMDb cache and notes stay untouched.</p>
     </section>
@@ -706,6 +714,10 @@ function applyFilmMetadataDraft(record = {}, draft = {}) {
   const releaseDate = normalizeText(draft.releaseDateOverride);
   const runtime = Number(draft.runtimeOverride);
   const genres = splitFilmGenres(draft.genresOverride);
+  const posterPathOverride = normalizeText(draft.posterPathOverride);
+  const backdropPathOverride = normalizeText(draft.backdropPathOverride);
+  const posterUrlOverride = normalizeText(draft.posterUrlOverride);
+  const backdropUrlOverride = normalizeText(draft.backdropUrlOverride);
   return {
     ...record,
     title: normalizeText(draft.titleOverride) || record.title,
@@ -717,10 +729,14 @@ function applyFilmMetadataDraft(record = {}, draft = {}) {
     runtime: Number.isFinite(runtime) && runtime > 0 ? runtime : record.runtime,
     genres: genres.length ? genres : record.genres,
     overview: normalizeText(draft.overviewOverride) || record.overview,
-    posterUrl: normalizeText(draft.posterUrlOverride) || record.posterUrl,
-    posterUrlOverride: normalizeText(draft.posterUrlOverride) || record.posterUrlOverride,
-    backdropUrl: normalizeText(draft.backdropUrlOverride) || record.backdropUrl,
-    backdropUrlOverride: normalizeText(draft.backdropUrlOverride) || record.backdropUrlOverride
+    posterPath: posterPathOverride || record.posterPath,
+    posterPathOverride: posterPathOverride || record.posterPathOverride,
+    posterUrl: posterUrlOverride || record.posterUrl,
+    posterUrlOverride: posterUrlOverride || record.posterUrlOverride,
+    backdropPath: backdropPathOverride || record.backdropPath,
+    backdropPathOverride: backdropPathOverride || record.backdropPathOverride,
+    backdropUrl: backdropUrlOverride || record.backdropUrl,
+    backdropUrlOverride: backdropUrlOverride || record.backdropUrlOverride
   };
 }
 
@@ -816,7 +832,9 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
                 <h2>Synopsis</h2>
                 ${canEditLocalMetadata ? `<button type="button" class="cml-film-detail__inline-edit" data-action="film-edit-metadata" data-film-id="${escapeHtml(displayRecord.id || '')}" data-film-metadata-focus-field="overviewOverride">Edit</button>` : ''}
               </div>
-              <p>${escapeHtml(synopsis)}</p>
+              ${synopsis
+                ? `<p>${escapeHtml(synopsis)}</p>`
+                : '<p class="cml-film-detail__empty-text">No synopsis yet.</p>'}
             </section>
             ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesPreview })}
             <div class="cml-film-detail__actions">

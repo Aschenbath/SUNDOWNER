@@ -147,9 +147,44 @@ describe('MovieRepository', () => {
     assert.equal(updated.entry.watchStatus, 'watched');
     assert.equal(updated.entry.watchedAt, '2026-05-10');
     assert.deepEqual(updated.entry.watchEvents.map((event) => event.watchedAt), ['2026-05-10', '2026-05-01']);
+    assert.ok(updated.entry.watchEvents.every((event) => event.id && event.id.startsWith('watch-')));
+    assert.ok(updated.entry.watchEvents.every((event) => Object.prototype.hasOwnProperty.call(event, 'rating')));
+    assert.ok(updated.entry.watchEvents.every((event) => Object.prototype.hasOwnProperty.call(event, 'note')));
 
     const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
     assert.equal(cachedMovie.watchEvents, undefined);
+  });
+
+  it('edits watch events by stable id instead of watched date only', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie();
+        },
+      },
+    });
+
+    await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      watchedAt: '2026-05-01',
+      watchEvents: [
+        { id: 'watch-a', watchedAt: '2026-05-01', createdAt: '2026-05-01T00:00:00.000Z' },
+        { id: 'watch-b', watchedAt: '2026-05-01', createdAt: '2026-05-01T01:00:00.000Z' },
+      ],
+    });
+
+    const updated = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      watchedAt: '2026-05-03',
+      watchEventId: 'watch-b',
+    });
+
+    assert.equal(updated.entry.watchEvents.find((event) => event.id === 'watch-a').watchedAt, '2026-05-01');
+    assert.equal(updated.entry.watchEvents.find((event) => event.id === 'watch-b').watchedAt, '2026-05-03');
   });
 
   it('stores manual metadata and image overrides on UserMovieEntry only', async () => {
@@ -172,6 +207,8 @@ describe('MovieRepository', () => {
       runtimeOverride: '123',
       genresOverride: ['Drama', 'War'],
       overviewOverride: 'Local synopsis.',
+      posterPathOverride: '/local-poster.jpg',
+      backdropPathOverride: '/local-backdrop.jpg',
       posterUrlOverride: 'https://example.com/poster.jpg',
       backdropUrlOverride: '/file/backdrop.jpg',
     });
@@ -180,6 +217,8 @@ describe('MovieRepository', () => {
     assert.equal(result.entry.directorOverride, 'Local Director');
     assert.equal(result.entry.runtimeOverride, 123);
     assert.deepEqual(result.entry.genresOverride, ['Drama', 'War']);
+    assert.equal(result.entry.posterPathOverride, '/local-poster.jpg');
+    assert.equal(result.entry.backdropPathOverride, '/local-backdrop.jpg');
     assert.equal(result.entry.posterUrlOverride, 'https://example.com/poster.jpg');
     assert.equal(result.entry.backdropUrlOverride, '/file/backdrop.jpg');
 
@@ -187,6 +226,7 @@ describe('MovieRepository', () => {
     assert.equal(cachedMovie.title, 'TMDb Title');
     assert.equal(cachedMovie.director, 'TMDb Director');
     assert.equal(cachedMovie.titleOverride, undefined);
+    assert.equal(cachedMovie.posterPathOverride, undefined);
     assert.equal(cachedMovie.posterUrlOverride, undefined);
 
     const list = await repository.listUserEntries();
@@ -277,6 +317,60 @@ describe('MovieRepository', () => {
     assert.deepEqual(cachedMovie.backdropPaths, ['/primary-backdrop.jpg', '/alt-backdrop.jpg']);
     assert.equal(cachedMovie.posterUrlOverride, undefined);
     assert.equal(result.entry.posterUrlOverride, '');
+  });
+
+  it('clears TMDb path and custom URL image overrides independently from MovieCache', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie({ posterPath: '/tmdb-poster.jpg', backdropPath: '/tmdb-backdrop.jpg' });
+        },
+      },
+    });
+
+    const saved = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'wantToWatch',
+      posterPathOverride: '/chosen-poster.jpg',
+      backdropPathOverride: '/chosen-backdrop.jpg',
+      posterUrlOverride: 'https://example.com/poster.jpg',
+      backdropUrlOverride: '/file/backdrop.jpg',
+    });
+    assert.equal(saved.entry.posterPathOverride, '/chosen-poster.jpg');
+    assert.equal(saved.entry.backdropPathOverride, '/chosen-backdrop.jpg');
+    assert.equal(saved.entry.posterUrlOverride, 'https://example.com/poster.jpg');
+    assert.equal(saved.entry.backdropUrlOverride, '/file/backdrop.jpg');
+
+    const reset = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      posterPathOverride: '',
+      backdropPathOverride: '',
+      posterUrlOverride: '',
+      backdropUrlOverride: '',
+    });
+    assert.equal(reset.entry.posterPathOverride, '');
+    assert.equal(reset.entry.backdropPathOverride, '');
+    assert.equal(reset.entry.posterUrlOverride, '');
+    assert.equal(reset.entry.backdropUrlOverride, '');
+
+    const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
+    assert.equal(cachedMovie.posterPath, '/tmdb-poster.jpg');
+    assert.equal(cachedMovie.backdropPath, '/tmdb-backdrop.jpg');
+    assert.equal(cachedMovie.posterPathOverride, undefined);
+    assert.equal(cachedMovie.backdropUrlOverride, undefined);
+  });
+
+  it('rejects blank manual films before they become useless entries', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, { db, client: {} });
+
+    await assert.rejects(
+      () => repository.saveOrUpdateUserEntry({ source: 'manual', watchStatus: 'wantToWatch', titleOverride: '' }),
+      /Manual film title is required/
+    );
+    assert.deepEqual(await repository.listUserEntries(), []);
   });
 
   it('preserves local entry fields when patching only metadata overrides', async () => {

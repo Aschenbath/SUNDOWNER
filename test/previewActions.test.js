@@ -179,8 +179,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /filmLibrarySearchComposing: false/);
     assert.match(appSource, /state\.filmLibrarySearchComposing = true/);
     assert.match(appSource, /state\.filmLibrarySearchComposing = false/);
-    assert.match(appSource, /const filmActionNames = new Set\(\[/);
-    assert.match(appSource, /filmActionNames\.has\(actionTarget\.dataset\.action \|\| ''\)/);
+    assert.match(appSource, /const FILM_ACTION_NAMES = new Set\(\[/);
+    assert.match(appSource, /FILM_ACTION_NAMES\.has\(actionTarget\.dataset\.action \|\| ''\)/);
     assert.match(appSource, /return '#\/films\/' \+ encodeURIComponent\(state\.activeFilmId\)/);
     assert.match(appSource, /state\.filmDetailOpen = false;\s+clearTransientFilmDetail\(\);\s+resetFilmBackdropRotation\(\);\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesPreview = false;\s+state\.filmMetadataEditing = false;\s+state\.filmMetadataDraft = null;\s+state\.filmMetadataFocusField = '';\s+state\.filmMoreActionsOpen = false;\s+clearPrivateViewState\(\);/);
     assert.doesNotMatch(appSource, /case 'save-film-status':\s+void saveFilmStatus\([^;]+openAfterSave:\s*true/s);
@@ -278,7 +278,10 @@ describe('media library download actions', () => {
     assert.ok(html.indexOf('data-action="film-mark-rewatch"') < html.indexOf('data-action="film-toggle-more-actions"'));
     assert.ok(html.indexOf('data-action="film-remove-entry"') > html.indexOf('data-action="film-toggle-more-actions"'));
     assert.match(html, /data-film-watch-event-input/);
+    assert.match(html, /data-film-watch-event-id="watch-[^"]+"/);
     assert.match(html, /data-action="film-delete-watch-event"/);
+    assert.match(html, /No synopsis yet\./);
+    assert.doesNotMatch(html, /quiet resistance against the German officer/);
     assert.doesNotMatch(html, /role="dialog"/);
     assert.doesNotMatch(html, /cml-film-modal/);
   });
@@ -383,6 +386,28 @@ describe('media library download actions', () => {
     assert.doesNotMatch(previewHtml, /cml-film-metadata-editor/);
   });
 
+  it('renders TMDb image choices as path overrides and custom URLs separately', () => {
+    const html = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'TMDb Movie',
+        status: 'watched',
+        posterPath: '/poster.jpg',
+        posterPaths: ['/poster.jpg', '/poster-alt.jpg'],
+        posterPathOverride: '/poster-alt.jpg',
+        backdropPath: '/backdrop.jpg',
+      },
+      imagePickerMode: 'poster',
+    });
+
+    assert.match(html, /TMDb override/);
+    assert.match(html, /data-film-image-path="\/poster-alt\.jpg"[^>]*aria-label="Use this poster"/);
+    assert.match(html, /data-action="film-pick-image"/);
+    assert.match(html, /data-action="film-clear-image-override"/);
+    assert.doesNotMatch(html, /value="https:\/\/image\.tmdb\.org\/t\/p/);
+  });
+
   it('keeps Films detail local actions wired through app handlers', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const repositorySource = fs.readFileSync(new URL('../functions/utils/movieRepository.js', import.meta.url), 'utf8');
@@ -398,10 +423,12 @@ describe('media library download actions', () => {
     assert.match(appSource, /if \(!title\) \{\s+exitFilmMetadataEdit\(\);\s+state\.filmManualDraft = null;/);
     assert.match(appSource, /const filmManualCreateRequests = new Map\(\)/);
     assert.match(appSource, /function persistManualFilmEntry/);
-    assert.match(appSource, /await filmManualCreateRequests\.get\(existing\.id\)/);
+    assert.match(appSource, /const created = await filmManualCreateRequests\.get\(existing\.id\)/);
+    assert.match(appSource, /Manual film has not saved yet/);
     assert.match(appSource, /if \(!record\?\.id && !record\?\.tmdbId\)/);
     assert.match(appSource, /case 'add-manual-film':/);
     assert.match(appSource, /function buildFilmEntryPatchBody/);
+    assert.match(appSource, /async function commitPendingFilmEditsBeforeAction/);
     assert.match(appSource, /function commitFilmNotesEdit/);
     assert.match(appSource, /function commitFilmMetadataEdit/);
     assert.match(appSource, /case 'film-toggle-favourite':/);
@@ -411,9 +438,14 @@ describe('media library download actions', () => {
     assert.match(appSource, /case 'film-change-poster':/);
     assert.match(appSource, /case 'film-change-backdrop':/);
     assert.match(appSource, /case 'film-pick-image':/);
+    assert.match(appSource, /function applyFilmImagePathOverride/);
+    assert.match(appSource, /\[pathField\]: nextPath/);
+    assert.match(appSource, /\[urlField\]: ''/);
     assert.match(appSource, /keepPickerOpen = true/);
     assert.match(appSource, /case 'film-apply-image-url':/);
+    assert.match(appSource, /function commitFilmImagePickerDraft/);
     assert.match(appSource, /case 'film-clear-image-override':/);
+    assert.match(appSource, /function resetFilmImageOverride/);
     assert.match(appSource, /case 'film-close-image-picker':/);
     assert.match(appSource, /case 'film-refresh-tmdb':/);
     assert.match(appSource, /case 'film-open-tmdb':/);
@@ -427,11 +459,16 @@ describe('media library download actions', () => {
     assert.match(appSource, /function isUnsavedActiveFilmPreview\(tmdbId = null\)/);
     assert.match(appSource, /if \(isUnsavedActiveFilmPreview\(normalizedId\)\) \{\s+return;\s+\}/);
     assert.match(appSource, /querySelector\('\.cml-film-notes-editor'\)/);
-    assert.match(appSource, /keepDetailOpen: shouldKeepDetailOpenAfterNotesSave/);
+    assert.match(appSource, /async function commitPendingFilmEditsBeforeAction/);
+    assert.match(appSource, /await commitFilmNotesEdit\(\{ silent: true, keepDetailOpen \}\)/);
+    assert.match(appSource, /await commitFilmMetadataEdit\(\{ keepDetailOpen \}\)/);
+    assert.match(appSource, /commitFilmImagePickerDraft\(\{ keepDetailOpen \}\)/);
     assert.match(appSource, /case 'film-mark-rewatch':/);
     assert.match(appSource, /case 'film-delete-watch-event':/);
     assert.match(appSource, /function editFilmWatchEvent/);
     assert.match(appSource, /function deleteFilmWatchEvent/);
+    assert.match(appSource, /dataset\.filmWatchEventId/);
+    assert.match(appSource, /watchEventId: normalizedId/);
     assert.match(appSource, /function loadMoreFilmSearchResults/);
     assert.match(appSource, /appendWatchEvent: watchedAt/);
     assert.match(appSource, /data-film-notes-draft/);
@@ -454,7 +491,10 @@ describe('media library download actions', () => {
     assert.match(repositorySource, /journal: normalizeMultilineText/);
     assert.match(repositorySource, /noteMarkdown: normalizeMultilineText/);
     assert.match(repositorySource, /titleOverride: normalizeText/);
+    assert.match(repositorySource, /posterPathOverride: normalizeImagePathOverride/);
+    assert.match(repositorySource, /backdropPathOverride: normalizeImagePathOverride/);
     assert.match(repositorySource, /posterUrlOverride: normalizeImageUrlOverride/);
+    assert.match(repositorySource, /Manual film title is required/);
     assert.match(repositorySource, /posterPaths: normalizeImagePathArray/);
     assert.match(repositorySource, /backdropPaths: normalizeImagePathArray/);
     assert.match(clientSource, /append_to_response: 'credits,images'/);

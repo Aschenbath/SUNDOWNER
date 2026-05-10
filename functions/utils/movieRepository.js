@@ -39,7 +39,7 @@ function normalizeImageUrlOverride(value, maxLength = 1000) {
   if (!normalized) {
     return '';
   }
-  if (normalized.startsWith('/')) {
+  if (normalized.startsWith('/file/')) {
     return normalized;
   }
   try {
@@ -48,6 +48,14 @@ function normalizeImageUrlOverride(value, maxLength = 1000) {
   } catch {
     return '';
   }
+}
+
+function normalizeImagePathOverride(value, maxLength = 240) {
+  const normalized = normalizeText(value, maxLength);
+  if (!normalized || /^https?:\/\//i.test(normalized) || normalized.startsWith('data:') || normalized.startsWith('/file/')) {
+    return '';
+  }
+  return normalized;
 }
 
 function hasOwn(object, key) {
@@ -86,6 +94,11 @@ function createManualEntryId(timestamp = nowIso()) {
     return `manual-${globalThis.crypto.randomUUID()}`;
   }
   return `manual-${String(timestamp).replace(/[^0-9a-z]/gi, '').slice(0, 24)}`;
+}
+
+function createWatchEventId(watchedAt = '', timestamp = nowIso(), index = 0) {
+  const seed = `${watchedAt}-${timestamp}-${index}`;
+  return `watch-${seed.replace(/[^0-9a-z]/gi, '').slice(0, 40)}`;
 }
 
 function normalizeMovieSource(value = '', tmdbId = 0) {
@@ -136,15 +149,21 @@ function normalizeWatchEvents(value = [], timestamp = nowIso()) {
   const source = Array.isArray(value) ? value : [];
   const seen = new Set();
   return source
-    .map((item) => {
+    .map((item, index) => {
       const watchedAt = normalizeWatchDate(typeof item === 'string' ? item : item?.watchedAt || item?.date);
-      if (!watchedAt || seen.has(watchedAt)) {
+      const createdAt = normalizeText(typeof item === 'object' ? item?.createdAt : '', 40) || (watchedAt ? `${watchedAt}T00:00:00.000Z` : timestamp);
+      const fallbackId = watchedAt ? createWatchEventId(watchedAt, createdAt, index) : '';
+      const id = normalizeText(typeof item === 'object' ? item?.id || item?.watchEventId : '', 120) || fallbackId;
+      if (!watchedAt || !id || seen.has(id)) {
         return null;
       }
-      seen.add(watchedAt);
+      seen.add(id);
       return {
+        id,
         watchedAt,
-        createdAt: normalizeText(typeof item === 'object' ? item?.createdAt : '', 40) || timestamp
+        rating: normalizeUserRating(typeof item === 'object' ? item?.rating : null),
+        note: normalizeText(typeof item === 'object' ? item?.note : '', 1000),
+        createdAt
       };
     })
     .filter(Boolean)
@@ -158,22 +177,27 @@ function normalizeWatchEvents(value = [], timestamp = nowIso()) {
 function ensureWatchEvent(events = [], watchedAt = '', timestamp = nowIso()) {
   const normalizedDate = normalizeWatchDate(watchedAt);
   const normalizedEvents = normalizeWatchEvents(events, timestamp);
-  if (!normalizedDate || normalizedEvents.some((event) => event.watchedAt === normalizedDate)) {
+  if (!normalizedDate) {
     return normalizedEvents;
   }
-  return normalizeWatchEvents([...normalizedEvents, { watchedAt: normalizedDate, createdAt: timestamp }], timestamp);
+  return normalizeWatchEvents([...normalizedEvents, {
+    id: createWatchEventId(normalizedDate, timestamp, normalizedEvents.length),
+    watchedAt: normalizedDate,
+    createdAt: timestamp
+  }], timestamp);
 }
 
-function replaceWatchEvent(events = [], previousWatchedAt = '', nextWatchedAt = '', timestamp = nowIso()) {
+function replaceWatchEvent(events = [], previousWatchedAt = '', nextWatchedAt = '', timestamp = nowIso(), watchEventId = '') {
   const previousDate = normalizeWatchDate(previousWatchedAt);
   const nextDate = normalizeWatchDate(nextWatchedAt);
+  const targetId = normalizeText(watchEventId, 120);
   const normalizedEvents = normalizeWatchEvents(events, timestamp);
   if (!nextDate) {
     return normalizedEvents;
   }
-  if (previousDate && previousDate !== nextDate && normalizedEvents.some((event) => event.watchedAt === previousDate)) {
+  if ((targetId && normalizedEvents.some((event) => event.id === targetId)) || (previousDate && normalizedEvents.some((event) => event.watchedAt === previousDate))) {
     return normalizeWatchEvents(normalizedEvents.map((event) =>
-      event.watchedAt === previousDate
+      (targetId ? event.id === targetId : event.watchedAt === previousDate)
         ? { ...event, watchedAt: nextDate, createdAt: event.createdAt || timestamp }
         : event
     ), timestamp);
@@ -225,8 +249,8 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
   );
   if (hasOwn(input, 'appendWatchEvent')) {
     watchEvents = ensureWatchEvent(watchEvents, input.appendWatchEvent || watchedAt, timestamp);
-  } else if (hasOwn(input, 'watchedAt') && watchedAt) {
-    watchEvents = replaceWatchEvent(watchEvents, existing?.watchedAt, watchedAt, timestamp);
+  } else if (!hasOwn(input, 'watchEvents') && hasOwn(input, 'watchedAt') && watchedAt) {
+    watchEvents = replaceWatchEvent(watchEvents, existing?.watchedAt, watchedAt, timestamp, input.watchEventId);
   } else if (watchStatus === 'watched' && watchedAt && watchEvents.length === 0) {
     watchEvents = ensureWatchEvent(watchEvents, watchedAt, timestamp);
   }
@@ -256,6 +280,8 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
       : normalizeRuntimeOverride(existing?.runtimeOverride),
     genresOverride: normalizeStringArray(input.genresOverride ?? input.genres ?? existing?.genresOverride, 60),
     overviewOverride: normalizeText(input.overviewOverride ?? input.overview ?? existing?.overviewOverride, 4000),
+    posterPathOverride: normalizeImagePathOverride(input.posterPathOverride ?? existing?.posterPathOverride),
+    backdropPathOverride: normalizeImagePathOverride(input.backdropPathOverride ?? existing?.backdropPathOverride),
     posterUrlOverride: normalizeImageUrlOverride(input.posterUrlOverride ?? existing?.posterUrlOverride),
     backdropUrlOverride: normalizeImageUrlOverride(input.backdropUrlOverride ?? existing?.backdropUrlOverride),
     tags: normalizeStringArray(input.tags ?? existing?.tags, 40),
@@ -290,9 +316,9 @@ function buildManualMovieFromEntry(entry = {}, timestamp = nowIso()) {
     originalTitle: normalizeText(entry.originalTitleOverride || entry.titleOverride, 240),
     director: normalizeText(entry.directorOverride, 240),
     overview: normalizeText(entry.overviewOverride, 4000),
-    posterPath: '',
+    posterPath: normalizeImagePathOverride(entry.posterPathOverride),
     posterPaths: [],
-    backdropPath: '',
+    backdropPath: normalizeImagePathOverride(entry.backdropPathOverride),
     backdropPaths: [],
     posterUrl: normalizeImageUrlOverride(entry.posterUrlOverride),
     backdropUrl: normalizeImageUrlOverride(entry.backdropUrlOverride),
@@ -412,6 +438,9 @@ export class MovieRepository {
       || (inputId && normalizeText(entry.id) === inputId)
     );
     const nextEntry = normalizeUserMovieEntry({ ...input, source }, index >= 0 ? entries[index] : null, timestamp);
+    if (source === 'manual' && !normalizeText(nextEntry.titleOverride || nextEntry.originalTitleOverride)) {
+      throw new Error('Manual film title is required');
+    }
     if (source === 'manual') {
       movie = buildManualMovieFromEntry(nextEntry, timestamp);
     }

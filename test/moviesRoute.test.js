@@ -153,6 +153,8 @@ describe('manage movies route', () => {
         body: JSON.stringify({
           tmdbId: 42,
           titleOverride: 'Local Movie',
+          posterPathOverride: '/chosen-poster.jpg',
+          backdropPathOverride: '/chosen-backdrop.jpg',
           posterUrlOverride: 'https://example.com/poster.jpg',
           backdropUrlOverride: '/file/backdrop.jpg',
         }),
@@ -165,9 +167,12 @@ describe('manage movies route', () => {
     assert.equal(payload.entry.titleOverride, 'Local Movie');
     assert.equal(payload.entry.watchStatus, 'watched');
     assert.equal(payload.entry.watchedAt, '2026-05-09');
+    assert.equal(payload.entry.posterPathOverride, '/chosen-poster.jpg');
+    assert.equal(payload.entry.backdropPathOverride, '/chosen-backdrop.jpg');
     assert.equal(payload.entry.posterUrlOverride, 'https://example.com/poster.jpg');
     assert.equal(payload.entry.backdropUrlOverride, '/file/backdrop.jpg');
     assert.equal(payload.movie.title, 'TMDb Movie');
+    assert.equal(payload.movie.posterPathOverride, undefined);
     assert.equal(payload.movie.posterUrlOverride, undefined);
   });
 
@@ -248,7 +253,57 @@ describe('manage movies route', () => {
     assert.equal(response.status, 200);
     assert.equal(payload.entry.watchedAt, '2026-05-10');
     assert.deepEqual(payload.entry.watchEvents.map((event) => event.watchedAt), ['2026-05-10', '2026-05-01']);
+    assert.ok(payload.entry.watchEvents.every((event) => event.id));
     assert.equal(payload.movie.watchEvents, undefined);
+  });
+
+  it('edits private watch history by watch event id through the route', async () => {
+    const env = { img_url: new MemoryKV() };
+    await env.img_url.put('manage@sysConfig@movieCache@42', JSON.stringify({
+      tmdbId: 42,
+      title: 'TMDb Movie',
+      originalTitle: 'TMDb Movie',
+      overview: '',
+      posterPath: '/poster.jpg',
+      backdropPath: '/backdrop.jpg',
+      releaseDate: '2026-01-01',
+      runtime: 100,
+      genres: ['Drama'],
+      director: 'TMDb Director',
+      voteAverage: 7,
+      voteCount: 1200,
+      updatedAt: new Date().toISOString(),
+    }));
+    await env.img_url.put('manage@sysConfig@userMovieEntries', JSON.stringify([{
+      id: 'tmdb-42',
+      tmdbId: 42,
+      watchStatus: 'watched',
+      watchedAt: '2026-05-01',
+      watchEvents: [
+        { id: 'watch-a', watchedAt: '2026-05-01', createdAt: '2026-05-01T00:00:00.000Z' },
+        { id: 'watch-b', watchedAt: '2026-05-01', createdAt: '2026-05-01T01:00:00.000Z' },
+      ],
+      createdAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:00.000Z',
+    }]));
+
+    const response = await onRequest({
+      request: new Request('https://example.com/api/manage/movies', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tmdbId: 42,
+          watchedAt: '2026-05-03',
+          watchEventId: 'watch-b',
+        }),
+      }),
+      env,
+    });
+
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(payload.entry.watchEvents.find((event) => event.id === 'watch-a').watchedAt, '2026-05-01');
+    assert.equal(payload.entry.watchEvents.find((event) => event.id === 'watch-b').watchedAt, '2026-05-03');
   });
 
   it('persists manual films without requiring TMDb credentials or cache', async () => {
@@ -286,5 +341,25 @@ describe('manage movies route', () => {
     assert.equal(listPayload.entries.length, 1);
     assert.equal(listPayload.entries[0].entry.source, 'manual');
     assert.equal(listPayload.entries[0].movie.title, 'Manual Movie');
+  });
+
+  it('rejects blank manual films through the route', async () => {
+    const env = { img_url: new MemoryKV() };
+    const response = await onRequest({
+      request: new Request('https://example.com/api/manage/movies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'manual',
+          watchStatus: 'wantToWatch',
+          titleOverride: '',
+        }),
+      }),
+      env,
+    });
+
+    const payload = await response.json();
+    assert.equal(response.status, 400);
+    assert.match(payload.error, /Manual film title is required/);
   });
 });

@@ -12392,7 +12392,8 @@ body.codex-media-library-active #app {
   padding-left: 22px;
 }
 
-#codex-media-library-root .cml-film-detail__notes-empty {
+#codex-media-library-root .cml-film-detail__notes-empty,
+#codex-media-library-root .cml-film-detail__empty-text {
   color: rgba(241, 238, 230, 0.46) !important;
 }
 
@@ -12792,6 +12793,10 @@ body.codex-media-library-active #app {
   border-radius: 999px;
   background: rgba(201, 169, 106, 0.78);
   vertical-align: 1px;
+}
+
+#codex-media-library-root .cml-film-save-status.is-error {
+  color: rgba(242, 168, 156, 0.82);
 }
 
 #codex-media-library-root .cml-film-detail__meta-item.is-editable,
