@@ -130,7 +130,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /const filmActionNames = new Set\(\[/);
     assert.match(appSource, /filmActionNames\.has\(actionTarget\.dataset\.action \|\| ''\)/);
     assert.match(appSource, /return '#\/films\/' \+ encodeURIComponent\(state\.activeFilmId\)/);
-    assert.match(appSource, /state\.filmDetailOpen = false;\s+clearTransientFilmDetail\(\);\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesPreview = false;\s+state\.filmMetadataEditing = false;\s+state\.filmMetadataDraft = null;\s+clearPrivateViewState\(\);/);
+    assert.match(appSource, /state\.filmDetailOpen = false;\s+clearTransientFilmDetail\(\);\s+resetFilmBackdropRotation\(\);\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesPreview = false;\s+state\.filmMetadataEditing = false;\s+state\.filmMetadataDraft = null;\s+clearPrivateViewState\(\);/);
     assert.doesNotMatch(appSource, /case 'save-film-status':\s+void saveFilmStatus\([^;]+openAfterSave:\s*true/s);
     const detailFunction = appSource.slice(
       appSource.indexOf('async function openTmdbFilmDetail'),
@@ -169,11 +169,15 @@ describe('media library download actions', () => {
         journal: 'A masterclass in restraint.',
         posterPath: '/poster.jpg',
         backdropPath: '/backdrop.jpg',
+        backdropPaths: ['/backdrop.jpg', '/backdrop-2.jpg'],
       },
+      backdropIndex: 1,
     });
 
     assert.match(html, /cml-film-detail-page/);
     assert.match(html, /data-film-detail-page/);
+    assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w1280\/backdrop-2\.jpg"/);
+    assert.match(html, /data-film-backdrop-index="1"/);
     assert.match(html, /← Back to Films/);
     assert.match(html, /Silence of the Sea/);
     assert.match(html, /Le silence de la mer/);
@@ -302,6 +306,7 @@ describe('media library download actions', () => {
   it('keeps Films detail local actions wired through app handlers', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const repositorySource = fs.readFileSync(new URL('../functions/utils/movieRepository.js', import.meta.url), 'utf8');
+    const clientSource = fs.readFileSync(new URL('../functions/utils/tmdbClient.js', import.meta.url), 'utf8');
 
     assert.match(appSource, /filmNotesEditing: false/);
     assert.match(appSource, /filmMetadataEditing: false/);
@@ -326,10 +331,23 @@ describe('media library download actions', () => {
     assert.match(appSource, /function patchActiveFilmDetailView/);
     assert.match(appSource, /function renderFilmMutationState/);
     assert.match(appSource, /renderFilmMutationState\(\);/);
+    assert.match(appSource, /const FILM_BACKDROP_ROTATION_MS = 7200/);
+    assert.match(appSource, /filmBackdropIndexByFilmId: \{\}/);
+    assert.match(appSource, /let filmBackdropRotationTimer = 0/);
+    assert.match(appSource, /function getFilmAutoBackdropPaths/);
+    assert.match(appSource, /function scheduleFilmBackdropRotation/);
+    assert.match(appSource, /function rotateActiveFilmBackdrop/);
+    assert.match(appSource, /function patchFilmBackdropImage/);
+    assert.match(appSource, /prefers-reduced-motion: reduce/);
+    assert.match(appSource, /document\.addEventListener\('visibilitychange', scheduleFilmBackdropRotation\)/);
+    assert.match(appSource, /scheduleFilmBackdropRotation\(\);/);
     assert.match(repositorySource, /journal: normalizeMultilineText/);
     assert.match(repositorySource, /noteMarkdown: normalizeMultilineText/);
     assert.match(repositorySource, /titleOverride: normalizeText/);
     assert.match(repositorySource, /posterUrlOverride: normalizeImageUrlOverride/);
+    assert.match(repositorySource, /backdropPaths: normalizeImagePathArray/);
+    assert.match(clientSource, /append_to_response: 'credits,images'/);
+    assert.match(clientSource, /function normalizeBackdropPaths/);
   });
 
   it('removes dead legacy Films components from the live component module', () => {

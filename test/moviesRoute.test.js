@@ -49,6 +49,7 @@ describe('manage movies route', () => {
       overview: '',
       posterPath: '',
       backdropPath: '',
+      backdropPaths: ['/cached-backdrop.jpg'],
       releaseDate: '2026-01-01',
       runtime: 100,
       genres: ['Drama'],
@@ -82,6 +83,7 @@ describe('manage movies route', () => {
     assert.equal(payload.entries[0].movie.voteAverage, 7);
     assert.equal(payload.entries[0].movie.voteCount, 1200);
     assert.equal(payload.entries[0].movie.title, 'Movie');
+    assert.deepEqual(payload.entries[0].movie.backdropPaths, ['/cached-backdrop.jpg']);
   });
 
   it('persists local movie metadata overrides through the route entry payload', async () => {

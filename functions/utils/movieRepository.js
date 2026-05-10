@@ -98,6 +98,19 @@ function normalizeStringArray(values = [], maxItemLength = 60) {
     .slice(0, 40);
 }
 
+function normalizeImagePathArray(values = [], maxItemLength = 240) {
+  const paths = [];
+  (Array.isArray(values) ? values : [])
+    .map((value) => normalizeText(value, maxItemLength))
+    .filter(Boolean)
+    .forEach((value) => {
+      if (!paths.includes(value)) {
+        paths.push(value);
+      }
+    });
+  return paths.slice(0, 20);
+}
+
 function normalizeWatchDate(value) {
   const normalized = normalizeText(value, 40).slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : '';
@@ -165,6 +178,7 @@ export function normalizeMovieCache(input = {}, timestamp = nowIso()) {
     overview: normalizeText(input.overview, 4000),
     posterPath: normalizeText(input.posterPath, 240),
     backdropPath: normalizeText(input.backdropPath, 240),
+    backdropPaths: normalizeImagePathArray([input.backdropPath, ...(Array.isArray(input.backdropPaths) ? input.backdropPaths : [])], 240),
     releaseDate: normalizeText(input.releaseDate, 40),
     runtime: normalizeNumber(input.runtime, null),
     genres: normalizeStringArray(input.genres, 60),
@@ -230,6 +244,9 @@ function isCacheFresh(movieCache, timestamp = Date.now()) {
   if (!normalizeText(movieCache?.director)) {
     return false;
   }
+  if (!Array.isArray(movieCache?.backdropPaths)) {
+    return false;
+  }
   const updatedTime = new Date(movieCache?.updatedAt || '').getTime();
   return Number.isFinite(updatedTime) && timestamp - updatedTime <= CACHE_TTL_MS;
 }
@@ -259,7 +276,10 @@ async function hydrateEntries(db, entries, detailLoader = null) {
   const hydrated = [];
   for (const entry of entries) {
     let movie = await getRawMovieCache(db, entry.tmdbId);
-    if (movie && !normalizeText(movie.director) && typeof detailLoader === 'function') {
+    const needsDetailRefresh = movie
+      && typeof detailLoader === 'function'
+      && (!normalizeText(movie.director) || !Array.isArray(movie.backdropPaths));
+    if (needsDetailRefresh) {
       try {
         movie = await detailLoader(entry.tmdbId);
       } catch {
@@ -318,7 +338,10 @@ export class MovieRepository {
         director: normalizeText(input.movie.director) || normalizeText(existingMovie?.director),
       }, timestamp);
     } else {
-      movie = await this.getMovieDetail(tmdbId);
+      const existingMovie = await getRawMovieCache(db, tmdbId);
+      movie = existingMovie
+        ? normalizeMovieCache(existingMovie, existingMovie.updatedAt || timestamp)
+        : await this.getMovieDetail(tmdbId);
     }
 
     const entries = await getRawUserEntries(db);

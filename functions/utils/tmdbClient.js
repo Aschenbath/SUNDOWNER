@@ -20,6 +20,30 @@ function normalizeGenres(value) {
     .filter(Boolean);
 }
 
+function normalizeBackdropPaths(dto = {}) {
+  const paths = [];
+  const addPath = (value) => {
+    const path = normalizeText(value, 240);
+    if (path && !paths.includes(path)) {
+      paths.push(path);
+    }
+  };
+
+  addPath(dto.backdrop_path);
+
+  const backdrops = Array.isArray(dto.images?.backdrops) ? dto.images.backdrops : [];
+  backdrops
+    .slice()
+    .sort((left, right) =>
+      normalizeNumber(right?.vote_average, 0) - normalizeNumber(left?.vote_average, 0)
+      || normalizeNumber(right?.vote_count, 0) - normalizeNumber(left?.vote_count, 0)
+      || normalizeNumber(right?.width, 0) - normalizeNumber(left?.width, 0)
+    )
+    .forEach((image) => addPath(image?.file_path));
+
+  return paths.slice(0, 20);
+}
+
 function resolveAccessToken(env = {}) {
   return normalizeText(env.TMDB_ACCESS_TOKEN || env.TMDB_API_TOKEN || '');
 }
@@ -96,6 +120,7 @@ export function normalizeTmdbMovie(dto = {}) {
     overview: normalizeText(dto.overview, 4000),
     posterPath: normalizeText(dto.poster_path, 240),
     backdropPath: normalizeText(dto.backdrop_path, 240),
+    backdropPaths: normalizeBackdropPaths(dto),
     releaseDate: normalizeText(dto.release_date || dto.first_air_date, 40),
     runtime: normalizeNumber(dto.runtime, null),
     genres: normalizeGenres(dto.genres || dto.genre_names),
@@ -161,7 +186,8 @@ export class TMDbClient {
     }
 
     const payload = await fetchTmdbJson(this.env, `/movie/${encodeURIComponent(String(normalizedId))}`, {
-      append_to_response: 'credits',
+      append_to_response: 'credits,images',
+      include_image_language: 'null,en',
     }, this.fetchImpl);
     const movie = normalizeTmdbMovie(payload);
     if (!movie) {

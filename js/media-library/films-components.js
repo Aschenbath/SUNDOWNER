@@ -107,6 +107,24 @@ function getRecordBackdropUrl(record = {}) {
   return record.backdropUrl || buildTmdbImageUrl(record.backdropPath, 'w1280') || getRecordPosterUrl(record);
 }
 
+function getRecordAutoBackdropUrls(record = {}) {
+  if (normalizeText(record.backdropUrlOverride)) {
+    return [];
+  }
+  const urls = [];
+  const addUrl = (value) => {
+    const normalized = normalizeText(value);
+    if (normalized && !urls.includes(normalized)) {
+      urls.push(normalized);
+    }
+  };
+  (Array.isArray(record.backdropPaths) ? record.backdropPaths : [])
+    .forEach((path) => addUrl(buildTmdbImageUrl(path, 'w1280')));
+  addUrl(record.backdropUrl);
+  addUrl(buildTmdbImageUrl(record.backdropPath, 'w1280'));
+  return urls.slice(0, 12);
+}
+
 function groupFilmsByTimeline(records = []) {
   const watchedGroups = new Map();
   const watchlistRecords = [];
@@ -560,11 +578,13 @@ function applyFilmMetadataDraft(record = {}, draft = {}) {
     genres: genres.length ? genres : record.genres,
     overview: normalizeText(draft.overviewOverride) || record.overview,
     posterUrl: normalizeText(draft.posterUrlOverride) || record.posterUrl,
-    backdropUrl: normalizeText(draft.backdropUrlOverride) || record.backdropUrl
+    posterUrlOverride: normalizeText(draft.posterUrlOverride) || record.posterUrlOverride,
+    backdropUrl: normalizeText(draft.backdropUrlOverride) || record.backdropUrl,
+    backdropUrlOverride: normalizeText(draft.backdropUrlOverride) || record.backdropUrlOverride
   };
 }
 
-export function FilmDetailPage({ record = null, notesEditing = false, notesDraft = '', notesPreview = false, metadataEditing = false, metadataDraft = null } = {}) {
+export function FilmDetailPage({ record = null, notesEditing = false, notesDraft = '', notesPreview = false, metadataEditing = false, metadataDraft = null, backdropIndex = 0 } = {}) {
   if (!record) {
     return '';
   }
@@ -580,7 +600,13 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const watchedDate = formatWatchedDateLong(displayRecord.watchedAt);
   const statusLabel = getDetailStatusLabel(displayRecord.status);
   const posterUrl = getRecordPosterUrl(displayRecord);
-  const backdropUrl = getRecordBackdropUrl(displayRecord);
+  const autoBackdropUrls = getRecordAutoBackdropUrls(displayRecord);
+  const autoBackdropIndex = autoBackdropUrls.length
+    ? Math.max(0, Math.min(autoBackdropUrls.length - 1, Number(backdropIndex) || 0))
+    : 0;
+  const backdropUrl = autoBackdropUrls.length
+    ? autoBackdropUrls[autoBackdropIndex]
+    : getRecordBackdropUrl(displayRecord);
   const chips = [
     renderDetailChip(displayRecord.year ? String(displayRecord.year) : ''),
     renderDetailChip(runtime),
@@ -597,7 +623,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   return `
     <section class="cml-film-detail-page" data-film-detail-page>
       <div class="cml-film-detail-page__backdrop" aria-hidden="true">
-        ${backdropUrl ? `<img class="cml-film-detail-page__backdrop-image" src="${escapeHtml(backdropUrl)}" alt="" loading="eager" decoding="async" />` : ''}
+        ${backdropUrl ? `<img class="cml-film-detail-page__backdrop-image" src="${escapeHtml(backdropUrl)}" alt="" loading="eager" decoding="async" data-film-backdrop-index="${escapeHtml(autoBackdropIndex)}" />` : ''}
       </div>
       <div class="cml-film-detail-page__scrim" aria-hidden="true"></div>
       <div class="cml-film-detail-page__content">

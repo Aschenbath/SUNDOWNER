@@ -33,6 +33,7 @@ function createMovie(overrides = {}) {
     genres: ['Drama'],
     director: 'Jane Director',
     voteAverage: 7.2,
+    backdropPaths: ['/backdrop.jpg'],
     ...overrides,
   };
 }
@@ -99,10 +100,12 @@ describe('MovieRepository', () => {
     assert.equal(result.entry.watchStatus, 'watched');
     assert.equal(result.entry.userRating, 4.5);
     assert.equal(result.movie.title, 'Movie');
+    assert.deepEqual(result.movie.backdropPaths, ['/backdrop.jpg']);
 
     const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
     assert.equal(cachedMovie.title, 'Movie');
     assert.equal(cachedMovie.director, 'Jane Director');
+    assert.deepEqual(cachedMovie.backdropPaths, ['/backdrop.jpg']);
     assert.equal(cachedMovie.userRating, undefined);
     assert.equal(cachedMovie.note, undefined);
     assert.equal(cachedMovie.watchStatus, undefined);

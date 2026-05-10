@@ -28,6 +28,7 @@ describe('TMDbClient', () => {
       overview: 'A detail payload',
       posterPath: '/poster.jpg',
       backdropPath: '/backdrop.jpg',
+      backdropPaths: ['/backdrop.jpg'],
       releaseDate: '1999-10-15',
       runtime: 139,
       genres: ['Drama'],
@@ -92,6 +93,7 @@ describe('TMDbClient', () => {
       overview: '',
       posterPath: '/poster.jpg',
       backdropPath: '',
+      backdropPaths: [],
       releaseDate: '2001-07-20',
       runtime: null,
       genres: [],
@@ -160,6 +162,14 @@ describe('TMDbClient', () => {
               id: 597,
               title: 'Titanic',
               original_title: 'Titanic',
+              backdrop_path: '/primary.jpg',
+              images: {
+                backdrops: [
+                  { file_path: '/muted.jpg', vote_average: 4, vote_count: 1, width: 1920 },
+                  { file_path: '/wide.jpg', vote_average: 8, vote_count: 12, width: 1920 },
+                  { file_path: '/primary.jpg', vote_average: 9, vote_count: 20, width: 1920 },
+                ],
+              },
               credits: {
                 crew: [
                   { job: 'Director', name: 'James Cameron' },
@@ -175,7 +185,9 @@ describe('TMDbClient', () => {
     const movie = await client.movieDetail(597);
     const detailUrl = new URL(calls[0]);
 
-    assert.equal(detailUrl.searchParams.get('append_to_response'), 'credits');
+    assert.equal(detailUrl.searchParams.get('append_to_response'), 'credits,images');
+    assert.equal(detailUrl.searchParams.get('include_image_language'), 'null,en');
     assert.equal(movie.director, 'James Cameron');
+    assert.deepEqual(movie.backdropPaths, ['/primary.jpg', '/wide.jpg', '/muted.jpg']);
   });
 });

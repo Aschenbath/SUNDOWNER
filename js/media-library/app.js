@@ -46,7 +46,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=90';
+} from './components.js?v=91';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=39';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=40';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -111,6 +111,7 @@ const SEARCH_INPUT_DEBOUNCE_MS = 160;
 const FILM_SEARCH_DEBOUNCE_MS = 180;
 const FILM_SEARCH_MIN_LOADING_MS = 80;
 const FILM_SEARCH_CLEAR_TRANSITION_MS = 180;
+const FILM_BACKDROP_ROTATION_MS = 7200;
 const FILM_METADATA_FIELDS = [
   'titleOverride',
   'originalTitleOverride',
@@ -458,7 +459,8 @@ const state = {
   filmNotesDraft: '',
   filmNotesPreview: false,
   filmMetadataEditing: false,
-  filmMetadataDraft: null
+  filmMetadataDraft: null,
+  filmBackdropIndexByFilmId: {}
 };
 
 let dimensionPatchTimer = 0;
@@ -536,6 +538,7 @@ let filmSearchDebounceTimer = 0;
 let filmSearchRequestId = 0;
 let filmSearchAbortController = null;
 let filmWarmupStarted = false;
+let filmBackdropRotationTimer = 0;
 const filmSearchCache = new Map();
 const filmDetailLoadingTmdbIds = new Set();
 const AUDIO_PLAY_ICON_HTML = '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"></path></svg></span>';
@@ -8470,6 +8473,12 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     posterPath: movie.posterPath || existingRecord?.posterPath || '',
     posterUrl: overrides.posterUrlOverride || movie.posterUrl || existingRecord?.posterUrl || '',
     backdropPath: movie.backdropPath || existingRecord?.backdropPath || '',
+    backdropPaths: normalizeFilmBackdropPaths([
+      ...(Array.isArray(movie.backdropPaths) ? movie.backdropPaths : []),
+      ...(Array.isArray(existingRecord?.backdropPaths) ? existingRecord.backdropPaths : []),
+      movie.backdropPath,
+      existingRecord?.backdropPath
+    ]),
     backdropUrl: overrides.backdropUrlOverride || movie.backdropUrl || existingRecord?.backdropUrl || '',
     voteAverage: movie.voteAverage ?? existingRecord?.voteAverage ?? null,
     voteCount: movie.voteCount ?? existingRecord?.voteCount ?? null,
@@ -8550,6 +8559,14 @@ function normalizeFilmImageOverride(value) {
   } catch {
     return '';
   }
+}
+
+function normalizeFilmBackdropPaths(value = []) {
+  return (Array.isArray(value) ? value : [])
+    .map((item) => normalizeText(item))
+    .filter(Boolean)
+    .filter((item, index, array) => array.indexOf(item) === index)
+    .slice(0, 20);
 }
 
 function normalizeFilmMetadataOverrides(source = {}) {
@@ -8636,6 +8653,132 @@ function createFilmMetadataDraft(record = {}) {
     posterUrlOverride: normalizeText(record.posterUrlOverride || ''),
     backdropUrlOverride: normalizeText(record.backdropUrlOverride || '')
   };
+}
+
+function getFilmAutoBackdropPaths(record = {}) {
+  if (!record || normalizeText(record.backdropUrlOverride)) {
+    return [];
+  }
+  return normalizeFilmBackdropPaths([
+    ...(Array.isArray(record.backdropPaths) ? record.backdropPaths : []),
+    record.backdropPath
+  ]);
+}
+
+function resetFilmBackdropRotation() {
+  if (filmBackdropRotationTimer) {
+    window.clearTimeout(filmBackdropRotationTimer);
+    filmBackdropRotationTimer = 0;
+  }
+}
+
+function getActiveFilmBackdropIndex(record = getActiveFilmRecord()) {
+  if (!record?.id) {
+    return 0;
+  }
+  const paths = getFilmAutoBackdropPaths(record);
+  if (paths.length <= 1) {
+    return 0;
+  }
+  const index = Number(state.filmBackdropIndexByFilmId?.[record.id]) || 0;
+  return Math.max(0, Math.min(paths.length - 1, index));
+}
+
+function buildFilmBackdropImageUrl(path = '') {
+  const normalized = normalizeText(path);
+  if (!normalized) {
+    return '';
+  }
+  if (/^https?:\/\//i.test(normalized) || normalized.startsWith('data:')) {
+    return normalized;
+  }
+  return `https://image.tmdb.org/t/p/w1280${normalized.startsWith('/') ? normalized : `/${normalized}`}`;
+}
+
+function rotateActiveFilmBackdrop() {
+  const record = getActiveFilmRecord();
+  const paths = getFilmAutoBackdropPaths(record);
+  if (
+    !record?.id
+    || paths.length <= 1
+    || state.filmNotesEditing
+    || state.filmMetadataEditing
+    || document.hidden
+    || (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  ) {
+    scheduleFilmBackdropRotation();
+    return;
+  }
+  const nextIndex = (getActiveFilmBackdropIndex(record) + 1) % paths.length;
+  state.filmBackdropIndexByFilmId = {
+    ...(state.filmBackdropIndexByFilmId || {}),
+    [record.id]: nextIndex
+  };
+  patchFilmBackdropImage(record, nextIndex);
+  scheduleFilmBackdropRotation();
+}
+
+function scheduleFilmBackdropRotation() {
+  resetFilmBackdropRotation();
+  const record = getActiveFilmRecord();
+  if (
+    !state.filmDetailOpen
+    || !record
+    || state.filmNotesEditing
+    || state.filmMetadataEditing
+    || document.hidden
+    || (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+    || getFilmAutoBackdropPaths(record).length <= 1
+  ) {
+    return;
+  }
+  filmBackdropRotationTimer = window.setTimeout(rotateActiveFilmBackdrop, FILM_BACKDROP_ROTATION_MS);
+}
+
+function patchFilmBackdropImage(record = getActiveFilmRecord(), backdropIndex = getActiveFilmBackdropIndex(record)) {
+  const paths = getFilmAutoBackdropPaths(record);
+  if (!refs.root || !record || paths.length <= 1) {
+    return false;
+  }
+  const image = refs.root.querySelector('.cml-film-detail-page__backdrop-image');
+  if (!(image instanceof HTMLImageElement)) {
+    return false;
+  }
+  const nextPath = paths[backdropIndex] || paths[0] || '';
+  if (!nextPath) {
+    return false;
+  }
+  const nextUrl = buildFilmBackdropImageUrl(nextPath);
+  if (image.getAttribute('src') === nextUrl) {
+    return true;
+  }
+  const preload = new Image();
+  preload.decoding = 'async';
+  preload.onload = () => {
+    if (!image.isConnected) {
+      return;
+    }
+    image.classList.add('is-switching');
+    window.setTimeout(() => {
+      if (!image.isConnected) {
+        return;
+      }
+      image.setAttribute('src', nextUrl);
+      image.dataset.filmBackdropIndex = String(backdropIndex);
+      window.requestAnimationFrame(() => {
+        if (image.isConnected) {
+          image.classList.remove('is-switching');
+        }
+      });
+    }, 120);
+  };
+  preload.onerror = () => {
+    if (image.isConnected) {
+      image.classList.remove('is-switching');
+    }
+  };
+  preload.src = nextUrl;
+  return true;
 }
 
 function upsertFilmRecord(record, { preserveLocal = false } = {}) {
@@ -8745,6 +8888,7 @@ function toMoviePayload(source = {}, tmdbId = 0) {
     overview: source.cacheOverview || source.overview || '',
     posterPath: source.posterPath || '',
     backdropPath: source.backdropPath || '',
+    backdropPaths: normalizeFilmBackdropPaths(source.backdropPaths || []),
     releaseDate: source.cacheReleaseDate || source.releaseDate || (source.year ? `${source.year}-01-01` : ''),
     runtime: source.cacheRuntime ?? source.runtime ?? null,
     genres: Array.isArray(source.cacheGenres) ? source.cacheGenres : (Array.isArray(source.genres) ? source.genres : []),
@@ -9105,6 +9249,10 @@ async function openTmdbFilmDetail(tmdbId) {
   const source = existing || state.filmSearchResults.find((movie) => Number(movie.tmdbId) === normalizedId) || { tmdbId: normalizedId };
   state.filmTransientDetailRecord = createTransientFilmDetailRecord(source, existing);
   state.activeFilmId = state.filmTransientDetailRecord.id;
+  state.filmBackdropIndexByFilmId = {
+    ...(state.filmBackdropIndexByFilmId || {}),
+    [state.activeFilmId]: 0
+  };
   state.filmDetailOpen = true;
   state.filmError = '';
   state.filmNotesEditing = false;
@@ -9322,7 +9470,8 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
     notesDraft: state.filmNotesDraft,
     notesPreview: state.filmNotesPreview,
     metadataEditing: state.filmMetadataEditing,
-    metadataDraft: state.filmMetadataDraft
+    metadataDraft: state.filmMetadataDraft,
+    backdropIndex: getActiveFilmBackdropIndex(record)
   }).trim();
   if (!html) {
     return false;
@@ -9342,6 +9491,7 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
 
 function renderFilmMutationState({ allowRenderFallback = true } = {}) {
   if (patchActiveFilmDetailView({ allowRenderFallback })) {
+    scheduleFilmBackdropRotation();
     return;
   }
   if (allowRenderFallback) {
@@ -9652,6 +9802,10 @@ function openFilmDetail(filmId) {
     return;
   }
   state.activeFilmId = film.id;
+  state.filmBackdropIndexByFilmId = {
+    ...(state.filmBackdropIndexByFilmId || {}),
+    [film.id]: 0
+  };
   state.filmDetailOpen = true;
   state.filmNotesEditing = false;
   state.filmNotesDraft = '';
@@ -9671,6 +9825,7 @@ function closeFilmDetail() {
   state.filmDetailOpen = false;
   state.activeFilmId = '';
   clearTransientFilmDetail();
+  resetFilmBackdropRotation();
   state.filmNotesEditing = false;
   state.filmNotesDraft = '';
   state.filmNotesPreview = false;
@@ -10072,7 +10227,8 @@ function render() {
                     notesDraft: state.filmNotesDraft,
                     notesPreview: state.filmNotesPreview,
                     metadataEditing: state.filmMetadataEditing,
-                    metadataDraft: state.filmMetadataDraft
+                    metadataDraft: state.filmMetadataDraft,
+                    backdropIndex: getActiveFilmBackdropIndex(viewModel.filmRecord)
                   })
                   : FilmsPage({
                     records: getVisibleFilmRecords(),
@@ -10345,6 +10501,7 @@ function render() {
   setupPreviewTouchHandlers();
   setupYearScrollerDrag();
   setupImageLoadAnimations();
+  scheduleFilmBackdropRotation();
   if (viewModel.isMindView) {
     window.requestAnimationFrame(() => scrollMindToBottom({ force: false }));
   }
@@ -13047,6 +13204,7 @@ function handleClick(event) {
       state.activeFilmId = '';
       state.filmDetailOpen = false;
       clearTransientFilmDetail();
+      resetFilmBackdropRotation();
       resetAddToTargetModes(state);
       resetSearchQuery();
       state.previewId = null;
@@ -13922,6 +14080,10 @@ function restoreNavigationFromHash() {
     state.videoCategoryFilter = '';
     state.activeAlbumName = '';
     state.activePlaylistName = '';
+    state.activeFilmId = '';
+    state.filmDetailOpen = false;
+    clearTransientFilmDetail();
+    resetFilmBackdropRotation();
     clearPrivateViewState();
     return;
   }
@@ -13974,6 +14136,7 @@ function restoreNavigationFromHash() {
         state.activeFilmId = '';
         state.filmDetailOpen = false;
         clearTransientFilmDetail();
+        resetFilmBackdropRotation();
       }
       state.filmNotesEditing = false;
       state.filmNotesDraft = '';
@@ -14047,6 +14210,7 @@ function restoreNavigationFromHash() {
       state.activeFilmId = '';
       state.filmDetailOpen = false;
       clearTransientFilmDetail();
+      resetFilmBackdropRotation();
       state.filmNotesEditing = false;
       state.filmNotesDraft = '';
       state.filmNotesPreview = false;
@@ -14059,6 +14223,7 @@ function restoreNavigationFromHash() {
     state.activeFilmId = '';
     state.filmDetailOpen = false;
     clearTransientFilmDetail();
+    resetFilmBackdropRotation();
     state.filmNotesEditing = false;
     state.filmNotesDraft = '';
     state.filmNotesPreview = false;
@@ -14079,6 +14244,7 @@ function boot() {
   window.addEventListener('hashchange', () => {
     applyLocationRouteToMountedUi();
   });
+  document.addEventListener('visibilitychange', scheduleFilmBackdropRotation);
   window.addEventListener(THEME_CHANGE_EVENT, (event) => {
     if (!event.detail) {
       return;
