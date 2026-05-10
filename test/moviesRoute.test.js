@@ -143,6 +143,39 @@ describe('manage movies route', () => {
     assert.equal(payload.movie.posterUrlOverride, undefined);
   });
 
+  it('passes forceRefresh through detail requests', async () => {
+    let receivedForceRefresh = false;
+    const response = await onRequest({
+      request: new Request('https://example.com/api/manage/movies?action=detail&tmdbId=42&forceRefresh=1'),
+      env: { img_url: new MemoryKV() },
+      repository: {
+        async getMovieDetail(tmdbId, options = {}) {
+          receivedForceRefresh = options.forceRefresh === true;
+          return {
+            tmdbId,
+            title: 'Fresh Movie',
+            originalTitle: 'Fresh Movie',
+            overview: '',
+            posterPath: '',
+            backdropPath: '',
+            backdropPaths: [],
+            releaseDate: '',
+            runtime: null,
+            genres: [],
+            voteAverage: null,
+            voteCount: null,
+            updatedAt: new Date().toISOString(),
+          };
+        },
+      },
+    });
+
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(receivedForceRefresh, true);
+    assert.equal(payload.movie.title, 'Fresh Movie');
+  });
+
   it('appends private watch history through the route entry payload', async () => {
     const env = { img_url: new MemoryKV() };
     await env.img_url.put('manage@sysConfig@movieCache@42', JSON.stringify({

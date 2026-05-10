@@ -25,7 +25,7 @@ function getAction(url, fallback = '') {
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
-  const repository = new MovieRepository(env);
+  const repository = context.repository || new MovieRepository(env);
 
   try {
     if (request.method === 'GET') {
@@ -41,7 +41,8 @@ export async function onRequest(context) {
       }
       if (action === 'detail') {
         const tmdbId = Number(url.searchParams.get('tmdbId') || url.searchParams.get('id') || 0);
-        return jsonResponse({ movie: await repository.getMovieDetail(tmdbId) });
+        const forceRefresh = ['1', 'true', 'yes'].includes(String(url.searchParams.get('forceRefresh') || '').toLowerCase());
+        return jsonResponse({ movie: await repository.getMovieDetail(tmdbId, { forceRefresh }) });
       }
       if (action === 'entries') {
         const watchStatus = url.searchParams.get('watchStatus') || url.searchParams.get('status') || '';

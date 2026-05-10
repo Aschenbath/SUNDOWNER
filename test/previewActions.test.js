@@ -153,7 +153,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /const filmActionNames = new Set\(\[/);
     assert.match(appSource, /filmActionNames\.has\(actionTarget\.dataset\.action \|\| ''\)/);
     assert.match(appSource, /return '#\/films\/' \+ encodeURIComponent\(state\.activeFilmId\)/);
-    assert.match(appSource, /state\.filmDetailOpen = false;\s+clearTransientFilmDetail\(\);\s+resetFilmBackdropRotation\(\);\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesPreview = false;\s+state\.filmMetadataEditing = false;\s+state\.filmMetadataDraft = null;\s+clearPrivateViewState\(\);/);
+    assert.match(appSource, /state\.filmDetailOpen = false;\s+clearTransientFilmDetail\(\);\s+resetFilmBackdropRotation\(\);\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesPreview = false;\s+state\.filmMetadataEditing = false;\s+state\.filmMetadataDraft = null;\s+state\.filmMetadataFocusField = '';\s+state\.filmMoreActionsOpen = false;\s+clearPrivateViewState\(\);/);
     assert.doesNotMatch(appSource, /case 'save-film-status':\s+void saveFilmStatus\([^;]+openAfterSave:\s*true/s);
     const detailFunction = appSource.slice(
       appSource.indexOf('async function openTmdbFilmDetail'),
@@ -194,6 +194,7 @@ describe('media library download actions', () => {
         backdropPath: '/backdrop.jpg',
         backdropPaths: ['/backdrop.jpg', '/backdrop-2.jpg'],
       },
+      moreActionsOpen: true,
       backdropIndex: 1,
     });
 
@@ -217,13 +218,17 @@ describe('media library download actions', () => {
     assert.match(html, /cml-film-detail__markdown/);
     assert.match(html, /Save to Favourites/);
     assert.match(html, /data-action="film-toggle-favourite"/);
+    assert.match(html, /data-action="film-toggle-more-actions"/);
     assert.match(html, /data-action="film-edit-metadata"/);
+    assert.match(html, /data-action="film-change-poster"/);
+    assert.match(html, /data-action="film-change-backdrop"/);
+    assert.match(html, /data-action="film-refresh-tmdb"/);
+    assert.match(html, /data-action="film-open-tmdb"/);
     assert.match(html, /data-action="film-edit-notes"/);
     assert.match(html, /data-action="film-mark-rewatch"/);
     assert.match(html, /data-action="film-remove-entry"/);
-    assert.doesNotMatch(html, /data-action="film-more-actions"/);
-    assert.doesNotMatch(html, /cml-film-modal/);
     assert.doesNotMatch(html, /role="dialog"/);
+    assert.doesNotMatch(html, /cml-film-modal/);
   });
 
   it('renders unsaved TMDb detail previews with explicit add actions only', () => {
@@ -338,9 +343,19 @@ describe('media library download actions', () => {
     assert.match(appSource, /function commitFilmMetadataEdit/);
     assert.match(appSource, /case 'film-toggle-favourite':/);
     assert.match(appSource, /case 'film-edit-notes':/);
+    assert.match(appSource, /case 'film-toggle-more-actions':/);
     assert.match(appSource, /case 'film-edit-metadata':/);
+    assert.match(appSource, /case 'film-change-poster':/);
+    assert.match(appSource, /case 'film-change-backdrop':/);
+    assert.match(appSource, /case 'film-refresh-tmdb':/);
+    assert.match(appSource, /case 'film-open-tmdb':/);
     assert.match(appSource, /case 'film-remove-entry':/);
+    assert.match(appSource, /case 'film-undo-remove-entry':/);
     assert.match(appSource, /function removeFilmEntry\(filmId\)/);
+    assert.match(appSource, /function refreshFilmFromTmdb\(filmId\)/);
+    assert.match(appSource, /forceRefresh=1/);
+    assert.match(appSource, /function undoRemoveFilmEntry\(\)/);
+    assert.match(appSource, /filmRemovedUndoRecord/);
     assert.match(appSource, /function isUnsavedActiveFilmPreview\(tmdbId = null\)/);
     assert.match(appSource, /if \(isUnsavedActiveFilmPreview\(normalizedId\)\) \{\s+return;\s+\}/);
     assert.match(appSource, /querySelector\('\.cml-film-notes-editor'\)/);
