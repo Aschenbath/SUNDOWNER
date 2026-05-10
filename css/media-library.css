@@ -11602,7 +11602,7 @@ body.codex-media-library-active #app {
   object-fit: cover;
   opacity: 0.66;
   filter: saturate(1) contrast(1.08) brightness(1.06);
-  transform: scale(0.8);
+  transform: scale(1.02);
 }
 
 #codex-media-library-root .cml-film-detail-page__scrim {
