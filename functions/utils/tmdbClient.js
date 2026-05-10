@@ -122,6 +122,11 @@ export class TMDbClient {
     this.fetchImpl = options.fetchImpl || fetch;
   }
 
+  async warmup() {
+    await fetchTmdbJson(this.env, '/configuration', {}, this.fetchImpl);
+    return { warmed: true };
+  }
+
   async searchMovies(query, page = 1) {
     const normalizedQuery = normalizeText(query, 160);
     if (!normalizedQuery) {

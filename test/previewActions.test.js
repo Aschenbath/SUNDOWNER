@@ -90,7 +90,12 @@ describe('media library download actions', () => {
     assert.match(appSource, /function upsertFilmRecord\(record, \{ preserveLocal = false \} = \{\}\)/);
     assert.match(appSource, /const existingIndex = state\.films\.findIndex/);
     assert.match(appSource, /Number\.isFinite\(normalizedTmdbId\) && normalizedTmdbId > 0 && itemTmdbId === normalizedTmdbId/);
-    assert.match(appSource, /upsertFilmRecord\(record, \{ preserveLocal: true \}\)/);
+    assert.match(appSource, /filmTransientDetailRecord: null/);
+    assert.match(appSource, /function clearTransientFilmDetail\(\)/);
+    assert.match(appSource, /function clearMatchingTransientFilmDetail\(tmdbId\)/);
+    assert.match(appSource, /state\.filmTransientDetailRecord = existing/);
+    assert.match(appSource, /isSavedEntry: false/);
+    assert.match(appSource, /Number\(state\.filmTransientDetailRecord\?\.tmdbId\) === normalizedId/);
     assert.match(appSource, /journal: preserveLocal/);
     assert.match(appSource, /const watchedAt = watchStatus === 'watched' \? new Date\(\)\.toISOString\(\)\.slice\(0, 10\) : undefined/);
     assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false, silent = false, showSaving = !silent \} = \{\}\)/);
@@ -98,8 +103,15 @@ describe('media library download actions', () => {
     assert.match(appSource, /const filmActionNames = new Set\(\[/);
     assert.match(appSource, /filmActionNames\.has\(actionTarget\.dataset\.action \|\| ''\)/);
     assert.match(appSource, /return '#\/films\/' \+ encodeURIComponent\(state\.activeFilmId\)/);
-    assert.match(appSource, /state\.filmDetailOpen = false;\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesPreview = false;\s+clearPrivateViewState\(\);/);
+    assert.match(appSource, /state\.filmDetailOpen = false;\s+clearTransientFilmDetail\(\);\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesPreview = false;\s+clearPrivateViewState\(\);/);
     assert.doesNotMatch(appSource, /case 'save-film-status':\s+void saveFilmStatus\([^;]+openAfterSave:\s*true/s);
+    const detailFunction = appSource.slice(
+      appSource.indexOf('async function openTmdbFilmDetail'),
+      appSource.indexOf('async function saveFilmStatus')
+    );
+    assert.doesNotMatch(detailFunction, /upsertFilmRecord\(record/);
+    assert.match(appSource, /function deleteFilmEntry\(filmIdOrTmdbId/);
+    assert.match(appSource, /function removeKnownAccidentalFilmEntries\(\)/);
   });
 
   it('renders film detail as an inner Films page instead of a modal', () => {

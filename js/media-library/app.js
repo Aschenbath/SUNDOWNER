@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=33';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=35';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -96,6 +96,7 @@ const ALBUM_ASSIGNMENTS_STORAGE_KEY = 'codex-media-library-album-assignments';
 const ALBUM_COVERS_STORAGE_KEY = 'codex-media-library-album-covers';
 const PLAYLISTS_STORAGE_KEY = 'codex-media-library-playlists';
 const PLAYLIST_ASSIGNMENTS_STORAGE_KEY = 'codex-media-library-playlist-assignments';
+const FILM_ACCIDENTAL_ENTRY_CLEANUP_KEY = 'codex-media-library-film-accidental-entry-cleanup-v1';
 const LEGACY_ALBUM_STORAGE_KEYS = [
   FAVORITES_STORAGE_KEY,
   ALBUMS_STORAGE_KEY,
@@ -431,6 +432,7 @@ const state = {
   films: [],
   activeFilmId: '',
   filmDetailOpen: false,
+  filmTransientDetailRecord: null,
   filmSearchQuery: '',
   filmSearchResults: [],
   filmSearchLoading: false,
@@ -520,6 +522,7 @@ let audioUiRaf = 0;
 let filmSearchDebounceTimer = 0;
 let filmSearchRequestId = 0;
 let filmSearchAbortController = null;
+let filmWarmupStarted = false;
 const filmSearchCache = new Map();
 const AUDIO_PLAY_ICON_HTML = '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"></path></svg></span>';
 const AUDIO_PAUSE_ICON_HTML = '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.2h2.8v11.6H8Zm5.2 0H16v11.6h-2.8Z" fill="currentColor"></path></svg></span>';
@@ -8376,7 +8379,14 @@ function getActiveFilmRecord() {
   if (!state.activeFilmId) {
     return null;
   }
+  if (state.filmTransientDetailRecord?.id === state.activeFilmId) {
+    return state.filmTransientDetailRecord;
+  }
   return state.films.find((record) => record.id === state.activeFilmId) || null;
+}
+
+function clearTransientFilmDetail() {
+  state.filmTransientDetailRecord = null;
 }
 
 function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
@@ -8495,8 +8505,16 @@ function findMovieSourceByTmdbId(tmdbId) {
     return null;
   }
   return state.films.find((record) => Number(record.tmdbId) === normalizedId)
+    || (Number(state.filmTransientDetailRecord?.tmdbId) === normalizedId ? state.filmTransientDetailRecord : null)
     || state.filmSearchResults.find((movie) => Number(movie.tmdbId) === normalizedId)
     || null;
+}
+
+function clearMatchingTransientFilmDetail(tmdbId) {
+  const normalizedId = Number(tmdbId);
+  if (Number.isFinite(normalizedId) && Number(state.filmTransientDetailRecord?.tmdbId) === normalizedId) {
+    clearTransientFilmDetail();
+  }
 }
 
 function toMoviePayload(source = {}, tmdbId = 0) {
@@ -8572,6 +8590,71 @@ function applyMovieEntries(entries = []) {
   state.films = remoteRecords;
 }
 
+async function deleteFilmEntry(filmIdOrTmdbId, { silent = false } = {}) {
+  const target = normalizeText(filmIdOrTmdbId);
+  if (!target) {
+    return false;
+  }
+  const previousFilms = state.films.slice();
+  const removingActiveFilm = previousFilms.some((record) =>
+    record.id === state.activeFilmId && (record.id === target || String(record.tmdbId || '') === target)
+  );
+  state.films = state.films.filter((record) =>
+    record.id !== target && String(record.tmdbId || '') !== target
+  );
+  if (removingActiveFilm) {
+    state.filmDetailOpen = false;
+    state.activeFilmId = '';
+    state.filmNotesEditing = false;
+    state.filmNotesDraft = '';
+    state.filmNotesPreview = false;
+    clearTransientFilmDetail();
+    pushNavigationHash({ mode: 'push' });
+    render();
+  } else {
+    renderFilmMutationState();
+  }
+  try {
+    await fetchMovieJson(`/api/manage/movies?id=${encodeURIComponent(target)}`, { method: 'DELETE' });
+    if (!silent) {
+      showToast('Removed from Films', 'success');
+    }
+    return true;
+  } catch (error) {
+    state.films = previousFilms;
+    state.filmError = error.message || 'Failed to remove film';
+    showToast(state.filmError, 'error');
+    render();
+    return false;
+  }
+}
+
+async function removeKnownAccidentalFilmEntries() {
+  if (loadJson(FILM_ACCIDENTAL_ENTRY_CLEANUP_KEY, false)) {
+    return;
+  }
+  const accidentalTitles = new Set([
+    'No More Bets',
+    '\u5b64\u6ce8\u4e00\u63b7',
+    'But Always',
+    '\u4e00\u751f\u4e00\u4e16',
+    'Ikkyu-san',
+    'Ikkyu San',
+    '\u4e00\u4f11\u3055\u3093'
+  ]);
+  const targets = state.films
+    .filter((record) => [record.title, record.localTitle, record.originalTitle].some((title) => accidentalTitles.has(normalizeText(title))))
+    .map((record) => record.id || String(record.tmdbId))
+    .filter(Boolean);
+  let allDeleted = true;
+  for (const target of targets) {
+    allDeleted = await deleteFilmEntry(target, { silent: true }) && allDeleted;
+  }
+  if (allDeleted) {
+    saveJson(FILM_ACCIDENTAL_ENTRY_CLEANUP_KEY, true);
+  }
+}
+
 function getVisibleFilmRecords() {
   const activeFilter = FILM_FILTERS.includes(state.filmActiveFilter)
     ? state.filmActiveFilter
@@ -8595,6 +8678,7 @@ async function loadMovieEntries({ forceRender = false } = {}) {
   try {
     const payload = await fetchJson('/api/manage/movies?action=entries');
     applyMovieEntries(payload?.entries || []);
+    void removeKnownAccidentalFilmEntries();
     state.filmError = '';
     if (forceRender) {
       render();
@@ -8627,6 +8711,18 @@ function abortPendingFilmSearch() {
   if (filmSearchAbortController) {
     filmSearchAbortController.abort();
     filmSearchAbortController = null;
+  }
+}
+
+async function warmFilmSearch() {
+  if (filmWarmupStarted) {
+    return;
+  }
+  filmWarmupStarted = true;
+  try {
+    await fetchMovieJson('/api/manage/movies?action=warmup', { timeoutMs: 7000 });
+  } catch {
+    // Warmup is opportunistic; real searches still surface actionable errors.
   }
 }
 
@@ -8761,9 +8857,25 @@ async function openTmdbFilmDetail(tmdbId) {
   }
   try {
     const payload = await fetchMovieJson(`/api/manage/movies?action=detail&tmdbId=${encodeURIComponent(String(normalizedId))}`);
-    const record = normalizeMovieRecord(payload?.movie || {});
-    upsertFilmRecord(record, { preserveLocal: true });
-    state.activeFilmId = record.id;
+    const existing = state.films.find((record) => Number(record.tmdbId) === normalizedId) || null;
+    const record = normalizeFilmRecord(payload?.movie || { tmdbId: normalizedId }, null, existing);
+    state.filmTransientDetailRecord = existing
+      ? { ...record, isSavedEntry: true, isSaving: false }
+      : {
+        ...record,
+        status: '',
+        favorite: false,
+        userRating: null,
+        rating: null,
+        note: '',
+        journal: '',
+        noteMarkdown: '',
+        watchedAt: '',
+        addedAt: '',
+        isSavedEntry: false,
+        isSaving: false
+      };
+    state.activeFilmId = state.filmTransientDetailRecord.id;
     state.filmDetailOpen = true;
     state.filmError = '';
     pushNavigationHash({ mode: 'push' });
@@ -8790,6 +8902,7 @@ async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false, sile
   }
   const optimisticRecord = createOptimisticFilmRecord(normalizedId, optimisticPatch, { isSaving: showSaving });
   upsertFilmRecord(optimisticRecord);
+  clearMatchingTransientFilmDetail(normalizedId);
   if (openAfterSave) {
     state.activeFilmId = optimisticRecord.id;
     state.filmDetailOpen = true;
@@ -8809,6 +8922,7 @@ async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false, sile
     const payload = await postJson('/api/manage/movies', body);
     const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
     upsertFilmRecord(record);
+    clearMatchingTransientFilmDetail(normalizedId);
     if (openAfterSave) {
       state.activeFilmId = record.id;
       state.filmDetailOpen = true;
@@ -8850,6 +8964,7 @@ async function saveFilmRating(tmdbId, userRating, { silent = true } = {}) {
     watchedAt: watchStatus === 'watched' ? (existing?.watchedAt || new Date().toISOString().slice(0, 10)) : existing?.watchedAt || ''
   }, { isSaving: false });
   upsertFilmRecord(optimisticRecord);
+  clearMatchingTransientFilmDetail(normalizedId);
   state.activeFilmId = optimisticRecord.id;
   state.filmDetailOpen = true;
   state.filmError = '';
@@ -8864,6 +8979,7 @@ async function saveFilmRating(tmdbId, userRating, { silent = true } = {}) {
     });
     const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
     upsertFilmRecord(record);
+    clearMatchingTransientFilmDetail(normalizedId);
     state.activeFilmId = record.id;
     state.filmDetailOpen = true;
     state.filmError = '';
@@ -8893,6 +9009,7 @@ async function saveFilmWatchedDate(tmdbId, watchedAt, { silent = true } = {}) {
     watchedAt: normalizedDate
   }, { isSaving: false });
   upsertFilmRecord(optimisticRecord);
+  clearMatchingTransientFilmDetail(normalizedId);
   state.activeFilmId = optimisticRecord.id;
   state.filmDetailOpen = true;
   state.filmError = '';
@@ -8907,6 +9024,7 @@ async function saveFilmWatchedDate(tmdbId, watchedAt, { silent = true } = {}) {
     });
     const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
     upsertFilmRecord(record);
+    clearMatchingTransientFilmDetail(normalizedId);
     state.activeFilmId = record.id;
     state.filmDetailOpen = true;
     state.filmError = '';
@@ -8999,6 +9117,7 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
     watchedAt: Object.prototype.hasOwnProperty.call(patch, 'watchedAt') ? patch.watchedAt : existing.watchedAt || ''
   }, { isSaving: showSaving });
   upsertFilmRecord(optimisticRecord);
+  clearMatchingTransientFilmDetail(normalizedId);
   if (keepDetailOpen) {
     state.activeFilmId = optimisticRecord.id;
     state.filmDetailOpen = true;
@@ -9019,6 +9138,7 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
     });
     const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
     upsertFilmRecord(record);
+    clearMatchingTransientFilmDetail(normalizedId);
     if (keepDetailOpen) {
       state.activeFilmId = record.id;
       state.filmDetailOpen = true;
@@ -9049,6 +9169,7 @@ function editFilmNotes(filmId) {
   if (!film) {
     return;
   }
+  clearTransientFilmDetail();
   state.activeFilmId = film.id;
   state.filmDetailOpen = true;
   state.filmNotesEditing = true;
@@ -9145,6 +9266,7 @@ function closeFilmDetail() {
   }
   state.filmDetailOpen = false;
   state.activeFilmId = '';
+  clearTransientFilmDetail();
   state.filmNotesEditing = false;
   state.filmNotesDraft = '';
   state.filmNotesPreview = false;
@@ -10794,6 +10916,9 @@ function applyLocationRouteToMountedUi() {
   }
   if (state.primaryFilter === 'Bin') {
     void fetchBinItems();
+  }
+  if (state.primaryFilter === 'Films') {
+    void warmFilmSearch();
   }
   render();
 }
@@ -12478,6 +12603,7 @@ function handleClick(event) {
       state.activePlaylistName = '';
       state.activeFilmId = '';
       state.filmDetailOpen = false;
+      clearTransientFilmDetail();
       resetAddToTargetModes(state);
       resetSearchQuery();
       state.previewId = null;
@@ -12487,6 +12613,9 @@ function handleClick(event) {
       state.uiThemeMenuOpen = false;
       pushNavigationHash();
       applyLocationRouteToMountedUi();
+      if (state.primaryFilter === 'Films') {
+        void warmFilmSearch();
+      }
       return;
     }
 
@@ -12855,6 +12984,9 @@ function handleChange(event) {
 }
 
 function handleFocusIn(event) {
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-films-search-input')) {
+    void warmFilmSearch();
+  }
   const tile = event.target instanceof Element ? event.target.closest('.cml-media-tile') : null;
   if (tile instanceof HTMLElement) {
     state.focusedTileId = tile.getAttribute('data-tile-id');
@@ -13380,9 +13512,11 @@ function restoreNavigationFromHash() {
       if (parts[1]) {
         state.activeFilmId = parts.slice(1).join('/');
         state.filmDetailOpen = true;
+        clearTransientFilmDetail();
       } else {
         state.activeFilmId = '';
         state.filmDetailOpen = false;
+        clearTransientFilmDetail();
       }
       state.filmNotesEditing = false;
       state.filmNotesDraft = '';
@@ -13453,6 +13587,7 @@ function restoreNavigationFromHash() {
       state.activePlaylistName = '';
       state.activeFilmId = '';
       state.filmDetailOpen = false;
+      clearTransientFilmDetail();
       state.filmNotesEditing = false;
       state.filmNotesDraft = '';
       state.filmNotesPreview = false;
@@ -13462,6 +13597,7 @@ function restoreNavigationFromHash() {
   if (state.primaryFilter !== 'Films') {
     state.activeFilmId = '';
     state.filmDetailOpen = false;
+    clearTransientFilmDetail();
     state.filmNotesEditing = false;
     state.filmNotesDraft = '';
     state.filmNotesPreview = false;

@@ -288,7 +288,7 @@ function getDetailStatusLabel(status = '') {
     paused: 'Paused',
     dropped: 'Dropped'
   };
-  return labels[status] || 'Want to Watch';
+  return labels[status] || '';
 }
 
 function getDetailSynopsis(record = {}) {
@@ -316,10 +316,17 @@ function getDetailPersonalNote(record = {}) {
 }
 
 function renderDetailChip(label, extraClass = '') {
-  if (!normalizeText(label)) {
+  const normalizedLabel = normalizeText(label);
+  if (!normalizedLabel) {
     return '';
   }
-  return `<span class="cml-film-detail__chip ${extraClass}">${escapeHtml(label)}</span>`;
+  if (
+    extraClass.includes('cml-film-detail__chip--watched')
+    && !/(Want to Watch|Watching|Watched|Paused|Dropped)/.test(normalizedLabel)
+  ) {
+    return '';
+  }
+  return `<span class="cml-film-detail__chip ${extraClass}">${escapeHtml(normalizedLabel)}</span>`;
 }
 
 function renderDetailMetaColumn(label, value, icon = '') {
@@ -332,7 +339,7 @@ function renderDetailMetaColumn(label, value, icon = '') {
 }
 
 function getDetailStatusValue(status = '') {
-  return status === 'watchlist' ? 'wantToWatch' : (status || 'wantToWatch');
+  return status === 'watchlist' ? 'wantToWatch' : (status || '');
 }
 
 function renderDetailStatusControls(record = {}) {
@@ -546,7 +553,8 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   ].join('');
   const synopsis = getDetailSynopsis(record);
   const favoriteActionLabel = record.favorite ? '♥ Saved to Favourites' : '♡ Save to Favourites';
-  const disabledAttr = record.isSaving ? 'disabled' : '';
+  const localActionDisabled = record.isSaving || record.isSavedEntry === false;
+  const disabledAttr = localActionDisabled ? 'disabled' : '';
   return `
     <section class="cml-film-detail-page" data-film-detail-page>
       <div class="cml-film-detail-page__backdrop" aria-hidden="true">

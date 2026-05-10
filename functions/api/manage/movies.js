@@ -30,6 +30,9 @@ export async function onRequest(context) {
   try {
     if (request.method === 'GET') {
       const action = getAction(url, 'entries');
+      if (action === 'warmup') {
+        return jsonResponse(await repository.warmup());
+      }
       if (action === 'search') {
         return jsonResponse(await repository.searchMovies(
           url.searchParams.get('q') || url.searchParams.get('query') || '',

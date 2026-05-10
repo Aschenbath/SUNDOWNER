@@ -184,6 +184,10 @@ export class MovieRepository {
     return this.client.searchMovies(query, page);
   }
 
+  async warmup() {
+    return this.client.warmup();
+  }
+
   async getMovieDetail(tmdbId, { forceRefresh = false } = {}) {
     const db = this.getDb();
     const cached = await getRawMovieCache(db, tmdbId);

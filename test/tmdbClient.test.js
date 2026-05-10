@@ -122,6 +122,31 @@ describe('TMDbClient', () => {
     assert.equal(calls[0].options.headers.Authorization, undefined);
   });
 
+  it('warms TMDb configuration without fetching search results', async () => {
+    const calls = [];
+    const client = new TMDbClient({ TMDB_ACCESS_TOKEN: 'token-123' }, {
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { images: { base_url: 'https://image.tmdb.org/t/p/' } };
+          },
+        };
+      },
+    });
+
+    const result = await client.warmup();
+    const url = new URL(calls[0].url);
+
+    assert.deepEqual(result, { warmed: true });
+    assert.equal(calls.length, 1);
+    assert.match(url.pathname, /\/configuration$/);
+    assert.equal(url.searchParams.get('query'), null);
+    assert.equal(calls[0].options.headers.Authorization, 'Bearer token-123');
+  });
+
   it('requests movie detail credits and normalizes directors', async () => {
     const calls = [];
     const client = new TMDbClient({ TMDB_ACCESS_TOKEN: 'token-123' }, {
