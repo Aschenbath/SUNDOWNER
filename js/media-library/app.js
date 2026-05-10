@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=28';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=29';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -107,6 +107,7 @@ const API_MAX_ITEMS = 1600;
 const API_REQUEST_TIMEOUT_MS = 12000;
 const STORAGE_REQUEST_TIMEOUT_MS = 5000;
 const SEARCH_INPUT_DEBOUNCE_MS = 160;
+const FILM_SEARCH_DEBOUNCE_MS = 350;
 const MEDIA_LIBRARY_UPLOAD_ACCEPT = 'image/*,video/*,audio/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
 const COLLECTION_PAGE_SIZE = 24;
 const TIMELINE_ROW_GAP = 2;
@@ -510,6 +511,10 @@ let stableAppViewportWidth = 0;
 let lockedDocumentScrollY = 0;
 let audioEngine = null;
 let audioUiRaf = 0;
+let filmSearchDebounceTimer = 0;
+let filmSearchRequestId = 0;
+let filmSearchAbortController = null;
+const filmSearchCache = new Map();
 const AUDIO_PLAY_ICON_HTML = '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"></path></svg></span>';
 const AUDIO_PAUSE_ICON_HTML = '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.2h2.8v11.6H8Zm5.2 0H16v11.6h-2.8Z" fill="currentColor"></path></svg></span>';
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
@@ -8585,26 +8590,102 @@ async function loadMovieEntries({ forceRender = false } = {}) {
   }
 }
 
-async function searchFilms() {
-  const query = normalizeText(state.filmSearchQuery);
-  if (!query) {
+function shouldRunFilmSearch(query) {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) {
+    return false;
+  }
+  const hasCjk = /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(normalizedQuery);
+  return hasCjk ? normalizedQuery.length >= 1 : normalizedQuery.length >= 2;
+}
+
+function clearPendingFilmSearch() {
+  if (filmSearchDebounceTimer) {
+    window.clearTimeout(filmSearchDebounceTimer);
+    filmSearchDebounceTimer = 0;
+  }
+}
+
+function abortPendingFilmSearch() {
+  if (filmSearchAbortController) {
+    filmSearchAbortController.abort();
+    filmSearchAbortController = null;
+  }
+}
+
+function scheduleFilmSearch(query) {
+  const inputQuery = String(query ?? '');
+  const normalizedQuery = normalizeText(inputQuery);
+  state.filmSearchQuery = inputQuery;
+  clearPendingFilmSearch();
+  if (!shouldRunFilmSearch(normalizedQuery)) {
+    abortPendingFilmSearch();
+    filmSearchRequestId += 1;
+    state.filmSearchLoading = false;
     state.filmSearchResults = [];
     state.filmError = '';
     render();
     return;
   }
+  if (filmSearchCache.has(normalizedQuery)) {
+    state.filmSearchResults = filmSearchCache.get(normalizedQuery) || [];
+  }
+  filmSearchRequestId += 1;
+  abortPendingFilmSearch();
+  state.filmSearchLoading = true;
+  state.filmError = '';
+  render();
+  filmSearchDebounceTimer = window.setTimeout(() => {
+    filmSearchDebounceTimer = 0;
+    void searchFilms({ query: inputQuery });
+  }, FILM_SEARCH_DEBOUNCE_MS);
+}
+
+async function searchFilms({ query = state.filmSearchQuery } = {}) {
+  const inputQuery = String(query ?? '');
+  const normalizedQuery = normalizeText(query);
+  state.filmSearchQuery = inputQuery;
+  clearPendingFilmSearch();
+  if (!shouldRunFilmSearch(normalizedQuery)) {
+    abortPendingFilmSearch();
+    filmSearchRequestId += 1;
+    state.filmSearchLoading = false;
+    state.filmSearchResults = [];
+    state.filmError = '';
+    render();
+    return;
+  }
+  const requestId = ++filmSearchRequestId;
+  abortPendingFilmSearch();
+  filmSearchAbortController = new AbortController();
+  if (filmSearchCache.has(normalizedQuery)) {
+    state.filmSearchResults = filmSearchCache.get(normalizedQuery) || [];
+  }
   state.filmSearchLoading = true;
   state.filmError = '';
   render();
   try {
-    const payload = await fetchMovieJson(`/api/manage/movies?action=search&q=${encodeURIComponent(query)}`);
-    state.filmSearchResults = Array.isArray(payload?.results) ? payload.results : [];
+    const payload = await fetchMovieJson(`/api/manage/movies?action=search&q=${encodeURIComponent(normalizedQuery)}`, {
+      signal: filmSearchAbortController.signal
+    });
+    if (requestId !== filmSearchRequestId) {
+      return;
+    }
+    const results = Array.isArray(payload?.results) ? payload.results : [];
+    filmSearchCache.set(normalizedQuery, results);
+    state.filmSearchResults = results;
+    state.filmError = '';
   } catch (error) {
-    state.filmSearchResults = [];
+    if (error?.name === 'AbortError' || requestId !== filmSearchRequestId) {
+      return;
+    }
     state.filmError = error.message || 'TMDb search failed';
   } finally {
-    state.filmSearchLoading = false;
-    render();
+    if (requestId === filmSearchRequestId) {
+      state.filmSearchLoading = false;
+      filmSearchAbortController = null;
+      render();
+    }
   }
 }
 
@@ -9267,6 +9348,10 @@ function render() {
       document.activeElement.classList.contains('cml-topbar__search-input')
       || document.activeElement.classList.contains('cml-sidebar__search-input')
     );
+  const filmSearchWasFocused = document.activeElement instanceof HTMLInputElement
+    && document.activeElement.hasAttribute('data-films-search-input');
+  const filmSearchSelectionStart = filmSearchWasFocused ? document.activeElement.selectionStart : null;
+  const filmSearchSelectionEnd = filmSearchWasFocused ? document.activeElement.selectionEnd : null;
   const viewModel = getViewModel();
   const themeState = getThemeState();
   const contentViewKey = buildContentViewKey(viewModel);
@@ -9636,6 +9721,23 @@ function render() {
 
   if (searchWasFocused && !(viewModel.isMindView && isMobileLayout())) {
     focusSearchInput();
+  }
+  if (filmSearchWasFocused && viewModel.isFilmsView && !state.filmDetailOpen) {
+    const filmsSearchInput = refs.root.querySelector('[data-films-search-input]');
+    if (filmsSearchInput instanceof HTMLInputElement) {
+      filmsSearchInput.focus({ preventScroll: true });
+      const cursorStart = Number.isInteger(filmSearchSelectionStart)
+        ? Math.min(filmsSearchInput.value.length, filmSearchSelectionStart)
+        : filmsSearchInput.value.length;
+      const cursorEnd = Number.isInteger(filmSearchSelectionEnd)
+        ? Math.min(filmsSearchInput.value.length, filmSearchSelectionEnd)
+        : cursorStart;
+      try {
+        filmsSearchInput.setSelectionRange(cursorStart, cursorEnd);
+      } catch {
+        // Search inputs can reject selection APIs in some browsers.
+      }
+    }
   }
 
   syncLayoutWidth();
@@ -10307,7 +10409,7 @@ function mount() {
       }
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'films-search') {
         e.preventDefault();
-        void searchFilms();
+        void searchFilms({ query: state.filmSearchQuery });
         return;
       }
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'mind-settings') {
@@ -12117,7 +12219,7 @@ function handleAction(actionTarget) {
       closeFilmDetail();
       return true;
     case 'search-films':
-      void searchFilms();
+      void searchFilms({ query: state.filmSearchQuery });
       return true;
     case 'filter-films':
       if (FILM_FILTERS.includes(actionTarget.dataset.filmFilter || '')) {
@@ -12538,7 +12640,7 @@ function handleInput(event) {
     return;
   }
   if (input.hasAttribute('data-films-search-input')) {
-    state.filmSearchQuery = input.value;
+    scheduleFilmSearch(input.value);
     return;
   }
   if (input.hasAttribute('data-film-notes-draft')) {
@@ -12920,7 +13022,8 @@ function handleKeyDown(event) {
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-films-search-input')) {
     if (event.key === 'Enter') {
       event.preventDefault();
-      void searchFilms();
+      clearPendingFilmSearch();
+      void searchFilms({ query: event.target.value });
     }
     return;
   }

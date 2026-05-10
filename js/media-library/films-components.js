@@ -836,6 +836,7 @@ export function FilmsPage({ records = [], totalCount = records.length, activeFil
   const sections = groupFilmsByTimeline(records);
   const searchValue = escapeHtml(searchQuery);
   const hasAnySavedFilms = Number(totalCount) > 0;
+  const hasSearchQuery = Boolean(normalizeText(searchQuery));
   return `
     <section class="cml-films-page">
       <header class="cml-films-page__hero">
@@ -848,6 +849,7 @@ export function FilmsPage({ records = [], totalCount = records.length, activeFil
           <label class="cml-films-search" aria-label="Search films">
             <span class="cml-films-search__icon">⌕</span>
             <input type="search" class="cml-films-search__input" data-films-search-input value="${searchValue}" placeholder="Search TMDb movies..." />
+            ${hasSearchQuery ? '<span class="cml-films-search__live">Live</span>' : ''}
           </label>
           <button type="submit" class="cml-films-page__add-button">Search</button>
         </form>
@@ -965,6 +967,11 @@ export function FilmSearchResults({ results = [], loading = false, error = '', q
     : error && /TMDb credentials are not configured/i.test(error)
     ? 'TMDb credentials are not configured. Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables, then redeploy.'
     : error;
+  const emptyMessage = loading
+    ? 'Searching TMDb...'
+    : normalizedQuery
+    ? 'No TMDb results found.'
+    : 'No search results yet.';
   const resultCards = results.length ? results.map((movie) => {
     const isSaving = savingTmdbIds instanceof Set && savingTmdbIds.has(Number(movie.tmdbId));
     return `
@@ -986,7 +993,7 @@ export function FilmSearchResults({ results = [], loading = false, error = '', q
         </div>
       </article>
     `;
-  }).join('') : `<p class="cml-films-mvp__empty">${loading ? 'Contacting TMDb...' : 'No search results yet.'}</p>`;
+  }).join('') : `<p class="cml-films-mvp__empty">${emptyMessage}</p>`;
   return `
     <section class="cml-films-mvp">
       <div class="cml-films-mvp__head">

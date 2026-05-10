@@ -10701,6 +10701,20 @@ body.codex-media-library-active #app {
   color: var(--cml-theme-text-muted);
 }
 
+#codex-media-library-root .cml-films-search__live {
+  flex: 0 0 auto;
+  border: 1px solid rgba(201,169,106,0.22);
+  border-radius: 999px;
+  background: rgba(201,169,106,0.10);
+  color: rgba(241,238,230,0.72);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+
 #codex-media-library-root .cml-films-page__add-button {
   height: 48px;
   padding: 0 18px;

@@ -18,6 +18,7 @@ describe('media library download actions', () => {
 
     assert.match(html, /data-form="films-search"/);
     assert.match(html, /type="submit" class="cml-films-page__add-button"/);
+    assert.match(html, /cml-films-search__live/);
     assert.match(html, /data-action="filter-films"/);
     assert.match(html, /data-film-filter="Watched"/);
     assert.doesNotMatch(html, /cml-films-filters__chip[^>]*disabled/);
@@ -44,6 +45,26 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="open-tmdb-film-detail"/);
     assert.match(html, /data-action="save-film-status" data-watch-status="wantToWatch"/);
     assert.match(html, /data-action="save-film-status" data-watch-status="watched"/);
+  });
+
+  it('wires Films TMDb search as live debounced input with stale-response guards', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const emptyHtml = FilmSearchResults({ query: 'No Match', results: [] });
+    const loadingHtml = FilmSearchResults({ query: 'Pearl', loading: true, results: [] });
+
+    assert.match(appSource, /const FILM_SEARCH_DEBOUNCE_MS = 350/);
+    assert.match(appSource, /let filmSearchRequestId = 0/);
+    assert.match(appSource, /let filmSearchAbortController = null/);
+    assert.match(appSource, /const filmSearchCache = new Map\(\)/);
+    assert.match(appSource, /function shouldRunFilmSearch\(query\)/);
+    assert.match(appSource, /function scheduleFilmSearch\(query\)/);
+    assert.match(appSource, /void searchFilms\(\{ query: inputQuery \}\)/);
+    assert.match(appSource, /scheduleFilmSearch\(input\.value\)/);
+    assert.match(appSource, /searchFilms\(\{ query: event\.target\.value \}\)/);
+    assert.match(appSource, /requestId !== filmSearchRequestId/);
+    assert.match(appSource, /signal: filmSearchAbortController\.signal/);
+    assert.match(emptyHtml, /No TMDb results found\./);
+    assert.match(loadingHtml, /Searching TMDb\.\.\./);
   });
 
   it('keeps TMDb search-result save actions on the Films index route', () => {
