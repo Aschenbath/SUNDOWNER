@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=35';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=36';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -524,6 +524,7 @@ let filmSearchRequestId = 0;
 let filmSearchAbortController = null;
 let filmWarmupStarted = false;
 const filmSearchCache = new Map();
+const filmDetailLoadingTmdbIds = new Set();
 const AUDIO_PLAY_ICON_HTML = '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.6 17.2 12 8 17.4Z" fill="currentColor"></path></svg></span>';
 const AUDIO_PAUSE_ICON_HTML = '<span class="cml-icon "><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.2h2.8v11.6H8Zm5.2 0H16v11.6h-2.8Z" fill="currentColor"></path></svg></span>';
 const ADMIN_ORPHAN_SCAN_LIMIT = 20;
@@ -8517,6 +8518,33 @@ function clearMatchingTransientFilmDetail(tmdbId) {
   }
 }
 
+function createTransientFilmDetailRecord(source = {}, existing = null, { isLoading = false } = {}) {
+  const record = normalizeFilmRecord(source || {}, null, existing);
+  if (existing) {
+    return {
+      ...record,
+      ...existing,
+      ...record,
+      isSavedEntry: true,
+      isSaving: Boolean(isLoading)
+    };
+  }
+  return {
+    ...record,
+    status: '',
+    favorite: false,
+    userRating: null,
+    rating: null,
+    note: '',
+    journal: '',
+    noteMarkdown: '',
+    watchedAt: '',
+    addedAt: '',
+    isSavedEntry: false,
+    isSaving: Boolean(isLoading)
+  };
+}
+
 function toMoviePayload(source = {}, tmdbId = 0) {
   return {
     tmdbId: Number(source.tmdbId || tmdbId),
@@ -8672,6 +8700,17 @@ function getVisibleFilmRecords() {
     return state.films.filter((record) => record.status === 'watchlist' || record.status === 'wantToWatch');
   }
   return state.films;
+}
+
+function getSavedFilmRecordsByTmdbId() {
+  const records = new Map();
+  state.films.forEach((record) => {
+    const tmdbId = Number(record.tmdbId);
+    if (Number.isFinite(tmdbId) && tmdbId > 0) {
+      records.set(tmdbId, record);
+    }
+  });
+  return records;
 }
 
 async function loadMovieEntries({ forceRender = false } = {}) {
@@ -8855,34 +8894,43 @@ async function openTmdbFilmDetail(tmdbId) {
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
     return;
   }
+  if (filmDetailLoadingTmdbIds.has(normalizedId)) {
+    return;
+  }
+  const existing = state.films.find((record) => Number(record.tmdbId) === normalizedId) || null;
+  const source = existing || state.filmSearchResults.find((movie) => Number(movie.tmdbId) === normalizedId) || { tmdbId: normalizedId };
+  state.filmTransientDetailRecord = createTransientFilmDetailRecord(source, existing);
+  state.activeFilmId = state.filmTransientDetailRecord.id;
+  state.filmDetailOpen = true;
+  state.filmError = '';
+  state.filmNotesEditing = false;
+  state.filmNotesDraft = '';
+  state.filmNotesPreview = false;
+  pushNavigationHash({ mode: 'push' });
+  render();
+  filmDetailLoadingTmdbIds.add(normalizedId);
   try {
     const payload = await fetchMovieJson(`/api/manage/movies?action=detail&tmdbId=${encodeURIComponent(String(normalizedId))}`);
-    const existing = state.films.find((record) => Number(record.tmdbId) === normalizedId) || null;
-    const record = normalizeFilmRecord(payload?.movie || { tmdbId: normalizedId }, null, existing);
-    state.filmTransientDetailRecord = existing
-      ? { ...record, isSavedEntry: true, isSaving: false }
-      : {
-        ...record,
-        status: '',
-        favorite: false,
-        userRating: null,
-        rating: null,
-        note: '',
-        journal: '',
-        noteMarkdown: '',
-        watchedAt: '',
-        addedAt: '',
-        isSavedEntry: false,
+    const activeRecord = getActiveFilmRecord();
+    if (!state.filmDetailOpen || Number(activeRecord?.tmdbId) !== normalizedId) {
+      return;
+    }
+    const latestExisting = state.films.find((record) => Number(record.tmdbId) === normalizedId) || null;
+    state.filmTransientDetailRecord = createTransientFilmDetailRecord(payload?.movie || source, latestExisting, { isLoading: false });
+    state.activeFilmId = state.filmTransientDetailRecord.id;
+    state.filmError = '';
+    renderFilmMutationState();
+  } catch (error) {
+    if (state.filmTransientDetailRecord && Number(state.filmTransientDetailRecord.tmdbId) === normalizedId) {
+      state.filmTransientDetailRecord = {
+        ...state.filmTransientDetailRecord,
         isSaving: false
       };
-    state.activeFilmId = state.filmTransientDetailRecord.id;
-    state.filmDetailOpen = true;
-    state.filmError = '';
-    pushNavigationHash({ mode: 'push' });
-    render();
-  } catch (error) {
+    }
     state.filmError = error.message || 'Failed to load movie detail';
-    render();
+    renderFilmMutationState();
+  } finally {
+    filmDetailLoadingTmdbIds.delete(normalizedId);
   }
 }
 
@@ -9242,6 +9290,15 @@ function markFilmRewatch(filmId) {
     watchStatus: 'watched',
     watchedAt: new Date().toISOString().slice(0, 10)
   }, { successMessage: '' });
+}
+
+function removeFilmEntry(filmId) {
+  const film = state.films.find((record) => record.id === filmId);
+  if (!film) {
+    return;
+  }
+  exitFilmNotesEdit();
+  void deleteFilmEntry(film.id || String(film.tmdbId || ''), { silent: true });
 }
 
 function openFilmDetail(filmId) {
@@ -9679,7 +9736,8 @@ function render() {
                       resultKey: state.filmSearchResultKey,
                       error: state.filmError,
                       query: state.filmSearchQuery,
-                      savingTmdbIds: state.filmSavingTmdbIds
+                      savingTmdbIds: state.filmSavingTmdbIds,
+                      savedRecordsByTmdbId: getSavedFilmRecordsByTmdbId()
                     })
                   }))
                 : viewModel.isMusicView
@@ -12446,6 +12504,9 @@ function handleAction(actionTarget) {
     case 'film-edit-notes':
       editFilmNotes(actionTarget.dataset.filmId || state.activeFilmId);
       return true;
+    case 'film-remove-entry':
+      removeFilmEntry(actionTarget.dataset.filmId || state.activeFilmId);
+      return true;
     case 'film-more-actions':
       showToast('More film actions are not available yet', 'info');
       return true;
@@ -12477,14 +12538,19 @@ function handleClick(event) {
       && actionTarget.dataset.action === 'film-edit-notes';
     if (!clickedInsideNotesEditor && !clickedNotesEditAction) {
       const actionName = actionTarget instanceof HTMLElement ? actionTarget.dataset.action || '' : '';
-      const shouldKeepDetailOpenAfterNotesSave = [
-        'film-toggle-favourite',
-        'film-mark-rewatch',
-        'film-more-actions',
-        'clear-film-rating',
-        'save-film-status'
-      ].includes(actionName);
-      commitFilmNotesEdit({ silent: false, keepDetailOpen: shouldKeepDetailOpenAfterNotesSave });
+      if (actionName === 'film-remove-entry') {
+        exitFilmNotesEdit();
+      } else {
+        const shouldKeepDetailOpenAfterNotesSave = [
+          'film-toggle-favourite',
+          'film-mark-rewatch',
+          'film-remove-entry',
+          'film-more-actions',
+          'clear-film-rating',
+          'save-film-status'
+        ].includes(actionName);
+        commitFilmNotesEdit({ silent: false, keepDetailOpen: shouldKeepDetailOpenAfterNotesSave });
+      }
     }
   }
 
@@ -12540,6 +12606,7 @@ function handleClick(event) {
     'film-toggle-favourite',
     'film-edit-notes',
     'film-mark-rewatch',
+    'film-remove-entry',
     'film-more-actions'
   ]);
 

@@ -291,6 +291,29 @@ function getDetailStatusLabel(status = '') {
   return labels[status] || '';
 }
 
+function getSearchStatusLabel(status = '') {
+  const labels = {
+    watchlist: 'Watchlist',
+    wantToWatch: 'Watchlist',
+    watching: 'Watching',
+    watched: 'Watched',
+    paused: 'Paused',
+    dropped: 'Dropped'
+  };
+  return labels[status] || 'In Films';
+}
+
+function getSavedSearchRecord(savedRecordsByTmdbId, tmdbId) {
+  const normalizedId = Number(tmdbId);
+  if (!Number.isFinite(normalizedId) || normalizedId <= 0 || !savedRecordsByTmdbId) {
+    return null;
+  }
+  if (savedRecordsByTmdbId instanceof Map) {
+    return savedRecordsByTmdbId.get(normalizedId) || savedRecordsByTmdbId.get(String(normalizedId)) || null;
+  }
+  return savedRecordsByTmdbId[normalizedId] || savedRecordsByTmdbId[String(normalizedId)] || null;
+}
+
 function getDetailSynopsis(record = {}) {
   const identity = normalizeText(`${record.title || ''} ${record.originalTitle || ''}`).toLowerCase();
   if (identity.includes('silence of the sea') || identity.includes('silence de la mer')) {
@@ -555,6 +578,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const favoriteActionLabel = record.favorite ? '♥ Saved to Favourites' : '♡ Save to Favourites';
   const localActionDisabled = record.isSaving || record.isSavedEntry === false;
   const disabledAttr = localActionDisabled ? 'disabled' : '';
+  const isSavedEntry = record.isSavedEntry !== false;
   return `
     <section class="cml-film-detail-page" data-film-detail-page>
       <div class="cml-film-detail-page__backdrop" aria-hidden="true">
@@ -596,10 +620,15 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
             </section>
             ${renderFilmNotesSection(record, { notesEditing, notesDraft, notesPreview })}
             <div class="cml-film-detail__actions">
-              <button type="button" class="cml-film-detail__action ${record.favorite ? 'is-active' : ''}" data-action="film-toggle-favourite" data-film-id="${escapeHtml(record.id || '')}" ${disabledAttr}>${escapeHtml(favoriteActionLabel)}</button>
-              <button type="button" class="cml-film-detail__action" data-action="film-edit-notes" data-film-id="${escapeHtml(record.id || '')}" ${disabledAttr}>✎ Edit Notes</button>
-              <button type="button" class="cml-film-detail__action" data-action="film-mark-rewatch" data-film-id="${escapeHtml(record.id || '')}" ${disabledAttr}>↻ Mark as Rewatch</button>
-              <button type="button" class="cml-film-detail__action cml-film-detail__action--icon" data-action="film-more-actions" data-film-id="${escapeHtml(record.id || '')}" aria-label="More actions" ${disabledAttr}>...</button>
+              ${isSavedEntry ? `
+                <button type="button" class="cml-film-detail__action ${record.favorite ? 'is-active' : ''}" data-action="film-toggle-favourite" data-film-id="${escapeHtml(record.id || '')}" ${disabledAttr}>${escapeHtml(favoriteActionLabel)}</button>
+                <button type="button" class="cml-film-detail__action" data-action="film-edit-notes" data-film-id="${escapeHtml(record.id || '')}" ${disabledAttr}>✎ Edit Notes</button>
+                <button type="button" class="cml-film-detail__action" data-action="film-mark-rewatch" data-film-id="${escapeHtml(record.id || '')}" ${disabledAttr}>↻ Mark as Rewatch</button>
+                <button type="button" class="cml-film-detail__action cml-film-detail__action--danger" data-action="film-remove-entry" data-film-id="${escapeHtml(record.id || '')}" ${disabledAttr}>Remove from Films</button>
+              ` : `
+                <button type="button" class="cml-film-detail__action" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(record.tmdbId || '')}" ${record.isSaving ? 'disabled' : ''}>Add to Watchlist</button>
+                <button type="button" class="cml-film-detail__action is-active" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(record.tmdbId || '')}" ${record.isSaving ? 'disabled' : ''}>Mark Watched</button>
+              `}
             </div>
           </div>
         </div>
@@ -965,7 +994,7 @@ function LegacyAddableFilmSearchResults({ results = [], loading = false, error =
   `;
 }
 
-export function FilmSearchResults({ results = [], loading = false, settling = false, clearing = false, resultKey = 0, error = '', query = '', savingTmdbIds = new Set() } = {}) {
+export function FilmSearchResults({ results = [], loading = false, settling = false, clearing = false, resultKey = 0, error = '', query = '', savingTmdbIds = new Set(), savedRecordsByTmdbId = new Map() } = {}) {
   const normalizedQuery = normalizeText(query);
   if (!normalizedQuery && !results.length && !error) {
     return '';
@@ -981,22 +1010,31 @@ export function FilmSearchResults({ results = [], loading = false, settling = fa
     ? 'No TMDb results found.'
     : 'No search results yet.';
   const resultCards = results.length ? results.map((movie) => {
-    const isSaving = savingTmdbIds instanceof Set && savingTmdbIds.has(Number(movie.tmdbId));
+    const tmdbId = Number(movie.tmdbId);
+    const isSaving = savingTmdbIds instanceof Set && savingTmdbIds.has(tmdbId);
+    const savedRecord = getSavedSearchRecord(savedRecordsByTmdbId, tmdbId);
+    const savedStatus = savedRecord?.status || '';
+    const normalizedSavedStatus = savedStatus === 'watchlist' ? 'wantToWatch' : savedStatus;
+    const isWantCurrent = normalizedSavedStatus === 'wantToWatch';
+    const isWatchedCurrent = normalizedSavedStatus === 'watched';
     return `
-      <article class="cml-films-result cml-film-search-result ${isSaving ? 'is-saving' : ''}" data-action="open-tmdb-film-detail" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}">
+      <article class="cml-films-result cml-film-search-result ${isSaving ? 'is-saving' : ''} ${savedRecord ? 'is-saved' : ''}" data-action="open-tmdb-film-detail" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}">
         <div class="cml-films-result__poster-wrap">
           ${movie.posterPath
             ? `<img class="cml-films-result__poster" src="${escapeHtml(buildTmdbImageUrl(movie.posterPath, 'w342'))}" alt="${escapeHtml(movie.title || 'Movie poster')}" loading="lazy" decoding="async" />`
             : renderPosterFallback(movie.title)}
         </div>
         <div class="cml-films-result__body">
-          <p class="cml-films-result__source">TMDb result</p>
+          <div class="cml-films-result__source-row">
+            <p class="cml-films-result__source">TMDb result</p>
+            ${savedRecord ? `<span class="cml-films-result__saved-state">In Films · ${escapeHtml(getSearchStatusLabel(savedStatus))}</span>` : ''}
+          </div>
           <h3 class="cml-films-result__title">${escapeHtml(movie.title || 'Untitled film')}</h3>
           <p class="cml-films-result__meta">${escapeHtml([movie.releaseDate ? String(movie.releaseDate).slice(0, 4) : '', movie.voteAverage ? `TMDb ${Number(movie.voteAverage).toFixed(1)}` : ''].filter(Boolean).join(' · '))}</p>
           ${movie.overview ? `<p class="cml-films-result__overview">${escapeHtml(movie.overview)}</p>` : ''}
           <div class="cml-films-result__actions">
-            <button type="button" class="cml-films-result__button" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}" ${isSaving ? 'disabled' : ''}>${isSaving ? 'Saving...' : '想看'}</button>
-            <button type="button" class="cml-films-result__button cml-films-result__button--primary" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}" ${isSaving ? 'disabled' : ''}>${isSaving ? 'Saving...' : '看过'}</button>
+            <button type="button" class="cml-films-result__button ${isWantCurrent ? 'is-current' : ''}" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}" ${(isSaving || isWantCurrent) ? 'disabled' : ''}>${isSaving ? 'Saving...' : isWantCurrent ? '已想看' : '想看'}</button>
+            <button type="button" class="cml-films-result__button cml-films-result__button--primary ${isWatchedCurrent ? 'is-current' : ''}" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}" ${(isSaving || isWatchedCurrent) ? 'disabled' : ''}>${isSaving ? 'Saving...' : isWatchedCurrent ? '已看过' : '看过'}</button>
           </div>
         </div>
       </article>

@@ -10915,6 +10915,10 @@ body.codex-media-library-active #app {
   opacity: 0.78;
 }
 
+#codex-media-library-root .cml-films-result.is-saved {
+  border-color: rgba(201, 169, 106, 0.18);
+}
+
 #codex-media-library-root .cml-films-result__poster-wrap {
   position: relative;
   overflow: hidden;
@@ -10954,6 +10958,13 @@ body.codex-media-library-active #app {
   min-width: 0;
 }
 
+#codex-media-library-root .cml-films-result__source-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 #codex-media-library-root .cml-films-result__source {
   margin: 0;
   color: var(--cml-theme-text-muted);
@@ -10961,6 +10972,17 @@ body.codex-media-library-active #app {
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+#codex-media-library-root .cml-films-result__saved-state {
+  padding: 3px 8px;
+  border: 1px solid rgba(201, 169, 106, 0.2);
+  border-radius: 999px;
+  background: rgba(201, 169, 106, 0.09);
+  color: rgba(241, 238, 230, 0.72);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.03em;
 }
 
 #codex-media-library-root .cml-films-result__title {
@@ -11012,6 +11034,11 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-ticket__rating-slider:disabled {
   cursor: wait;
   opacity: 0.56;
+}
+
+#codex-media-library-root .cml-films-result__button.is-current:disabled {
+  cursor: default;
+  opacity: 0.84;
 }
 
 #codex-media-library-root .cml-films-result__button--primary {
@@ -12155,6 +12182,18 @@ body.codex-media-library-active #app {
   border-color: rgba(201, 169, 106, 0.28);
   background: rgba(201, 169, 106, 0.12);
   color: #f1eee6;
+}
+
+#codex-media-library-root .cml-film-detail__action--danger {
+  margin-left: auto;
+  border-color: rgba(242, 168, 156, 0.18);
+  color: rgba(242, 168, 156, 0.78);
+}
+
+#codex-media-library-root .cml-film-detail__action--danger:hover {
+  border-color: rgba(242, 168, 156, 0.34);
+  background: rgba(242, 168, 156, 0.08);
+  color: rgba(255, 220, 214, 0.94);
 }
 
 #codex-media-library-root .cml-film-detail__action:disabled {

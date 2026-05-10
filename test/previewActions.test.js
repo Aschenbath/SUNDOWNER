@@ -47,6 +47,29 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="save-film-status" data-watch-status="watched"/);
   });
 
+  it('marks TMDb search results that already exist in Films', () => {
+    const html = FilmSearchResults({
+      query: 'Inception',
+      savedRecordsByTmdbId: new Map([[27205, {
+        id: 'tmdb-27205',
+        tmdbId: 27205,
+        status: 'watched',
+      }]]),
+      results: [{
+        tmdbId: 27205,
+        title: 'Inception',
+        posterPath: '/poster.jpg',
+        releaseDate: '2010-07-16',
+        voteAverage: 8.4,
+      }],
+    });
+
+    assert.match(html, /cml-film-search-result[^"]*is-saved/);
+    assert.match(html, /In Films · Watched/);
+    assert.match(html, /is-current"[^>]*data-watch-status="watched"[^>]*disabled/);
+    assert.match(html, />已看过<\/button>/);
+  });
+
   it('wires Films TMDb search as live debounced input with stale-response guards', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const emptyHtml = FilmSearchResults({ query: 'No Match', results: [] });
@@ -91,9 +114,11 @@ describe('media library download actions', () => {
     assert.match(appSource, /const existingIndex = state\.films\.findIndex/);
     assert.match(appSource, /Number\.isFinite\(normalizedTmdbId\) && normalizedTmdbId > 0 && itemTmdbId === normalizedTmdbId/);
     assert.match(appSource, /filmTransientDetailRecord: null/);
+    assert.match(appSource, /const filmDetailLoadingTmdbIds = new Set\(\)/);
+    assert.match(appSource, /function createTransientFilmDetailRecord\(source = \{\}, existing = null/);
     assert.match(appSource, /function clearTransientFilmDetail\(\)/);
     assert.match(appSource, /function clearMatchingTransientFilmDetail\(tmdbId\)/);
-    assert.match(appSource, /state\.filmTransientDetailRecord = existing/);
+    assert.match(appSource, /state\.filmTransientDetailRecord = createTransientFilmDetailRecord\(source, existing/);
     assert.match(appSource, /isSavedEntry: false/);
     assert.match(appSource, /Number\(state\.filmTransientDetailRecord\?\.tmdbId\) === normalizedId/);
     assert.match(appSource, /journal: preserveLocal/);
@@ -110,6 +135,10 @@ describe('media library download actions', () => {
       appSource.indexOf('async function saveFilmStatus')
     );
     assert.doesNotMatch(detailFunction, /upsertFilmRecord\(record/);
+    assert.match(detailFunction, /filmDetailLoadingTmdbIds\.has\(normalizedId\)/);
+    assert.match(detailFunction, /state\.filmTransientDetailRecord = createTransientFilmDetailRecord\(source, existing/);
+    assert.match(detailFunction, /pushNavigationHash\(\{ mode: 'push' \}\);\s+render\(\);\s+filmDetailLoadingTmdbIds\.add\(normalizedId\);/);
+    assert.match(detailFunction, /if \(!state\.filmDetailOpen \|\| Number\(activeRecord\?\.tmdbId\) !== normalizedId\)/);
     assert.match(appSource, /function deleteFilmEntry\(filmIdOrTmdbId/);
     assert.match(appSource, /function removeKnownAccidentalFilmEntries\(\)/);
   });
@@ -154,9 +183,30 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="film-toggle-favourite"/);
     assert.match(html, /data-action="film-edit-notes"/);
     assert.match(html, /data-action="film-mark-rewatch"/);
-    assert.match(html, /data-action="film-more-actions"/);
+    assert.match(html, /data-action="film-remove-entry"/);
+    assert.doesNotMatch(html, /data-action="film-more-actions"/);
     assert.doesNotMatch(html, /cml-film-modal/);
     assert.doesNotMatch(html, /role="dialog"/);
+  });
+
+  it('renders unsaved TMDb detail previews with explicit add actions only', () => {
+    const html = FilmDetailPage({
+      record: {
+        id: 'tmdb-27205',
+        tmdbId: 27205,
+        title: 'Inception',
+        isSavedEntry: false,
+        posterPath: '/poster.jpg',
+      },
+    });
+
+    assert.match(html, /data-action="save-film-status" data-watch-status="wantToWatch"/);
+    assert.match(html, /data-action="save-film-status" data-watch-status="watched"/);
+    assert.match(html, /Add to Watchlist/);
+    assert.match(html, /Mark Watched/);
+    assert.doesNotMatch(html, /data-action="film-toggle-favourite"/);
+    assert.doesNotMatch(html, /data-action="film-edit-notes"/);
+    assert.doesNotMatch(html, /data-action="film-remove-entry"/);
   });
 
   it('renders film detail notes as safe inline Markdown and exposes the editor state', () => {
@@ -200,6 +250,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /function commitFilmNotesEdit/);
     assert.match(appSource, /case 'film-toggle-favourite':/);
     assert.match(appSource, /case 'film-edit-notes':/);
+    assert.match(appSource, /case 'film-remove-entry':/);
+    assert.match(appSource, /function removeFilmEntry\(filmId\)/);
     assert.match(appSource, /querySelector\('\.cml-film-notes-editor'\)/);
     assert.match(appSource, /keepDetailOpen: shouldKeepDetailOpenAfterNotesSave/);
     assert.match(appSource, /case 'film-mark-rewatch':/);
