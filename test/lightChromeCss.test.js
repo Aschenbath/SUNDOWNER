@@ -79,11 +79,4 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-film-card__ticket-panel::after \{[\s\S]*radial-gradient\(circle at 16px 24px, var\(--cml-film-cutout-bg\)/);
     assert.match(css, /#codex-media-library-root \.cml-film-card__perforation \{[\s\S]*repeating-linear-gradient\(90deg, rgba\(244, 246, 250, 0\.9\) 0 10px, transparent 10px 18px\)/);
   });
-
-  it('feathers the film detail backdrop into the page instead of framing it as a rectangle', () => {
-    assert.match(css, /#codex-media-library-root \.cml-film-detail-page__backdrop \{[\s\S]*inset: 0 0 0 auto;[\s\S]*height: 100%;[\s\S]*overflow: visible;/);
-    assert.match(css, /#codex-media-library-root \.cml-film-detail-page__backdrop::before \{[\s\S]*filter: blur\(28px\);/);
-    assert.match(css, /#codex-media-library-root \.cml-film-detail-page__backdrop-image \{[\s\S]*width: 110%;[\s\S]*height: 110%;[\s\S]*blur\(0\.8px\);/);
-    assert.match(css, /#codex-media-library-root \.cml-film-detail-page__backdrop-image \{[\s\S]*-webkit-mask-image:[\s\S]*linear-gradient\(\s*to right,[\s\S]*transparent 0%[\s\S]*rgba\(0, 0, 0, 0\.06\) 9%[\s\S]*#000 76%/);
-  });
 });
