@@ -363,9 +363,11 @@ function renderDetailStatusControls(record = {}) {
 
 function renderDetailRatingControl(record = {}, userRating = '') {
   const value = userRating || '4.0';
-  const fill = `${((Number(value) || 4) / 5) * 100}%`;
+  const rating = normalizeUserRatingValue(value) || 4;
+  const sliderProgress = Math.min(1, Math.max(0, (rating - 0.5) / 4.5));
+  const fill = `${(rating / 5) * 100}%`;
   return `
-    <div class="cml-film-detail__rating-control" style="--film-detail-rating-fill: ${escapeHtml(fill)};">
+    <div class="cml-film-detail__rating-control" style="--film-detail-rating-fill: ${escapeHtml(fill)}; --film-detail-rating-progress: ${escapeHtml(sliderProgress.toFixed(3))};">
       <input
         type="range"
         class="cml-film-detail__rating-slider"

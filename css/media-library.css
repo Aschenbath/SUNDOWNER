@@ -11614,10 +11614,15 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-detail__stars {
   position: relative;
   display: inline-block;
-  color: rgba(241, 238, 230, 0.22);
+  color: rgba(241, 238, 230, 0.26);
   font-size: 24px;
   letter-spacing: 0.08em;
   text-shadow: 0 8px 24px rgba(215, 173, 84, 0.16);
+}
+
+#codex-media-library-root .cml-film-detail__stars-base,
+#codex-media-library-root .cml-film-detail__stars-fill {
+  display: block;
 }
 
 #codex-media-library-root .cml-film-detail__stars-fill {
@@ -11625,8 +11630,9 @@ body.codex-media-library-active #app {
   inset: 0 auto 0 0;
   overflow: hidden;
   width: var(--film-star-fill, 0%);
-  color: #d7ad54;
+  color: #d7ad54 !important;
   white-space: nowrap;
+  text-shadow: 0 0 18px rgba(215, 173, 84, 0.34), 0 8px 24px rgba(0, 0, 0, 0.22);
 }
 
 #codex-media-library-root .cml-film-detail__rating-control {
@@ -11638,18 +11644,44 @@ body.codex-media-library-active #app {
   max-width: 480px;
 }
 
+#codex-media-library-root .cml-film-detail__rating-control::before,
+#codex-media-library-root .cml-film-detail__rating-control::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: min(320px, calc(100% - 76px));
+  height: 6px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+#codex-media-library-root .cml-film-detail__rating-control::before {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+#codex-media-library-root .cml-film-detail__rating-control::after {
+  transform: scaleX(var(--film-detail-rating-progress, 0.8));
+  transform-origin: left center;
+  background: #d7ad54;
+  box-shadow: 0 0 14px rgba(215, 173, 84, 0.2);
+}
+
 #codex-media-library-root .cml-film-detail__rating-slider {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 28px;
-  accent-color: #d7ad54;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
   cursor: pointer;
 }
 
 #codex-media-library-root .cml-film-detail__rating-slider::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 999px;
-  background:
-    linear-gradient(90deg, #d7ad54 0 var(--film-detail-rating-fill, 80%), rgba(255, 255, 255, 0.12) var(--film-detail-rating-fill, 80%) 100%);
+  background: transparent;
 }
 
 #codex-media-library-root .cml-film-detail__rating-slider::-webkit-slider-thumb {
@@ -11666,13 +11698,13 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-detail__rating-slider::-moz-range-track {
   height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: transparent;
 }
 
 #codex-media-library-root .cml-film-detail__rating-slider::-moz-range-progress {
   height: 6px;
   border-radius: 999px;
-  background: #d7ad54;
+  background: transparent;
 }
 
 #codex-media-library-root .cml-film-detail__rating-slider::-moz-range-thumb {

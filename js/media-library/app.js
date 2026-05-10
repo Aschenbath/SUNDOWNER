@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=27';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=28';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -8803,6 +8803,9 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
   if (!(nextPage instanceof HTMLElement)) {
     return false;
   }
+  if (!currentPage.isConnected || currentPage !== refs.root.querySelector('[data-film-detail-page]')) {
+    return false;
+  }
   currentPage.replaceWith(nextPage);
   return true;
 }
@@ -12550,6 +12553,7 @@ function handleInput(event) {
     if (section instanceof HTMLElement) {
       section.style.setProperty('--film-rating-fill', `${(normalizedRating / 5) * 100}%`);
       section.style.setProperty('--film-detail-rating-fill', `${(normalizedRating / 5) * 100}%`);
+      section.style.setProperty('--film-detail-rating-progress', String((normalizedRating - 0.5) / 4.5));
     }
     if (output instanceof HTMLElement) {
       output.textContent = section instanceof HTMLElement && section.classList.contains('cml-film-detail__rating')
