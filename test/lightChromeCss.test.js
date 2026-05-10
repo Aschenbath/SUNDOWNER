@@ -79,4 +79,11 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-film-card__ticket-panel::after \{[\s\S]*radial-gradient\(circle at 16px 24px, var\(--cml-film-cutout-bg\)/);
     assert.match(css, /#codex-media-library-root \.cml-film-card__perforation \{[\s\S]*repeating-linear-gradient\(90deg, rgba\(244, 246, 250, 0\.9\) 0 10px, transparent 10px 18px\)/);
   });
+
+  it('keeps film detail backdrop controlled in the upper-right with a dissolved lower-left edge', () => {
+    assert.match(css, /#codex-media-library-root \.cml-film-detail-page__backdrop \{[\s\S]*width: 54%;[\s\S]*height: 56%;/);
+    assert.match(css, /#codex-media-library-root \.cml-film-detail-page__backdrop::after \{[\s\S]*radial-gradient\([\s\S]*circle at 14% 82%/);
+    assert.match(css, /#codex-media-library-root \.cml-film-detail-page__backdrop::after \{[\s\S]*filter: blur\(18px\);/);
+    assert.match(css, /#codex-media-library-root \.cml-film-detail-page__content \{[\s\S]*z-index: 5;/);
+  });
 });
