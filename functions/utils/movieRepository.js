@@ -6,6 +6,7 @@ const USER_MOVIE_ENTRIES_KEY = 'manage@sysConfig@userMovieEntries';
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const WATCH_STATUSES = new Set(['wantToWatch', 'watching', 'watched', 'paused', 'dropped']);
+export const MOVIE_SOURCES = new Set(['tmdb', 'manual']);
 
 function normalizeText(value, maxLength = 0) {
   const normalized = String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -78,6 +79,21 @@ function nowIso() {
 
 function cacheKey(tmdbId) {
   return `${MOVIE_CACHE_KEY_PREFIX}${Number(tmdbId)}`;
+}
+
+function createManualEntryId(timestamp = nowIso()) {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return `manual-${globalThis.crypto.randomUUID()}`;
+  }
+  return `manual-${String(timestamp).replace(/[^0-9a-z]/gi, '').slice(0, 24)}`;
+}
+
+function normalizeMovieSource(value = '', tmdbId = 0) {
+  const normalized = normalizeText(value).toLowerCase();
+  if (MOVIE_SOURCES.has(normalized)) {
+    return normalized;
+  }
+  return tmdbId ? 'tmdb' : 'manual';
 }
 
 function parseJson(rawValue, fallback) {
@@ -191,7 +207,8 @@ export function normalizeMovieCache(input = {}, timestamp = nowIso()) {
 
 export function normalizeUserMovieEntry(input = {}, existing = null, timestamp = nowIso()) {
   const tmdbId = normalizeNumber(input.tmdbId ?? existing?.tmdbId, 0);
-  if (!tmdbId) {
+  const source = normalizeMovieSource(input.source ?? existing?.source, tmdbId);
+  if (source === 'tmdb' && !tmdbId) {
     throw new Error('tmdbId is required');
   }
   const watchStatus = normalizeText(hasOwn(input, 'watchStatus') ? input.watchStatus : existing?.watchStatus || 'wantToWatch');
@@ -213,23 +230,32 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
   } else if (watchStatus === 'watched' && watchedAt && watchEvents.length === 0) {
     watchEvents = ensureWatchEvent(watchEvents, watchedAt, timestamp);
   }
+  const id = normalizeText(
+    existing?.id
+      || input.id
+      || (tmdbId ? `tmdb-${tmdbId}` : createManualEntryId(timestamp)),
+    120
+  );
   return {
-    id: normalizeText(existing?.id || input.id || `tmdb-${tmdbId}`, 120),
-    tmdbId,
+    id,
+    source,
+    tmdbId: tmdbId || null,
     watchStatus,
     userRating: rating,
     note: normalizeText(input.note ?? existing?.note, 4000),
     journal: normalizeMultilineText(input.journal ?? input.noteMarkdown ?? existing?.journal ?? existing?.noteMarkdown, 12000),
     noteMarkdown: normalizeMultilineText(input.noteMarkdown ?? input.journal ?? existing?.noteMarkdown ?? existing?.journal, 12000),
-    titleOverride: normalizeText(input.titleOverride ?? existing?.titleOverride, 240),
-    originalTitleOverride: normalizeText(input.originalTitleOverride ?? existing?.originalTitleOverride, 240),
-    directorOverride: normalizeText(input.directorOverride ?? existing?.directorOverride, 240),
-    releaseDateOverride: normalizeText(input.releaseDateOverride ?? existing?.releaseDateOverride, 40),
+    titleOverride: normalizeText(input.titleOverride ?? input.title ?? existing?.titleOverride, 240),
+    originalTitleOverride: normalizeText(input.originalTitleOverride ?? input.originalTitle ?? existing?.originalTitleOverride, 240),
+    directorOverride: normalizeText(input.directorOverride ?? input.director ?? existing?.directorOverride, 240),
+    releaseDateOverride: normalizeText(input.releaseDateOverride ?? input.releaseDate ?? existing?.releaseDateOverride, 40),
     runtimeOverride: hasOwn(input, 'runtimeOverride')
       ? normalizeRuntimeOverride(input.runtimeOverride)
+      : hasOwn(input, 'runtime')
+      ? normalizeRuntimeOverride(input.runtime)
       : normalizeRuntimeOverride(existing?.runtimeOverride),
-    genresOverride: normalizeStringArray(input.genresOverride ?? existing?.genresOverride, 60),
-    overviewOverride: normalizeText(input.overviewOverride ?? existing?.overviewOverride, 4000),
+    genresOverride: normalizeStringArray(input.genresOverride ?? input.genres ?? existing?.genresOverride, 60),
+    overviewOverride: normalizeText(input.overviewOverride ?? input.overview ?? existing?.overviewOverride, 4000),
     posterUrlOverride: normalizeImageUrlOverride(input.posterUrlOverride ?? existing?.posterUrlOverride),
     backdropUrlOverride: normalizeImageUrlOverride(input.backdropUrlOverride ?? existing?.backdropUrlOverride),
     tags: normalizeStringArray(input.tags ?? existing?.tags, 40),
@@ -248,8 +274,35 @@ function isCacheFresh(movieCache, timestamp = Date.now()) {
   if (!Array.isArray(movieCache?.backdropPaths)) {
     return false;
   }
+  if (!Array.isArray(movieCache?.posterPaths)) {
+    return false;
+  }
   const updatedTime = new Date(movieCache?.updatedAt || '').getTime();
   return Number.isFinite(updatedTime) && timestamp - updatedTime <= CACHE_TTL_MS;
+}
+
+function buildManualMovieFromEntry(entry = {}, timestamp = nowIso()) {
+  return {
+    source: 'manual',
+    id: normalizeText(entry.id, 120),
+    tmdbId: null,
+    title: normalizeText(entry.titleOverride, 240) || 'Untitled film',
+    originalTitle: normalizeText(entry.originalTitleOverride || entry.titleOverride, 240),
+    director: normalizeText(entry.directorOverride, 240),
+    overview: normalizeText(entry.overviewOverride, 4000),
+    posterPath: '',
+    posterPaths: [],
+    backdropPath: '',
+    backdropPaths: [],
+    posterUrl: normalizeImageUrlOverride(entry.posterUrlOverride),
+    backdropUrl: normalizeImageUrlOverride(entry.backdropUrlOverride),
+    releaseDate: normalizeText(entry.releaseDateOverride, 40),
+    runtime: normalizeRuntimeOverride(entry.runtimeOverride),
+    genres: normalizeStringArray(entry.genresOverride, 60),
+    voteAverage: null,
+    voteCount: null,
+    updatedAt: normalizeText(entry.updatedAt || timestamp, 40),
+  };
 }
 
 async function getRawMovieCache(db, tmdbId) {
@@ -276,6 +329,10 @@ async function putUserEntries(db, entries) {
 async function hydrateEntries(db, entries, detailLoader = null) {
   const hydrated = [];
   for (const entry of entries) {
+    if (entry?.source === 'manual' || !entry?.tmdbId) {
+      hydrated.push({ entry, movie: buildManualMovieFromEntry(entry) });
+      continue;
+    }
     let movie = await getRawMovieCache(db, entry.tmdbId);
     const needsDetailRefresh = movie
       && typeof detailLoader === 'function'
@@ -326,12 +383,15 @@ export class MovieRepository {
     const db = this.getDb();
     const timestamp = nowIso();
     const tmdbId = normalizeNumber(input.tmdbId, 0);
-    if (!tmdbId) {
+    const source = normalizeMovieSource(input.source, tmdbId);
+    if (source === 'tmdb' && !tmdbId) {
       throw new Error('tmdbId is required');
     }
 
     let movie = null;
-    if (input.movie) {
+    if (source === 'manual') {
+      movie = null;
+    } else if (input.movie) {
       const existingMovie = await getRawMovieCache(db, tmdbId);
       movie = await putMovieCache(db, {
         ...(existingMovie || {}),
@@ -346,8 +406,15 @@ export class MovieRepository {
     }
 
     const entries = await getRawUserEntries(db);
-    const index = entries.findIndex((entry) => Number(entry.tmdbId) === tmdbId);
-    const nextEntry = normalizeUserMovieEntry(input, index >= 0 ? entries[index] : null, timestamp);
+    const inputId = normalizeText(input.id);
+    const index = entries.findIndex((entry) =>
+      (tmdbId && Number(entry.tmdbId) === tmdbId)
+      || (inputId && normalizeText(entry.id) === inputId)
+    );
+    const nextEntry = normalizeUserMovieEntry({ ...input, source }, index >= 0 ? entries[index] : null, timestamp);
+    if (source === 'manual') {
+      movie = buildManualMovieFromEntry(nextEntry, timestamp);
+    }
     const nextEntries = entries.slice();
     if (index >= 0) {
       nextEntries[index] = nextEntry;

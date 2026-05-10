@@ -321,6 +321,7 @@ function renderDetailStatusControls(record = {}) {
           data-action="save-film-status"
           data-watch-status="${escapeHtml(value)}"
           data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+          data-film-id="${escapeHtml(record.id || '')}"
           aria-pressed="${value === active ? 'true' : 'false'}"
           ${record.isSaving ? 'disabled' : ''}
         >${escapeHtml(label)}</button>
@@ -341,6 +342,7 @@ function renderDetailRatingControl(record = {}, userRating = '') {
         class="cml-film-detail__rating-slider"
         data-film-rating-input
         data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+        data-film-id="${escapeHtml(record.id || '')}"
         min="0.5"
         max="5"
         step="0.1"
@@ -353,6 +355,7 @@ function renderDetailRatingControl(record = {}, userRating = '') {
         class="cml-film-detail__rating-clear"
         data-action="clear-film-rating"
         data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+        data-film-id="${escapeHtml(record.id || '')}"
         ${(!userRating || record.isSaving) ? 'disabled' : ''}
       >Clear</button>
     </div>
@@ -377,6 +380,7 @@ function renderDetailWatchedDateColumn(record = {}, watchedDate = '', { editable
           class="cml-film-detail__date-input"
           data-film-watched-at-input
           data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+          data-film-id="${escapeHtml(record.id || '')}"
           data-last-saved-value="${escapeHtml(value)}"
           value="${escapeHtml(value)}"
           ${record.isSaving ? 'disabled' : ''}
@@ -587,10 +591,10 @@ function renderFilmMoreActions(record = {}, { open = false, metadataEditing = fa
       <button type="button" class="cml-film-detail__action cml-film-detail__more-trigger ${open ? 'is-active' : ''}" data-action="film-toggle-more-actions" data-film-id="${filmId}" aria-expanded="${open ? 'true' : 'false'}" ${disabledAttr}>More</button>
       ${open ? `
         <div class="cml-film-detail__more-panel" data-film-more-panel>
-          <button type="button" class="cml-film-detail__more-item ${metadataEditing ? 'is-active' : ''}" data-action="film-edit-metadata" data-film-id="${filmId}" ${disabledAttr}>Edit metadata</button>
+          <button type="button" class="cml-film-detail__more-item ${metadataEditing ? 'is-active' : ''}" data-action="film-edit-metadata" data-film-id="${filmId}" ${disabledAttr}>Edit Details</button>
           <button type="button" class="cml-film-detail__more-item" data-action="film-change-poster" data-film-id="${filmId}" ${disabledAttr}>Change poster</button>
           <button type="button" class="cml-film-detail__more-item" data-action="film-change-backdrop" data-film-id="${filmId}" ${disabledAttr}>Change backdrop</button>
-          <button type="button" class="cml-film-detail__more-item" data-action="film-refresh-tmdb" data-film-id="${filmId}" ${disabledAttr}>Refresh from TMDb</button>
+          ${tmdbId ? `<button type="button" class="cml-film-detail__more-item" data-action="film-refresh-tmdb" data-film-id="${filmId}" ${disabledAttr}>Refresh from TMDb</button>` : ''}
           ${tmdbId ? `<button type="button" class="cml-film-detail__more-item" data-action="film-open-tmdb" data-tmdb-id="${tmdbId}" ${disabledAttr}>Open TMDb</button>` : ''}
           <button type="button" class="cml-film-detail__more-item cml-film-detail__more-item--danger" data-action="film-remove-entry" data-film-id="${filmId}" ${disabledAttr}>Remove from Films</button>
         </div>
@@ -770,9 +774,9 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
             <div class="cml-film-detail__actions">
               ${isSavedEntry ? `
                 <button type="button" class="cml-film-detail__action ${displayRecord.favorite ? 'is-active' : ''}" data-action="film-toggle-favourite" data-film-id="${escapeHtml(displayRecord.id || '')}" ${disabledAttr}>${escapeHtml(favoriteActionLabel)}</button>
-                ${renderFilmMoreActions(displayRecord, { open: moreActionsOpen, metadataEditing, disabledAttr })}
                 <button type="button" class="cml-film-detail__action" data-action="film-edit-notes" data-film-id="${escapeHtml(displayRecord.id || '')}" ${disabledAttr}>✎ Edit Notes</button>
                 <button type="button" class="cml-film-detail__action" data-action="film-mark-rewatch" data-film-id="${escapeHtml(displayRecord.id || '')}" ${disabledAttr}>↻ Mark as Rewatch</button>
+                ${renderFilmMoreActions(displayRecord, { open: moreActionsOpen, metadataEditing, disabledAttr })}
               ` : `
                 <button type="button" class="cml-film-detail__action" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(displayRecord.tmdbId || '')}" ${displayRecord.isSaving ? 'disabled' : ''}>Add to Watchlist</button>
                 <button type="button" class="cml-film-detail__action is-active" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(displayRecord.tmdbId || '')}" ${displayRecord.isSaving ? 'disabled' : ''}>Mark Watched</button>
@@ -897,6 +901,7 @@ export function FilmsPage({ records = [], totalCount = records.length, activeFil
             ${hasSearchQuery ? '<span class="cml-films-search__live">Live</span>' : ''}
           </label>
           <button type="submit" class="cml-films-page__add-button">Search</button>
+          <button type="button" class="cml-films-page__manual-button" data-action="add-manual-film">Add manually</button>
         </form>
       </header>
       ${searchPanelHtml}

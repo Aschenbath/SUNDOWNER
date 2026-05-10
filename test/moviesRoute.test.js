@@ -250,4 +250,41 @@ describe('manage movies route', () => {
     assert.deepEqual(payload.entry.watchEvents.map((event) => event.watchedAt), ['2026-05-10', '2026-05-01']);
     assert.equal(payload.movie.watchEvents, undefined);
   });
+
+  it('persists manual films without requiring TMDb credentials or cache', async () => {
+    const env = { img_url: new MemoryKV() };
+    const response = await onRequest({
+      request: new Request('https://example.com/api/manage/movies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'manual',
+          watchStatus: 'wantToWatch',
+          titleOverride: 'Manual Movie',
+          directorOverride: 'Local Director',
+          releaseDateOverride: '2026-05-10',
+          genresOverride: ['Diary'],
+          posterUrlOverride: 'https://example.com/poster.jpg',
+        }),
+      }),
+      env,
+    });
+
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(payload.entry.source, 'manual');
+    assert.equal(payload.entry.tmdbId, null);
+    assert.equal(payload.entry.titleOverride, 'Manual Movie');
+    assert.equal(payload.movie.title, 'Manual Movie');
+    assert.equal(payload.movie.posterUrl, 'https://example.com/poster.jpg');
+
+    const listResponse = await onRequest({
+      request: new Request('https://example.com/api/manage/movies?action=entries'),
+      env,
+    });
+    const listPayload = await listResponse.json();
+    assert.equal(listPayload.entries.length, 1);
+    assert.equal(listPayload.entries[0].entry.source, 'manual');
+    assert.equal(listPayload.entries[0].movie.title, 'Manual Movie');
+  });
 });

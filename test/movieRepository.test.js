@@ -194,6 +194,60 @@ describe('MovieRepository', () => {
     assert.equal(list[0].movie.title, 'TMDb Title');
   });
 
+  it('supports true manual films without a TMDb id or MovieCache entry', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          throw new Error('manual films should not load TMDb detail');
+        },
+      },
+    });
+
+    const result = await repository.saveOrUpdateUserEntry({
+      source: 'manual',
+      watchStatus: 'watched',
+      titleOverride: 'Local Film',
+      originalTitleOverride: '私人电影',
+      directorOverride: 'Gilbert',
+      releaseDateOverride: '2026-05-10',
+      runtimeOverride: 88,
+      genresOverride: ['Diary', 'Private'],
+      overviewOverride: 'A private archive entry.',
+      posterUrlOverride: 'https://example.com/manual-poster.jpg',
+      watchedAt: '2026-05-10',
+    });
+
+    assert.equal(result.entry.source, 'manual');
+    assert.equal(result.entry.tmdbId, null);
+    assert.match(result.entry.id, /^manual-/);
+    assert.equal(result.movie.source, 'manual');
+    assert.equal(result.movie.title, 'Local Film');
+    assert.equal(result.movie.director, 'Gilbert');
+    assert.equal(result.movie.posterUrl, 'https://example.com/manual-poster.jpg');
+    assert.equal(await db.get('manage@sysConfig@movieCache@0'), null);
+
+    const list = await repository.listUserEntries();
+    assert.equal(list.length, 1);
+    assert.equal(list[0].entry.source, 'manual');
+    assert.equal(list[0].movie.title, 'Local Film');
+
+    const patched = await repository.saveOrUpdateUserEntry({
+      source: 'manual',
+      id: result.entry.id,
+      userRating: 4.8,
+      journal: 'Manual note',
+    });
+    assert.equal(patched.entry.userRating, 4.8);
+    assert.equal(patched.entry.journal, 'Manual note');
+    assert.equal(patched.entry.titleOverride, 'Local Film');
+
+    const deleted = await repository.deleteUserEntry(result.entry.id);
+    assert.deepEqual(deleted, { deleted: true });
+    assert.deepEqual(await repository.listUserEntries(), []);
+  });
+
   it('normalizes poster and backdrop path choices on MovieCache only', async () => {
     const db = new MemoryDB();
     const repository = new MovieRepository({}, {
