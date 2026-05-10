@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=44';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=45';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -456,6 +456,8 @@ const state = {
   filmSearchTotalPages: 0,
   filmSearchTotalResults: 0,
   filmSearchComposing: false,
+  filmSearchLoadingMore: false,
+  filmSearchAppendStartIndex: 0,
   filmLibraryQuery: '',
   filmLibrarySearchComposing: false,
   filmActiveFilter: FILM_FILTERS[0],
@@ -472,7 +474,9 @@ const state = {
   filmImagePickerMode: '',
   filmImagePickerDraft: '',
   filmRemovedUndoRecord: null,
-  filmBackdropIndexByFilmId: {}
+  filmBackdropIndexByFilmId: {},
+  filmManualDraft: null,
+  filmSaveStatus: null
 };
 
 let dimensionPatchTimer = 0;
@@ -552,6 +556,7 @@ let filmSearchAbortController = null;
 let filmWarmupStarted = false;
 let filmBackdropRotationTimer = 0;
 let filmRemoveUndoTimer = 0;
+let filmSaveStatusTimer = 0;
 const filmSearchCache = new Map();
 const filmDetailLoadingTmdbIds = new Set();
 const filmManualCreateRequests = new Map();
@@ -8455,6 +8460,9 @@ function getActiveFilmRecord() {
   if (!state.activeFilmId) {
     return null;
   }
+  if (state.filmManualDraft?.id === state.activeFilmId) {
+    return state.filmManualDraft;
+  }
   if (state.filmTransientDetailRecord?.id === state.activeFilmId) {
     return state.filmTransientDetailRecord;
   }
@@ -8469,6 +8477,11 @@ function findFilmRecordByTarget(target = '') {
   return state.films.find((record) => record.id === normalized || String(record.tmdbId || '') === normalized)
     || (state.filmTransientDetailRecord?.id === normalized ? state.filmTransientDetailRecord : null)
     || null;
+}
+
+function getFilmDraftRecordById(id = '') {
+  const normalized = normalizeText(id);
+  return normalized && state.filmManualDraft?.id === normalized ? state.filmManualDraft : null;
 }
 
 function clearTransientFilmDetail() {
@@ -9108,11 +9121,46 @@ function createOptimisticManualFilmRecord(film = {}, patch = {}) {
   };
 }
 
+function createManualDraftFilmRecord({ id = `manual-draft-${Date.now()}`, createdAt = new Date().toISOString() } = {}) {
+  return {
+    ...normalizeMovieRecord({
+      source: 'manual',
+      id,
+      title: '',
+      originalTitle: '',
+      director: '',
+      overview: '',
+      releaseDate: '',
+      runtime: null,
+      genres: [],
+      posterUrl: '',
+      backdropUrl: ''
+    }, {
+      source: 'manual',
+      id,
+      watchStatus: 'wantToWatch',
+      titleOverride: '',
+      createdAt,
+      updatedAt: createdAt
+    }),
+    id,
+    source: 'manual',
+    tmdbId: null,
+    title: '',
+    localTitle: '',
+    manualDraft: true,
+    isSaving: false
+  };
+}
+
 function applyMovieEntries(entries = []) {
   const remoteRecords = (Array.isArray(entries) ? entries : [])
     .map((item) => item?.movie ? normalizeMovieRecord(item.movie, item.entry) : null)
     .filter(Boolean);
   state.films = remoteRecords;
+  if (state.filmManualDraft?.id && remoteRecords.some((record) => record.id === state.filmManualDraft.id)) {
+    state.filmManualDraft = null;
+  }
 }
 
 async function deleteFilmEntry(filmIdOrTmdbId, { silent = false } = {}) {
@@ -9292,11 +9340,13 @@ async function warmFilmSearch() {
 
 function setFilmSearchResults(results, { append = false, page = state.filmSearchPage, totalPages = state.filmSearchTotalPages, totalResults = state.filmSearchTotalResults } = {}) {
   const nextResults = Array.isArray(results) ? results : [];
+  const previousLength = state.filmSearchResults.length;
   state.filmSearchResults = append
     ? [...state.filmSearchResults, ...nextResults.filter((movie) =>
       !state.filmSearchResults.some((existing) => Number(existing.tmdbId) === Number(movie.tmdbId))
     )]
     : nextResults;
+  state.filmSearchAppendStartIndex = append ? previousLength : 0;
   state.filmSearchPage = Number(page) || (state.filmSearchResults.length ? 1 : 0);
   state.filmSearchTotalPages = Number(totalPages) || 0;
   state.filmSearchTotalResults = Number(totalResults) || state.filmSearchResults.length;
@@ -9320,10 +9370,13 @@ function clearFilmSearchResultsSmoothly() {
     state.filmSearchPage = 0;
     state.filmSearchTotalPages = 0;
     state.filmSearchTotalResults = 0;
+    state.filmSearchLoadingMore = false;
+    state.filmSearchAppendStartIndex = 0;
     return;
   }
   const clearRequestId = ++filmSearchRequestId;
   state.filmSearchLoading = false;
+  state.filmSearchLoadingMore = false;
   state.filmSearchSettling = false;
   state.filmSearchClearing = true;
   state.filmError = '';
@@ -9336,6 +9389,7 @@ function clearFilmSearchResultsSmoothly() {
     state.filmSearchPage = 0;
     state.filmSearchTotalPages = 0;
     state.filmSearchTotalResults = 0;
+    state.filmSearchAppendStartIndex = 0;
     state.filmSearchClearing = false;
     render();
   }, FILM_SEARCH_CLEAR_TRANSITION_MS);
@@ -9398,6 +9452,7 @@ function scheduleFilmSearch(query) {
   filmSearchRequestId += 1;
   abortPendingFilmSearch();
   state.filmSearchLoading = true;
+  state.filmSearchLoadingMore = false;
   state.filmError = '';
   render();
   filmSearchDebounceTimer = window.setTimeout(() => {
@@ -9428,7 +9483,8 @@ async function searchFilms({ query = state.filmSearchQuery, page = 1, append = f
     state.filmSearchTotalPages = cached.totalPages;
     state.filmSearchTotalResults = cached.totalResults;
   }
-  state.filmSearchLoading = true;
+  state.filmSearchLoading = !append;
+  state.filmSearchLoadingMore = Boolean(append);
   state.filmError = '';
   render();
   const startedAt = performance.now();
@@ -9474,6 +9530,7 @@ async function searchFilms({ query = state.filmSearchQuery, page = 1, append = f
   } finally {
     if (requestId === filmSearchRequestId) {
       state.filmSearchLoading = false;
+      state.filmSearchLoadingMore = false;
       filmSearchAbortController = null;
       render();
       if (state.filmSearchSettling) {
@@ -9589,10 +9646,14 @@ async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false, sile
     if (!silent && !openAfterSave && !state.filmDetailOpen) {
       showToast(watchStatus === 'watched' ? 'Marked watched' : 'Added to Films', 'success');
     }
+    if (state.filmDetailOpen || openAfterSave) {
+      markFilmSaved('Saved');
+    }
     renderFilmMutationState({ allowRenderFallback: false });
   } catch (error) {
     state.films = previousFilms;
     state.filmError = error.message || 'Failed to save movie';
+    clearFilmSaveStatus();
     showToast(state.filmError, 'error');
     renderFilmMutationState();
   } finally {
@@ -9628,6 +9689,7 @@ async function saveFilmRating(tmdbId, userRating, { silent = true } = {}) {
   state.activeFilmId = optimisticRecord.id;
   state.filmDetailOpen = true;
   state.filmError = '';
+  markFilmSaving('Saving rating...');
   renderFilmMutationState();
   try {
     const payload = await postJson('/api/manage/movies', {
@@ -9646,10 +9708,12 @@ async function saveFilmRating(tmdbId, userRating, { silent = true } = {}) {
     if (!silent) {
       showToast(normalizedRating === null ? 'Rating cleared' : `Rating saved: ${normalizedRating.toFixed(1)} stars`, 'success');
     }
+    markFilmSaved('Rating saved');
     renderFilmMutationState({ allowRenderFallback: false });
   } catch (error) {
     state.films = previousFilms;
     state.filmError = error.message || 'Failed to save rating';
+    clearFilmSaveStatus();
     showToast(state.filmError, 'error');
     renderFilmMutationState();
   }
@@ -9708,6 +9772,7 @@ async function saveFilmWatchedDate(tmdbId, watchedAt, { silent = true } = {}) {
   state.activeFilmId = optimisticRecord.id;
   state.filmDetailOpen = true;
   state.filmError = '';
+  markFilmSaving('Saving date...');
   renderFilmMutationState();
   try {
     const payload = await postJson('/api/manage/movies', {
@@ -9727,10 +9792,12 @@ async function saveFilmWatchedDate(tmdbId, watchedAt, { silent = true } = {}) {
     if (!silent) {
       showToast('Watched date saved', 'success');
     }
+    markFilmSaved('Date saved');
     renderFilmMutationState({ allowRenderFallback: false });
   } catch (error) {
     state.films = previousFilms;
     state.filmError = error.message || 'Failed to save watched date';
+    clearFilmSaveStatus();
     showToast(state.filmError, 'error');
     renderFilmMutationState();
   }
@@ -9758,7 +9825,8 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
     moreActionsOpen: state.filmMoreActionsOpen,
     imagePickerMode: state.filmImagePickerMode,
     imagePickerDraft: state.filmImagePickerDraft,
-    backdropIndex: getActiveFilmBackdropIndex(record)
+    backdropIndex: getActiveFilmBackdropIndex(record),
+    saveStatus: state.filmSaveStatus
   }).trim();
   if (!html) {
     return false;
@@ -9784,6 +9852,36 @@ function renderFilmMutationState({ allowRenderFallback = true } = {}) {
   if (allowRenderFallback) {
     render();
   }
+}
+
+function setFilmSaveStatus(label = '', statusState = 'saved', { duration = 1200 } = {}) {
+  if (filmSaveStatusTimer) {
+    window.clearTimeout(filmSaveStatusTimer);
+    filmSaveStatusTimer = 0;
+  }
+  state.filmSaveStatus = label
+    ? { label, state: statusState, updatedAt: Date.now() }
+    : null;
+  renderFilmMutationState({ allowRenderFallback: true });
+  if (label && duration > 0) {
+    filmSaveStatusTimer = window.setTimeout(() => {
+      filmSaveStatusTimer = 0;
+      state.filmSaveStatus = null;
+      renderFilmMutationState({ allowRenderFallback: true });
+    }, duration);
+  }
+}
+
+function markFilmSaving(label = 'Saving...') {
+  setFilmSaveStatus(label, 'saving', { duration: 0 });
+}
+
+function markFilmSaved(label = 'Saved') {
+  setFilmSaveStatus(label, 'saved', { duration: 1200 });
+}
+
+function clearFilmSaveStatus() {
+  setFilmSaveStatus('', 'saved', { duration: 0 });
 }
 
 function focusFilmNotesEditor() {
@@ -9904,17 +10002,26 @@ function persistManualFilmEntry(record = {}) {
   if (!record?.id || normalizeFilmSource(record.source) !== 'manual') {
     return Promise.resolve(null);
   }
+  if (!normalizeText(record.titleOverride || record.localTitle || record.title)) {
+    return Promise.resolve(null);
+  }
+  markFilmSaving('Saving...');
   const request = postJson('/api/manage/movies', restoreFilmEntryPayload(record))
     .then((payload) => {
       const saved = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
       upsertFilmRecord(saved, { preserveLocal: true });
+      if (state.filmManualDraft?.id === saved.id) {
+        state.filmManualDraft = null;
+      }
       const activeMetadataEdit = state.filmMetadataEditing && state.activeFilmId === saved.id;
+      markFilmSaved('Saved');
       if (!activeMetadataEdit) {
         renderFilmMutationState({ allowRenderFallback: false });
       }
     })
     .catch((error) => {
       state.filmError = error.message || 'Failed to create manual film';
+      clearFilmSaveStatus();
       showToast(state.filmError, 'error');
       const activeMetadataEdit = state.filmMetadataEditing && state.activeFilmId === record.id;
       if (!activeMetadataEdit) {
@@ -9932,41 +10039,24 @@ function persistManualFilmEntry(record = {}) {
 
 function createManualFilmEntry() {
   const createdAt = new Date().toISOString();
-  const localId = `manual-${Date.now()}`;
-  const optimistic = normalizeMovieRecord({
-    source: 'manual',
-    id: localId,
-    title: 'Untitled film',
-    originalTitle: '',
-    director: '',
-    overview: '',
-    releaseDate: '',
-    runtime: null,
-    genres: [],
-    posterUrl: '',
-    backdropUrl: ''
-  }, {
-    source: 'manual',
-    id: localId,
-    watchStatus: 'wantToWatch',
-    titleOverride: 'Untitled film',
-    createdAt,
-    updatedAt: createdAt
+  const draft = createManualDraftFilmRecord({
+    id: `manual-${Date.now()}`,
+    createdAt
   });
-  upsertFilmRecord(optimistic);
   clearTransientFilmDetail();
-  state.activeFilmId = optimistic.id;
+  state.filmManualDraft = draft;
+  state.activeFilmId = draft.id;
   state.filmDetailOpen = true;
   state.filmMetadataEditing = true;
-  state.filmMetadataDraft = createFilmMetadataDraft(optimistic);
+  state.filmMetadataDraft = createFilmMetadataDraft(draft);
   state.filmMetadataFocusField = 'titleOverride';
   state.filmMoreActionsOpen = false;
   state.filmImagePickerMode = '';
   state.filmImagePickerDraft = '';
+  clearFilmSaveStatus();
   pushNavigationHash({ mode: 'push' });
   render();
   focusFilmMetadataEditor('titleOverride');
-  persistManualFilmEntry(optimistic);
 }
 
 async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film updated', keepDetailOpen = true, showSaving = false } = {}) {
@@ -10014,8 +10104,12 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
     state.filmDetailOpen = true;
   }
   state.filmError = '';
+  if (state.filmDetailOpen || keepDetailOpen) {
+    markFilmSaving('Saving...');
+  }
   renderFilmMutationState();
   try {
+    markFilmSaving('Saving...');
     if (!isTmdbEntry && filmManualCreateRequests.has(existing.id)) {
       await filmManualCreateRequests.get(existing.id);
     }
@@ -10034,10 +10128,12 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
     if (successMessage) {
       showToast(successMessage, 'success');
     }
+    markFilmSaved('Saved');
     renderFilmMutationState({ allowRenderFallback: false });
   } catch (error) {
     state.films = previousFilms;
     state.filmError = error.message || 'Failed to update film';
+    clearFilmSaveStatus();
     showToast(state.filmError, 'error');
     renderFilmMutationState();
   } finally {
@@ -10069,7 +10165,7 @@ function editFilmNotes(filmId) {
 }
 
 function editFilmMetadata(filmId, { focusField = '' } = {}) {
-  const film = state.films.find((record) => record.id === filmId);
+  const film = state.films.find((record) => record.id === filmId) || getFilmDraftRecordById(filmId);
   if (!film) {
     return;
   }
@@ -10092,6 +10188,15 @@ function exitFilmMetadataEdit() {
 }
 
 function cancelFilmMetadataEdit() {
+  if (state.filmManualDraft?.id && state.activeFilmId === state.filmManualDraft.id) {
+    state.filmManualDraft = null;
+    state.filmDetailOpen = false;
+    state.activeFilmId = '';
+    exitFilmMetadataEdit();
+    pushNavigationHash({ mode: 'push' });
+    render();
+    return;
+  }
   exitFilmMetadataEdit();
   render();
 }
@@ -10126,7 +10231,7 @@ function saveFilmWatchedDateForTarget(target = '', watchedAt, options = {}) {
 
 function loadMoreFilmSearchResults() {
   const normalizedQuery = normalizeText(state.filmSearchQuery);
-  if (!shouldRunFilmSearch(normalizedQuery) || state.filmSearchLoading) {
+  if (!shouldRunFilmSearch(normalizedQuery) || state.filmSearchLoading || state.filmSearchLoadingMore) {
     return;
   }
   const nextPage = (Number(state.filmSearchPage) || 1) + 1;
@@ -10166,7 +10271,7 @@ function buildTmdbImageOverrideUrl(path = '', mode = 'poster') {
   return `https://image.tmdb.org/t/p/${size}${normalized.startsWith('/') ? normalized : `/${normalized}`}`;
 }
 
-function applyFilmImageOverride(mode = state.filmImagePickerMode, value = state.filmImagePickerDraft) {
+function applyFilmImageOverride(mode = state.filmImagePickerMode, value = state.filmImagePickerDraft, { keepPickerOpen = true } = {}) {
   const film = getActiveFilmRecord();
   const normalizedMode = mode === 'backdrop' ? 'backdrop' : 'poster';
   const field = normalizedMode === 'backdrop' ? 'backdropUrlOverride' : 'posterUrlOverride';
@@ -10177,10 +10282,16 @@ function applyFilmImageOverride(mode = state.filmImagePickerMode, value = state.
   const nextValue = normalizeFilmImageOverride(value);
   const currentValue = normalizeFilmImageOverride(film[field] || '');
   if (nextValue === currentValue) {
-    closeFilmImagePicker();
+    if (!keepPickerOpen) {
+      closeFilmImagePicker();
+    }
     return;
   }
-  closeFilmImagePicker({ shouldRender: false });
+  state.filmImagePickerMode = normalizedMode;
+  state.filmImagePickerDraft = nextValue;
+  if (!keepPickerOpen) {
+    closeFilmImagePicker({ shouldRender: false });
+  }
   void saveFilmEntryPatch(film.id, { [field]: nextValue }, { successMessage: '', keepDetailOpen: true });
 }
 
@@ -10195,6 +10306,37 @@ function commitFilmMetadataEdit({ keepDetailOpen = Boolean(state.filmDetailOpen)
     return false;
   }
   const patch = buildFilmMetadataPatchFromDraft(state.filmMetadataDraft || {});
+  if (film.manualDraft === true) {
+    const title = normalizeText(patch.titleOverride);
+    if (!title) {
+      exitFilmMetadataEdit();
+      state.filmManualDraft = null;
+      state.filmDetailOpen = false;
+      state.activeFilmId = '';
+      clearFilmSaveStatus();
+      pushNavigationHash({ mode: 'push' });
+      render();
+      return false;
+    }
+    const createdAt = film.addedAt || film.updatedAt || new Date().toISOString();
+    const draftRecord = createOptimisticManualFilmRecord({
+      ...film,
+      manualDraft: false,
+      addedAt: createdAt,
+      updatedAt: createdAt
+    }, {
+      ...patch,
+      watchStatus: normalizeWatchStatusForPayload(film.status || 'wantToWatch')
+    });
+    state.filmManualDraft = null;
+    upsertFilmRecord(draftRecord);
+    state.activeFilmId = draftRecord.id;
+    state.filmDetailOpen = true;
+    exitFilmMetadataEdit();
+    renderFilmMutationState();
+    persistManualFilmEntry(draftRecord);
+    return true;
+  }
   exitFilmMetadataEdit();
   if (metadataPatchEqualsRecord(patch, film)) {
     renderFilmMutationState();
@@ -10352,15 +10494,18 @@ async function refreshFilmFromTmdb(filmId) {
   state.filmMoreActionsOpen = false;
   state.filmError = '';
   try {
+    markFilmSaving('Refreshing...');
     const payload = await fetchMovieJson(`/api/manage/movies?action=detail&tmdbId=${encodeURIComponent(String(normalizedId))}&forceRefresh=1`);
     const refreshed = normalizeMovieRecord(payload?.movie || {}, film);
     upsertFilmRecord(refreshed, { preserveLocal: true });
     clearMatchingTransientFilmDetail(normalizedId);
     state.activeFilmId = film.id;
     state.filmDetailOpen = true;
+    markFilmSaved('Refreshed');
     renderFilmMutationState();
   } catch (error) {
     state.filmError = error.message || 'Failed to refresh from TMDb';
+    clearFilmSaveStatus();
     showToast(state.filmError, 'error');
     renderFilmMutationState();
   }
@@ -10516,6 +10661,7 @@ function closeFilmDetail() {
   }
   state.filmDetailOpen = false;
   state.activeFilmId = '';
+  state.filmManualDraft = null;
   clearTransientFilmDetail();
   resetFilmBackdropRotation();
   state.filmNotesEditing = false;
@@ -10929,7 +11075,8 @@ function render() {
                     moreActionsOpen: state.filmMoreActionsOpen,
                     imagePickerMode: state.filmImagePickerMode,
                     imagePickerDraft: state.filmImagePickerDraft,
-                    backdropIndex: getActiveFilmBackdropIndex(viewModel.filmRecord)
+                    backdropIndex: getActiveFilmBackdropIndex(viewModel.filmRecord),
+                    saveStatus: state.filmSaveStatus
                   })
                   : FilmsPage({
                     records: getVisibleFilmRecords(),
@@ -10941,6 +11088,7 @@ function render() {
                     searchPanelHtml: FilmSearchResults({
                       results: state.filmSearchResults,
                       loading: state.filmSearchLoading,
+                      loadingMore: state.filmSearchLoadingMore,
                       settling: state.filmSearchSettling,
                       clearing: state.filmSearchClearing,
                       resultKey: state.filmSearchResultKey,
@@ -10950,7 +11098,8 @@ function render() {
                       totalPages: state.filmSearchTotalPages,
                       totalResults: state.filmSearchTotalResults,
                       savingTmdbIds: state.filmSavingTmdbIds,
-                      savedRecordsByTmdbId: getSavedFilmRecordsByTmdbId()
+                      savedRecordsByTmdbId: getSavedFilmRecordsByTmdbId(),
+                      newResultStartIndex: state.filmSearchAppendStartIndex
                     })
                   }))
                 : viewModel.isMusicView
@@ -13762,7 +13911,9 @@ function handleAction(actionTarget) {
       toggleFilmMoreActions();
       return true;
     case 'film-edit-metadata':
-      editFilmMetadata(actionTarget.dataset.filmId || state.activeFilmId);
+      editFilmMetadata(actionTarget.dataset.filmId || state.activeFilmId, {
+        focusField: actionTarget.dataset.filmMetadataFocusField || ''
+      });
       return true;
     case 'film-change-poster':
       changeFilmPoster(actionTarget.dataset.filmId || state.activeFilmId);
@@ -14025,6 +14176,7 @@ function handleClick(event) {
       state.activePlaylistName = '';
       state.activeFilmId = '';
       state.filmDetailOpen = false;
+      state.filmManualDraft = null;
       clearTransientFilmDetail();
       resetFilmBackdropRotation();
       resetAddToTargetModes(state);
@@ -14953,6 +15105,7 @@ function restoreNavigationFromHash() {
     state.activePlaylistName = '';
     state.activeFilmId = '';
     state.filmDetailOpen = false;
+    state.filmManualDraft = null;
     clearTransientFilmDetail();
     resetFilmBackdropRotation();
     clearPrivateViewState();
@@ -15006,6 +15159,7 @@ function restoreNavigationFromHash() {
       } else {
         state.activeFilmId = '';
         state.filmDetailOpen = false;
+        state.filmManualDraft = null;
         clearTransientFilmDetail();
         resetFilmBackdropRotation();
       }

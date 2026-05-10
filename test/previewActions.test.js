@@ -39,8 +39,10 @@ describe('media library download actions', () => {
 
     assert.match(html, /data-films-search-input/);
     assert.match(html, /value="Pearl"/);
+    assert.match(html, /Add from TMDb/);
     assert.match(html, /data-film-library-search-input/);
     assert.match(html, /value="Cure"/);
+    assert.match(html, /Search my films/);
     assert.match(html, /data-action="add-manual-film"/);
     assert.match(html, /data-action="clear-film-library-search"/);
     assert.match(html, /No saved films found\./);
@@ -106,9 +108,9 @@ describe('media library download actions', () => {
     });
 
     assert.match(html, /cml-film-search-result[^"]*is-saved/);
-    assert.match(html, /In Films · Watched/);
+    assert.match(html, /In Films - Watched/);
     assert.match(html, /is-current"[^>]*data-watch-status="watched"[^>]*disabled/);
-    assert.match(html, />已看过<\/button>/);
+    assert.match(html, />Watched saved<\/button>/);
   });
 
   it('wires Films TMDb search as live debounced input with stale-response guards', () => {
@@ -129,6 +131,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /filmSearchPage: 0/);
     assert.match(appSource, /filmSearchTotalPages: 0/);
     assert.match(appSource, /filmSearchTotalResults: 0/);
+    assert.match(appSource, /filmSearchLoadingMore: false/);
     assert.match(appSource, /function settleFilmSearchResults\(requestId\)/);
     assert.match(appSource, /function clearFilmSearchResultsSmoothly\(\)/);
     assert.match(appSource, /filmSearchComposing: false/);
@@ -144,9 +147,9 @@ describe('media library download actions', () => {
     assert.match(appSource, /signal: filmSearchAbortController\.signal/);
     assert.match(emptyHtml, /No TMDb results found\./);
     assert.match(loadingHtml, /Searching TMDb\.\.\./);
-    assert.match(loadingHtml, /cml-film-search-panel is-searching is-settling/);
+    assert.match(loadingHtml, /cml-film-search-panel\s+is-searching\s+is-settling/);
     assert.match(loadingHtml, /data-film-search-result-key="3"/);
-    assert.match(loadingHtml, /cml-film-search-results is-loading is-settling/);
+    assert.match(loadingHtml, /cml-film-search-results\s+is-loading\s+is-settling/);
     assert.match(clearingHtml, /cml-film-search-panel\s+is-clearing/);
     assert.match(clearingHtml, /cml-film-search-results\s+is-clearing/);
   });
@@ -230,13 +233,13 @@ describe('media library download actions', () => {
     assert.match(html, /data-film-detail-page/);
     assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w1280\/backdrop-2\.jpg"/);
     assert.match(html, /data-film-backdrop-index="1"/);
-    assert.match(html, /← Back to Films/);
+    assert.match(html, /Back to Films/);
     assert.match(html, /Silence of the Sea/);
     assert.match(html, /Le silence de la mer/);
     assert.match(html, /Pierre Boutron/);
     assert.match(html, /Romance \/ Drama \/ War \/ TV Movie/);
     assert.match(html, /5\.0 \/ 5\.0/);
-    assert.match(html, /★ 7\.5 \(38\)/);
+    assert.match(html, /TMDb 7\.5 \(38\)/);
     assert.match(html, /May 9, 2026/);
     assert.match(html, /Watch history/);
     assert.match(html, /2 watches/);
@@ -248,13 +251,23 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="film-toggle-favourite"/);
     assert.match(html, /data-action="film-toggle-more-actions"/);
     assert.match(html, /data-action="film-edit-metadata"/);
+    assert.match(html, /data-film-metadata-focus-field="directorOverride"/);
+    assert.match(html, /data-film-metadata-focus-field="runtimeOverride"/);
+    assert.match(html, /data-film-metadata-focus-field="overviewOverride"/);
+    assert.match(html, /Customize/);
+    assert.match(html, /Sync/);
+    assert.match(html, /Danger/);
     assert.match(html, /data-action="film-change-poster"/);
     assert.match(html, /data-action="film-change-backdrop"/);
     assert.match(html, /cml-film-image-picker/);
     assert.match(html, /data-film-image-picker="poster"/);
+    assert.match(html, /cml-film-image-picker__preview/);
     assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w342\/poster-2\.jpg"/);
     assert.match(html, /data-action="film-pick-image"/);
+    assert.match(html, /Selected/);
     assert.match(html, /data-film-image-picker-url/);
+    assert.match(html, />Save URL<\/button>/);
+    assert.match(html, />Reset TMDb<\/button>/);
     assert.match(html, /data-action="film-clear-image-override"/);
     assert.match(html, /data-action="film-refresh-tmdb"/);
     assert.match(html, /data-action="film-open-tmdb"/);
@@ -320,7 +333,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(viewHtml, /javascript:alert/);
     assert.match(editHtml, /data-film-notes-draft/);
     assert.match(editHtml, /cml-film-notes-editor/);
-    assert.match(editHtml, /Click outside to save/);
+    assert.match(editHtml, /click outside to save/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-save"/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-cancel"/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-preview-toggle"/);
@@ -379,6 +392,10 @@ describe('media library download actions', () => {
     assert.match(appSource, /filmMetadataEditing: false/);
     assert.match(appSource, /function saveFilmEntryPatch/);
     assert.match(appSource, /function createManualFilmEntry/);
+    assert.match(appSource, /function createManualDraftFilmRecord/);
+    assert.match(appSource, /manualDraft: true/);
+    assert.match(appSource, /if \(!normalizeText\(record\.titleOverride \|\| record\.localTitle \|\| record\.title\)\) \{\s+return Promise\.resolve\(null\);\s+\}/);
+    assert.match(appSource, /if \(!title\) \{\s+exitFilmMetadataEdit\(\);\s+state\.filmManualDraft = null;/);
     assert.match(appSource, /const filmManualCreateRequests = new Map\(\)/);
     assert.match(appSource, /function persistManualFilmEntry/);
     assert.match(appSource, /await filmManualCreateRequests\.get\(existing\.id\)/);
@@ -394,6 +411,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /case 'film-change-poster':/);
     assert.match(appSource, /case 'film-change-backdrop':/);
     assert.match(appSource, /case 'film-pick-image':/);
+    assert.match(appSource, /keepPickerOpen = true/);
     assert.match(appSource, /case 'film-apply-image-url':/);
     assert.match(appSource, /case 'film-clear-image-override':/);
     assert.match(appSource, /case 'film-close-image-picker':/);
@@ -532,7 +550,7 @@ describe('media library download actions', () => {
       }],
     });
 
-    assert.match(html, /cml-films-result cml-film-search-result is-saving/);
+    assert.match(html, /cml-films-result cml-film-search-result[^"]*is-saving/);
     assert.match(html, /disabled>Saving\.\.\.<\/button>/);
   });
 
@@ -552,6 +570,26 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="load-more-film-search-results"/);
     assert.match(html, />Load more<\/button>/);
     assert.match(html, />1 \/ 45<\/span>/);
+  });
+
+  it('keeps Load More loading local to the button and marks appended cards', () => {
+    const html = FilmSearchResults({
+      query: 'Movie',
+      loadingMore: true,
+      page: 1,
+      totalPages: 3,
+      totalResults: 45,
+      newResultStartIndex: 1,
+      results: [
+        { tmdbId: 41, title: 'Old Movie', posterPath: '/old.jpg' },
+        { tmdbId: 42, title: 'New Movie', posterPath: '/new.jpg' },
+      ],
+    });
+
+    assert.match(html, /cml-film-search-panel\s+is-loading-more/);
+    assert.doesNotMatch(html, /cml-film-search-results[^"]*is-loading/);
+    assert.match(html, /data-action="load-more-film-search-results" disabled>Loading\.\.\.<\/button>/);
+    assert.match(html, /cml-film-search-result is-new/);
   });
 
   it('keeps the sidebar brand as a SUNDOWNER wordmark instead of rendering the uploaded image there', () => {

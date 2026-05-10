@@ -10686,6 +10686,25 @@ body.codex-media-library-active #app {
   justify-content: flex-end;
 }
 
+#codex-media-library-root .cml-films-page__create-zone {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+#codex-media-library-root .cml-films-page__tmdb-add {
+  justify-content: flex-end;
+}
+
+#codex-media-library-root .cml-films-page__control-label,
+#codex-media-library-root .cml-films-library-search__label {
+  color: rgba(241, 238, 230, 0.52);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 #codex-media-library-root .cml-films-search {
   display: flex;
   align-items: center;
@@ -10780,6 +10799,12 @@ body.codex-media-library-active #app {
   color: var(--cml-theme-text-muted);
 }
 
+#codex-media-library-root .cml-films-page__manual-button:hover {
+  border-color: rgba(241, 238, 230, 0.16);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(241, 238, 230, 0.72);
+}
+
 #codex-media-library-root .cml-films-filters {
   display: flex;
   flex-wrap: wrap;
@@ -10791,14 +10816,20 @@ body.codex-media-library-active #app {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 38px;
-  min-width: min(100%, 260px);
-  padding: 0 12px;
+  min-height: 40px;
+  min-width: min(100%, 320px);
+  padding: 0 13px;
   border: 1px solid var(--cml-theme-card-border);
   border-radius: 999px;
   background: color-mix(in srgb, var(--cml-theme-card) 88%, transparent 12%);
   color: var(--cml-theme-text-muted);
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+#codex-media-library-root .cml-films-library-search__label {
+  color: rgba(241, 238, 230, 0.46);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
 }
 
 #codex-media-library-root .cml-films-library-search:focus-within {
@@ -10980,6 +11011,11 @@ body.codex-media-library-active #app {
   filter: saturate(0.9);
 }
 
+#codex-media-library-root .cml-film-search-panel.is-loading-more .cml-film-search-results {
+  opacity: 1;
+  filter: none;
+}
+
 #codex-media-library-root .cml-film-search-results.is-settling {
   opacity: 0.98;
 }
@@ -11009,6 +11045,9 @@ body.codex-media-library-active #app {
   opacity: 1;
   filter: none;
   transform: none;
+}
+
+#codex-media-library-root .cml-film-search-result.is-new {
   animation: filmSearchResultEnter 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
@@ -11240,7 +11279,7 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-search-status.is-visible::before,
-  #codex-media-library-root .cml-film-search-result {
+  #codex-media-library-root .cml-film-search-result.is-new {
     animation: none;
   }
 
@@ -11926,6 +11965,15 @@ body.codex-media-library-active #app {
   backdrop-filter: blur(14px);
 }
 
+#codex-media-library-root .cml-film-detail__chip.is-editable {
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-film-detail__chip.is-editable:hover {
+  border-color: rgba(201, 169, 106, 0.22);
+  background: rgba(255, 255, 255, 0.09);
+}
+
 #codex-media-library-root .cml-film-detail__chip--watched {
   border-color: rgba(201, 169, 106, 0.24);
   color: #f1eee6;
@@ -12417,6 +12465,17 @@ body.codex-media-library-active #app {
   letter-spacing: 0.02em;
 }
 
+#codex-media-library-root .cml-film-metadata-editor .cml-film-detail__section-head p {
+  margin: 4px 0 0;
+  color: rgba(241, 238, 230, 0.48);
+  font-size: 12px;
+}
+
+#codex-media-library-root .cml-film-metadata-editor.is-manual-draft {
+  border-color: rgba(201, 169, 106, 0.18);
+  background: rgba(201, 169, 106, 0.045);
+}
+
 #codex-media-library-root .cml-film-image-picker {
   gap: 14px;
   padding: 18px;
@@ -12459,6 +12518,41 @@ body.codex-media-library-active #app {
   cursor: pointer;
 }
 
+#codex-media-library-root .cml-film-image-picker__preview {
+  position: relative;
+  overflow: hidden;
+  width: min(180px, 100%);
+  aspect-ratio: 2 / 3;
+  border: 1px solid rgba(201, 169, 106, 0.18);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+#codex-media-library-root .cml-film-image-picker__preview.is-backdrop {
+  width: min(360px, 100%);
+  aspect-ratio: 16 / 9;
+}
+
+#codex-media-library-root .cml-film-image-picker__preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#codex-media-library-root .cml-film-image-picker__preview span,
+#codex-media-library-root .cml-film-image-picker__choice span {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(8, 10, 13, 0.72);
+  color: rgba(241, 238, 230, 0.82);
+  font-size: 10px;
+  font-weight: 800;
+}
+
 #codex-media-library-root .cml-film-image-picker__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
@@ -12470,6 +12564,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-image-picker__choice {
+  position: relative;
   overflow: hidden;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -12665,6 +12760,61 @@ body.codex-media-library-active #app {
   opacity: 0.58;
 }
 
+#codex-media-library-root .cml-film-detail__topline,
+#codex-media-library-root .cml-film-detail__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#codex-media-library-root .cml-film-save-status {
+  min-height: 18px;
+  color: rgba(241, 238, 230, 0.5);
+  font-size: 12px;
+  font-weight: 750;
+  opacity: 0;
+  transition: opacity 160ms ease, transform 160ms ease;
+  transform: translateY(-2px);
+}
+
+#codex-media-library-root .cml-film-save-status.is-visible {
+  opacity: 0.72;
+  transform: translateY(0);
+}
+
+#codex-media-library-root .cml-film-save-status.is-saving::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 999px;
+  background: rgba(201, 169, 106, 0.78);
+  vertical-align: 1px;
+}
+
+#codex-media-library-root .cml-film-detail__meta-item.is-editable,
+#codex-media-library-root .cml-film-detail__inline-edit {
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-film-detail__meta-item.is-editable:hover {
+  border-color: rgba(201, 169, 106, 0.24);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+#codex-media-library-root .cml-film-detail__inline-edit {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(241, 238, 230, 0.62);
+  font-size: 12px;
+  font-weight: 750;
+}
+
 #codex-media-library-root .cml-film-detail__action--icon {
   width: 46px;
   padding: 0;
@@ -12688,13 +12838,33 @@ body.codex-media-library-active #app {
   z-index: 8;
   display: grid;
   min-width: 220px;
-  padding: 8px;
+  padding: 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
   background: rgba(12, 15, 19, 0.94);
   box-shadow: 0 22px 56px rgba(0, 0, 0, 0.38);
   backdrop-filter: blur(18px);
   animation: cml-film-more-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+#codex-media-library-root .cml-film-detail__more-group {
+  display: grid;
+  gap: 3px;
+  padding: 6px 0;
+}
+
+#codex-media-library-root .cml-film-detail__more-group + .cml-film-detail__more-group {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+#codex-media-library-root .cml-film-detail__more-group p {
+  margin: 0 0 3px;
+  padding: 0 10px;
+  color: rgba(241, 238, 230, 0.38);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-film-detail__more-item {
@@ -12718,12 +12888,12 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-detail__more-item--danger {
-  color: rgba(242, 168, 156, 0.82);
+  color: rgba(242, 168, 156, 0.72);
 }
 
 #codex-media-library-root .cml-film-detail__more-item--danger:hover {
-  background: rgba(242, 168, 156, 0.08);
-  color: rgba(255, 220, 214, 0.96);
+  background: rgba(242, 168, 156, 0.065);
+  color: rgba(255, 220, 214, 0.9);
 }
 
 @keyframes cml-film-more-in {
@@ -12751,6 +12921,14 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-films-page__hero-actions {
+    justify-content: flex-start;
+  }
+
+  #codex-media-library-root .cml-films-page__create-zone {
+    justify-items: stretch;
+  }
+
+  #codex-media-library-root .cml-films-page__tmdb-add {
     justify-content: flex-start;
   }
 
