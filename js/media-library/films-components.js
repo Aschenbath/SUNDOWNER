@@ -322,6 +322,91 @@ function renderDetailMetaColumn(label, value, icon = '') {
   `;
 }
 
+function getDetailStatusValue(status = '') {
+  return status === 'watchlist' ? 'wantToWatch' : (status || 'wantToWatch');
+}
+
+function renderDetailStatusControls(record = {}) {
+  const statuses = [
+    ['wantToWatch', 'Want'],
+    ['watching', 'Watching'],
+    ['watched', 'Watched'],
+    ['paused', 'Paused'],
+    ['dropped', 'Dropped']
+  ];
+  const active = getDetailStatusValue(record.status);
+  return `
+    <div class="cml-film-detail__status-controls" aria-label="Watch status">
+      ${statuses.map(([value, label]) => `
+        <button
+          type="button"
+          class="cml-film-detail__status-button ${value === active ? 'is-active' : ''}"
+          data-action="save-film-status"
+          data-watch-status="${escapeHtml(value)}"
+          data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+          aria-pressed="${value === active ? 'true' : 'false'}"
+          ${record.isSaving ? 'disabled' : ''}
+        >${escapeHtml(label)}</button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderDetailRatingControl(record = {}, userRating = '') {
+  const value = userRating || '4.0';
+  const fill = `${((Number(value) || 4) / 5) * 100}%`;
+  return `
+    <div class="cml-film-detail__rating-control" style="--film-detail-rating-fill: ${escapeHtml(fill)};">
+      <input
+        type="range"
+        class="cml-film-detail__rating-slider"
+        data-film-rating-input
+        data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+        min="0.5"
+        max="5"
+        step="0.5"
+        value="${escapeHtml(value)}"
+        aria-label="Set your film rating"
+        ${record.isSaving ? 'disabled' : ''}
+      />
+      <button
+        type="button"
+        class="cml-film-detail__rating-clear"
+        data-action="clear-film-rating"
+        data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+        ${(!userRating || record.isSaving) ? 'disabled' : ''}
+      >Clear</button>
+    </div>
+  `;
+}
+
+function renderDetailWatchedDateColumn(record = {}, watchedDate = '') {
+  const value = normalizeText(record.watchedAt).slice(0, 10);
+  return `
+    <div class="cml-film-detail__meta-item">
+      <span class="cml-film-detail__meta-label">Watched date</span>
+      <strong class="cml-film-detail__meta-value"><span aria-hidden="true">▣</span><span data-film-watched-at-output>${escapeHtml(watchedDate)}</span></strong>
+      <div class="cml-film-detail__date-control">
+        <input
+          type="date"
+          class="cml-film-detail__date-input"
+          data-film-watched-at-input
+          data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+          value="${escapeHtml(value)}"
+          ${record.isSaving ? 'disabled' : ''}
+        />
+        <button
+          type="button"
+          class="cml-film-detail__date-save"
+          data-action="save-film-watched-date"
+          data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+          ${record.isSaving ? 'disabled' : ''}
+        >Save</button>
+      </div>
+    </div>
+  `;
+}
+
 function getSavedFilmNote(record = {}) {
   return normalizeMultilineText(record.noteMarkdown || record.journal || '');
 }
@@ -490,13 +575,15 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
             <section class="cml-film-detail__rating" aria-label="Your rating">
               <span class="cml-film-detail__rating-label">Your rating</span>
               <div class="cml-film-detail__rating-line">
-                <strong>${escapeHtml(userRating ? `${userRating} / 5.0` : 'Not rated')}</strong>
+                <strong data-film-rating-output>${escapeHtml(userRating ? `${userRating} / 5.0` : 'Not rated')}</strong>
                 ${userRating ? `<span class="cml-film-detail__stars" aria-label="${escapeHtml(userRating)} out of 5">★★★★★</span>` : ''}
               </div>
+              ${renderDetailRatingControl(record, userRating)}
+              ${renderDetailStatusControls(record)}
             </section>
             <div class="cml-film-detail__meta-row">
               ${renderDetailMetaColumn('Director', record.director || '—')}
-              ${renderDetailMetaColumn('Watched date', watchedDate, '□')}
+              ${renderDetailWatchedDateColumn(record, watchedDate)}
               ${renderDetailMetaColumn('TMDb rating', formatTmdbDetailRating(record), '↗')}
             </div>
             <section class="cml-film-detail__section">

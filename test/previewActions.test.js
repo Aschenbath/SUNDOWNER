@@ -150,6 +150,9 @@ describe('media library download actions', () => {
     assert.match(appSource, /case 'film-notes-save':/);
     assert.match(appSource, /case 'film-mark-rewatch':/);
     assert.match(appSource, /data-film-notes-draft/);
+    assert.match(appSource, /function patchActiveFilmDetailView/);
+    assert.match(appSource, /function renderFilmMutationState/);
+    assert.match(appSource, /renderFilmMutationState\(\);/);
     assert.match(repositorySource, /journal: normalizeMultilineText/);
     assert.match(repositorySource, /noteMarkdown: normalizeMultilineText/);
   });

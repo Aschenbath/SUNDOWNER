@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=24';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=25';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -8637,7 +8637,7 @@ async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false } = {
     pushNavigationHash({ mode: 'push' });
   }
   state.filmError = '';
-  render();
+  renderFilmMutationState();
   try {
     const body = {
       tmdbId: normalizedId,
@@ -8657,15 +8657,17 @@ async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false } = {
     }
     state.filmError = '';
     showToast(watchStatus === 'watched' ? 'Marked watched' : 'Added to Films', 'success');
+    renderFilmMutationState({ allowRenderFallback: false });
   } catch (error) {
     state.films = previousFilms;
     state.filmError = error.message || 'Failed to save movie';
+    renderFilmMutationState();
   } finally {
     state.filmSavingTmdbIds.delete(normalizedId);
     state.films = state.films.map((record) =>
       Number(record.tmdbId) === normalizedId ? { ...record, isSaving: false } : record
     );
-    render();
+    renderFilmMutationState();
   }
 }
 
@@ -8687,7 +8689,7 @@ async function saveFilmRating(tmdbId, userRating) {
   state.activeFilmId = optimisticRecord.id;
   state.filmDetailOpen = true;
   state.filmError = '';
-  render();
+  renderFilmMutationState();
   try {
     const payload = await postJson('/api/manage/movies', {
       tmdbId: normalizedId,
@@ -8702,15 +8704,17 @@ async function saveFilmRating(tmdbId, userRating) {
     state.filmDetailOpen = true;
     state.filmError = '';
     showToast(userRating === null ? 'Rating cleared' : `Rating saved: ${Number(userRating).toFixed(1)} stars`, 'success');
+    renderFilmMutationState({ allowRenderFallback: false });
   } catch (error) {
     state.films = previousFilms;
     state.filmError = error.message || 'Failed to save rating';
+    renderFilmMutationState();
   } finally {
     state.filmSavingTmdbIds.delete(normalizedId);
     state.films = state.films.map((record) =>
       Number(record.tmdbId) === normalizedId ? { ...record, isSaving: false } : record
     );
-    render();
+    renderFilmMutationState();
   }
 }
 
@@ -8732,7 +8736,7 @@ async function saveFilmWatchedDate(tmdbId, watchedAt) {
   state.activeFilmId = optimisticRecord.id;
   state.filmDetailOpen = true;
   state.filmError = '';
-  render();
+  renderFilmMutationState();
   try {
     const payload = await postJson('/api/manage/movies', {
       tmdbId: normalizedId,
@@ -8747,14 +8751,56 @@ async function saveFilmWatchedDate(tmdbId, watchedAt) {
     state.filmDetailOpen = true;
     state.filmError = '';
     showToast('Watched date saved', 'success');
+    renderFilmMutationState({ allowRenderFallback: false });
   } catch (error) {
     state.films = previousFilms;
     state.filmError = error.message || 'Failed to save watched date';
+    renderFilmMutationState();
   } finally {
     state.filmSavingTmdbIds.delete(normalizedId);
     state.films = state.films.map((record) =>
       Number(record.tmdbId) === normalizedId ? { ...record, isSaving: false } : record
     );
+    renderFilmMutationState();
+  }
+}
+
+function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
+  if (!refs.root || !state.filmDetailOpen || !state.activeFilmId) {
+    return false;
+  }
+  const currentPage = refs.root.querySelector('[data-film-detail-page]');
+  if (!(currentPage instanceof HTMLElement)) {
+    return false;
+  }
+  const record = getActiveFilmRecord();
+  if (!record) {
+    return false;
+  }
+  const html = FilmDetailPage({
+    record,
+    notesEditing: state.filmNotesEditing,
+    notesDraft: state.filmNotesDraft,
+    notesPreview: state.filmNotesPreview
+  }).trim();
+  if (!html) {
+    return false;
+  }
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const nextPage = template.content.firstElementChild;
+  if (!(nextPage instanceof HTMLElement)) {
+    return false;
+  }
+  currentPage.replaceWith(nextPage);
+  return true;
+}
+
+function renderFilmMutationState({ allowRenderFallback = true } = {}) {
+  if (patchActiveFilmDetailView({ allowRenderFallback })) {
+    return;
+  }
+  if (allowRenderFallback) {
     render();
   }
 }
@@ -8781,7 +8827,7 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
   state.activeFilmId = optimisticRecord.id;
   state.filmDetailOpen = true;
   state.filmError = '';
-  render();
+  renderFilmMutationState();
   try {
     const payload = await postJson('/api/manage/movies', {
       tmdbId: normalizedId,
@@ -8802,15 +8848,17 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
     if (successMessage) {
       showToast(successMessage, 'success');
     }
+    renderFilmMutationState({ allowRenderFallback: false });
   } catch (error) {
     state.films = previousFilms;
     state.filmError = error.message || 'Failed to update film';
+    renderFilmMutationState();
   } finally {
     state.filmSavingTmdbIds.delete(normalizedId);
     state.films = state.films.map((record) =>
       Number(record.tmdbId) === normalizedId ? { ...record, isSaving: false } : record
     );
-    render();
+    renderFilmMutationState();
   }
 }
 
@@ -12029,7 +12077,7 @@ function handleAction(actionTarget) {
       void saveFilmRating(actionTarget.dataset.tmdbId, null);
       return true;
     case 'save-film-watched-date': {
-      const input = actionTarget.closest('.cml-film-ticket__date-control')?.querySelector('[data-film-watched-at-input]');
+      const input = actionTarget.closest('.cml-film-detail__date-control, .cml-film-ticket__date-control')?.querySelector('[data-film-watched-at-input]');
       void saveFilmWatchedDate(actionTarget.dataset.tmdbId, input instanceof HTMLInputElement ? input.value : '');
       return true;
     }
@@ -12429,15 +12477,18 @@ function handleInput(event) {
     return;
   }
   if (input.hasAttribute('data-film-rating-input')) {
-    const section = input.closest('.cml-film-ticket__section--rating');
+    const section = input.closest('.cml-film-ticket__section--rating, .cml-film-detail__rating');
     const normalizedRating = Math.min(5, Math.max(0.5, Math.round(Number(input.value || 0) * 2) / 2));
-    const output = section?.querySelector('[data-film-rating-output]');
+    const output = section?.querySelector('[data-film-rating-output], .cml-film-ticket__rating-output');
     const mood = section?.querySelector('[data-film-rating-mood]');
     if (section instanceof HTMLElement) {
       section.style.setProperty('--film-rating-fill', `${(normalizedRating / 5) * 100}%`);
+      section.style.setProperty('--film-detail-rating-fill', `${(normalizedRating / 5) * 100}%`);
     }
     if (output instanceof HTMLElement) {
-      output.textContent = normalizedRating.toFixed(1);
+      output.textContent = section instanceof HTMLElement && section.classList.contains('cml-film-detail__rating')
+        ? `${normalizedRating.toFixed(1)} / 5.0`
+        : normalizedRating.toFixed(1);
     }
     if (mood instanceof HTMLElement) {
       mood.textContent = getFilmUserRatingMood(normalizedRating);
@@ -12445,14 +12496,14 @@ function handleInput(event) {
     return;
   }
   if (input.hasAttribute('data-film-rating-input')) {
-    const output = input.closest('.cml-film-ticket__rating-control')?.querySelector('[data-film-rating-output]');
+    const output = input.closest('.cml-film-ticket__rating-control, .cml-film-detail__rating-control')?.querySelector('[data-film-rating-output]');
     if (output instanceof HTMLElement) {
       output.textContent = `${Number(input.value || 0).toFixed(1)} ★`;
     }
     return;
   }
   if (input.hasAttribute('data-film-watched-at-input')) {
-    const output = input.closest('.cml-film-ticket__section')?.querySelector('[data-film-watched-at-output]');
+    const output = input.closest('.cml-film-detail__meta-item, .cml-film-ticket__section')?.querySelector('[data-film-watched-at-output]');
     if (output instanceof HTMLElement) {
       output.textContent = input.value || 'Not set';
     }
