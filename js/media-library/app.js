@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=32';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=33';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -107,8 +107,8 @@ const API_MAX_ITEMS = 1600;
 const API_REQUEST_TIMEOUT_MS = 12000;
 const STORAGE_REQUEST_TIMEOUT_MS = 5000;
 const SEARCH_INPUT_DEBOUNCE_MS = 160;
-const FILM_SEARCH_DEBOUNCE_MS = 350;
-const FILM_SEARCH_MIN_LOADING_MS = 180;
+const FILM_SEARCH_DEBOUNCE_MS = 180;
+const FILM_SEARCH_MIN_LOADING_MS = 80;
 const FILM_SEARCH_CLEAR_TRANSITION_MS = 180;
 const MEDIA_LIBRARY_UPLOAD_ACCEPT = 'image/*,video/*,audio/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
 const COLLECTION_PAGE_SIZE = 24;
@@ -2737,7 +2737,8 @@ function handleCompositionStart(event) {
 function handleCompositionEnd(event) {
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-films-search-input')) {
     state.filmSearchComposing = false;
-    scheduleFilmSearch(event.target.value);
+    clearPendingFilmSearch();
+    void searchFilms({ query: event.target.value });
     return;
   }
   if (!(event.target instanceof HTMLElement) || event.target.dataset.mindInput !== 'message') {

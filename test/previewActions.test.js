@@ -53,8 +53,8 @@ describe('media library download actions', () => {
     const loadingHtml = FilmSearchResults({ query: 'Pearl', loading: true, settling: true, resultKey: 3, results: [] });
     const clearingHtml = FilmSearchResults({ query: '', clearing: true, results: [{ tmdbId: 1, title: 'Old Result' }] });
 
-    assert.match(appSource, /const FILM_SEARCH_DEBOUNCE_MS = 350/);
-    assert.match(appSource, /const FILM_SEARCH_MIN_LOADING_MS = 180/);
+    assert.match(appSource, /const FILM_SEARCH_DEBOUNCE_MS = 180/);
+    assert.match(appSource, /const FILM_SEARCH_MIN_LOADING_MS = 80/);
     assert.match(appSource, /const FILM_SEARCH_CLEAR_TRANSITION_MS = 180/);
     assert.match(appSource, /let filmSearchRequestId = 0/);
     assert.match(appSource, /let filmSearchAbortController = null/);
@@ -68,6 +68,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /state\.filmSearchComposing = true/);
     assert.match(appSource, /state\.filmSearchComposing = false/);
     assert.match(appSource, /event\.isComposing \|\| state\.filmSearchComposing/);
+    assert.match(appSource, /void searchFilms\(\{ query: event\.target\.value \}\)/);
     assert.match(appSource, /void searchFilms\(\{ query: inputQuery \}\)/);
     assert.match(appSource, /scheduleFilmSearch\(input\.value\)/);
     assert.match(appSource, /searchFilms\(\{ query: event\.target\.value \}\)/);
