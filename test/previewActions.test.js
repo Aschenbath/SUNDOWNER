@@ -28,6 +28,29 @@ describe('media library download actions', () => {
     assert.ok(html.indexOf('cml-films-filters') < html.indexOf('cml-films-empty'));
   });
 
+  it('renders saved Films in a poster-only view mode', () => {
+    const html = FilmsPage({
+      viewMode: 'poster',
+      records: [{
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Poster Movie',
+        originalTitle: 'Poster Original',
+        posterPath: '/poster.jpg',
+        status: 'watched',
+        watchedAt: '2026-05-09',
+      }],
+    });
+
+    assert.match(html, /data-action="set-film-view-mode"/);
+    assert.match(html, /data-film-view-mode="poster" aria-pressed="true"/);
+    assert.match(html, /cml-films-poster-grid/);
+    assert.match(html, /cml-film-poster-card/);
+    assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w342\/poster\.jpg"/);
+    assert.doesNotMatch(html, /cml-film-card__ticket-panel/);
+    assert.doesNotMatch(html, />Poster Movie<\/strong>/);
+  });
+
   it('renders TMDb results as addable movie cards', () => {
     const html = FilmSearchResults({
       query: 'Inception',

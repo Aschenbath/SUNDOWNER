@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=40';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=41';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -453,6 +453,7 @@ const state = {
   filmSearchResultKey: 0,
   filmSearchComposing: false,
   filmActiveFilter: FILM_FILTERS[0],
+  filmViewMode: 'ticket',
   filmSavingTmdbIds: new Set(),
   filmError: '',
   filmNotesEditing: false,
@@ -10234,6 +10235,7 @@ function render() {
                     records: getVisibleFilmRecords(),
                     totalCount: state.films.length,
                     activeFilter: state.filmActiveFilter,
+                    viewMode: state.filmViewMode,
                     searchQuery: state.filmSearchQuery,
                     searchPanelHtml: FilmSearchResults({
                       results: state.filmSearchResults,
@@ -12986,6 +12988,12 @@ function handleAction(actionTarget) {
         render();
       }
       return true;
+    case 'set-film-view-mode':
+      if (['ticket', 'poster'].includes(actionTarget.dataset.filmViewMode || '')) {
+        state.filmViewMode = actionTarget.dataset.filmViewMode;
+        render();
+      }
+      return true;
     case 'open-tmdb-film-detail':
       void openTmdbFilmDetail(actionTarget.dataset.tmdbId);
       return true;
@@ -13031,7 +13039,7 @@ function handleAction(actionTarget) {
 
 function handleClick(event) {
   const actionTarget = event.target instanceof Element ? event.target.closest('[data-action], [data-primary], [data-secondary], [data-year], [data-anchor]') : null;
-  const filmCardTarget = event.target instanceof Element ? event.target.closest('.cml-film-card') : null;
+  const filmCardTarget = event.target instanceof Element ? event.target.closest('.cml-film-card, .cml-film-poster-card') : null;
   const tileTarget = event.target instanceof Element ? event.target.closest('.cml-media-tile') : null;
   const clickedControl = event.target instanceof HTMLElement
     ? event.target.closest('button, a, input, textarea, select, label')
@@ -13136,6 +13144,7 @@ function handleClick(event) {
     'clear-film-rating',
     'save-film-watched-date',
     'close-film-detail',
+    'set-film-view-mode',
     'film-toggle-favourite',
     'film-edit-notes',
     'film-edit-metadata',

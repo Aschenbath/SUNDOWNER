@@ -10732,6 +10732,7 @@ body.codex-media-library-active #app {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  align-items: center;
 }
 
 #codex-media-library-root .cml-films-filters__chip {
@@ -10756,6 +10757,34 @@ body.codex-media-library-active #app {
   background: color-mix(in srgb, var(--cml-theme-accent) 24%, var(--cml-theme-card) 76%);
   color: var(--cml-theme-text);
   border-color: rgba(var(--cml-theme-accent-rgb), 0.28);
+}
+
+#codex-media-library-root .cml-films-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+#codex-media-library-root .cml-films-view-toggle__button {
+  min-height: 32px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(241, 238, 230, 0.58);
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-films-view-toggle__button.is-active {
+  background: rgba(241, 238, 230, 0.1);
+  color: rgba(241, 238, 230, 0.9);
 }
 
 #codex-media-library-root .cml-films-page__content {
@@ -11162,6 +11191,50 @@ body.codex-media-library-active #app {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 20px;
+}
+
+#codex-media-library-root .cml-films-poster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px;
+}
+
+#codex-media-library-root .cml-film-poster-card {
+  display: block;
+  min-width: 0;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+#codex-media-library-root .cml-film-poster-card:focus-visible {
+  outline: 2px solid var(--cml-theme-focus-ring, rgba(138, 180, 248, 0.9));
+  outline-offset: 5px;
+  border-radius: 24px;
+}
+
+#codex-media-library-root .cml-film-poster-card__frame {
+  overflow: hidden;
+  aspect-ratio: 2 / 3;
+  border: 1px solid rgba(232, 236, 242, 0.1);
+  border-radius: 22px;
+  background: #08090b;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.3);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+#codex-media-library-root .cml-film-poster-card__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#codex-media-library-root .cml-film-poster-card:hover .cml-film-poster-card__frame,
+#codex-media-library-root .cml-film-poster-card:focus-visible .cml-film-poster-card__frame {
+  transform: translateY(-2px);
+  border-color: rgba(232, 236, 242, 0.18);
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.36);
 }
 
 #codex-media-library-root .cml-film-card {
@@ -12345,12 +12418,21 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-films-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  #codex-media-library-root .cml-films-poster-grid {
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
   #codex-media-library-root .cml-films-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
+  }
+
+  #codex-media-library-root .cml-films-poster-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
   }
 
   #codex-media-library-root .cml-films-page__title {

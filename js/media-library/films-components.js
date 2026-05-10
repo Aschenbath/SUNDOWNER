@@ -735,7 +735,23 @@ export function FilmCard(record = {}) {
   `;
 }
 
-export function FilmTimelineSection(section = {}) {
+export function FilmPosterCard(record = {}) {
+  const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
+  const posterUrl = getRecordPosterUrl(record);
+  return `
+    <article class="cml-film-poster-card" data-film-id="${escapeHtml(record.id || '')}" data-action="open-film-detail" tabindex="0" role="button" aria-label="Open ${escapeHtml(localTitle)} details">
+      <div class="cml-film-poster-card__frame">
+        ${posterUrl
+          ? `<img class="cml-film-poster-card__image" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(localTitle)} poster" loading="eager" decoding="async" />`
+          : renderPosterFallback(localTitle)}
+      </div>
+    </article>
+  `;
+}
+
+export function FilmTimelineSection(section = {}, { viewMode = 'ticket' } = {}) {
+  const isPosterView = viewMode === 'poster';
+  const items = Array.isArray(section.items) ? section.items : [];
   return `
     <section class="cml-films-section" data-film-section="${escapeHtml(section.id || '')}">
       <div class="cml-films-section__header">
@@ -744,18 +760,19 @@ export function FilmTimelineSection(section = {}) {
           <p class="cml-films-section__meta">${escapeHtml(String(section.items?.length || 0))} film${(section.items?.length || 0) === 1 ? '' : 's'}</p>
         </div>
       </div>
-      <div class="cml-films-grid">
-        ${(Array.isArray(section.items) ? section.items : []).map((record) => FilmCard(record)).join('')}
+      <div class="${isPosterView ? 'cml-films-poster-grid' : 'cml-films-grid'}">
+        ${items.map((record) => isPosterView ? FilmPosterCard(record) : FilmCard(record)).join('')}
       </div>
     </section>
   `;
 }
 
-export function FilmsPage({ records = [], totalCount = records.length, activeFilter = 'All', searchQuery = '', searchPanelHtml = '' } = {}) {
+export function FilmsPage({ records = [], totalCount = records.length, activeFilter = 'All', viewMode = 'ticket', searchQuery = '', searchPanelHtml = '' } = {}) {
   const sections = groupFilmsByTimeline(records);
   const searchValue = escapeHtml(searchQuery);
   const hasAnySavedFilms = Number(totalCount) > 0;
   const hasSearchQuery = Boolean(normalizeText(searchQuery));
+  const activeViewMode = viewMode === 'poster' ? 'poster' : 'ticket';
   return `
     <section class="cml-films-page">
       <header class="cml-films-page__hero">
@@ -780,10 +797,14 @@ export function FilmsPage({ records = [], totalCount = records.length, activeFil
             ${escapeHtml(filter)}
           </button>
         `).join('')}
+        <div class="cml-films-view-toggle" aria-label="Film view">
+          <button type="button" class="cml-films-view-toggle__button ${activeViewMode === 'ticket' ? 'is-active' : ''}" data-action="set-film-view-mode" data-film-view-mode="ticket" aria-pressed="${activeViewMode === 'ticket' ? 'true' : 'false'}">Ticket</button>
+          <button type="button" class="cml-films-view-toggle__button ${activeViewMode === 'poster' ? 'is-active' : ''}" data-action="set-film-view-mode" data-film-view-mode="poster" aria-pressed="${activeViewMode === 'poster' ? 'true' : 'false'}">Poster</button>
+        </div>
       </div>
       <div class="cml-films-page__content">
         ${sections.length
-          ? sections.map((section) => FilmTimelineSection(section)).join('')
+          ? sections.map((section) => FilmTimelineSection(section, { viewMode: activeViewMode })).join('')
           : `
             <section class="cml-films-empty" data-has-saved-films="${hasAnySavedFilms ? 'true' : 'false'}">
               <p class="cml-films-empty__eyebrow">Start from TMDb</p>
