@@ -25,6 +25,30 @@ function normalizeNumber(value, fallback = null) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
+function normalizeRuntimeOverride(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : null;
+}
+
+function normalizeImageUrlOverride(value, maxLength = 1000) {
+  const normalized = normalizeText(value, maxLength);
+  if (!normalized) {
+    return '';
+  }
+  if (normalized.startsWith('/')) {
+    return normalized;
+  }
+  try {
+    const url = new URL(normalized);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? normalized : '';
+  } catch {
+    return '';
+  }
+}
+
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object || {}, key);
 }
@@ -101,7 +125,7 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
   if (!tmdbId) {
     throw new Error('tmdbId is required');
   }
-  const watchStatus = normalizeText(input.watchStatus || existing?.watchStatus || 'wantToWatch');
+  const watchStatus = normalizeText(hasOwn(input, 'watchStatus') ? input.watchStatus : existing?.watchStatus || 'wantToWatch');
   if (!WATCH_STATUSES.has(watchStatus)) {
     throw new Error('Unsupported watchStatus');
   }
@@ -116,6 +140,17 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
     note: normalizeText(input.note ?? existing?.note, 4000),
     journal: normalizeMultilineText(input.journal ?? input.noteMarkdown ?? existing?.journal ?? existing?.noteMarkdown, 12000),
     noteMarkdown: normalizeMultilineText(input.noteMarkdown ?? input.journal ?? existing?.noteMarkdown ?? existing?.journal, 12000),
+    titleOverride: normalizeText(input.titleOverride ?? existing?.titleOverride, 240),
+    originalTitleOverride: normalizeText(input.originalTitleOverride ?? existing?.originalTitleOverride, 240),
+    directorOverride: normalizeText(input.directorOverride ?? existing?.directorOverride, 240),
+    releaseDateOverride: normalizeText(input.releaseDateOverride ?? existing?.releaseDateOverride, 40),
+    runtimeOverride: hasOwn(input, 'runtimeOverride')
+      ? normalizeRuntimeOverride(input.runtimeOverride)
+      : normalizeRuntimeOverride(existing?.runtimeOverride),
+    genresOverride: normalizeStringArray(input.genresOverride ?? existing?.genresOverride, 60),
+    overviewOverride: normalizeText(input.overviewOverride ?? existing?.overviewOverride, 4000),
+    posterUrlOverride: normalizeImageUrlOverride(input.posterUrlOverride ?? existing?.posterUrlOverride),
+    backdropUrlOverride: normalizeImageUrlOverride(input.backdropUrlOverride ?? existing?.backdropUrlOverride),
     tags: normalizeStringArray(input.tags ?? existing?.tags, 40),
     isFavorite: Boolean(input.isFavorite ?? existing?.isFavorite ?? false),
     watchedAt: normalizeText(input.watchedAt ?? existing?.watchedAt, 40),

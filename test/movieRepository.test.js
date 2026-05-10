@@ -115,6 +115,80 @@ describe('MovieRepository', () => {
     assert.equal(list[0].movie.title, 'Movie');
   });
 
+  it('stores manual metadata and image overrides on UserMovieEntry only', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie({ title: 'TMDb Title', director: 'TMDb Director' });
+        },
+      },
+    });
+
+    const result = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      titleOverride: 'Local Title',
+      directorOverride: 'Local Director',
+      releaseDateOverride: '2025-12-24',
+      runtimeOverride: '123',
+      genresOverride: ['Drama', 'War'],
+      overviewOverride: 'Local synopsis.',
+      posterUrlOverride: 'https://example.com/poster.jpg',
+      backdropUrlOverride: '/file/backdrop.jpg',
+    });
+
+    assert.equal(result.entry.titleOverride, 'Local Title');
+    assert.equal(result.entry.directorOverride, 'Local Director');
+    assert.equal(result.entry.runtimeOverride, 123);
+    assert.deepEqual(result.entry.genresOverride, ['Drama', 'War']);
+    assert.equal(result.entry.posterUrlOverride, 'https://example.com/poster.jpg');
+    assert.equal(result.entry.backdropUrlOverride, '/file/backdrop.jpg');
+
+    const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
+    assert.equal(cachedMovie.title, 'TMDb Title');
+    assert.equal(cachedMovie.director, 'TMDb Director');
+    assert.equal(cachedMovie.titleOverride, undefined);
+    assert.equal(cachedMovie.posterUrlOverride, undefined);
+
+    const list = await repository.listUserEntries();
+    assert.equal(list[0].entry.titleOverride, 'Local Title');
+    assert.equal(list[0].movie.title, 'TMDb Title');
+  });
+
+  it('preserves local entry fields when patching only metadata overrides', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie();
+        },
+      },
+    });
+
+    await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      userRating: 4.7,
+      isFavorite: true,
+      watchedAt: '2026-05-09',
+      journal: 'Saved note',
+    });
+    const patched = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      titleOverride: 'Local Title',
+    });
+
+    assert.equal(patched.entry.watchStatus, 'watched');
+    assert.equal(patched.entry.userRating, 4.7);
+    assert.equal(patched.entry.isFavorite, true);
+    assert.equal(patched.entry.watchedAt, '2026-05-09');
+    assert.equal(patched.entry.journal, 'Saved note');
+    assert.equal(patched.entry.titleOverride, 'Local Title');
+  });
+
   it('backfills missing directors while listing saved entries', async () => {
     const db = new MemoryDB();
     let detailCalls = 0;

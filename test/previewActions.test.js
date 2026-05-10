@@ -130,7 +130,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /const filmActionNames = new Set\(\[/);
     assert.match(appSource, /filmActionNames\.has\(actionTarget\.dataset\.action \|\| ''\)/);
     assert.match(appSource, /return '#\/films\/' \+ encodeURIComponent\(state\.activeFilmId\)/);
-    assert.match(appSource, /state\.filmDetailOpen = false;\s+clearTransientFilmDetail\(\);\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesPreview = false;\s+clearPrivateViewState\(\);/);
+    assert.match(appSource, /state\.filmDetailOpen = false;\s+clearTransientFilmDetail\(\);\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesPreview = false;\s+state\.filmMetadataEditing = false;\s+state\.filmMetadataDraft = null;\s+clearPrivateViewState\(\);/);
     assert.doesNotMatch(appSource, /case 'save-film-status':\s+void saveFilmStatus\([^;]+openAfterSave:\s*true/s);
     const detailFunction = appSource.slice(
       appSource.indexOf('async function openTmdbFilmDetail'),
@@ -183,6 +183,7 @@ describe('media library download actions', () => {
     assert.match(html, /cml-film-detail__markdown/);
     assert.match(html, /Save to Favourites/);
     assert.match(html, /data-action="film-toggle-favourite"/);
+    assert.match(html, /data-action="film-edit-metadata"/);
     assert.match(html, /data-action="film-edit-notes"/);
     assert.match(html, /data-action="film-mark-rewatch"/);
     assert.match(html, /data-action="film-remove-entry"/);
@@ -247,15 +248,62 @@ describe('media library download actions', () => {
     assert.doesNotMatch(editHtml, /data-action="film-notes-preview-toggle"/);
   });
 
+  it('renders film detail metadata overrides as an inline editor for saved films only', () => {
+    const savedHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'TMDb Movie',
+        localTitle: 'Local Movie',
+        originalTitle: 'Original Movie',
+        director: 'TMDb Director',
+        status: 'watched',
+        posterPath: '/poster.jpg',
+        backdropPath: '/backdrop.jpg',
+      },
+      metadataEditing: true,
+      metadataDraft: {
+        titleOverride: 'Local Movie',
+        directorOverride: 'Local Director',
+        posterUrlOverride: 'https://example.com/poster.jpg',
+        backdropUrlOverride: '/file/backdrop.jpg',
+      },
+    });
+    const previewHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'TMDb Movie',
+        isSavedEntry: false,
+      },
+      metadataEditing: true,
+      metadataDraft: { titleOverride: 'Should not matter' },
+    });
+
+    assert.match(savedHtml, /cml-film-metadata-editor/);
+    assert.match(savedHtml, /data-film-metadata-field="titleOverride"/);
+    assert.match(savedHtml, /data-film-metadata-field="posterUrlOverride"/);
+    assert.match(savedHtml, /data-film-metadata-field="backdropUrlOverride"/);
+    assert.match(savedHtml, /Local overrides only/);
+    assert.match(savedHtml, /https:\/\/example\.com\/poster\.jpg/);
+    assert.match(savedHtml, /src="https:\/\/example\.com\/poster\.jpg"/);
+    assert.match(savedHtml, /src="\/file\/backdrop\.jpg"/);
+    assert.doesNotMatch(previewHtml, /data-action="film-edit-metadata"/);
+    assert.doesNotMatch(previewHtml, /cml-film-metadata-editor/);
+  });
+
   it('keeps Films detail local actions wired through app handlers', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const repositorySource = fs.readFileSync(new URL('../functions/utils/movieRepository.js', import.meta.url), 'utf8');
 
     assert.match(appSource, /filmNotesEditing: false/);
+    assert.match(appSource, /filmMetadataEditing: false/);
     assert.match(appSource, /function saveFilmEntryPatch/);
     assert.match(appSource, /function commitFilmNotesEdit/);
+    assert.match(appSource, /function commitFilmMetadataEdit/);
     assert.match(appSource, /case 'film-toggle-favourite':/);
     assert.match(appSource, /case 'film-edit-notes':/);
+    assert.match(appSource, /case 'film-edit-metadata':/);
     assert.match(appSource, /case 'film-remove-entry':/);
     assert.match(appSource, /function removeFilmEntry\(filmId\)/);
     assert.match(appSource, /function isUnsavedActiveFilmPreview\(tmdbId = null\)/);
@@ -264,11 +312,26 @@ describe('media library download actions', () => {
     assert.match(appSource, /keepDetailOpen: shouldKeepDetailOpenAfterNotesSave/);
     assert.match(appSource, /case 'film-mark-rewatch':/);
     assert.match(appSource, /data-film-notes-draft/);
+    assert.match(appSource, /data-film-metadata-field/);
+    assert.match(appSource, /querySelector\('\.cml-film-metadata-editor'\)/);
+    assert.match(appSource, /Object\.assign\(body, changedMetadataPatch\)/);
     assert.match(appSource, /function patchActiveFilmDetailView/);
     assert.match(appSource, /function renderFilmMutationState/);
     assert.match(appSource, /renderFilmMutationState\(\);/);
     assert.match(repositorySource, /journal: normalizeMultilineText/);
     assert.match(repositorySource, /noteMarkdown: normalizeMultilineText/);
+    assert.match(repositorySource, /titleOverride: normalizeText/);
+    assert.match(repositorySource, /posterUrlOverride: normalizeImageUrlOverride/);
+  });
+
+  it('removes dead legacy Films components from the live component module', () => {
+    const source = fs.readFileSync(new URL('../js/media-library/films-components.js', import.meta.url), 'utf8');
+
+    assert.doesNotMatch(source, /LegacyFilmDetailModal/);
+    assert.doesNotMatch(source, /FilmDetailModal/);
+    assert.doesNotMatch(source, /LegacyFilmSearchResults/);
+    assert.doesNotMatch(source, /LegacyAddableFilmSearchResults/);
+    assert.doesNotMatch(source, /renderTicketMetaRow/);
   });
 
   it('keeps saved film card posters free of overlay labels', () => {
