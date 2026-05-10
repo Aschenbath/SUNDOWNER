@@ -957,7 +957,7 @@ function LegacyAddableFilmSearchResults({ results = [], loading = false, error =
   `;
 }
 
-export function FilmSearchResults({ results = [], loading = false, settling = false, resultKey = 0, error = '', query = '', savingTmdbIds = new Set() } = {}) {
+export function FilmSearchResults({ results = [], loading = false, settling = false, clearing = false, resultKey = 0, error = '', query = '', savingTmdbIds = new Set() } = {}) {
   const normalizedQuery = normalizeText(query);
   if (!normalizedQuery && !results.length && !error) {
     return '';
@@ -995,7 +995,7 @@ export function FilmSearchResults({ results = [], loading = false, settling = fa
     `;
   }).join('') : `<p class="cml-films-mvp__empty">${emptyMessage}</p>`;
   return `
-    <section class="cml-films-mvp cml-film-search-panel ${loading ? 'is-searching' : ''} ${settling ? 'is-settling' : ''}" data-film-search-result-key="${escapeHtml(resultKey)}">
+    <section class="cml-films-mvp cml-film-search-panel ${loading ? 'is-searching' : ''} ${settling ? 'is-settling' : ''} ${clearing ? 'is-clearing' : ''}" data-film-search-result-key="${escapeHtml(resultKey)}">
       <div class="cml-films-mvp__head">
         <div>
           <p class="cml-films-mvp__eyebrow">TMDb search</p>
@@ -1004,7 +1004,7 @@ export function FilmSearchResults({ results = [], loading = false, settling = fa
         <p class="cml-film-search-status ${loading ? 'is-visible' : ''}" aria-live="polite">${loading ? 'Searching...' : ''}</p>
         ${friendlyError ? `<p class="cml-films-mvp__error">${escapeHtml(friendlyError)}</p>` : ''}
       </div>
-      <div class="cml-films-mvp__results cml-film-search-results ${loading ? 'is-loading' : ''} ${settling ? 'is-settling' : ''}">
+      <div class="cml-films-mvp__results cml-film-search-results ${loading ? 'is-loading' : ''} ${settling ? 'is-settling' : ''} ${clearing ? 'is-clearing' : ''}">
         ${resultCards}
       </div>
     </section>

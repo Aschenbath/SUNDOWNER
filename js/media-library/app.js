@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=31';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=32';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -109,6 +109,7 @@ const STORAGE_REQUEST_TIMEOUT_MS = 5000;
 const SEARCH_INPUT_DEBOUNCE_MS = 160;
 const FILM_SEARCH_DEBOUNCE_MS = 350;
 const FILM_SEARCH_MIN_LOADING_MS = 180;
+const FILM_SEARCH_CLEAR_TRANSITION_MS = 180;
 const MEDIA_LIBRARY_UPLOAD_ACCEPT = 'image/*,video/*,audio/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
 const COLLECTION_PAGE_SIZE = 24;
 const TIMELINE_ROW_GAP = 2;
@@ -434,6 +435,7 @@ const state = {
   filmSearchResults: [],
   filmSearchLoading: false,
   filmSearchSettling: false,
+  filmSearchClearing: false,
   filmSearchResultKey: 0,
   filmSearchComposing: false,
   filmActiveFilter: FILM_FILTERS[0],
@@ -8643,6 +8645,27 @@ function settleFilmSearchResults(requestId) {
   });
 }
 
+function clearFilmSearchResultsSmoothly() {
+  if (!state.filmSearchResults.length && !state.filmSearchClearing) {
+    state.filmSearchResults = [];
+    return;
+  }
+  const clearRequestId = ++filmSearchRequestId;
+  state.filmSearchLoading = false;
+  state.filmSearchSettling = false;
+  state.filmSearchClearing = true;
+  state.filmError = '';
+  render();
+  window.setTimeout(() => {
+    if (clearRequestId !== filmSearchRequestId) {
+      return;
+    }
+    state.filmSearchResults = [];
+    state.filmSearchClearing = false;
+    render();
+  }, FILM_SEARCH_CLEAR_TRANSITION_MS);
+}
+
 function delay(ms) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, Math.max(0, ms));
@@ -8656,14 +8679,10 @@ function scheduleFilmSearch(query) {
   clearPendingFilmSearch();
   if (!shouldRunFilmSearch(normalizedQuery)) {
     abortPendingFilmSearch();
-    filmSearchRequestId += 1;
-    state.filmSearchLoading = false;
-    state.filmSearchSettling = false;
-    state.filmSearchResults = [];
-    state.filmError = '';
-    render();
+    clearFilmSearchResultsSmoothly();
     return;
   }
+  state.filmSearchClearing = false;
   if (filmSearchCache.has(normalizedQuery)) {
     state.filmSearchResults = filmSearchCache.get(normalizedQuery) || [];
   }
@@ -8685,14 +8704,10 @@ async function searchFilms({ query = state.filmSearchQuery } = {}) {
   clearPendingFilmSearch();
   if (!shouldRunFilmSearch(normalizedQuery)) {
     abortPendingFilmSearch();
-    filmSearchRequestId += 1;
-    state.filmSearchLoading = false;
-    state.filmSearchSettling = false;
-    state.filmSearchResults = [];
-    state.filmError = '';
-    render();
+    clearFilmSearchResultsSmoothly();
     return;
   }
+  state.filmSearchClearing = false;
   const requestId = ++filmSearchRequestId;
   abortPendingFilmSearch();
   filmSearchAbortController = new AbortController();
@@ -9537,6 +9552,7 @@ function render() {
                       results: state.filmSearchResults,
                       loading: state.filmSearchLoading,
                       settling: state.filmSearchSettling,
+                      clearing: state.filmSearchClearing,
                       resultKey: state.filmSearchResultKey,
                       error: state.filmError,
                       query: state.filmSearchQuery,
@@ -12284,7 +12300,7 @@ function handleAction(actionTarget) {
     case 'save-film-status':
       void saveFilmStatus(actionTarget.dataset.tmdbId, actionTarget.dataset.watchStatus || 'wantToWatch', {
         openAfterSave: false,
-        silent: Boolean(state.filmDetailOpen)
+        silent: true
       });
       return true;
     case 'clear-film-rating':

@@ -51,9 +51,11 @@ describe('media library download actions', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const emptyHtml = FilmSearchResults({ query: 'No Match', results: [] });
     const loadingHtml = FilmSearchResults({ query: 'Pearl', loading: true, settling: true, resultKey: 3, results: [] });
+    const clearingHtml = FilmSearchResults({ query: '', clearing: true, results: [{ tmdbId: 1, title: 'Old Result' }] });
 
     assert.match(appSource, /const FILM_SEARCH_DEBOUNCE_MS = 350/);
     assert.match(appSource, /const FILM_SEARCH_MIN_LOADING_MS = 180/);
+    assert.match(appSource, /const FILM_SEARCH_CLEAR_TRANSITION_MS = 180/);
     assert.match(appSource, /let filmSearchRequestId = 0/);
     assert.match(appSource, /let filmSearchAbortController = null/);
     assert.match(appSource, /const filmSearchCache = new Map\(\)/);
@@ -61,6 +63,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /function scheduleFilmSearch\(query\)/);
     assert.match(appSource, /function setFilmSearchResults\(results\)/);
     assert.match(appSource, /function settleFilmSearchResults\(requestId\)/);
+    assert.match(appSource, /function clearFilmSearchResultsSmoothly\(\)/);
     assert.match(appSource, /filmSearchComposing: false/);
     assert.match(appSource, /state\.filmSearchComposing = true/);
     assert.match(appSource, /state\.filmSearchComposing = false/);
@@ -75,6 +78,8 @@ describe('media library download actions', () => {
     assert.match(loadingHtml, /cml-film-search-panel is-searching is-settling/);
     assert.match(loadingHtml, /data-film-search-result-key="3"/);
     assert.match(loadingHtml, /cml-film-search-results is-loading is-settling/);
+    assert.match(clearingHtml, /cml-film-search-panel\s+is-clearing/);
+    assert.match(clearingHtml, /cml-film-search-results\s+is-clearing/);
   });
 
   it('keeps TMDb search-result save actions on the Films index route', () => {
@@ -88,6 +93,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /journal: preserveLocal/);
     assert.match(appSource, /const watchedAt = watchStatus === 'watched' \? new Date\(\)\.toISOString\(\)\.slice\(0, 10\) : undefined/);
     assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false, silent = false, showSaving = !silent \} = \{\}\)/);
+    assert.match(appSource, /case 'save-film-status':\s+void saveFilmStatus\([^]+silent: true/s);
     assert.match(appSource, /const filmActionNames = new Set\(\[/);
     assert.match(appSource, /filmActionNames\.has\(actionTarget\.dataset\.action \|\| ''\)/);
     assert.match(appSource, /return '#\/films\/' \+ encodeURIComponent\(state\.activeFilmId\)/);

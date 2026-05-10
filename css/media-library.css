@@ -10857,6 +10857,12 @@ body.codex-media-library-active #app {
   opacity: 0.98;
 }
 
+#codex-media-library-root .cml-film-search-results.is-clearing {
+  opacity: 0;
+  filter: blur(3px);
+  transform: translateY(-4px);
+}
+
 #codex-media-library-root .cml-films-result {
   position: relative;
   display: grid;
