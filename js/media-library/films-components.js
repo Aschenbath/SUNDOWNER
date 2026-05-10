@@ -421,13 +421,19 @@ function renderDetailRatingControl(record = {}, userRating = '') {
   `;
 }
 
-function renderDetailWatchedDateColumn(record = {}, watchedDate = '') {
+function renderDetailPreviewSaveHint() {
+  return `
+    <p class="cml-film-detail__save-hint">Save this film to your diary before rating, dating, or writing private notes.</p>
+  `;
+}
+
+function renderDetailWatchedDateColumn(record = {}, watchedDate = '', { editable = true } = {}) {
   const value = normalizeText(record.watchedAt).slice(0, 10);
   return `
     <div class="cml-film-detail__meta-item">
       <span class="cml-film-detail__meta-label">Watched date</span>
       <strong class="cml-film-detail__meta-value"><span aria-hidden="true">▣</span><span data-film-watched-at-output>${escapeHtml(watchedDate)}</span></strong>
-      <div class="cml-film-detail__date-control">
+      ${editable ? `<div class="cml-film-detail__date-control">
         <input
           type="date"
           class="cml-film-detail__date-input"
@@ -437,7 +443,7 @@ function renderDetailWatchedDateColumn(record = {}, watchedDate = '') {
           value="${escapeHtml(value)}"
           ${record.isSaving ? 'disabled' : ''}
         />
-      </div>
+      </div>` : ''}
     </div>
   `;
 }
@@ -606,12 +612,12 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
                 <strong data-film-rating-output>${escapeHtml(userRating ? `${userRating} / 5.0` : 'Not rated')}</strong>
                 ${userRating ? renderRatingStars(userRating) : ''}
               </div>
-              ${renderDetailRatingControl(record, userRating)}
-              ${renderDetailStatusControls(record)}
+              ${isSavedEntry ? renderDetailRatingControl(record, userRating) : renderDetailPreviewSaveHint()}
+              ${isSavedEntry ? renderDetailStatusControls(record) : ''}
             </section>
             <div class="cml-film-detail__meta-row">
               ${renderDetailMetaColumn('Director', record.director || '—')}
-              ${renderDetailWatchedDateColumn(record, watchedDate)}
+              ${renderDetailWatchedDateColumn(record, watchedDate, { editable: isSavedEntry })}
               ${renderDetailMetaColumn('TMDb rating', formatTmdbDetailRating(record), '↗')}
             </div>
             <section class="cml-film-detail__section">

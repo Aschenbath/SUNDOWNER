@@ -124,6 +124,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /journal: preserveLocal/);
     assert.match(appSource, /const watchedAt = watchStatus === 'watched' \? new Date\(\)\.toISOString\(\)\.slice\(0, 10\) : undefined/);
     assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false, silent = false, showSaving = !silent \} = \{\}\)/);
+    assert.match(appSource, /openAfterSave: state\.filmDetailOpen && Number\(getActiveFilmRecord\(\)\?\.tmdbId\) === Number\(actionTarget\.dataset\.tmdbId\)/);
+    assert.match(appSource, /pushNavigationHash\(\{ mode: 'replace' \}\)/);
     assert.match(appSource, /case 'save-film-status':\s+void saveFilmStatus\([^]+silent: true/s);
     assert.match(appSource, /const filmActionNames = new Set\(\[/);
     assert.match(appSource, /filmActionNames\.has\(actionTarget\.dataset\.action \|\| ''\)/);
@@ -204,9 +206,13 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="save-film-status" data-watch-status="watched"/);
     assert.match(html, /Add to Watchlist/);
     assert.match(html, /Mark Watched/);
+    assert.match(html, /Save this film to your diary before rating/);
     assert.doesNotMatch(html, /data-action="film-toggle-favourite"/);
     assert.doesNotMatch(html, /data-action="film-edit-notes"/);
     assert.doesNotMatch(html, /data-action="film-remove-entry"/);
+    assert.doesNotMatch(html, /data-film-rating-input/);
+    assert.doesNotMatch(html, /data-film-watched-at-input/);
+    assert.doesNotMatch(html, /cml-film-detail__status-button/);
   });
 
   it('renders film detail notes as safe inline Markdown and exposes the editor state', () => {
@@ -252,6 +258,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /case 'film-edit-notes':/);
     assert.match(appSource, /case 'film-remove-entry':/);
     assert.match(appSource, /function removeFilmEntry\(filmId\)/);
+    assert.match(appSource, /function isUnsavedActiveFilmPreview\(tmdbId = null\)/);
+    assert.match(appSource, /if \(isUnsavedActiveFilmPreview\(normalizedId\)\) \{\s+return;\s+\}/);
     assert.match(appSource, /querySelector\('\.cml-film-notes-editor'\)/);
     assert.match(appSource, /keepDetailOpen: shouldKeepDetailOpenAfterNotesSave/);
     assert.match(appSource, /case 'film-mark-rewatch':/);

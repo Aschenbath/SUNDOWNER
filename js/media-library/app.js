@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=36';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=37';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -8511,6 +8511,17 @@ function findMovieSourceByTmdbId(tmdbId) {
     || null;
 }
 
+function isUnsavedActiveFilmPreview(tmdbId = null) {
+  if (!state.filmDetailOpen || !state.filmTransientDetailRecord || state.filmTransientDetailRecord.isSavedEntry !== false) {
+    return false;
+  }
+  const normalizedId = Number(tmdbId ?? state.filmTransientDetailRecord.tmdbId);
+  if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+    return true;
+  }
+  return Number(state.filmTransientDetailRecord.tmdbId) === normalizedId;
+}
+
 function clearMatchingTransientFilmDetail(tmdbId) {
   const normalizedId = Number(tmdbId);
   if (Number.isFinite(normalizedId) && Number(state.filmTransientDetailRecord?.tmdbId) === normalizedId) {
@@ -8974,7 +8985,7 @@ async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false, sile
     if (openAfterSave) {
       state.activeFilmId = record.id;
       state.filmDetailOpen = true;
-      pushNavigationHash();
+      pushNavigationHash({ mode: 'replace' });
     }
     state.filmError = '';
     if (!silent && !openAfterSave && !state.filmDetailOpen) {
@@ -9000,6 +9011,9 @@ async function saveFilmStatus(tmdbId, watchStatus, { openAfterSave = false, sile
 async function saveFilmRating(tmdbId, userRating, { silent = true } = {}) {
   const normalizedId = Number(tmdbId);
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+    return;
+  }
+  if (isUnsavedActiveFilmPreview(normalizedId)) {
     return;
   }
   const normalizedRating = normalizeFilmUserRating(userRating);
@@ -9046,6 +9060,9 @@ async function saveFilmRating(tmdbId, userRating, { silent = true } = {}) {
 async function saveFilmWatchedDate(tmdbId, watchedAt, { silent = true } = {}) {
   const normalizedId = Number(tmdbId);
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+    return;
+  }
+  if (isUnsavedActiveFilmPreview(normalizedId)) {
     return;
   }
   const normalizedDate = normalizeText(watchedAt).slice(0, 10);
@@ -12483,7 +12500,7 @@ function handleAction(actionTarget) {
       return true;
     case 'save-film-status':
       void saveFilmStatus(actionTarget.dataset.tmdbId, actionTarget.dataset.watchStatus || 'wantToWatch', {
-        openAfterSave: false,
+        openAfterSave: state.filmDetailOpen && Number(getActiveFilmRecord()?.tmdbId) === Number(actionTarget.dataset.tmdbId),
         silent: true
       });
       return true;

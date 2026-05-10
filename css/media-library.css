@@ -11768,6 +11768,14 @@ body.codex-media-library-active #app {
   gap: 16px;
 }
 
+#codex-media-library-root .cml-film-detail__save-hint {
+  max-width: 520px;
+  margin: 4px 0 0;
+  color: rgba(241, 238, 230, 0.54);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 #codex-media-library-root .cml-film-detail__rating-line strong {
   color: #f1eee6;
   font-size: clamp(30px, 2.5vw, 38px);
