@@ -56,7 +56,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /upsertFilmRecord\(record, \{ preserveLocal: true \}\)/);
     assert.match(appSource, /journal: preserveLocal/);
     assert.match(appSource, /const watchedAt = watchStatus === 'watched' \? new Date\(\)\.toISOString\(\)\.slice\(0, 10\) : undefined/);
-    assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false \} = \{\}\)/);
+    assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false, silent = false, showSaving = !silent \} = \{\}\)/);
     assert.match(appSource, /const filmActionNames = new Set\(\[/);
     assert.match(appSource, /filmActionNames\.has\(actionTarget\.dataset\.action \|\| ''\)/);
     assert.match(appSource, /return '#\/films\/' \+ encodeURIComponent\(state\.activeFilmId\)/);

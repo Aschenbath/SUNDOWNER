@@ -164,7 +164,7 @@ describe('MovieRepository', () => {
     assert.equal(cachedMovie.director, 'James Cameron');
   });
 
-  it('validates five-star half-step user ratings and allows clearing them', async () => {
+  it('validates five-star tenth-step user ratings and allows clearing them', async () => {
     const db = new MemoryDB();
     const repository = new MovieRepository({}, {
       db,
@@ -183,9 +183,9 @@ describe('MovieRepository', () => {
     const updated = await repository.saveOrUpdateUserEntry({
       tmdbId: 42,
       watchStatus: 'watched',
-      userRating: 4.5,
+      userRating: 4.7,
     });
-    assert.equal(updated.entry.userRating, 4.5);
+    assert.equal(updated.entry.userRating, 4.7);
 
     await assert.rejects(
       () => repository.saveOrUpdateUserEntry({ tmdbId: 42, watchStatus: 'watched', userRating: 4.25 }),

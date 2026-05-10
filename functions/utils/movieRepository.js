@@ -34,14 +34,14 @@ function normalizeUserRating(value, { strict = false } = {}) {
     return null;
   }
   const numeric = Number(value);
-  const rounded = Math.round(numeric * 2) / 2;
+  const rounded = Math.round(numeric * 10) / 10;
   const valid = Number.isFinite(numeric)
     && numeric >= 0.5
     && numeric <= 5
     && Math.abs(numeric - rounded) < 0.000001;
   if (!valid) {
     if (strict) {
-      throw new Error('userRating must be between 0.5 and 5.0 in 0.5 steps');
+      throw new Error('userRating must be between 0.5 and 5.0 in 0.1 steps');
     }
     return null;
   }

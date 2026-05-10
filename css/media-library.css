@@ -11612,10 +11612,21 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-detail__stars {
-  color: #d7ad54;
+  position: relative;
+  display: inline-block;
+  color: rgba(241, 238, 230, 0.22);
   font-size: 24px;
   letter-spacing: 0.08em;
   text-shadow: 0 8px 24px rgba(215, 173, 84, 0.16);
+}
+
+#codex-media-library-root .cml-film-detail__stars-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  overflow: hidden;
+  width: var(--film-star-fill, 0%);
+  color: #d7ad54;
+  white-space: nowrap;
 }
 
 #codex-media-library-root .cml-film-detail__rating-control {
