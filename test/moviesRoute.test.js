@@ -343,6 +343,63 @@ describe('manage movies route', () => {
     assert.equal(listPayload.entries[0].movie.title, 'Manual Movie');
   });
 
+  it('updates and deletes manual films by local id through the route', async () => {
+    const env = { img_url: new MemoryKV() };
+    const createResponse = await onRequest({
+      request: new Request('https://example.com/api/manage/movies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'manual',
+          watchStatus: 'wantToWatch',
+          titleOverride: 'Manual Movie',
+          posterPathOverride: '/manual-poster.jpg',
+        }),
+      }),
+      env,
+    });
+    const created = await createResponse.json();
+    assert.equal(createResponse.status, 200);
+
+    const updateResponse = await onRequest({
+      request: new Request('https://example.com/api/manage/movies', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: created.entry.id,
+          titleOverride: 'Updated Manual Movie',
+          userRating: 4.4,
+        }),
+      }),
+      env,
+    });
+    const updated = await updateResponse.json();
+    assert.equal(updateResponse.status, 200);
+    assert.equal(updated.entry.id, created.entry.id);
+    assert.equal(updated.entry.source, 'manual');
+    assert.equal(updated.entry.tmdbId, null);
+    assert.equal(updated.entry.titleOverride, 'Updated Manual Movie');
+    assert.equal(updated.entry.posterPathOverride, '/manual-poster.jpg');
+    assert.equal(updated.movie.title, 'Updated Manual Movie');
+
+    const deleteResponse = await onRequest({
+      request: new Request(`https://example.com/api/manage/movies?id=${encodeURIComponent(created.entry.id)}`, {
+        method: 'DELETE',
+      }),
+      env,
+    });
+    const deleted = await deleteResponse.json();
+    assert.equal(deleteResponse.status, 200);
+    assert.deepEqual(deleted, { deleted: true });
+
+    const listResponse = await onRequest({
+      request: new Request('https://example.com/api/manage/movies?action=entries'),
+      env,
+    });
+    const listPayload = await listResponse.json();
+    assert.equal(listPayload.entries.length, 0);
+  });
+
   it('rejects blank manual films through the route', async () => {
     const env = { img_url: new MemoryKV() };
     const response = await onRequest({

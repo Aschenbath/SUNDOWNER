@@ -109,6 +109,18 @@ function normalizeMovieSource(value = '', tmdbId = 0) {
   return tmdbId ? 'tmdb' : 'manual';
 }
 
+function resolveEntrySource(input = {}, existing = null) {
+  const normalizedInputSource = normalizeText(input.source).toLowerCase();
+  if (MOVIE_SOURCES.has(normalizedInputSource)) {
+    return normalizedInputSource;
+  }
+  const normalizedExistingSource = normalizeText(existing?.source).toLowerCase();
+  if (MOVIE_SOURCES.has(normalizedExistingSource)) {
+    return normalizedExistingSource;
+  }
+  return normalizeMovieSource('', normalizeNumber(input.tmdbId ?? existing?.tmdbId, 0));
+}
+
 function parseJson(rawValue, fallback) {
   if (!rawValue) {
     return fallback;
@@ -230,8 +242,10 @@ export function normalizeMovieCache(input = {}, timestamp = nowIso()) {
 }
 
 export function normalizeUserMovieEntry(input = {}, existing = null, timestamp = nowIso()) {
-  const tmdbId = normalizeNumber(input.tmdbId ?? existing?.tmdbId, 0);
-  const source = normalizeMovieSource(input.source ?? existing?.source, tmdbId);
+  const source = resolveEntrySource(input, existing);
+  const tmdbId = source === 'tmdb'
+    ? normalizeNumber(input.tmdbId ?? existing?.tmdbId, 0)
+    : null;
   if (source === 'tmdb' && !tmdbId) {
     throw new Error('tmdbId is required');
   }
@@ -263,7 +277,7 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
   return {
     id,
     source,
-    tmdbId: tmdbId || null,
+    tmdbId: source === 'tmdb' ? tmdbId : null,
     watchStatus,
     userRating: rating,
     note: normalizeText(input.note ?? existing?.note, 4000),
@@ -408,8 +422,18 @@ export class MovieRepository {
   async saveOrUpdateUserEntry(input = {}) {
     const db = this.getDb();
     const timestamp = nowIso();
-    const tmdbId = normalizeNumber(input.tmdbId, 0);
-    const source = normalizeMovieSource(input.source, tmdbId);
+    const entries = await getRawUserEntries(db);
+    const inputId = normalizeText(input.id);
+    const inputTmdbId = normalizeNumber(input.tmdbId, 0);
+    const index = entries.findIndex((entry) =>
+      (inputTmdbId && Number(entry.tmdbId) === inputTmdbId)
+      || (inputId && normalizeText(entry.id) === inputId)
+    );
+    const existingEntry = index >= 0 ? entries[index] : null;
+    const source = resolveEntrySource(input, existingEntry);
+    const tmdbId = source === 'tmdb'
+      ? normalizeNumber(input.tmdbId ?? existingEntry?.tmdbId, 0)
+      : 0;
     if (source === 'tmdb' && !tmdbId) {
       throw new Error('tmdbId is required');
     }
@@ -431,13 +455,7 @@ export class MovieRepository {
         : await this.getMovieDetail(tmdbId);
     }
 
-    const entries = await getRawUserEntries(db);
-    const inputId = normalizeText(input.id);
-    const index = entries.findIndex((entry) =>
-      (tmdbId && Number(entry.tmdbId) === tmdbId)
-      || (inputId && normalizeText(entry.id) === inputId)
-    );
-    const nextEntry = normalizeUserMovieEntry({ ...input, source }, index >= 0 ? entries[index] : null, timestamp);
+    const nextEntry = normalizeUserMovieEntry({ ...input, source, tmdbId: source === 'tmdb' ? tmdbId : null }, existingEntry, timestamp);
     if (source === 'manual' && !normalizeText(nextEntry.titleOverride || nextEntry.originalTitleOverride)) {
       throw new Error('Manual film title is required');
     }

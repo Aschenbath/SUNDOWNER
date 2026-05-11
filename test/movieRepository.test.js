@@ -288,6 +288,95 @@ describe('MovieRepository', () => {
     assert.deepEqual(await repository.listUserEntries(), []);
   });
 
+  it('updates manual films by id without requiring source or tmdbId', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          throw new Error('manual update should not load TMDb detail');
+        },
+      },
+    });
+
+    const saved = await repository.saveOrUpdateUserEntry({
+      source: 'manual',
+      watchStatus: 'wantToWatch',
+      titleOverride: 'Manual One',
+      posterPathOverride: '/manual-poster.jpg',
+      backdropUrlOverride: 'https://example.com/backdrop.jpg',
+    });
+    const updated = await repository.saveOrUpdateUserEntry({
+      id: saved.entry.id,
+      titleOverride: 'Manual Two',
+      userRating: 4.1,
+    });
+
+    assert.equal(updated.entry.id, saved.entry.id);
+    assert.equal(updated.entry.source, 'manual');
+    assert.equal(updated.entry.tmdbId, null);
+    assert.equal(updated.entry.titleOverride, 'Manual Two');
+    assert.equal(updated.entry.posterPathOverride, '/manual-poster.jpg');
+    assert.equal(updated.entry.backdropUrlOverride, 'https://example.com/backdrop.jpg');
+    assert.equal(updated.movie.title, 'Manual Two');
+
+    const list = await repository.listUserEntries();
+    assert.equal(list.length, 1);
+    assert.equal(list[0].entry.id, saved.entry.id);
+    assert.equal(list[0].movie.title, 'Manual Two');
+  });
+
+  it('keeps existing TMDb entries as TMDb when patching by id without tmdbId', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie();
+        },
+      },
+    });
+
+    await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'wantToWatch',
+    });
+    const updated = await repository.saveOrUpdateUserEntry({
+      id: 'tmdb-42',
+      userRating: 4.2,
+    });
+
+    assert.equal(updated.entry.id, 'tmdb-42');
+    assert.equal(updated.entry.source, 'tmdb');
+    assert.equal(updated.entry.tmdbId, 42);
+    assert.equal(updated.entry.userRating, 4.2);
+    assert.equal(updated.movie.title, 'Movie');
+  });
+
+  it('treats explicit manual source as local even if a tmdbId is accidentally present', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          throw new Error('manual source should not fetch TMDb detail');
+        },
+      },
+    });
+
+    const saved = await repository.saveOrUpdateUserEntry({
+      source: 'manual',
+      tmdbId: 42,
+      titleOverride: 'Manual With Stray Id',
+    });
+
+    assert.equal(saved.entry.source, 'manual');
+    assert.equal(saved.entry.tmdbId, null);
+    assert.equal(saved.movie.source, 'manual');
+    assert.equal(saved.movie.tmdbId, null);
+    assert.equal(await db.get('manage@sysConfig@movieCache@42'), null);
+  });
+
   it('normalizes poster and backdrop path choices on MovieCache only', async () => {
     const db = new MemoryDB();
     const repository = new MovieRepository({}, {
@@ -360,6 +449,79 @@ describe('MovieRepository', () => {
     assert.equal(cachedMovie.backdropPath, '/tmdb-backdrop.jpg');
     assert.equal(cachedMovie.posterPathOverride, undefined);
     assert.equal(cachedMovie.backdropUrlOverride, undefined);
+  });
+
+  it('preserves image path and URL overrides when later TMDb data is saved', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie({ posterPath: '/original-poster.jpg', backdropPath: '/original-backdrop.jpg' });
+        },
+      },
+    });
+
+    await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      posterPathOverride: '/chosen-poster.jpg',
+      backdropPathOverride: '/chosen-backdrop.jpg',
+      posterUrlOverride: 'https://example.com/poster.jpg',
+      backdropUrlOverride: '/file/custom-backdrop.jpg',
+      journal: 'private note',
+    });
+    const refreshed = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      movie: createMovie({
+        title: 'Fresh TMDb Title',
+        posterPath: '/fresh-poster.jpg',
+        backdropPath: '/fresh-backdrop.jpg',
+      }),
+    });
+
+    assert.equal(refreshed.entry.posterPathOverride, '/chosen-poster.jpg');
+    assert.equal(refreshed.entry.backdropPathOverride, '/chosen-backdrop.jpg');
+    assert.equal(refreshed.entry.posterUrlOverride, 'https://example.com/poster.jpg');
+    assert.equal(refreshed.entry.backdropUrlOverride, '/file/custom-backdrop.jpg');
+    assert.equal(refreshed.entry.journal, 'private note');
+
+    const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
+    assert.equal(cachedMovie.title, 'Fresh TMDb Title');
+    assert.equal(cachedMovie.posterPath, '/fresh-poster.jpg');
+    assert.equal(cachedMovie.backdropPath, '/fresh-backdrop.jpg');
+    assert.equal(cachedMovie.posterPathOverride, undefined);
+    assert.equal(cachedMovie.backdropUrlOverride, undefined);
+  });
+
+  it('backfills ids for legacy watch events and preserves them on later saves', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie();
+        },
+      },
+    });
+
+    const saved = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      watchedAt: '2026-05-01',
+      watchEvents: [{ watchedAt: '2026-05-01', createdAt: '2026-05-01T00:00:00.000Z' }],
+    });
+    const legacyId = saved.entry.watchEvents[0].id;
+    assert.ok(legacyId.startsWith('watch-'));
+
+    const updated = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchedAt: '2026-05-10',
+      appendWatchEvent: '2026-05-10',
+    });
+
+    assert.equal(updated.entry.watchEvents.find((event) => event.watchedAt === '2026-05-01').id, legacyId);
+    assert.ok(updated.entry.watchEvents.find((event) => event.watchedAt === '2026-05-10').id.startsWith('watch-'));
   });
 
   it('rejects blank manual films before they become useless entries', async () => {

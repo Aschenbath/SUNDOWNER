@@ -8749,9 +8749,13 @@ function normalizeFilmMetadataOverrides(source = {}) {
   };
 }
 
-function normalizeFilmSource(source = '') {
+function normalizeFilmSource(source = '', tmdbId = 0) {
   const normalized = normalizeText(source).toLowerCase();
-  return normalized === 'manual' ? 'manual' : 'tmdb';
+  if (normalized === 'manual' || normalized === 'tmdb') {
+    return normalized;
+  }
+  const numericTmdbId = Number(tmdbId);
+  return Number.isFinite(numericTmdbId) && numericTmdbId > 0 ? 'tmdb' : 'manual';
 }
 
 function getFilmRecordSaveTarget(record = {}) {
@@ -8763,7 +8767,7 @@ function getFilmRecordSaveTarget(record = {}) {
   return {
     filmId,
     tmdbId: Number.isFinite(tmdbId) && tmdbId > 0 ? tmdbId : 0,
-    source: normalizeFilmSource(record.source)
+    source: normalizeFilmSource(record.source, tmdbId)
   };
 }
 
