@@ -1,5 +1,5 @@
 ﻿import { shouldDisplayMediaItem } from './media-support.js';
-import { FilmsPage } from './films-components.js?v=40';
+import { FilmsPage } from './films-components.js?v=62';
 
 import { THEME_COLOR_OPTIONS, THEME_MODE_OPTIONS, formatThemeModeLabel } from '../theme-system.js?v=2';
 
@@ -3051,7 +3051,7 @@ export function ConfirmDialog({ state }) {
   if (!state.confirmDialogOpen) {
     return '';
   }
-  const isDestructive = ['delete', 'delete-permanently', 'delete-bin-permanently', 'empty-bin', 'delete-album'].includes(state.confirmDialogMode);
+  const isDestructive = ['delete', 'delete-permanently', 'delete-bin-permanently', 'empty-bin', 'delete-album', 'remove-film'].includes(state.confirmDialogMode);
   const countLabel = state.confirmDialogSelectionCount > 1
     ? `${state.confirmDialogSelectionCount} items selected`
     : state.confirmDialogSelectionCount === 1

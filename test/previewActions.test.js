@@ -5,7 +5,7 @@ import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, Documents
 import { FilmCard, FilmDetailPage, FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
 
 describe('media library download actions', () => {
-  it('renders Films search as a submit form and keeps TMDb feedback above the local film list', () => {
+  it('renders Films search as one local-first input with TMDb feedback above the local film list', () => {
     const panel = FilmSearchResults({
       error: 'TMDb credentials are not configured. Set TMDB_ACCESS_TOKEN or TMDB_API_KEY.',
       query: '花样',
@@ -16,10 +16,12 @@ describe('media library download actions', () => {
       searchPanelHtml: panel,
     });
 
-    assert.match(html, /data-action="toggle-film-tmdb-add"/);
-    assert.match(html, /data-form="films-search"/);
-    assert.match(html, /type="submit" class="cml-films-page__add-button cml-films-page__add-button--submit"/);
-    assert.match(html, /cml-films-search__live/);
+    assert.match(html, /data-film-library-search-input/);
+    assert.doesNotMatch(html, /data-action="toggle-film-tmdb-add"/);
+    assert.doesNotMatch(html, /data-form="films-search"/);
+    assert.doesNotMatch(html, /data-films-search-input/);
+    assert.match(html, /cml-film-search-result--custom/);
+    assert.match(html, /data-action="add-manual-film" data-film-manual-title="[^"]+"/);
     assert.match(html, /data-action="filter-films"/);
     assert.match(html, /data-film-filter="Watched"/);
     assert.doesNotMatch(html, /data-film-filter="Watching"/);
@@ -31,7 +33,7 @@ describe('media library download actions', () => {
     assert.ok(html.indexOf('Search my films') < html.indexOf('Add from TMDb'));
   });
 
-  it('renders saved-library search separately from TMDb search', () => {
+  it('keeps saved-library search as the only Films entry control at rest', () => {
     const html = FilmsPage({
       records: [],
       totalCount: 2,
@@ -40,17 +42,17 @@ describe('media library download actions', () => {
       searchPanelHtml: '',
     });
 
-    assert.match(html, /data-action="toggle-film-tmdb-add"/);
+    assert.doesNotMatch(html, /data-action="toggle-film-tmdb-add"/);
     assert.doesNotMatch(html, /data-films-search-input/);
-    assert.match(html, /Add from TMDb/);
+    assert.doesNotMatch(html, /data-form="films-search"/);
+    assert.doesNotMatch(html, /Add from TMDb/);
     assert.match(html, /data-film-library-search-input/);
     assert.match(html, /value="Cure"/);
     assert.match(html, /Search my films/);
-    assert.match(html, /data-action="add-manual-film"/);
+    assert.doesNotMatch(html, /data-action="add-manual-film"/);
     assert.match(html, /data-action="clear-film-library-search"/);
     assert.match(html, /No saved films found\./);
     assert.match(html, /cml-films-library-search--primary/);
-    assert.ok(html.indexOf('data-film-library-search-input') < html.indexOf('data-action="toggle-film-tmdb-add"'));
 
     const openedHtml = FilmsPage({
       records: [],
@@ -60,10 +62,8 @@ describe('media library download actions', () => {
       addFlowOpen: true,
       searchPanelHtml: '',
     });
-    assert.match(openedHtml, /data-films-search-input/);
-    assert.match(openedHtml, /value="Pearl"/);
-    const tmdbForm = openedHtml.slice(openedHtml.indexOf('data-form="films-search"'), openedHtml.indexOf('</form>', openedHtml.indexOf('data-form="films-search"')));
-    assert.doesNotMatch(tmdbForm, /data-action="add-manual-film"/);
+    assert.doesNotMatch(openedHtml, /data-films-search-input/);
+    assert.doesNotMatch(openedHtml, /value="Pearl"/);
   });
 
   it('renders saved Films in a poster-only view mode', () => {
@@ -103,6 +103,8 @@ describe('media library download actions', () => {
     });
 
     assert.match(html, /cml-films-result__poster-wrap/);
+    assert.match(html, /cml-film-search-result--custom/);
+    assert.match(html, /data-film-manual-title="Inception"/);
     assert.match(html, /data-action="open-tmdb-film-detail"/);
     assert.match(html, /data-action="save-film-status" data-watch-status="wantToWatch"/);
     assert.match(html, /data-action="save-film-status" data-watch-status="watched"/);
@@ -171,8 +173,10 @@ describe('media library download actions', () => {
     assert.match(appSource, /function loadMoreFilmSearchResults\(\)/);
     assert.match(appSource, /requestId !== filmSearchRequestId/);
     assert.match(appSource, /signal: filmSearchAbortController\.signal/);
-    assert.match(emptyHtml, /No TMDb results found\./);
-    assert.match(loadingHtml, /Searching TMDb\.\.\./);
+    assert.match(emptyHtml, /cml-film-search-result--custom/);
+    assert.match(emptyHtml, /data-film-manual-title="No Match"/);
+    assert.doesNotMatch(emptyHtml, /No TMDb results found\./);
+    assert.match(loadingHtml, /Searching\.\.\./);
     assert.match(loadingHtml, /cml-film-search-panel\s+is-searching\s+is-settling/);
     assert.match(loadingHtml, /data-film-search-result-key="3"/);
     assert.match(loadingHtml, /cml-film-search-results\s+is-loading\s+is-settling/);
@@ -282,6 +286,11 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /Romance \/ Drama \/ War \/ TV Movie/);
     assert.match(html, /5\.0 \/ 5\.0/);
     assert.match(html, /My rating/);
+    assert.match(html, /cml-film-detail__signal-row cml-film-detail__signal-row--rating[\s\S]*My rating/);
+    assert.match(html, /cml-film-detail__rating-ticks/);
+    assert.match(html, /step="0\.5"/);
+    assert.match(html, /data-label="0\.5"/);
+    assert.match(html, /data-label="5"/);
     assert.doesNotMatch(html, /TMDb 7\.5/);
     assert.doesNotMatch(html, /TMDb rating/);
     assert.match(html, /May 9, 2026/);
@@ -685,9 +694,12 @@ describe('media library download actions', () => {
     assert.match(appSource, /case 'film-refresh-tmdb':/);
     assert.doesNotMatch(appSource, /case 'film-open-tmdb':/);
     assert.match(appSource, /case 'film-remove-entry':/);
+    assert.match(appSource, /filmPendingRemoveId: ''/);
+    assert.match(appSource, /mode: 'remove-film'/);
     assert.match(appSource, /case 'film-undo-remove-entry':/);
     assert.match(appSource, /function removeFilmEntry\(filmId\)/);
-    assert.match(appSource, /function refreshFilmFromTmdb\(filmId, \{ quiet = false \} = \{\}\)/);
+    assert.match(appSource, /function refreshFilmFromTmdb\(filmId, \{ quiet = false, skipCommit = false \} = \{\}\)/);
+    assert.match(appSource, /refreshFilmFromTmdb\(actionTarget\.dataset\.filmId \|\| state\.activeFilmId, \{ skipCommit: true \}\)/);
     assert.match(appSource, /forceRefresh=1/);
     assert.match(appSource, /function undoRemoveFilmEntry\(\)/);
     assert.match(appSource, /filmRemovedUndoRecord/);

@@ -302,25 +302,36 @@ function renderDetailStatusControls(record = {}) {
 }
 
 function renderDetailRatingControl(record = {}, userRating = '') {
-  const value = userRating || '4.0';
-  const rating = normalizeUserRatingValue(value) || 4;
-  const sliderProgress = Math.min(1, Math.max(0, (rating - 0.5) / 4.5));
-  const fill = `${(rating / 5) * 100}%`;
+  const hasRating = Boolean(normalizeText(userRating));
+  const value = hasRating ? userRating : '3.0';
+  const rating = normalizeUserRatingValue(value) || 3;
+  const sliderProgress = hasRating ? Math.min(1, Math.max(0, (rating - 0.5) / 4.5)) : 0;
+  const fill = hasRating ? `${(rating / 5) * 100}%` : '0%';
+  const ticks = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
+    .map((tick) => {
+      const isMajor = tick === 0.5 || Number.isInteger(tick);
+      const label = isMajor ? String(tick).replace('.0', '') : '';
+      return `<span class="${isMajor ? 'is-major' : ''}" ${label ? `data-label="${escapeHtml(label)}"` : ''}></span>`;
+    })
+    .join('');
   return `
-    <div class="cml-film-detail__rating-control" style="--film-detail-rating-fill: ${escapeHtml(fill)}; --film-detail-rating-progress: ${escapeHtml(sliderProgress.toFixed(3))};">
-      <input
-        type="range"
-        class="cml-film-detail__rating-slider"
-        data-film-rating-input
-        data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
-        data-film-id="${escapeHtml(record.id || '')}"
-        min="0.5"
-        max="5"
-        step="0.1"
-        value="${escapeHtml(value)}"
-        aria-label="Set your film rating"
-        ${record.isSaving ? 'disabled' : ''}
-      />
+    <div class="cml-film-detail__rating-control ${hasRating ? '' : 'is-unset'}" style="--film-detail-rating-fill: ${escapeHtml(fill)}; --film-detail-rating-progress: ${escapeHtml(sliderProgress.toFixed(3))};">
+      <div class="cml-film-detail__rating-scale">
+        <input
+          type="range"
+          class="cml-film-detail__rating-slider"
+          data-film-rating-input
+          data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+          data-film-id="${escapeHtml(record.id || '')}"
+          min="0.5"
+          max="5"
+          step="0.5"
+          value="${escapeHtml(value)}"
+          aria-label="Set your film rating"
+          ${record.isSaving ? 'disabled' : ''}
+        />
+        <div class="cml-film-detail__rating-ticks" aria-hidden="true">${ticks}</div>
+      </div>
       <button
         type="button"
         class="cml-film-detail__rating-clear"
@@ -479,7 +490,7 @@ function renderFilmPrivateSignals(record = {}, { userRating = '', watchedDate = 
           <span class="cml-film-detail__signal-label">Last watched</span>
           <div class="cml-film-detail__signal-value">${renderDetailWatchedDateSignal(record, watchedDate)}</div>
         </div>
-        <div class="cml-film-detail__signal-row">
+        <div class="cml-film-detail__signal-row cml-film-detail__signal-row--rating">
           <span class="cml-film-detail__signal-icon" aria-hidden="true">&#9734;</span>
           <span class="cml-film-detail__signal-label">My rating</span>
           <div class="cml-film-detail__signal-value cml-film-detail__signal-value--rating">
@@ -1329,16 +1340,13 @@ export function FilmTimelineSection(section = {}, { viewMode = 'ticket' } = {}) 
 
 export function FilmsPage({ records = [], totalCount = records.length, activeFilter = 'All', viewMode = 'ticket', libraryQuery = '', searchQuery = '', searchPanelHtml = '', addFlowOpen = false } = {}) {
   const sections = groupFilmsByTimeline(records);
-  const searchValue = escapeHtml(searchQuery);
   const librarySearchValue = escapeHtml(libraryQuery);
   const hasAnySavedFilms = Number(totalCount) > 0;
-  const hasSearchQuery = Boolean(normalizeText(searchQuery));
   const hasLibraryQuery = Boolean(normalizeText(libraryQuery));
-  const tmdbAddOpen = Boolean(addFlowOpen || hasSearchQuery || normalizeText(searchPanelHtml));
   const activeViewMode = viewMode === 'poster' ? 'poster' : 'ticket';
   const emptyCopy = hasLibraryQuery
-    ? 'Try a different saved-library search, or clear the local search field.'
-    : 'Use Add from TMDb, or create a titled manual entry. Only movies you save will appear in this diary.';
+    ? 'No local match yet. TMDb matches and a custom entry option appear above when available.'
+    : 'Search your diary first. New films can be added from the same search flow.';
   return `
     <section class="cml-films-page">
       <header class="cml-films-page__hero">
@@ -1354,23 +1362,6 @@ export function FilmsPage({ records = [], totalCount = records.length, activeFil
           ${hasLibraryQuery ? '<button type="button" data-action="clear-film-library-search" aria-label="Clear saved films search">x</button>' : ''}
         </label>
       </header>
-      <div class="cml-films-page__create-zone ${tmdbAddOpen ? 'is-open' : ''}" aria-label="Add films">
-        <div class="cml-films-page__create-actions">
-          <button type="button" class="cml-films-page__add-button ${tmdbAddOpen ? 'is-active' : ''}" data-action="toggle-film-tmdb-add" aria-expanded="${tmdbAddOpen ? 'true' : 'false'}">Add from TMDb</button>
-          <button type="button" class="cml-films-page__manual-button" data-action="add-manual-film">Add manually</button>
-        </div>
-        ${tmdbAddOpen ? `
-          <form class="cml-films-page__hero-actions cml-films-page__tmdb-add" data-form="films-search">
-            <span class="cml-films-page__control-label">Add from TMDb</span>
-            <label class="cml-films-search" aria-label="Add from TMDb">
-              <span class="cml-films-search__icon" aria-hidden="true"></span>
-              <input type="search" class="cml-films-search__input" data-films-search-input value="${searchValue}" placeholder="Find a movie on TMDb..." />
-              ${hasSearchQuery ? '<span class="cml-films-search__live">Live</span>' : ''}
-            </label>
-            <button type="submit" class="cml-films-page__add-button cml-films-page__add-button--submit">Search</button>
-          </form>
-        ` : ''}
-      </div>
       ${searchPanelHtml}
       <div class="cml-films-filters" role="tablist" aria-label="Film filters">
         ${FILM_FILTERS.map((filter) => `
@@ -1414,7 +1405,24 @@ export function FilmSearchResults({ results = [], loading = false, loadingMore =
     ? 'No TMDb results found.'
     : 'No search results yet.';
   const hasMoreResults = normalizedQuery && Number(totalPages) > Number(page || 0);
-  const resultCards = results.length ? results.map((movie, index) => {
+  const customCard = normalizedQuery ? `
+    <article class="cml-films-result cml-film-search-result cml-film-search-result--custom is-new" data-action="add-manual-film" data-film-manual-title="${escapeHtml(normalizedQuery)}" tabindex="0" role="button" aria-label="Create custom film ${escapeHtml(normalizedQuery)}">
+      <div class="cml-films-result__poster-wrap cml-films-result__poster-wrap--custom">
+        ${renderPosterFallback(normalizedQuery)}
+      </div>
+      <div class="cml-films-result__body">
+        <div class="cml-films-result__source-row">
+          <p class="cml-films-result__source">Custom entry</p>
+        </div>
+        <h3 class="cml-films-result__title">${escapeHtml(normalizedQuery)}</h3>
+        <p class="cml-films-result__meta">Create manually if TMDb does not have the right match.</p>
+        <div class="cml-films-result__actions">
+          <button type="button" class="cml-films-result__button cml-films-result__button--primary" data-action="add-manual-film" data-film-manual-title="${escapeHtml(normalizedQuery)}">Add custom</button>
+        </div>
+      </div>
+    </article>
+  ` : '';
+  const tmdbCards = results.length ? results.map((movie, index) => {
     const tmdbId = Number(movie.tmdbId);
     const isSaving = savingTmdbIds instanceof Set && savingTmdbIds.has(tmdbId);
     const savedRecord = getSavedSearchRecord(savedRecordsByTmdbId, tmdbId);
@@ -1450,7 +1458,10 @@ export function FilmSearchResults({ results = [], loading = false, loadingMore =
         </div>
       </article>
     `;
-  }).join('') : `<p class="cml-films-mvp__empty">${emptyMessage}</p>`;
+  }).join('') : '';
+  const resultCards = customCard || tmdbCards
+    ? `${customCard}${tmdbCards}`
+    : `<p class="cml-films-mvp__empty">${emptyMessage}</p>`;
   return `
     <section class="cml-films-mvp cml-film-search-panel ${loading ? 'is-searching' : ''} ${loadingMore ? 'is-loading-more' : ''} ${settling ? 'is-settling' : ''} ${clearing ? 'is-clearing' : ''}" data-film-search-result-key="${escapeHtml(resultKey)}">
       <div class="cml-films-mvp__head">

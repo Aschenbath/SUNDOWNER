@@ -46,7 +46,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=92';
+} from './components.js?v=93';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=61';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=62';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -377,6 +377,7 @@ const state = {
   confirmDialogConfirmLabel: '',
   confirmDialogSelectionCount: 0,
   confirmDialogBusy: false,
+  filmPendingRemoveId: '',
   previewId: null,
   previewSourceHint: '',
   loadedCount: COLLECTION_PAGE_SIZE,
@@ -5828,6 +5829,7 @@ function resetConfirmDialog() {
   state.confirmDialogConfirmLabel = '';
   state.confirmDialogSelectionCount = 0;
   state.confirmDialogBusy = false;
+  state.filmPendingRemoveId = '';
 }
 
 function closeConfirmDialog() {
@@ -9351,12 +9353,13 @@ function createOptimisticManualFilmRecord(film = {}, patch = {}) {
   };
 }
 
-function createManualDraftFilmRecord({ id = `manual-draft-${Date.now()}`, createdAt = new Date().toISOString() } = {}) {
+function createManualDraftFilmRecord({ id = `manual-draft-${Date.now()}`, createdAt = new Date().toISOString(), title = '' } = {}) {
+  const draftTitle = normalizeText(title).slice(0, 240);
   return {
     ...normalizeMovieRecord({
       source: 'manual',
       id,
-      title: '',
+      title: draftTitle,
       originalTitle: '',
       director: '',
       overview: '',
@@ -9369,15 +9372,15 @@ function createManualDraftFilmRecord({ id = `manual-draft-${Date.now()}`, create
       source: 'manual',
       id,
       watchStatus: 'wantToWatch',
-      titleOverride: '',
+      titleOverride: draftTitle,
       createdAt,
       updatedAt: createdAt
     }),
     id,
     source: 'manual',
     tmdbId: null,
-    title: '',
-    localTitle: '',
+    title: draftTitle,
+    localTitle: draftTitle,
     manualDraft: true,
     isSaving: false
   };
@@ -10627,18 +10630,23 @@ function persistManualFilmEntry(record = {}, { showErrorToast = true, throwOnErr
   return request;
 }
 
-function createManualFilmEntry() {
+function createManualFilmEntry(initialTitle = '') {
   const createdAt = new Date().toISOString();
+  const title = normalizeText(initialTitle).slice(0, 240);
   const draft = createManualDraftFilmRecord({
     id: `manual-${Date.now()}`,
-    createdAt
+    createdAt,
+    title
   });
   clearTransientFilmDetail();
   state.filmManualDraft = draft;
   state.activeFilmId = draft.id;
   state.filmDetailOpen = true;
   state.filmMetadataEditing = true;
-  state.filmMetadataDraft = createFilmMetadataDraft(draft);
+  state.filmMetadataDraft = {
+    ...createFilmMetadataDraft(draft),
+    titleOverride: title
+  };
   state.filmMetadataFocusField = 'titleOverride';
   state.filmMoreActionsOpen = false;
   state.filmTmdbAddOpen = false;
@@ -11773,13 +11781,13 @@ function changeFilmBackdrop(filmId) {
   void openFilmImagePicker(filmId, 'backdrop');
 }
 
-async function refreshFilmFromTmdb(filmId, { quiet = false } = {}) {
+async function refreshFilmFromTmdb(filmId, { quiet = false, skipCommit = false } = {}) {
   const film = state.films.find((record) => record.id === filmId);
   const normalizedId = Number(film?.tmdbId);
   if (!film || !Number.isFinite(normalizedId) || normalizedId <= 0) {
     return;
   }
-  if (!quiet) {
+  if (!quiet && !skipCommit) {
     if (!await commitPendingFilmEditsBeforeAction({ actionName: 'film-refresh-tmdb', keepDetailOpen: true })) {
       return;
     }
@@ -14763,6 +14771,14 @@ function handleAction(actionTarget) {
     case 'confirm-delete-selected':
       if (!state.confirmDialogBusy) {
         const preferPreviewRender = state.confirmDialogOrigin === 'preview';
+        if (state.confirmDialogMode === 'remove-film') {
+          const targetId = state.filmPendingRemoveId;
+          resetConfirmDialog();
+          if (targetId) {
+            void removeFilmEntry(targetId);
+          }
+          return true;
+        }
         if (state.confirmDialogMode === 'delete-album') {
           const albumTarget = state._deleteAlbumTarget;
           resetConfirmDialog();
@@ -15222,8 +15238,9 @@ function handleAction(actionTarget) {
       return true;
     case 'add-manual-film':
       void (async () => {
+        const manualTitle = normalizeText(actionTarget.dataset.filmManualTitle || state.filmSearchQuery || state.filmLibraryQuery);
         if (await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: false })) {
-          createManualFilmEntry();
+          createManualFilmEntry(manualTitle);
         }
       })();
       return true;
@@ -15355,10 +15372,33 @@ function handleAction(actionTarget) {
       })();
       return true;
     case 'film-refresh-tmdb':
-      void refreshFilmFromTmdb(actionTarget.dataset.filmId || state.activeFilmId);
+      void (async () => {
+        if (await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: true })) {
+          state.filmMoreActionsOpen = false;
+          void refreshFilmFromTmdb(actionTarget.dataset.filmId || state.activeFilmId, { skipCommit: true });
+        }
+      })();
       return true;
     case 'film-remove-entry':
-      void removeFilmEntry(actionTarget.dataset.filmId || state.activeFilmId);
+      void (async () => {
+        if (!await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: true })) {
+          return;
+        }
+        const filmId = actionTarget.dataset.filmId || state.activeFilmId;
+        const film = state.films.find((record) => record.id === filmId);
+        if (!film) {
+          return;
+        }
+        state.filmPendingRemoveId = film.id;
+        openConfirmDialog({
+          mode: 'remove-film',
+          origin: 'film',
+          title: 'Remove from Films',
+          copy: `Remove "${film.localTitle || film.title || 'this film'}" from your diary? You can undo this right after.`,
+          confirmLabel: 'Remove',
+          selectionCount: 1
+        });
+      })();
       return true;
     case 'film-undo-remove-entry':
       void undoRemoveFilmEntry();
@@ -15872,11 +15912,18 @@ function handleInput(event) {
     const mood = section?.querySelector('[data-film-rating-mood]');
     const activeDetail = input.closest('[data-film-detail-page]');
     if (control instanceof HTMLElement) {
+      control.classList.remove('is-unset');
       control.style.setProperty('--film-detail-rating-fill', `${(normalizedRating / 5) * 100}%`);
       control.style.setProperty('--film-detail-rating-progress', String((normalizedRating - 0.5) / 4.5));
     }
     activeDetail?.querySelectorAll('[data-film-rating-output]').forEach((output) => {
       output.textContent = `${normalizedRating.toFixed(1)} / 5.0`;
+    });
+    activeDetail?.querySelectorAll('.cml-film-detail__stars').forEach((stars) => {
+      if (stars instanceof HTMLElement) {
+        stars.style.setProperty('--film-star-fill', `${(normalizedRating / 5) * 100}%`);
+        stars.setAttribute('aria-label', `${normalizedRating.toFixed(1)} out of 5`);
+      }
     });
     if (mood instanceof HTMLElement) {
       mood.textContent = getFilmUserRatingMood(normalizedRating);

@@ -38,6 +38,7 @@ This file is the working memory for the active SUNDOWNER repo. It keeps current-
 
 ###### Work Log
 
+- 22:26 | [films][search][rating] Films index entry collapsed into local-first search with TMDb/custom add results; manual custom result opens a titled draft; Remove from Films now confirms before delete; My rating control has always-visible ticks/current value and half-star slider steps with live star-fill feedback. Cache: `app.js?v=260`, `components.js?v=93`, `films-components.js?v=62`, `films-data.js?v=7`, `media-library.css?v=244`. Validation: syntax checks, `git diff --check`, targeted Films Mocha 9 passing, full Mocha 391 passing.
 - 21:31 | [films][search][backdrop] Films index library search now checks saved films first and only auto-opens TMDb add search when the whole local library has no match; detail secondary tools reveal only from the top-right hover/focus zone; backdrop defaults/reset/legacy saved defaults normalize to zoom `0.5` and opacity `0.92`; image picker backdrop preview/frame layout cleaned. Cache: `app.js?v=259`, `films-components.js?v=61`, `media-library.css?v=243`. Validation: syntax checks, `git diff --check`, targeted Films Mocha 8 passing, full Mocha 391 passing.
 - 20:47 | [films][detail-ux] Moved saved-film metadata and image pickers into anchored detail overlays; added poster/backdrop contextual controls, line-based hybrid Markdown notes editing, visible watch-date editing affordance, and restored real `watching` status semantics. Cache: `app.js?v=258`, `films-components.js?v=60`, `films-data.js?v=7`, `media-library.css?v=242`. Validation: syntax checks, `git diff --check`, full Mocha 390 passing.
 - 19:54 | [films][detail-editing] Kept Synopsis editing in-place as a full-width detail surface; simplified Notes editing to one writing surface with no live-preview panel or instructional autosave copy. Cache: `app.js?v=257`, `films-components.js?v=59`, `media-library.css?v=241`. Validation: syntax checks, diff-check, targeted Films Mocha 149 passing.
@@ -125,8 +126,8 @@ This file is the working memory for the active SUNDOWNER repo. It keeps current-
 
 - read-protocol: start with `Get-Content history.md -Tail 12`; then read latest day if the task touches current work.
 - current-focus: Films detail UX polish, surgical changes only.
-- latest-state: 2026-May-11 21:31; `app.js?v=259`, `films-components.js?v=61`, `films-data.js?v=7`, `media-library.css?v=243`.
-- latest-validation: syntax checks, `git diff --check`, targeted Films Mocha 8 passing, full Mocha 391 passing.
+- latest-state: 2026-May-11 22:26; `app.js?v=260`, `components.js?v=93`, `films-components.js?v=62`, `films-data.js?v=7`, `media-library.css?v=244`.
+- latest-validation: syntax checks, `git diff --check`, targeted Films Mocha 9 passing, full Mocha 391 passing.
 - hot-path: Film Detail active patching should keep `[data-film-detail-page]` root/backdrop stable and patch targeted children.
 - current-boundaries: do not redesign global shell/theme/sidebar/topbar; do not touch unrelated media modules for Films polish.
 - open-loop: browser/manual QA is not assumed unless explicitly documented.
