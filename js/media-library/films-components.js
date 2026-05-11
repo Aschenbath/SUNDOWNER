@@ -978,7 +978,7 @@ function normalizeBackdropPosition(value, fallback = 50) {
   return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
-function normalizeBackdropZoom(value, fallback = 1.02) {
+function normalizeBackdropZoom(value, fallback = 0.5) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
     return fallback;
@@ -986,7 +986,7 @@ function normalizeBackdropZoom(value, fallback = 1.02) {
   return Math.max(0.5, Math.min(1.8, Math.round(numeric * 100) / 100));
 }
 
-function normalizeBackdropOpacity(value, fallback = 0.66) {
+function normalizeBackdropOpacity(value, fallback = 0.92) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
     return fallback;
@@ -994,21 +994,35 @@ function normalizeBackdropOpacity(value, fallback = 0.66) {
   return Math.max(0.18, Math.min(0.92, Math.round(numeric * 100) / 100));
 }
 
+const FILM_BACKDROP_DEFAULT_FRAME = Object.freeze({ x: 50, y: 50, zoom: 0.5, opacity: 0.92 });
+const FILM_BACKDROP_LEGACY_DEFAULT_FRAME = Object.freeze({ x: 50, y: 50, zoom: 1.02, opacity: 0.66 });
+
+function normalizeBackdropFrameValues(source = {}) {
+  const normalized = {
+    x: normalizeBackdropPosition(source.x, 50),
+    y: normalizeBackdropPosition(source.y, 50),
+    zoom: normalizeBackdropZoom(source.zoom, 0.5),
+    opacity: normalizeBackdropOpacity(source.opacity, 0.92)
+  };
+  const isLegacyDefault = normalized.x === FILM_BACKDROP_LEGACY_DEFAULT_FRAME.x
+    && normalized.y === FILM_BACKDROP_LEGACY_DEFAULT_FRAME.y
+    && normalized.zoom === FILM_BACKDROP_LEGACY_DEFAULT_FRAME.zoom
+    && normalized.opacity === FILM_BACKDROP_LEGACY_DEFAULT_FRAME.opacity;
+  return isLegacyDefault ? { ...FILM_BACKDROP_DEFAULT_FRAME } : normalized;
+}
+
 function getBackdropFrame(record = {}, draft = null) {
   const source = draft && typeof draft === 'object' ? { ...record, ...draft } : record;
-  return {
+  return normalizeBackdropFrameValues({
     x: normalizeBackdropPosition(source.backdropPositionXOverride, 50),
     y: normalizeBackdropPosition(source.backdropPositionYOverride, 50),
-    zoom: normalizeBackdropZoom(source.backdropZoomOverride, 1.02),
-    opacity: normalizeBackdropOpacity(source.backdropOpacityOverride, 0.66)
-  };
+    zoom: normalizeBackdropZoom(source.backdropZoomOverride, 0.5),
+    opacity: normalizeBackdropOpacity(source.backdropOpacityOverride, 0.92)
+  });
 }
 
 function renderBackdropFrameStyle(frame = {}) {
-  const x = normalizeBackdropPosition(frame.x, 50);
-  const y = normalizeBackdropPosition(frame.y, 50);
-  const zoom = normalizeBackdropZoom(frame.zoom, 1.02);
-  const opacity = normalizeBackdropOpacity(frame.opacity, 0.66);
+  const { x, y, zoom, opacity } = normalizeBackdropFrameValues(frame);
   return `--film-backdrop-position-x: ${escapeHtml(x)}%; --film-backdrop-position-y: ${escapeHtml(y)}%; --film-backdrop-scale: ${escapeHtml(zoom)}; --film-backdrop-opacity: ${escapeHtml(opacity)};`;
 }
 

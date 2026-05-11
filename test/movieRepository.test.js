@@ -458,25 +458,64 @@ describe('MovieRepository', () => {
       backdropPathOverride: '',
       posterUrlOverride: '',
       backdropUrlOverride: '',
-      backdropZoomOverride: 1.02,
+      backdropZoomOverride: 0.5,
       backdropPositionXOverride: 50,
       backdropPositionYOverride: 50,
-      backdropOpacityOverride: 0.66,
+      backdropOpacityOverride: 0.92,
     });
     assert.equal(reset.entry.posterPathOverride, '');
     assert.equal(reset.entry.backdropPathOverride, '');
     assert.equal(reset.entry.posterUrlOverride, '');
     assert.equal(reset.entry.backdropUrlOverride, '');
-    assert.equal(reset.entry.backdropZoomOverride, 1.02);
+    assert.equal(reset.entry.backdropZoomOverride, 0.5);
     assert.equal(reset.entry.backdropPositionXOverride, 50);
     assert.equal(reset.entry.backdropPositionYOverride, 50);
-    assert.equal(reset.entry.backdropOpacityOverride, 0.66);
+    assert.equal(reset.entry.backdropOpacityOverride, 0.92);
 
     const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
     assert.equal(cachedMovie.posterPath, '/tmdb-poster.jpg');
     assert.equal(cachedMovie.backdropPath, '/tmdb-backdrop.jpg');
     assert.equal(cachedMovie.posterPathOverride, undefined);
     assert.equal(cachedMovie.backdropUrlOverride, undefined);
+  });
+
+  it('maps legacy saved backdrop defaults to the new calm frame defaults', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie();
+        },
+      },
+    });
+
+    const saved = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'wantToWatch',
+      backdropZoomOverride: 1.02,
+      backdropPositionXOverride: 50,
+      backdropPositionYOverride: 50,
+      backdropOpacityOverride: 0.66,
+    });
+
+    assert.equal(saved.entry.backdropZoomOverride, 0.5);
+    assert.equal(saved.entry.backdropPositionXOverride, 50);
+    assert.equal(saved.entry.backdropPositionYOverride, 50);
+    assert.equal(saved.entry.backdropOpacityOverride, 0.92);
+
+    const adjusted = await repository.saveOrUpdateUserEntry({
+      tmdbId: 43,
+      watchStatus: 'wantToWatch',
+      backdropZoomOverride: 1.02,
+      backdropPositionXOverride: 48,
+      backdropPositionYOverride: 50,
+      backdropOpacityOverride: 0.66,
+    });
+
+    assert.equal(adjusted.entry.backdropZoomOverride, 1.02);
+    assert.equal(adjusted.entry.backdropPositionXOverride, 48);
+    assert.equal(adjusted.entry.backdropOpacityOverride, 0.66);
   });
 
   it('preserves image path and URL overrides when later TMDb data is saved', async () => {

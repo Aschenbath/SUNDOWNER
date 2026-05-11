@@ -4,6 +4,19 @@ import { TMDbClient } from './tmdbClient.js';
 const MOVIE_CACHE_KEY_PREFIX = 'manage@sysConfig@movieCache@';
 const USER_MOVIE_ENTRIES_KEY = 'manage@sysConfig@userMovieEntries';
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const BACKDROP_DEFAULT_FRAME = Object.freeze({
+  backdropZoomOverride: 0.5,
+  backdropPositionXOverride: 50,
+  backdropPositionYOverride: 50,
+  backdropOpacityOverride: 0.92,
+});
+const BACKDROP_LEGACY_DEFAULT_FRAME = Object.freeze({
+  backdropZoomOverride: 1.02,
+  backdropPositionXOverride: 50,
+  backdropPositionYOverride: 50,
+  backdropOpacityOverride: 0.66,
+});
+const BACKDROP_FRAME_FIELDS = Object.keys(BACKDROP_DEFAULT_FRAME);
 
 export const WATCH_STATUSES = new Set(['wantToWatch', 'watching', 'watched', 'paused', 'dropped']);
 export const MOVIE_SOURCES = new Set(['tmdb', 'manual']);
@@ -61,7 +74,7 @@ function normalizeImagePathOverride(value, maxLength = 240) {
 function normalizeBackdropZoomOverride(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
-    return 1.02;
+    return 0.5;
   }
   return Math.max(0.5, Math.min(1.8, Math.round(numeric * 100) / 100));
 }
@@ -77,9 +90,22 @@ function normalizeBackdropPositionOverride(value) {
 function normalizeBackdropOpacityOverride(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
-    return 0.66;
+    return 0.92;
   }
   return Math.max(0.18, Math.min(0.92, Math.round(numeric * 100) / 100));
+}
+
+function normalizeBackdropFrameOverrides(input = {}, existing = null) {
+  const normalized = {
+    backdropZoomOverride: normalizeBackdropZoomOverride(input.backdropZoomOverride ?? existing?.backdropZoomOverride),
+    backdropPositionXOverride: normalizeBackdropPositionOverride(input.backdropPositionXOverride ?? existing?.backdropPositionXOverride),
+    backdropPositionYOverride: normalizeBackdropPositionOverride(input.backdropPositionYOverride ?? existing?.backdropPositionYOverride),
+    backdropOpacityOverride: normalizeBackdropOpacityOverride(input.backdropOpacityOverride ?? existing?.backdropOpacityOverride),
+  };
+  const isLegacyDefault = BACKDROP_FRAME_FIELDS.every((field) =>
+    normalized[field] === BACKDROP_LEGACY_DEFAULT_FRAME[field]
+  );
+  return isLegacyDefault ? { ...BACKDROP_DEFAULT_FRAME } : normalized;
 }
 
 function hasOwn(object, key) {
@@ -326,10 +352,7 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
     backdropPathOverride: normalizeImagePathOverride(input.backdropPathOverride ?? existing?.backdropPathOverride),
     posterUrlOverride: normalizeImageUrlOverride(input.posterUrlOverride ?? existing?.posterUrlOverride),
     backdropUrlOverride: normalizeImageUrlOverride(input.backdropUrlOverride ?? existing?.backdropUrlOverride),
-    backdropZoomOverride: normalizeBackdropZoomOverride(input.backdropZoomOverride ?? existing?.backdropZoomOverride),
-    backdropPositionXOverride: normalizeBackdropPositionOverride(input.backdropPositionXOverride ?? existing?.backdropPositionXOverride),
-    backdropPositionYOverride: normalizeBackdropPositionOverride(input.backdropPositionYOverride ?? existing?.backdropPositionYOverride),
-    backdropOpacityOverride: normalizeBackdropOpacityOverride(input.backdropOpacityOverride ?? existing?.backdropOpacityOverride),
+    ...normalizeBackdropFrameOverrides(input, existing),
     tags: normalizeStringArray(input.tags ?? existing?.tags, 40),
     isFavorite: Boolean(input.isFavorite ?? existing?.isFavorite ?? false),
     watchedAt,

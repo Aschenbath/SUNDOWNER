@@ -147,7 +147,12 @@ describe('media library download actions', () => {
     assert.match(appSource, /let filmSearchAbortController = null/);
     assert.match(appSource, /const filmSearchCache = new Map\(\)/);
     assert.match(appSource, /function shouldRunFilmSearch\(query\)/);
-    assert.match(appSource, /function scheduleFilmSearch\(query\)/);
+    assert.match(appSource, /function filmRecordMatchesLibraryQuery\(record = \{\}, query = state\.filmLibraryQuery\)/);
+    assert.match(appSource, /function getFilmRecordsMatchingLibraryQuery\(query = state\.filmLibraryQuery\)/);
+    assert.match(appSource, /function shouldFallbackFilmLibrarySearchToTmdb\(query = state\.filmLibraryQuery\)/);
+    assert.match(appSource, /function applyFilmLibrarySearchQuery\(query = ''\)/);
+    assert.match(appSource, /scheduleFilmSearch\(inputQuery, \{ auto: true \}\)/);
+    assert.match(appSource, /function scheduleFilmSearch\(query, \{ auto = false \} = \{\}\)/);
     assert.match(appSource, /function setFilmSearchResults\(results/);
     assert.match(appSource, /filmSearchPage: 0/);
     assert.match(appSource, /filmSearchTotalPages: 0/);
@@ -160,7 +165,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /state\.filmSearchComposing = false/);
     assert.match(appSource, /event\.isComposing \|\| state\.filmSearchComposing/);
     assert.match(appSource, /void searchFilms\(\{ query: event\.target\.value \}\)/);
-    assert.match(appSource, /void searchFilms\(\{ query: inputQuery \}\)/);
+    assert.match(appSource, /void searchFilms\(\{ query: inputQuery, auto \}\)/);
     assert.match(appSource, /scheduleFilmSearch\(input\.value\)/);
     assert.match(appSource, /searchFilms\(\{ query: event\.target\.value \}\)/);
     assert.match(appSource, /function loadMoreFilmSearchResults\(\)/);

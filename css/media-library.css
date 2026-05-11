@@ -12039,13 +12039,20 @@ body.codex-media-library-active #app {
   right: clamp(32px, 3.6vw, 52px);
   z-index: 6;
   display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+  min-width: 340px;
+  min-height: 72px;
+  margin: -18px -18px 0 0;
+  padding: 18px;
+  border-radius: 999px;
   opacity: 0;
+  pointer-events: auto;
   transform: translateY(-4px);
   transition: opacity 150ms ease, transform 150ms ease;
 }
 
-#codex-media-library-root .cml-film-detail-page__content:hover .cml-film-detail__image-tools,
 #codex-media-library-root .cml-film-detail__image-tools:hover,
 #codex-media-library-root .cml-film-detail__image-tools:focus-within {
   opacity: 0.9;
@@ -12063,6 +12070,12 @@ body.codex-media-library-active #app {
   font-weight: 760;
   backdrop-filter: blur(14px);
   cursor: pointer;
+  pointer-events: none;
+}
+
+#codex-media-library-root .cml-film-detail__image-tools:hover .cml-film-detail__image-tool,
+#codex-media-library-root .cml-film-detail__image-tools:focus-within .cml-film-detail__image-tool {
+  pointer-events: auto;
 }
 
 #codex-media-library-root .cml-film-detail__image-tool:hover,
@@ -13220,6 +13233,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-image-picker__preview {
   position: relative;
+  z-index: 0;
   overflow: hidden;
   width: min(180px, 100%);
   aspect-ratio: 2 / 3;
@@ -13229,8 +13243,9 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-image-picker__preview.is-backdrop {
-  width: min(360px, 100%);
-  aspect-ratio: 16 / 9;
+  width: 100%;
+  height: clamp(176px, 24vh, 260px);
+  aspect-ratio: auto;
 }
 
 #codex-media-library-root .cml-film-image-picker__preview img {
@@ -13349,6 +13364,8 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-image-picker__frame {
   display: grid;
+  position: relative;
+  z-index: 1;
   gap: 0;
   max-width: min(620px, 100%);
   padding: 0;
@@ -13359,6 +13376,10 @@ body.codex-media-library-active #app {
     rgba(7, 9, 12, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
   animation: cml-film-frame-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) 35ms both;
+}
+
+#codex-media-library-root .cml-film-image-picker__frame[open] {
+  max-width: none;
 }
 
 #codex-media-library-root .cml-film-image-picker__frame-summary {

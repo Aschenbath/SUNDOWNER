@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=60';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=61';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -113,6 +113,18 @@ const FILM_SEARCH_MIN_LOADING_MS = 80;
 const FILM_SEARCH_CLEAR_TRANSITION_MS = 180;
 const FILM_BACKDROP_ROTATION_MS = 7200;
 const FILM_IMAGE_PICKER_CLOSE_MS = 150;
+const FILM_BACKDROP_DEFAULT_FRAME = Object.freeze({
+  backdropZoomOverride: 0.5,
+  backdropPositionXOverride: 50,
+  backdropPositionYOverride: 50,
+  backdropOpacityOverride: 0.92
+});
+const FILM_BACKDROP_LEGACY_DEFAULT_FRAME = Object.freeze({
+  backdropZoomOverride: 1.02,
+  backdropPositionXOverride: 50,
+  backdropPositionYOverride: 50,
+  backdropOpacityOverride: 0.66
+});
 const FILM_METADATA_FIELDS = [
   'titleOverride',
   'originalTitleOverride',
@@ -510,6 +522,7 @@ const state = {
   filmSearchLoadingMore: false,
   filmSearchAppendStartIndex: 0,
   filmTmdbAddOpen: false,
+  filmTmdbAddAutoOpen: false,
   filmLibraryQuery: '',
   filmLibrarySearchComposing: false,
   filmActiveFilter: FILM_FILTERS[0],
@@ -2854,8 +2867,7 @@ function handleCompositionEnd(event) {
   }
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-library-search-input')) {
     state.filmLibrarySearchComposing = false;
-    state.filmLibraryQuery = event.target.value;
-    render();
+    applyFilmLibrarySearchQuery(event.target.value);
     return;
   }
   if (!(event.target instanceof HTMLElement) || event.target.dataset.mindInput !== 'message') {
@@ -8767,7 +8779,7 @@ function normalizeFilmImagePathOverride(value) {
 function normalizeFilmBackdropZoomOverride(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
-    return 1.02;
+    return 0.5;
   }
   return Math.max(0.5, Math.min(1.8, Math.round(numeric * 100) / 100));
 }
@@ -8783,18 +8795,22 @@ function normalizeFilmBackdropPositionOverride(value) {
 function normalizeFilmBackdropOpacityOverride(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
-    return 0.66;
+    return 0.92;
   }
   return Math.max(0.18, Math.min(0.92, Math.round(numeric * 100) / 100));
 }
 
 function normalizeFilmBackdropFrameOverrides(source = {}) {
-  return {
+  const normalized = {
     backdropZoomOverride: normalizeFilmBackdropZoomOverride(source.backdropZoomOverride),
     backdropPositionXOverride: normalizeFilmBackdropPositionOverride(source.backdropPositionXOverride),
     backdropPositionYOverride: normalizeFilmBackdropPositionOverride(source.backdropPositionYOverride),
     backdropOpacityOverride: normalizeFilmBackdropOpacityOverride(source.backdropOpacityOverride)
   };
+  const isLegacyDefault = FILM_BACKDROP_FRAME_FIELDS.every((field) =>
+    normalized[field] === FILM_BACKDROP_LEGACY_DEFAULT_FRAME[field]
+  );
+  return isLegacyDefault ? { ...FILM_BACKDROP_DEFAULT_FRAME } : normalized;
 }
 
 function backdropFrameEqualsRecord(frame = {}, record = {}) {
@@ -9452,32 +9468,37 @@ async function removeKnownAccidentalFilmEntries() {
   }
 }
 
+function filmRecordMatchesLibraryQuery(record = {}, query = state.filmLibraryQuery) {
+  const libraryQuery = normalizeText(query).toLowerCase();
+  if (!libraryQuery) {
+    return true;
+  }
+  return [
+    record.localTitle,
+    record.title,
+    record.originalTitle,
+    record.director,
+    record.country,
+    record.language,
+    ...(Array.isArray(record.genres) ? record.genres : []),
+    record.year,
+    record.releaseDate,
+    record.overview,
+    record.note,
+    record.journal,
+    record.noteMarkdown
+  ].some((value) => normalizeText(value).toLowerCase().includes(libraryQuery));
+}
+
+function getFilmRecordsMatchingLibraryQuery(query = state.filmLibraryQuery) {
+  return state.films.filter((record) => filmRecordMatchesLibraryQuery(record, query));
+}
+
 function getVisibleFilmRecords() {
   const activeFilter = FILM_FILTERS.includes(state.filmActiveFilter)
     ? state.filmActiveFilter
     : FILM_FILTERS[0];
-  const libraryQuery = normalizeText(state.filmLibraryQuery).toLowerCase();
-  const matchesLibraryQuery = (record = {}) => {
-    if (!libraryQuery) {
-      return true;
-    }
-    return [
-      record.localTitle,
-      record.title,
-      record.originalTitle,
-      record.director,
-      record.country,
-      record.language,
-      ...(Array.isArray(record.genres) ? record.genres : []),
-      record.year,
-      record.releaseDate,
-      record.overview,
-      record.note,
-      record.journal,
-      record.noteMarkdown
-    ].some((value) => normalizeText(value).toLowerCase().includes(libraryQuery));
-  };
-  const filteredByQuery = state.films.filter(matchesLibraryQuery);
+  const filteredByQuery = getFilmRecordsMatchingLibraryQuery(state.filmLibraryQuery);
   if (activeFilter === 'Favorites') {
     return filteredByQuery.filter((record) => record.favorite);
   }
@@ -9491,6 +9512,50 @@ function getVisibleFilmRecords() {
     return filteredByQuery.filter((record) => record.status === 'watchlist' || record.status === 'wantToWatch');
   }
   return filteredByQuery;
+}
+
+function shouldFallbackFilmLibrarySearchToTmdb(query = state.filmLibraryQuery) {
+  const normalizedQuery = normalizeText(query);
+  if (!shouldRunFilmSearch(normalizedQuery)) {
+    return false;
+  }
+  return getFilmRecordsMatchingLibraryQuery(normalizedQuery).length === 0;
+}
+
+function clearAutoFilmTmdbSearch() {
+  if (!state.filmTmdbAddAutoOpen) {
+    return false;
+  }
+  state.filmTmdbAddAutoOpen = false;
+  state.filmTmdbAddOpen = false;
+  state.filmSearchQuery = '';
+  abortPendingFilmSearch();
+  clearPendingFilmSearch();
+  filmSearchRequestId += 1;
+  state.filmSearchResults = [];
+  state.filmSearchPage = 0;
+  state.filmSearchTotalPages = 0;
+  state.filmSearchTotalResults = 0;
+  state.filmSearchLoading = false;
+  state.filmSearchLoadingMore = false;
+  state.filmSearchSettling = false;
+  state.filmSearchClearing = false;
+  state.filmSearchAppendStartIndex = 0;
+  state.filmError = '';
+  render();
+  return true;
+}
+
+function applyFilmLibrarySearchQuery(query = '') {
+  const inputQuery = String(query ?? '');
+  state.filmLibraryQuery = inputQuery;
+  if (shouldFallbackFilmLibrarySearchToTmdb(inputQuery)) {
+    scheduleFilmSearch(inputQuery, { auto: true });
+    return;
+  }
+  if (!clearAutoFilmTmdbSearch()) {
+    render();
+  }
 }
 
 function getSavedFilmRecordsByTmdbId() {
@@ -9588,7 +9653,9 @@ function clearFilmSearchResultsSmoothly() {
     state.filmSearchPage = 0;
     state.filmSearchTotalPages = 0;
     state.filmSearchTotalResults = 0;
+    state.filmSearchLoading = false;
     state.filmSearchLoadingMore = false;
+    state.filmSearchSettling = false;
     state.filmSearchAppendStartIndex = 0;
     return;
   }
@@ -9649,11 +9716,12 @@ function delay(ms) {
   });
 }
 
-function scheduleFilmSearch(query) {
+function scheduleFilmSearch(query, { auto = false } = {}) {
   const inputQuery = String(query ?? '');
   const normalizedQuery = normalizeText(inputQuery);
   state.filmSearchQuery = inputQuery;
   state.filmTmdbAddOpen = true;
+  state.filmTmdbAddAutoOpen = Boolean(auto);
   clearPendingFilmSearch();
   if (!shouldRunFilmSearch(normalizedQuery)) {
     abortPendingFilmSearch();
@@ -9676,15 +9744,16 @@ function scheduleFilmSearch(query) {
   render();
   filmSearchDebounceTimer = window.setTimeout(() => {
     filmSearchDebounceTimer = 0;
-    void searchFilms({ query: inputQuery });
+    void searchFilms({ query: inputQuery, auto });
   }, FILM_SEARCH_DEBOUNCE_MS);
 }
 
-async function searchFilms({ query = state.filmSearchQuery, page = 1, append = false } = {}) {
+async function searchFilms({ query = state.filmSearchQuery, page = 1, append = false, auto = false } = {}) {
   const inputQuery = String(query ?? '');
   const normalizedQuery = normalizeText(query);
   state.filmSearchQuery = inputQuery;
   state.filmTmdbAddOpen = true;
+  state.filmTmdbAddAutoOpen = Boolean(auto);
   clearPendingFilmSearch();
   if (!shouldRunFilmSearch(normalizedQuery)) {
     abortPendingFilmSearch();
@@ -10573,6 +10642,7 @@ function createManualFilmEntry() {
   state.filmMetadataFocusField = 'titleOverride';
   state.filmMoreActionsOpen = false;
   state.filmTmdbAddOpen = false;
+  state.filmTmdbAddAutoOpen = false;
   state.filmImagePickerMode = '';
   state.filmImagePickerDraft = '';
   state.filmBackdropFrameDraft = null;
@@ -10827,6 +10897,7 @@ function moveFromFilmDetailToIndex() {
   state.filmImagePickerMode = '';
   state.filmImagePickerDraft = '';
   state.filmBackdropFrameDraft = null;
+  state.filmTmdbAddAutoOpen = false;
   pushNavigationHash({ mode: 'push' });
 }
 
@@ -10836,6 +10907,7 @@ async function openFilmTmdbAddFlow({ focus = true } = {}) {
   }
   moveFromFilmDetailToIndex();
   state.filmTmdbAddOpen = true;
+  state.filmTmdbAddAutoOpen = false;
   render();
   if (focus) {
     focusFilmTmdbSearchInput();
@@ -10850,10 +10922,12 @@ async function toggleFilmTmdbAddFlow() {
   moveFromFilmDetailToIndex();
   if (state.filmTmdbAddOpen && !normalizeText(state.filmSearchQuery) && !state.filmSearchResults.length) {
     state.filmTmdbAddOpen = false;
+    state.filmTmdbAddAutoOpen = false;
     render();
     return;
   }
   state.filmTmdbAddOpen = true;
+  state.filmTmdbAddAutoOpen = false;
   render();
   focusFilmTmdbSearchInput();
 }
@@ -13317,6 +13391,7 @@ function mount() {
       if (e.target instanceof HTMLFormElement && e.target.dataset.form === 'films-search') {
         e.preventDefault();
         state.filmTmdbAddOpen = true;
+        state.filmTmdbAddAutoOpen = false;
         void searchFilms({ query: state.filmSearchQuery });
         return;
       }
@@ -15142,6 +15217,7 @@ function handleAction(actionTarget) {
       return true;
     case 'search-films':
       state.filmTmdbAddOpen = true;
+      state.filmTmdbAddAutoOpen = false;
       void searchFilms({ query: state.filmSearchQuery });
       return true;
     case 'add-manual-film':
@@ -15156,7 +15232,9 @@ function handleAction(actionTarget) {
       return true;
     case 'clear-film-library-search':
       state.filmLibraryQuery = '';
-      render();
+      if (!clearAutoFilmTmdbSearch()) {
+        render();
+      }
       return true;
     case 'filter-films':
       if (FILM_FILTERS.includes(actionTarget.dataset.filmFilter || '')) {
@@ -15762,7 +15840,7 @@ function handleInput(event) {
     if (event.isComposing || state.filmLibrarySearchComposing) {
       return;
     }
-    render();
+    applyFilmLibrarySearchQuery(input.value);
     return;
   }
   if (input.hasAttribute('data-film-notes-draft')) {
@@ -16303,6 +16381,17 @@ function handleKeyDown(event) {
       event.preventDefault();
       clearPendingFilmSearch();
       void searchFilms({ query: event.target.value });
+    }
+    return;
+  }
+
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-library-search-input')) {
+    if (event.isComposing || state.filmLibrarySearchComposing || event.key === 'Process') {
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      applyFilmLibrarySearchQuery(event.target.value);
     }
     return;
   }
