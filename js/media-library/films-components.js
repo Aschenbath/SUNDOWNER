@@ -390,6 +390,26 @@ function renderDetailWatchedDateColumn(record = {}, watchedDate = '', { editable
   `;
 }
 
+function renderDetailWatchedDateSignal(record = {}, watchedDate = '') {
+  const value = normalizeText(record.watchedAt).slice(0, 10);
+  return `
+    <div class="cml-film-detail__signal-date">
+      <span data-film-watched-at-output>${escapeHtml(watchedDate || 'Not watched')}</span>
+      <input
+        type="date"
+        class="cml-film-detail__signal-date-input"
+        data-film-watched-at-input
+        data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
+        data-film-id="${escapeHtml(record.id || '')}"
+        data-last-saved-value="${escapeHtml(value)}"
+        value="${escapeHtml(value)}"
+        aria-label="Edit last watched date"
+        ${record.isSaving ? 'disabled' : ''}
+      />
+    </div>
+  `;
+}
+
 function renderFilmWatchHistory(record = {}) {
   const events = (Array.isArray(record.watchEvents) ? record.watchEvents : [])
     .map((event, index) => {
@@ -418,29 +438,86 @@ function renderFilmWatchHistory(record = {}) {
       </div>
       <div class="cml-film-detail__watch-events">
         ${events.slice(0, 8).map((event, index) => `
-          <label class="cml-film-detail__watch-event ${index === 0 ? 'is-latest' : ''}" data-film-watch-event-rating="" data-film-watch-event-note="">
-            ${index === 0 ? '<span class="cml-film-detail__watch-event-tag">Latest</span>' : ''}
-            <input
-              type="date"
-              class="cml-film-detail__watch-event-input"
-              data-film-watch-event-input
-              data-film-id="${filmId}"
-              data-film-watch-event-id="${escapeHtml(event.id)}"
-              data-film-watch-event="${escapeHtml(event.watchedAt)}"
-              value="${escapeHtml(event.watchedAt)}"
-              aria-label="Edit watch date ${escapeHtml(formatWatchedDateLong(event.watchedAt))}"
-            />
-            <button
-              type="button"
-              class="cml-film-detail__watch-event-delete"
-              data-action="film-delete-watch-event"
-              data-film-id="${filmId}"
-              data-film-watch-event-id="${escapeHtml(event.id)}"
-              data-film-watch-event="${escapeHtml(event.watchedAt)}"
-              aria-label="Delete watch date ${escapeHtml(formatWatchedDateLong(event.watchedAt))}"
-            >x</button>
-          </label>
+          <article class="cml-film-detail__watch-event ${index === 0 ? 'is-latest' : ''}" data-film-watch-event-rating="" data-film-watch-event-note="">
+            <span class="cml-film-detail__watch-event-node" aria-hidden="true"></span>
+            <div class="cml-film-detail__watch-event-card">
+              <div class="cml-film-detail__watch-event-topline">
+                ${index === 0 ? '<span class="cml-film-detail__watch-event-tag">Latest</span>' : '<span></span>'}
+                <button
+                  type="button"
+                  class="cml-film-detail__watch-event-delete"
+                  data-action="film-delete-watch-event"
+                  data-film-id="${filmId}"
+                  data-film-watch-event-id="${escapeHtml(event.id)}"
+                  data-film-watch-event="${escapeHtml(event.watchedAt)}"
+                  aria-label="Delete watch date ${escapeHtml(formatWatchedDateLong(event.watchedAt))}"
+                >x</button>
+              </div>
+              <label class="cml-film-detail__watch-event-date">
+                <strong>${formatWatchedDateLong(event.watchedAt)}</strong>
+                <input
+                  type="date"
+                  class="cml-film-detail__watch-event-input"
+                  data-film-watch-event-input
+                  data-film-id="${filmId}"
+                  data-film-watch-event-id="${escapeHtml(event.id)}"
+                  data-film-watch-event="${escapeHtml(event.watchedAt)}"
+                  value="${escapeHtml(event.watchedAt)}"
+                  aria-label="Edit watch date ${escapeHtml(formatWatchedDateLong(event.watchedAt))}"
+                />
+              </label>
+              <p>${index === 0 ? escapeHtml(countLabel) : 'Logged watch'}</p>
+              <span class="cml-film-detail__watch-event-note">Add notes or rating for this watch</span>
+            </div>
+          </article>
         `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderFilmPrivateSignals(record = {}, { userRating = '', watchedDate = '', disabledAttr = '' } = {}) {
+  const statusLabel = getDetailStatusLabel(record.status) || 'Unset';
+  const ratingLabel = userRating ? `${userRating} / 5.0` : 'Not rated';
+  return `
+    <section class="cml-film-detail__section cml-film-detail__private-signals" aria-label="Private film signals">
+      <h2>Private signals</h2>
+      <div class="cml-film-detail__signals-card">
+        <div class="cml-film-detail__signal-row">
+          <span class="cml-film-detail__signal-icon" aria-hidden="true">&#9678;</span>
+          <span class="cml-film-detail__signal-label">Status</span>
+          <div class="cml-film-detail__signal-value">
+            <span class="cml-film-detail__signal-pill">${escapeHtml(statusLabel)}</span>
+            ${renderDetailStatusControls(record)}
+          </div>
+        </div>
+        <div class="cml-film-detail__signal-row">
+          <span class="cml-film-detail__signal-icon" aria-hidden="true">&#9719;</span>
+          <span class="cml-film-detail__signal-label">Last watched</span>
+          <div class="cml-film-detail__signal-value">${renderDetailWatchedDateSignal(record, watchedDate)}</div>
+        </div>
+        <div class="cml-film-detail__signal-row">
+          <span class="cml-film-detail__signal-icon" aria-hidden="true">&#9734;</span>
+          <span class="cml-film-detail__signal-label">Personal rating</span>
+          <div class="cml-film-detail__signal-value cml-film-detail__signal-value--rating">
+            <span class="cml-film-detail__signal-rating-label" data-film-rating-output>${escapeHtml(ratingLabel)}</span>
+            ${renderRatingStars(userRating)}
+            ${renderDetailRatingControl(record, userRating)}
+          </div>
+        </div>
+        <div class="cml-film-detail__signal-row">
+          <span class="cml-film-detail__signal-icon" aria-hidden="true">&#9671;</span>
+          <span class="cml-film-detail__signal-label">Favourite</span>
+          <button
+            type="button"
+            class="cml-film-detail__signal-favourite ${record.favorite ? 'is-active' : ''}"
+            data-action="film-toggle-favourite"
+            data-film-id="${escapeHtml(record.id || '')}"
+            aria-pressed="${record.favorite ? 'true' : 'false'}"
+            aria-label="${record.favorite ? 'Remove favourite' : 'Save to favourites'}"
+            ${disabledAttr}
+          >&#9825;</button>
+        </div>
       </div>
     </section>
   `;
@@ -539,9 +616,35 @@ function renderMarkdownBlocks(source = '') {
   return blocks.join('');
 }
 
-function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '', editable = false } = {}) {
+function renderFilmNotesToolbar(notesPreview = false) {
+  const tools = [
+    ['bold', 'B', 'Bold'],
+    ['italic', 'I', 'Italic'],
+    ['strike', 'S', 'Strike'],
+    ['code', '</>', 'Code'],
+    ['bullet-list', 'List', 'Bulleted list'],
+    ['numbered-list', '1. List', 'Numbered list'],
+    ['quote', 'Quote', 'Quote'],
+    ['link', 'Link', 'Link']
+  ];
+  return `
+    <div class="cml-film-notes-editor__toolbar" aria-label="My notes formatting">
+      <div class="cml-film-notes-editor__tool-group">
+        ${tools.map(([format, label, title]) => `
+          <button type="button" class="cml-film-notes-editor__tool" data-action="film-notes-format" data-film-notes-format="${escapeHtml(format)}" aria-label="${escapeHtml(title)}">${escapeHtml(label)}</button>
+        `).join('')}
+      </div>
+      <button type="button" class="cml-film-notes-editor__preview-toggle ${notesPreview ? 'is-active' : ''}" data-action="film-notes-preview-toggle" aria-pressed="${notesPreview ? 'true' : 'false'}">Preview</button>
+    </div>
+  `;
+}
+
+function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '', notesPreview = false, editable = false, saveStatus = null } = {}) {
   const savedNote = getSavedFilmNote(record);
   const draft = notesEditing ? normalizeMultilineText(notesDraft) : savedNote;
+  const notesSaveStatus = notesEditing
+    ? `<span class="cml-film-save-status is-visible is-${escapeHtml(saveStatus?.state || 'saved')}" data-film-save-status="notes">${escapeHtml(saveStatus?.label || 'Saved')}</span>`
+    : '<span class="cml-film-save-status" data-film-save-status="notes"></span>';
   if (!notesEditing) {
     const readableClass = editable ? ' cml-film-detail__section--notes-readable' : '';
     const editAttrs = editable
@@ -558,9 +661,15 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
     <section class="cml-film-detail__section cml-film-detail__section--notes cml-film-detail__section--notes-editing cml-film-notes-editor">
       <div class="cml-film-detail__section-head">
         <h2>My notes</h2>
-        <span class="cml-film-save-status" data-film-save-status="notes"></span>
+        <div class="cml-film-notes-editor__autosave">
+          <span>Autosave on blur</span>
+          ${notesSaveStatus}
+        </div>
       </div>
-      <textarea class="cml-film-detail__notes-editor cml-film-notes-editor__textarea" data-film-notes-draft rows="10" placeholder="Write private notes in Markdown...">${escapeHtml(draft)}</textarea>
+      ${renderFilmNotesToolbar(notesPreview)}
+      ${notesPreview
+        ? `<div class="cml-film-detail__markdown cml-film-detail__markdown--preview" data-film-notes-preview>${renderMarkdownBlocks(draft)}</div>`
+        : `<textarea class="cml-film-detail__notes-editor cml-film-notes-editor__textarea" data-film-notes-draft rows="10" placeholder="Write private notes in Markdown...">${escapeHtml(draft)}</textarea>`}
       <p class="cml-film-notes-editor__hint">Markdown supported - click outside to save</p>
     </section>
   `;
@@ -901,6 +1010,9 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
     ? autoBackdropUrls[autoBackdropIndex]
     : getRecordBackdropUrl(displayRecord);
   const canEditLocalMetadata = isSavedEntry && !displayRecord.manualDraft;
+  const releaseMeta = displayRecord.releaseDate
+    ? formatWatchedDateLong(displayRecord.releaseDate)
+    : (displayRecord.year ? String(displayRecord.year) : '-');
   const chips = [
     renderDetailChip(displayRecord.year ? String(displayRecord.year) : ''),
     renderDetailChip(runtime, '', { editable: canEditLocalMetadata, field: 'runtimeOverride', filmId: displayRecord.id || '' }),
@@ -959,27 +1071,33 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
                 <strong data-film-rating-output>${escapeHtml(userRating ? `${userRating} / 5.0` : 'Not rated')}</strong>
                 ${userRating ? renderRatingStars(userRating) : ''}
               </div>
-              ${isSavedEntry ? renderDetailRatingControl(controlRecord, userRating) : renderDetailPreviewSaveHint()}
-              ${isSavedEntry ? renderDetailStatusControls(controlRecord) : ''}
+              ${isSavedEntry ? '' : renderDetailPreviewSaveHint()}
             </section>
             <div class="cml-film-detail__meta-row">
               ${renderDetailMetaColumn('Director', displayRecord.director || '-', '', { editable: canEditLocalMetadata, field: 'directorOverride', filmId: displayRecord.id || '' })}
-              ${renderDetailWatchedDateColumn(controlRecord, watchedDate, { editable: isSavedEntry })}
+              ${renderDetailMetaColumn('Release', releaseMeta || '-', '', { editable: canEditLocalMetadata, field: 'releaseDateOverride', filmId: displayRecord.id || '' })}
               ${renderDetailMetaColumn('TMDb rating', formatTmdbDetailRating(displayRecord), '')}
             </div>
-            ${isSavedEntry ? renderFilmWatchHistory(displayRecord) : ''}
             ${metadataEditor}
             ${imagePicker}
-            <section class="cml-film-detail__section">
-              <div class="cml-film-detail__section-head">
-                <h2>Synopsis</h2>
-                ${canEditLocalMetadata ? `<button type="button" class="cml-film-detail__inline-edit" data-action="film-edit-metadata" data-film-id="${escapeHtml(displayRecord.id || '')}" data-film-metadata-focus-field="overviewOverride">Edit</button>` : ''}
+            <div class="cml-film-detail__diary-grid">
+              <aside class="cml-film-detail__diary-rail">
+                ${isSavedEntry ? renderFilmWatchHistory(displayRecord) : ''}
+                ${isSavedEntry ? renderFilmPrivateSignals(controlRecord, { userRating, watchedDate, disabledAttr }) : ''}
+              </aside>
+              <div class="cml-film-detail__diary-main">
+                <section class="cml-film-detail__section">
+                  <div class="cml-film-detail__section-head">
+                    <h2>Synopsis</h2>
+                    ${canEditLocalMetadata ? `<button type="button" class="cml-film-detail__inline-edit" data-action="film-edit-metadata" data-film-id="${escapeHtml(displayRecord.id || '')}" data-film-metadata-focus-field="overviewOverride">Edit</button>` : ''}
+                  </div>
+                  ${synopsis
+                    ? `<p>${escapeHtml(synopsis)}</p>`
+                    : '<p class="cml-film-detail__empty-text">No synopsis yet.</p>'}
+                </section>
+                ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesPreview, editable: isSavedEntry && !displayRecord.manualDraft && !displayRecord.isSaving, saveStatus })}
               </div>
-              ${synopsis
-                ? `<p>${escapeHtml(synopsis)}</p>`
-                : '<p class="cml-film-detail__empty-text">No synopsis yet.</p>'}
-            </section>
-            ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesPreview, editable: isSavedEntry && !displayRecord.manualDraft && !displayRecord.isSaving })}
+            </div>
             <div class="cml-film-detail__actions">
               ${isSavedEntry ? `
                 <button type="button" class="cml-film-detail__action ${displayRecord.favorite ? 'is-active' : ''}" data-action="film-toggle-favourite" data-film-id="${escapeHtml(displayRecord.id || '')}" ${disabledAttr}>${escapeHtml(favoriteActionLabel)}</button>

@@ -259,6 +259,12 @@ describe('media library download actions', () => {
     assert.match(html, /TMDb 7\.5 \(38\)/);
     assert.match(html, /May 9, 2026/);
     assert.match(html, /Watch history/);
+    assert.match(html, /cml-film-detail__diary-grid/);
+    assert.match(html, /cml-film-detail__watch-event-card/);
+    assert.match(html, /Add notes or rating for this watch/);
+    assert.match(html, /Private signals/);
+    assert.match(html, /cml-film-detail__signals-card/);
+    assert.match(html, /Personal rating/);
     assert.match(html, /2 watches/);
     assert.match(html, /May 1, 2026/);
     assert.match(html, /Synopsis/);
@@ -350,6 +356,18 @@ describe('media library download actions', () => {
       notesEditing: true,
       notesDraft: 'Draft **note**',
     });
+    const previewHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Movie',
+        journal: 'Saved note',
+      },
+      notesEditing: true,
+      notesDraft: 'Draft **note**',
+      notesPreview: true,
+      saveStatus: { state: 'saving', label: 'Saving...' },
+    });
 
     assert.match(viewHtml, /<h3>Private<\/h3>/);
     assert.match(viewHtml, /<strong>Great<\/strong>/);
@@ -359,11 +377,26 @@ describe('media library download actions', () => {
     assert.match(viewHtml, /data-action="film-edit-notes" data-film-id="tmdb-42" role="button" tabindex="0"/);
     assert.match(editHtml, /data-film-notes-draft/);
     assert.match(editHtml, /cml-film-notes-editor/);
+    assert.match(editHtml, /Autosave on blur/);
+    assert.match(editHtml, /data-film-save-status="notes">Saved<\/span>/);
+    assert.match(editHtml, /data-action="film-notes-format"/);
+    assert.match(editHtml, /data-film-notes-format="bold"/);
+    assert.match(editHtml, /data-action="film-notes-preview-toggle" aria-pressed="false"/);
     assert.match(editHtml, /click outside to save/);
+    assert.doesNotMatch(editHtml, /data-film-notes-preview/);
     assert.doesNotMatch(editHtml, /cml-film-detail__section--notes-readable/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-save"/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-cancel"/);
-    assert.doesNotMatch(editHtml, /data-action="film-notes-preview-toggle"/);
+
+    assert.match(previewHtml, /data-action="film-notes-preview-toggle" aria-pressed="true"/);
+    assert.match(previewHtml, /cml-film-notes-editor__preview-toggle is-active/);
+    assert.match(previewHtml, /data-film-notes-preview/);
+    assert.match(previewHtml, /<strong>note<\/strong>/);
+    assert.match(previewHtml, /data-film-save-status="notes">Saving\.\.\.<\/span>/);
+    assert.match(previewHtml, /click outside to save/);
+    assert.doesNotMatch(previewHtml, /data-film-notes-draft/);
+    assert.doesNotMatch(previewHtml, /data-action="film-notes-save"/);
+    assert.doesNotMatch(previewHtml, /data-action="film-notes-cancel"/);
   });
 
   it('renders film detail metadata overrides as an inline editor for saved films only', () => {
@@ -483,6 +516,10 @@ describe('media library download actions', () => {
     assert.match(appSource, /function commitFilmMetadataEdit/);
     assert.match(appSource, /case 'film-toggle-favourite':/);
     assert.match(appSource, /case 'film-edit-notes':/);
+    assert.match(appSource, /case 'film-notes-format':/);
+    assert.match(appSource, /function applyFilmNotesFormat/);
+    assert.match(appSource, /case 'film-notes-preview-toggle':/);
+    assert.match(appSource, /function toggleFilmNotesPreview/);
     assert.match(appSource, /case 'film-toggle-more-actions':/);
     assert.match(appSource, /case 'toggle-film-tmdb-add':/);
     assert.match(appSource, /function toggleFilmTmdbAddFlow/);

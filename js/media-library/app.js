@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=5';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=49';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=50';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -139,6 +139,8 @@ const FILM_ACTION_NAMES = new Set([
   'clear-film-library-search',
   'film-toggle-favourite',
   'film-edit-notes',
+  'film-notes-format',
+  'film-notes-preview-toggle',
   'film-toggle-more-actions',
   'film-edit-metadata',
   'film-change-poster',
@@ -10684,7 +10686,90 @@ function cancelFilmNotesEdit() {
 
 function toggleFilmNotesPreview() {
   state.filmNotesPreview = !state.filmNotesPreview;
-  render();
+  renderFilmMutationState({ allowRenderFallback: true });
+  if (!state.filmNotesPreview) {
+    focusFilmNotesEditor();
+  }
+}
+
+function applyFilmNotesFormat(format = '') {
+  if (!state.filmNotesEditing) {
+    return;
+  }
+  if (state.filmNotesPreview) {
+    state.filmNotesPreview = false;
+    renderFilmMutationState({ allowRenderFallback: true });
+    window.requestAnimationFrame(() => applyFilmNotesFormat(format));
+    return;
+  }
+  const textarea = refs.root?.querySelector('[data-film-notes-draft]');
+  if (!(textarea instanceof HTMLTextAreaElement)) {
+    return;
+  }
+  const value = textarea.value;
+  const start = textarea.selectionStart ?? value.length;
+  const end = textarea.selectionEnd ?? value.length;
+  const selected = value.slice(start, end);
+  let nextValue = value;
+  let nextStart = start;
+  let nextEnd = end;
+  const replaceSelection = (replacement, innerStart = 0, innerEnd = replacement.length) => {
+    nextValue = `${value.slice(0, start)}${replacement}${value.slice(end)}`;
+    nextStart = start + innerStart;
+    nextEnd = start + innerEnd;
+  };
+  const wrapSelection = (prefix, suffix, placeholder) => {
+    const body = selected || placeholder;
+    replaceSelection(`${prefix}${body}${suffix}`, prefix.length, prefix.length + body.length);
+  };
+  const prefixLines = (builder) => {
+    const blockStart = value.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+    const nextLineIndex = value.indexOf('\n', end);
+    const blockEnd = nextLineIndex === -1 ? value.length : nextLineIndex;
+    const block = value.slice(blockStart, blockEnd);
+    const lines = block.split('\n');
+    const replacement = lines.map((line, index) => builder(line, index)).join('\n');
+    nextValue = `${value.slice(0, blockStart)}${replacement}${value.slice(blockEnd)}`;
+    nextStart = blockStart;
+    nextEnd = blockStart + replacement.length;
+  };
+
+  switch (format) {
+    case 'bold':
+      wrapSelection('**', '**', 'bold text');
+      break;
+    case 'italic':
+      wrapSelection('*', '*', 'italic text');
+      break;
+    case 'strike':
+      wrapSelection('~~', '~~', 'struck text');
+      break;
+    case 'code':
+      if (selected.includes('\n')) {
+        wrapSelection('```\n', '\n```', selected || 'code');
+      } else {
+        wrapSelection('`', '`', 'code');
+      }
+      break;
+    case 'bullet-list':
+      prefixLines((line) => `- ${line.replace(/^[-*]\s+/, '')}`);
+      break;
+    case 'numbered-list':
+      prefixLines((line, index) => `${index + 1}. ${line.replace(/^\d+\.\s+/, '')}`);
+      break;
+    case 'quote':
+      prefixLines((line) => `> ${line.replace(/^>\s?/, '')}`);
+      break;
+    case 'link':
+      wrapSelection('[', '](https://)', selected || 'link');
+      break;
+    default:
+      return;
+  }
+  textarea.value = nextValue;
+  state.filmNotesDraft = nextValue;
+  textarea.focus({ preventScroll: true });
+  textarea.setSelectionRange(nextStart, nextEnd);
 }
 
 async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(state.filmDetailOpen) } = {}) {
@@ -14364,6 +14449,12 @@ function handleAction(actionTarget) {
         }
       })();
       return true;
+    case 'film-notes-format':
+      applyFilmNotesFormat(actionTarget.dataset.filmNotesFormat || '');
+      return true;
+    case 'film-notes-preview-toggle':
+      toggleFilmNotesPreview();
+      return true;
     case 'film-toggle-more-actions':
       void toggleFilmMoreActions();
       return true;
@@ -14910,27 +15001,28 @@ function handleInput(event) {
     return;
   }
   if (input.hasAttribute('data-film-rating-input')) {
-    const section = input.closest('.cml-film-detail__rating');
+    const section = input.closest('.cml-film-detail__rating, .cml-film-detail__signal-value--rating');
+    const control = input.closest('.cml-film-detail__rating-control');
     const normalizedRating = normalizeFilmUserRating(input.value) || 0.5;
-    const output = section?.querySelector('[data-film-rating-output]');
     const mood = section?.querySelector('[data-film-rating-mood]');
-    if (section instanceof HTMLElement) {
-      section.style.setProperty('--film-detail-rating-fill', `${(normalizedRating / 5) * 100}%`);
-      section.style.setProperty('--film-detail-rating-progress', String((normalizedRating - 0.5) / 4.5));
+    const activeDetail = input.closest('[data-film-detail-page]');
+    if (control instanceof HTMLElement) {
+      control.style.setProperty('--film-detail-rating-fill', `${(normalizedRating / 5) * 100}%`);
+      control.style.setProperty('--film-detail-rating-progress', String((normalizedRating - 0.5) / 4.5));
     }
-    if (output instanceof HTMLElement) {
+    activeDetail?.querySelectorAll('[data-film-rating-output]').forEach((output) => {
       output.textContent = `${normalizedRating.toFixed(1)} / 5.0`;
-    }
+    });
     if (mood instanceof HTMLElement) {
       mood.textContent = getFilmUserRatingMood(normalizedRating);
     }
     return;
   }
   if (input.hasAttribute('data-film-watched-at-input')) {
-    const output = input.closest('.cml-film-detail__meta-item')?.querySelector('[data-film-watched-at-output]');
-    if (output instanceof HTMLElement) {
+    const activeDetail = input.closest('[data-film-detail-page]');
+    activeDetail?.querySelectorAll('[data-film-watched-at-output]').forEach((output) => {
       output.textContent = input.value || 'Not set';
-    }
+    });
     return;
   }
   if (input.hasAttribute('data-film-watch-event-input')) {
