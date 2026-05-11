@@ -10585,11 +10585,21 @@ function getFilmBackdropFrameStyleForImage(image, frame = createFilmBackdropFram
   const scale = normalized.backdropZoomOverride < 1
     ? containScale + ((coverScale - containScale) * ((normalized.backdropZoomOverride - 0.5) / 0.5))
     : coverScale * extraZoom;
+  const fittedWidth = Math.max(1, naturalWidth * scale);
+  const fittedHeight = Math.max(1, naturalHeight * scale);
+  const left = fittedWidth <= containerWidth
+    ? Math.max(0, (containerWidth - fittedWidth) / 2)
+    : (containerWidth - fittedWidth) * (normalized.backdropPositionXOverride / 100);
+  const top = fittedHeight <= containerHeight
+    ? 0
+    : (containerHeight - fittedHeight) * (normalized.backdropPositionYOverride / 100);
   return {
     x: `${normalized.backdropPositionXOverride}%`,
     y: `${normalized.backdropPositionYOverride}%`,
-    width: `${Math.max(1, naturalWidth * scale)}px`,
-    height: `${Math.max(1, naturalHeight * scale)}px`
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${fittedWidth}px`,
+    height: `${fittedHeight}px`
   };
 }
 
@@ -10608,8 +10618,9 @@ function applyFilmBackdropFrameToImage(image, frame = createFilmBackdropFrameDra
   image.classList.add('is-frame-fitted');
   image.style.width = fitted.width;
   image.style.height = fitted.height;
-  image.style.left = fitted.x;
-  image.style.top = fitted.y;
+  image.style.left = fitted.left;
+  image.style.top = fitted.top;
+  image.style.transform = 'none';
   return true;
 }
 

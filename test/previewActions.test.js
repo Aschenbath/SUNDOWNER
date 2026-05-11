@@ -701,6 +701,22 @@ describe('media library download actions', () => {
     assert.match(clientSource, /function normalizeBackdropPaths/);
   });
 
+  it('anchors shrink-fitted Film backdrop frames from the top without animated geometry', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+    const detailRule = cssSource.match(/#codex-media-library-root \.cml-film-detail-page__backdrop-image \{[\s\S]*?\n\}/)?.[0] || '';
+    const pickerRule = cssSource.match(/#codex-media-library-root \.cml-film-image-picker__preview\.is-backdrop img \{[\s\S]*?\n\}/)?.[0] || '';
+
+    assert.match(appSource, /const top = fittedHeight <= containerHeight\s+\? 0\s+: \(containerHeight - fittedHeight\) \* \(normalized\.backdropPositionYOverride \/ 100\);/);
+    assert.match(appSource, /image\.style\.left = fitted\.left;/);
+    assert.match(appSource, /image\.style\.top = fitted\.top;/);
+    assert.match(appSource, /image\.style\.transform = 'none';/);
+    assert.ok(detailRule);
+    assert.doesNotMatch(detailRule, /\b(?:transform|width|height|left|top) 260ms/);
+    assert.ok(pickerRule);
+    assert.match(pickerRule, /transition: none;/);
+  });
+
   it('removes dead legacy Films components from the live component module', () => {
     const source = fs.readFileSync(new URL('../js/media-library/films-components.js', import.meta.url), 'utf8');
 
