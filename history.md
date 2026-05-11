@@ -38,6 +38,7 @@ This file is the working memory for the active SUNDOWNER repo. It keeps current-
 
 ###### Work Log
 
+- 19:37 | [history][memory] Compacted project `history.md` into quick-read format: read protocol, scope map, active chronicle, archive index, and bottom Tail Capsule. Raw pre-compaction table preserved at `history.archive\2026-May-raw.md`. Validation: tail check, archive size check, cached diff-check.
 - 19:11 | [films][detail][surgical] Removed visible Synopsis block and redundant labels; moved synopsis under Director/Release/Runtime row; flattened image tools into quiet Poster/Backdrop controls; removed More/Open TMDb detail affordance. Cache: `app.js?v=256`, `films-components.js?v=58`, `media-library.css?v=240`. Validation: syntax checks, diff-check, targeted Films Mocha 149 passing.
 - 18:34 | [films][detail][refresh] Removed redundant lower action row; shrank More to image/TMDb popover; saved TMDb details auto-refresh silently once per session; backdrop frame slider live-previews picker thumbnail and active detail backdrop. Cache: app 255, films 57, css 239. Validation: targeted Films Mocha 149 passing.
 - 16:27 | [films][patching] Fixed visible detail refresh: active Film Detail patching now reuses mounted root/backdrop and patches targeted children. Removed visible `Watching` while keeping legacy values compatible as `Want`; added country/language support through normalization/search/edit fields. Cache: app 254, films 56, data 6. Validation: targeted Films Mocha 149 passing.
