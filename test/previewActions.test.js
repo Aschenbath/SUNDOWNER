@@ -16,8 +16,9 @@ describe('media library download actions', () => {
       searchPanelHtml: panel,
     });
 
+    assert.match(html, /data-action="toggle-film-tmdb-add"/);
     assert.match(html, /data-form="films-search"/);
-    assert.match(html, /type="submit" class="cml-films-page__add-button"/);
+    assert.match(html, /type="submit" class="cml-films-page__add-button cml-films-page__add-button--submit"/);
     assert.match(html, /cml-films-search__live/);
     assert.match(html, /data-action="filter-films"/);
     assert.match(html, /data-film-filter="Watched"/);
@@ -34,12 +35,12 @@ describe('media library download actions', () => {
       records: [],
       totalCount: 2,
       libraryQuery: 'Cure',
-      searchQuery: 'Pearl',
+      searchQuery: '',
       searchPanelHtml: '',
     });
 
-    assert.match(html, /data-films-search-input/);
-    assert.match(html, /value="Pearl"/);
+    assert.match(html, /data-action="toggle-film-tmdb-add"/);
+    assert.doesNotMatch(html, /data-films-search-input/);
     assert.match(html, /Add from TMDb/);
     assert.match(html, /data-film-library-search-input/);
     assert.match(html, /value="Cure"/);
@@ -48,8 +49,19 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="clear-film-library-search"/);
     assert.match(html, /No saved films found\./);
     assert.match(html, /cml-films-library-search--primary/);
-    assert.ok(html.indexOf('data-film-library-search-input') < html.indexOf('data-form="films-search"'));
-    const tmdbForm = html.slice(html.indexOf('data-form="films-search"'), html.indexOf('</form>', html.indexOf('data-form="films-search"')));
+    assert.ok(html.indexOf('data-film-library-search-input') < html.indexOf('data-action="toggle-film-tmdb-add"'));
+
+    const openedHtml = FilmsPage({
+      records: [],
+      totalCount: 2,
+      libraryQuery: 'Cure',
+      searchQuery: 'Pearl',
+      addFlowOpen: true,
+      searchPanelHtml: '',
+    });
+    assert.match(openedHtml, /data-films-search-input/);
+    assert.match(openedHtml, /value="Pearl"/);
+    const tmdbForm = openedHtml.slice(openedHtml.indexOf('data-form="films-search"'), openedHtml.indexOf('</form>', openedHtml.indexOf('data-form="films-search"')));
     assert.doesNotMatch(tmdbForm, /data-action="add-manual-film"/);
   });
 
@@ -179,7 +191,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false, silent = false, showSaving = !silent \} = \{\}\)/);
     assert.match(appSource, /openAfterSave: state\.filmDetailOpen && Number\(getActiveFilmRecord\(\)\?\.tmdbId\) === Number\(actionTarget\.dataset\.tmdbId\)/);
     assert.match(appSource, /pushNavigationHash\(\{ mode: 'replace' \}\)/);
-    assert.match(appSource, /case 'save-film-status':\s+saveFilmStatusForTarget\(\{/s);
+    assert.match(appSource, /case 'save-film-status':\s+void \(async \(\) => \{\s+if \(await commitPendingFilmEditsBeforeAction\(\{ actionName, keepDetailOpen: true \}\)\) \{\s+saveFilmStatusForTarget\(\{/s);
     assert.match(appSource, /function saveFilmStatusForTarget\(\{/);
     assert.match(appSource, /filmLibrarySearchComposing: false/);
     assert.match(appSource, /state\.filmLibrarySearchComposing = true/);
@@ -308,7 +320,7 @@ describe('media library download actions', () => {
 
     assert.match(html, /data-action="save-film-status" data-watch-status="wantToWatch"/);
     assert.match(html, /data-action="save-film-status" data-watch-status="watched"/);
-    assert.match(html, /Add to Watchlist/);
+    assert.match(html, /Save as Want/);
     assert.match(html, /Mark Watched/);
     assert.match(html, /Save this film to your diary before rating/);
     assert.doesNotMatch(html, /data-action="film-toggle-favourite"/);
@@ -383,11 +395,18 @@ describe('media library download actions', () => {
       metadataDraft: { titleOverride: 'Should not matter' },
     });
 
-    assert.match(savedHtml, /cml-film-metadata-editor/);
-    assert.match(savedHtml, /data-film-metadata-field="titleOverride"/);
-    assert.match(savedHtml, /data-film-metadata-field="posterUrlOverride"/);
-    assert.match(savedHtml, /data-film-metadata-field="backdropUrlOverride"/);
-    assert.match(savedHtml, /Local overrides only/);
+    assert.match(savedHtml, /cml-film-metadata-shortcuts/);
+    assert.match(savedHtml, /Edit fields/);
+    assert.match(savedHtml, /Identity/);
+    assert.match(savedHtml, /Release/);
+    assert.match(savedHtml, /Writing/);
+    assert.match(savedHtml, /Images/);
+    assert.match(savedHtml, /data-film-metadata-focus-field="titleOverride"/);
+    assert.match(savedHtml, /data-film-metadata-focus-field="originalTitleOverride"/);
+    assert.match(savedHtml, /data-film-metadata-focus-field="releaseDateOverride"/);
+    assert.match(savedHtml, /data-action="film-change-poster"/);
+    assert.doesNotMatch(savedHtml, /data-film-metadata-field="posterUrlOverride"/);
+    assert.doesNotMatch(savedHtml, /Local overrides only/);
     assert.match(savedHtml, /https:\/\/example\.com\/poster\.jpg/);
     assert.match(savedHtml, /src="https:\/\/example\.com\/poster\.jpg"/);
     assert.match(savedHtml, /src="\/file\/backdrop\.jpg"/);
@@ -462,6 +481,9 @@ describe('media library download actions', () => {
     assert.match(appSource, /case 'film-toggle-favourite':/);
     assert.match(appSource, /case 'film-edit-notes':/);
     assert.match(appSource, /case 'film-toggle-more-actions':/);
+    assert.match(appSource, /case 'toggle-film-tmdb-add':/);
+    assert.match(appSource, /function toggleFilmTmdbAddFlow/);
+    assert.match(appSource, /filmTmdbAddOpen: false/);
     assert.match(appSource, /case 'film-edit-metadata':/);
     assert.match(appSource, /case 'film-change-poster':/);
     assert.match(appSource, /case 'film-change-backdrop':/);
@@ -495,6 +517,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /commitFilmImagePickerDraft\(\{ keepDetailOpen \}\)/);
     assert.match(appSource, /case 'film-mark-rewatch':/);
     assert.match(appSource, /case 'film-delete-watch-event':/);
+    assert.match(appSource, /case 'film-undo-watch-event-delete':/);
+    assert.match(appSource, /function undoDeleteFilmWatchEvent/);
     assert.match(appSource, /function editFilmWatchEvent/);
     assert.match(appSource, /function deleteFilmWatchEvent/);
     assert.match(appSource, /dataset\.filmWatchEventId/);
