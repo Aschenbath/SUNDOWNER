@@ -58,6 +58,22 @@ function normalizeImagePathOverride(value, maxLength = 240) {
   return normalized;
 }
 
+function normalizeBackdropZoomOverride(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 1.02;
+  }
+  return Math.max(1, Math.min(1.8, Math.round(numeric * 100) / 100));
+}
+
+function normalizeBackdropPositionOverride(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 50;
+  }
+  return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object || {}, key);
 }
@@ -298,6 +314,9 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
     backdropPathOverride: normalizeImagePathOverride(input.backdropPathOverride ?? existing?.backdropPathOverride),
     posterUrlOverride: normalizeImageUrlOverride(input.posterUrlOverride ?? existing?.posterUrlOverride),
     backdropUrlOverride: normalizeImageUrlOverride(input.backdropUrlOverride ?? existing?.backdropUrlOverride),
+    backdropZoomOverride: normalizeBackdropZoomOverride(input.backdropZoomOverride ?? existing?.backdropZoomOverride),
+    backdropPositionXOverride: normalizeBackdropPositionOverride(input.backdropPositionXOverride ?? existing?.backdropPositionXOverride),
+    backdropPositionYOverride: normalizeBackdropPositionOverride(input.backdropPositionYOverride ?? existing?.backdropPositionYOverride),
     tags: normalizeStringArray(input.tags ?? existing?.tags, 40),
     isFavorite: Boolean(input.isFavorite ?? existing?.isFavorite ?? false),
     watchedAt,

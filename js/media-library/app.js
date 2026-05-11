@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=5';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=50';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=51';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -123,7 +123,10 @@ const FILM_METADATA_FIELDS = [
   'posterPathOverride',
   'backdropPathOverride',
   'posterUrlOverride',
-  'backdropUrlOverride'
+  'backdropUrlOverride',
+  'backdropZoomOverride',
+  'backdropPositionXOverride',
+  'backdropPositionYOverride'
 ];
 const FILM_ACTION_NAMES = new Set([
   'save-film-status',
@@ -148,6 +151,7 @@ const FILM_ACTION_NAMES = new Set([
   'film-pick-image',
   'film-apply-image-url',
   'film-clear-image-override',
+  'film-reset-backdrop-frame',
   'film-close-image-picker',
   'film-refresh-tmdb',
   'film-open-tmdb',
@@ -160,7 +164,8 @@ const FILM_ACTION_NAMES = new Set([
 const FILM_ACTIONS_WITHOUT_IMAGE_URL_AUTOSAVE = new Set([
   'film-pick-image',
   'film-apply-image-url',
-  'film-clear-image-override'
+  'film-clear-image-override',
+  'film-reset-backdrop-frame'
 ]);
 const MEDIA_LIBRARY_UPLOAD_ACCEPT = 'image/*,video/*,audio/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
 const COLLECTION_PAGE_SIZE = 24;
@@ -513,6 +518,7 @@ const state = {
   filmMoreActionsOpen: false,
   filmImagePickerMode: '',
   filmImagePickerDraft: '',
+  filmBackdropFrameDraft: null,
   filmRemovedUndoRecord: null,
   filmDeletedWatchEventUndo: null,
   filmBackdropIndexByFilmId: {},
@@ -8659,6 +8665,9 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     backdropPathOverride: overrides.backdropPathOverride,
     posterUrlOverride: overrides.posterUrlOverride,
     backdropUrlOverride: overrides.backdropUrlOverride,
+    backdropZoomOverride: overrides.backdropZoomOverride,
+    backdropPositionXOverride: overrides.backdropPositionXOverride,
+    backdropPositionYOverride: overrides.backdropPositionYOverride,
     isSaving: Number.isFinite(tmdbId) && tmdbId > 0 && state.filmSavingTmdbIds.has(tmdbId)
   };
 }
@@ -8730,6 +8739,38 @@ function normalizeFilmImagePathOverride(value) {
   return normalized;
 }
 
+function normalizeFilmBackdropZoomOverride(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 1.02;
+  }
+  return Math.max(1, Math.min(1.8, Math.round(numeric * 100) / 100));
+}
+
+function normalizeFilmBackdropPositionOverride(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 50;
+  }
+  return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
+function normalizeFilmBackdropFrameOverrides(source = {}) {
+  return {
+    backdropZoomOverride: normalizeFilmBackdropZoomOverride(source.backdropZoomOverride),
+    backdropPositionXOverride: normalizeFilmBackdropPositionOverride(source.backdropPositionXOverride),
+    backdropPositionYOverride: normalizeFilmBackdropPositionOverride(source.backdropPositionYOverride)
+  };
+}
+
+function backdropFrameEqualsRecord(frame = {}, record = {}) {
+  const left = normalizeFilmBackdropFrameOverrides(frame);
+  const right = normalizeFilmBackdropFrameOverrides(record);
+  return left.backdropZoomOverride === right.backdropZoomOverride
+    && left.backdropPositionXOverride === right.backdropPositionXOverride
+    && left.backdropPositionYOverride === right.backdropPositionYOverride;
+}
+
 function normalizeFilmBackdropPaths(value = []) {
   return (Array.isArray(value) ? value : [])
     .map((item) => normalizeText(item))
@@ -8750,7 +8791,8 @@ function normalizeFilmMetadataOverrides(source = {}) {
     posterPathOverride: normalizeFilmImagePathOverride(source.posterPathOverride),
     backdropPathOverride: normalizeFilmImagePathOverride(source.backdropPathOverride),
     posterUrlOverride: normalizeFilmImageOverride(source.posterUrlOverride),
-    backdropUrlOverride: normalizeFilmImageOverride(source.backdropUrlOverride)
+    backdropUrlOverride: normalizeFilmImageOverride(source.backdropUrlOverride),
+    ...normalizeFilmBackdropFrameOverrides(source)
   };
 }
 
@@ -8854,7 +8896,8 @@ function createFilmMetadataDraft(record = {}) {
     posterPathOverride: normalizeText(record.posterPathOverride || ''),
     backdropPathOverride: normalizeText(record.backdropPathOverride || ''),
     posterUrlOverride: normalizeText(record.posterUrlOverride || ''),
-    backdropUrlOverride: normalizeText(record.backdropUrlOverride || '')
+    backdropUrlOverride: normalizeText(record.backdropUrlOverride || ''),
+    ...normalizeFilmBackdropFrameOverrides(record)
   };
 }
 
@@ -8906,6 +8949,7 @@ function rotateActiveFilmBackdrop() {
     || paths.length <= 1
     || state.filmNotesEditing
     || state.filmMetadataEditing
+    || state.filmImagePickerMode
     || document.hidden
     || (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   ) {
@@ -8929,6 +8973,7 @@ function scheduleFilmBackdropRotation() {
     || !record
     || state.filmNotesEditing
     || state.filmMetadataEditing
+    || state.filmImagePickerMode
     || document.hidden
     || (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
     || getFilmAutoBackdropPaths(record).length <= 1
@@ -9309,6 +9354,7 @@ async function deleteFilmEntry(filmIdOrTmdbId, { silent = false } = {}) {
     state.filmMoreActionsOpen = false;
     state.filmImagePickerMode = '';
     state.filmImagePickerDraft = '';
+    state.filmBackdropFrameDraft = null;
     state.filmRemovedUndoRecord = null;
     clearTransientFilmDetail();
     pushNavigationHash({ mode: 'push' });
@@ -9693,6 +9739,7 @@ async function openTmdbFilmDetail(tmdbId) {
   state.filmMoreActionsOpen = false;
   state.filmImagePickerMode = '';
   state.filmImagePickerDraft = '';
+  state.filmBackdropFrameDraft = null;
   pushNavigationHash({ mode: 'push' });
   render();
   filmDetailLoadingTmdbIds.add(normalizedId);
@@ -9952,6 +9999,7 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
     moreActionsOpen: state.filmMoreActionsOpen,
     imagePickerMode: state.filmImagePickerMode,
     imagePickerDraft: state.filmImagePickerDraft,
+    imagePickerFrameDraft: state.filmBackdropFrameDraft,
     backdropIndex: getActiveFilmBackdropIndex(record),
     saveStatus: state.filmSaveStatus
   }).trim();
@@ -10072,7 +10120,10 @@ function buildFilmMetadataPatchFromDraft(draft = {}) {
     posterPathOverride: draft.posterPathOverride,
     backdropPathOverride: draft.backdropPathOverride,
     posterUrlOverride: draft.posterUrlOverride,
-    backdropUrlOverride: draft.backdropUrlOverride
+    backdropUrlOverride: draft.backdropUrlOverride,
+    backdropZoomOverride: draft.backdropZoomOverride,
+    backdropPositionXOverride: draft.backdropPositionXOverride,
+    backdropPositionYOverride: draft.backdropPositionYOverride
   });
 }
 
@@ -10197,6 +10248,7 @@ function createManualFilmEntry() {
   state.filmTmdbAddOpen = false;
   state.filmImagePickerMode = '';
   state.filmImagePickerDraft = '';
+  state.filmBackdropFrameDraft = null;
   clearFilmSaveStatus();
   pushNavigationHash({ mode: 'push' });
   render();
@@ -10357,6 +10409,7 @@ function cancelFilmMetadataEdit() {
 function closeFilmImagePicker({ shouldRender = true } = {}) {
   state.filmImagePickerMode = '';
   state.filmImagePickerDraft = '';
+  state.filmBackdropFrameDraft = null;
   if (shouldRender) {
     renderFilmMutationState();
   }
@@ -10421,6 +10474,7 @@ function moveFromFilmDetailToIndex() {
   state.filmMoreActionsOpen = false;
   state.filmImagePickerMode = '';
   state.filmImagePickerDraft = '';
+  state.filmBackdropFrameDraft = null;
   pushNavigationHash({ mode: 'push' });
 }
 
@@ -10466,6 +10520,9 @@ async function openFilmImagePicker(filmId, mode = 'poster') {
   state.filmImagePickerDraft = state.filmImagePickerMode === 'backdrop'
     ? normalizeText(film.backdropUrlOverride || '')
     : normalizeText(film.posterUrlOverride || '');
+  state.filmBackdropFrameDraft = state.filmImagePickerMode === 'backdrop'
+    ? createFilmBackdropFrameDraft(film)
+    : null;
   state.filmMoreActionsOpen = false;
   renderFilmMutationState();
   focusFilmImagePickerInput();
@@ -10478,6 +10535,106 @@ function getFilmImageOverrideFields(mode = 'poster') {
     pathField: normalizedMode === 'backdrop' ? 'backdropPathOverride' : 'posterPathOverride',
     urlField: normalizedMode === 'backdrop' ? 'backdropUrlOverride' : 'posterUrlOverride'
   };
+}
+
+function createFilmBackdropFrameDraft(record = {}) {
+  return normalizeFilmBackdropFrameOverrides(record);
+}
+
+function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
+  const normalized = normalizeFilmBackdropFrameOverrides(frame);
+  const x = `${normalized.backdropPositionXOverride}%`;
+  const y = `${normalized.backdropPositionYOverride}%`;
+  const zoom = String(normalized.backdropZoomOverride);
+  refs.root?.querySelectorAll('.cml-film-detail-page__backdrop-image, .cml-film-image-picker__preview.is-backdrop img').forEach((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+    node.style.setProperty('--film-backdrop-position-x', x);
+    node.style.setProperty('--film-backdrop-position-y', y);
+    node.style.setProperty('--film-backdrop-scale', zoom);
+  });
+  refs.root?.querySelectorAll('[data-film-backdrop-frame-field]').forEach((node) => {
+    if (!(node instanceof HTMLInputElement)) {
+      return;
+    }
+    const field = node.dataset.filmBackdropFrameField || '';
+    const nextValue = field === 'zoom'
+      ? normalized.backdropZoomOverride
+      : field === 'x'
+      ? normalized.backdropPositionXOverride
+      : normalized.backdropPositionYOverride;
+    node.value = String(nextValue);
+    const output = node.closest('.cml-film-image-picker__range')?.querySelector('output');
+    if (output instanceof HTMLOutputElement) {
+      output.textContent = field === 'zoom'
+        ? `${normalized.backdropZoomOverride.toFixed(2)}x`
+        : `${nextValue}%`;
+    }
+  });
+}
+
+function updateFilmBackdropFrameDraft(field = '', value = '') {
+  if (state.filmImagePickerMode !== 'backdrop') {
+    return;
+  }
+  const film = getActiveFilmRecord();
+  const current = state.filmBackdropFrameDraft || createFilmBackdropFrameDraft(film || {});
+  const next = { ...current };
+  if (field === 'zoom') {
+    next.backdropZoomOverride = normalizeFilmBackdropZoomOverride(value);
+  } else if (field === 'x') {
+    next.backdropPositionXOverride = normalizeFilmBackdropPositionOverride(value);
+  } else if (field === 'y') {
+    next.backdropPositionYOverride = normalizeFilmBackdropPositionOverride(value);
+  } else {
+    return;
+  }
+  state.filmBackdropFrameDraft = next;
+  setFilmBackdropFrameStyle(next);
+}
+
+async function saveFilmBackdropFrameDraft({ keepDetailOpen = true, savedLabel = 'Frame saved' } = {}) {
+  if (state.filmImagePickerMode !== 'backdrop') {
+    return true;
+  }
+  const film = getActiveFilmRecord();
+  if (!film?.id) {
+    return true;
+  }
+  const frame = state.filmBackdropFrameDraft || createFilmBackdropFrameDraft(film);
+  if (backdropFrameEqualsRecord(frame, film)) {
+    return true;
+  }
+  const saved = await saveFilmEntryPatch(film.id, normalizeFilmBackdropFrameOverrides(frame), {
+    successMessage: '',
+    keepDetailOpen,
+    showErrorToast: false,
+    savedLabel
+  });
+  if (saved) {
+    state.filmBackdropFrameDraft = createFilmBackdropFrameDraft(getActiveFilmRecord() || frame);
+  }
+  return saved;
+}
+
+async function resetFilmBackdropFrame() {
+  if (state.filmImagePickerMode !== 'backdrop') {
+    return;
+  }
+  const film = getActiveFilmRecord();
+  if (!film?.id) {
+    return;
+  }
+  const defaults = createFilmBackdropFrameDraft({});
+  state.filmBackdropFrameDraft = defaults;
+  setFilmBackdropFrameStyle(defaults);
+  await saveFilmEntryPatch(film.id, defaults, {
+    successMessage: '',
+    keepDetailOpen: true,
+    showErrorToast: false,
+    savedLabel: 'Frame reset'
+  });
 }
 
 async function applyFilmImagePathOverride(mode = state.filmImagePickerMode, path = '', { keepPickerOpen = true } = {}) {
@@ -10503,6 +10660,9 @@ async function applyFilmImagePathOverride(mode = state.filmImagePickerMode, path
   }
   state.filmImagePickerMode = normalizedMode;
   state.filmImagePickerDraft = '';
+  if (normalizedMode === 'backdrop' && !state.filmBackdropFrameDraft) {
+    state.filmBackdropFrameDraft = createFilmBackdropFrameDraft(film);
+  }
   if (!keepPickerOpen) {
     closeFilmImagePicker({ shouldRender: false });
   }
@@ -10555,9 +10715,13 @@ function resetFilmImageOverride(mode = state.filmImagePickerMode) {
   }
   state.filmImagePickerMode = normalizedMode;
   state.filmImagePickerDraft = '';
+  state.filmBackdropFrameDraft = normalizedMode === 'backdrop'
+    ? createFilmBackdropFrameDraft(film)
+    : null;
   void saveFilmEntryPatch(film.id, {
     [pathField]: '',
-    [urlField]: ''
+    [urlField]: '',
+    ...(normalizedMode === 'backdrop' ? createFilmBackdropFrameDraft({}) : {})
   }, { successMessage: '', keepDetailOpen: true, showErrorToast: false, savedLabel: 'Reset' });
 }
 
@@ -10573,25 +10737,30 @@ async function commitFilmImagePickerDraft({ keepDetailOpen = true } = {}) {
   const { pathField, urlField } = getFilmImageOverrideFields(state.filmImagePickerMode);
   const rawValue = normalizeText(state.filmImagePickerDraft);
   const currentValue = normalizeFilmImageOverride(film[urlField] || '');
+  let imageSaved = true;
   if (!rawValue && !currentValue) {
-    return true;
+    imageSaved = true;
+  } else {
+    const nextValue = normalizeFilmImageOverride(rawValue);
+    if (rawValue && !nextValue) {
+      state.filmError = 'Use an http(s) or /file/ image URL';
+      markFilmSaveError('Could not save');
+      renderFilmMutationState();
+      focusFilmImagePickerInput();
+      return false;
+    }
+    if (nextValue !== currentValue) {
+      state.filmImagePickerDraft = nextValue;
+      imageSaved = await saveFilmEntryPatch(film.id, {
+        [pathField]: '',
+        [urlField]: nextValue
+      }, { successMessage: '', keepDetailOpen, showErrorToast: false, savedLabel: 'Image saved' });
+    }
   }
-  const nextValue = normalizeFilmImageOverride(rawValue);
-  if (rawValue && !nextValue) {
-    state.filmError = 'Use an http(s) or /file/ image URL';
-    markFilmSaveError('Could not save');
-    renderFilmMutationState();
-    focusFilmImagePickerInput();
+  if (!imageSaved) {
     return false;
   }
-  if (nextValue === currentValue) {
-    return true;
-  }
-  state.filmImagePickerDraft = nextValue;
-  return saveFilmEntryPatch(film.id, {
-    [pathField]: '',
-    [urlField]: nextValue
-  }, { successMessage: '', keepDetailOpen, showErrorToast: false, savedLabel: 'Image saved' });
+  return saveFilmBackdropFrameDraft({ keepDetailOpen, savedLabel: 'Frame saved' });
 }
 
 async function commitFilmMetadataEdit({ keepDetailOpen = Boolean(state.filmDetailOpen) } = {}) {
@@ -11152,6 +11321,7 @@ async function openFilmDetail(filmId) {
   state.filmMoreActionsOpen = false;
   state.filmImagePickerMode = '';
   state.filmImagePickerDraft = '';
+  state.filmBackdropFrameDraft = null;
   pushNavigationHash({ mode: 'push' });
   render();
 }
@@ -11178,6 +11348,7 @@ async function closeFilmDetail() {
   state.filmMoreActionsOpen = false;
   state.filmImagePickerMode = '';
   state.filmImagePickerDraft = '';
+  state.filmBackdropFrameDraft = null;
   pushNavigationHash({ mode: 'push' });
   render();
 }
@@ -11581,6 +11752,7 @@ function render() {
                     moreActionsOpen: state.filmMoreActionsOpen,
                     imagePickerMode: state.filmImagePickerMode,
                     imagePickerDraft: state.filmImagePickerDraft,
+                    imagePickerFrameDraft: state.filmBackdropFrameDraft,
                     backdropIndex: getActiveFilmBackdropIndex(viewModel.filmRecord),
                     saveStatus: state.filmSaveStatus
                   })
@@ -14493,6 +14665,9 @@ function handleAction(actionTarget) {
     case 'film-clear-image-override':
       resetFilmImageOverride(actionTarget.dataset.filmImageMode || state.filmImagePickerMode);
       return true;
+    case 'film-reset-backdrop-frame':
+      void resetFilmBackdropFrame();
+      return true;
     case 'film-close-image-picker':
       void (async () => {
         if (await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: true })) {
@@ -14990,6 +15165,10 @@ function handleInput(event) {
     state.filmImagePickerDraft = input.value;
     return;
   }
+  if (input.hasAttribute('data-film-backdrop-frame-field')) {
+    updateFilmBackdropFrameDraft(input.dataset.filmBackdropFrameField || '', input.value);
+    return;
+  }
   if (input.hasAttribute('data-film-metadata-field')) {
     const field = input.dataset.filmMetadataField;
     if (field && FILM_METADATA_FIELDS.includes(field)) {
@@ -15137,6 +15316,10 @@ function handleChange(event) {
       target.dataset.filmWatchEvent = target.value;
     }
   }
+  if (target.hasAttribute('data-film-backdrop-frame-field')) {
+    updateFilmBackdropFrameDraft(target.dataset.filmBackdropFrameField || '', target.value);
+    void saveFilmBackdropFrameDraft({ keepDetailOpen: true });
+  }
 }
 
 function handleFocusIn(event) {
@@ -15199,6 +15382,10 @@ function handleFocusOut(event) {
   }
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-image-picker-url')) {
     void commitFilmImagePickerDraft({ keepDetailOpen: true });
+    return;
+  }
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-backdrop-frame-field')) {
+    void saveFilmBackdropFrameDraft({ keepDetailOpen: true });
     return;
   }
   if (event.target instanceof HTMLElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
@@ -15762,6 +15949,7 @@ function restoreNavigationFromHash() {
       state.filmMoreActionsOpen = false;
       state.filmImagePickerMode = '';
       state.filmImagePickerDraft = '';
+      state.filmBackdropFrameDraft = null;
       clearPrivateViewState();
       break;
     case 'mind':

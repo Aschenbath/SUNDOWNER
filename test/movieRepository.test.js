@@ -426,11 +426,17 @@ describe('MovieRepository', () => {
       backdropPathOverride: '/chosen-backdrop.jpg',
       posterUrlOverride: 'https://example.com/poster.jpg',
       backdropUrlOverride: '/file/backdrop.jpg',
+      backdropZoomOverride: 1.24,
+      backdropPositionXOverride: 62,
+      backdropPositionYOverride: 31,
     });
     assert.equal(saved.entry.posterPathOverride, '/chosen-poster.jpg');
     assert.equal(saved.entry.backdropPathOverride, '/chosen-backdrop.jpg');
     assert.equal(saved.entry.posterUrlOverride, 'https://example.com/poster.jpg');
     assert.equal(saved.entry.backdropUrlOverride, '/file/backdrop.jpg');
+    assert.equal(saved.entry.backdropZoomOverride, 1.24);
+    assert.equal(saved.entry.backdropPositionXOverride, 62);
+    assert.equal(saved.entry.backdropPositionYOverride, 31);
 
     const reset = await repository.saveOrUpdateUserEntry({
       tmdbId: 42,
@@ -438,11 +444,17 @@ describe('MovieRepository', () => {
       backdropPathOverride: '',
       posterUrlOverride: '',
       backdropUrlOverride: '',
+      backdropZoomOverride: 1.02,
+      backdropPositionXOverride: 50,
+      backdropPositionYOverride: 50,
     });
     assert.equal(reset.entry.posterPathOverride, '');
     assert.equal(reset.entry.backdropPathOverride, '');
     assert.equal(reset.entry.posterUrlOverride, '');
     assert.equal(reset.entry.backdropUrlOverride, '');
+    assert.equal(reset.entry.backdropZoomOverride, 1.02);
+    assert.equal(reset.entry.backdropPositionXOverride, 50);
+    assert.equal(reset.entry.backdropPositionYOverride, 50);
 
     const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
     assert.equal(cachedMovie.posterPath, '/tmdb-poster.jpg');
@@ -469,6 +481,9 @@ describe('MovieRepository', () => {
       backdropPathOverride: '/chosen-backdrop.jpg',
       posterUrlOverride: 'https://example.com/poster.jpg',
       backdropUrlOverride: '/file/custom-backdrop.jpg',
+      backdropZoomOverride: 1.33,
+      backdropPositionXOverride: 41,
+      backdropPositionYOverride: 64,
       journal: 'private note',
     });
     const refreshed = await repository.saveOrUpdateUserEntry({
@@ -484,6 +499,9 @@ describe('MovieRepository', () => {
     assert.equal(refreshed.entry.backdropPathOverride, '/chosen-backdrop.jpg');
     assert.equal(refreshed.entry.posterUrlOverride, 'https://example.com/poster.jpg');
     assert.equal(refreshed.entry.backdropUrlOverride, '/file/custom-backdrop.jpg');
+    assert.equal(refreshed.entry.backdropZoomOverride, 1.33);
+    assert.equal(refreshed.entry.backdropPositionXOverride, 41);
+    assert.equal(refreshed.entry.backdropPositionYOverride, 64);
     assert.equal(refreshed.entry.journal, 'private note');
 
     const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));

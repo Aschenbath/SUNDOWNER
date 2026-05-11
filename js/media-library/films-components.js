@@ -211,18 +211,6 @@ function renderRatingStars(value) {
   return `<span class="cml-film-detail__stars" style="--film-star-fill: ${escapeHtml(fill)};" aria-label="${escapeHtml(rating.toFixed(1))} out of 5"><span class="cml-film-detail__stars-base" aria-hidden="true">&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="cml-film-detail__stars-fill" aria-hidden="true">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>`;
 }
 
-function formatTmdbDetailRating(record = {}) {
-  const average = Number(record.voteAverage);
-  if (!Number.isFinite(average) || average <= 0) {
-    return 'No TMDb rating';
-  }
-  const count = Number(record.voteCount);
-  const countLabel = Number.isFinite(count) && count > 0
-    ? ` (${new Intl.NumberFormat('en-US', { notation: count >= 10000 ? 'compact' : 'standard' }).format(count)})`
-    : '';
-  return `TMDb ${average.toFixed(1)}${countLabel}`;
-}
-
 function getDetailStatusLabel(status = '') {
   const labels = {
     watchlist: 'Want',
@@ -875,7 +863,7 @@ function renderFilmMoreActions(record = {}, { open = false, metadataEditing = fa
   `;
 }
 
-function renderFilmImagePicker(record = {}, { mode = '', draft = '' } = {}) {
+function renderFilmImagePicker(record = {}, { mode = '', draft = '', frameDraft = null } = {}) {
   const pickerMode = mode === 'backdrop' ? 'backdrop' : mode === 'poster' ? 'poster' : '';
   if (!pickerMode) {
     return '';
@@ -903,6 +891,8 @@ function renderFilmImagePicker(record = {}, { mode = '', draft = '' } = {}) {
   const description = isBackdrop
     ? 'Choose a TMDb still, or keep a private backdrop URL.'
     : 'Choose a TMDb poster, or keep a private poster URL.';
+  const backdropFrame = getBackdropFrame(record, frameDraft);
+  const backdropFrameStyle = renderBackdropFrameStyle(backdropFrame);
   return `
     <section class="cml-film-detail__section cml-film-image-picker" data-film-image-picker="${escapeHtml(pickerMode)}">
       <div class="cml-film-image-picker__head">
@@ -914,10 +904,11 @@ function renderFilmImagePicker(record = {}, { mode = '', draft = '' } = {}) {
       </div>
       ${previewUrl ? `
         <div class="cml-film-image-picker__preview ${isBackdrop ? 'is-backdrop' : 'is-poster'}">
-          <img src="${escapeHtml(previewUrl)}" alt="" loading="eager" decoding="async" />
+          <img src="${escapeHtml(previewUrl)}" alt="" loading="eager" decoding="async" ${isBackdrop ? `style="${backdropFrameStyle}"` : ''} />
           <span>${escapeHtml(previewLabel)}</span>
         </div>
       ` : ''}
+      ${isBackdrop && previewUrl ? renderBackdropFrameControls(record, frameDraft) : ''}
       ${paths.length ? `
         <div class="cml-film-image-picker__grid ${isBackdrop ? 'is-backdrop' : 'is-poster'}">
           ${paths.slice(0, 12).map((path) => {
@@ -943,6 +934,68 @@ function renderFilmImagePicker(record = {}, { mode = '', draft = '' } = {}) {
   `;
 }
 
+function normalizeBackdropPosition(value, fallback = 50) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
+function normalizeBackdropZoom(value, fallback = 1.02) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.max(1, Math.min(1.8, Math.round(numeric * 100) / 100));
+}
+
+function getBackdropFrame(record = {}, draft = null) {
+  const source = draft && typeof draft === 'object' ? { ...record, ...draft } : record;
+  return {
+    x: normalizeBackdropPosition(source.backdropPositionXOverride, 50),
+    y: normalizeBackdropPosition(source.backdropPositionYOverride, 50),
+    zoom: normalizeBackdropZoom(source.backdropZoomOverride, 1.02)
+  };
+}
+
+function renderBackdropFrameStyle(frame = {}) {
+  const x = normalizeBackdropPosition(frame.x, 50);
+  const y = normalizeBackdropPosition(frame.y, 50);
+  const zoom = normalizeBackdropZoom(frame.zoom, 1.02);
+  return `--film-backdrop-position-x: ${escapeHtml(x)}%; --film-backdrop-position-y: ${escapeHtml(y)}%; --film-backdrop-scale: ${escapeHtml(zoom)};`;
+}
+
+function renderBackdropFrameControls(record = {}, frameDraft = null) {
+  const frame = getBackdropFrame(record, frameDraft);
+  return `
+    <div class="cml-film-image-picker__frame" data-film-backdrop-frame>
+      <div class="cml-film-image-picker__frame-head">
+        <div>
+          <h3>Backdrop frame</h3>
+          <p>Zoom and move the still until it sits right in the detail page.</p>
+        </div>
+        <button type="button" class="cml-film-image-picker__button cml-film-image-picker__button--quiet" data-action="film-reset-backdrop-frame">Reset frame</button>
+      </div>
+      <label class="cml-film-image-picker__range">
+        <span>Zoom</span>
+        <input type="range" min="1" max="1.8" step="0.01" value="${escapeHtml(frame.zoom)}" data-film-backdrop-frame-field="zoom" />
+        <output>${escapeHtml(frame.zoom.toFixed(2))}x</output>
+      </label>
+      <label class="cml-film-image-picker__range">
+        <span>Move X</span>
+        <input type="range" min="0" max="100" step="1" value="${escapeHtml(frame.x)}" data-film-backdrop-frame-field="x" />
+        <output>${escapeHtml(frame.x)}%</output>
+      </label>
+      <label class="cml-film-image-picker__range">
+        <span>Move Y</span>
+        <input type="range" min="0" max="100" step="1" value="${escapeHtml(frame.y)}" data-film-backdrop-frame-field="y" />
+        <output>${escapeHtml(frame.y)}%</output>
+      </label>
+    </div>
+  `;
+}
+
 function splitFilmGenres(value) {
   if (Array.isArray(value)) {
     return value.map(normalizeText).filter(Boolean);
@@ -964,6 +1017,9 @@ function applyFilmMetadataDraft(record = {}, draft = {}) {
   const backdropPathOverride = normalizeText(draft.backdropPathOverride);
   const posterUrlOverride = normalizeText(draft.posterUrlOverride);
   const backdropUrlOverride = normalizeText(draft.backdropUrlOverride);
+  const backdropZoomOverride = normalizeBackdropZoom(draft.backdropZoomOverride, record.backdropZoomOverride ?? 1.02);
+  const backdropPositionXOverride = normalizeBackdropPosition(draft.backdropPositionXOverride, record.backdropPositionXOverride ?? 50);
+  const backdropPositionYOverride = normalizeBackdropPosition(draft.backdropPositionYOverride, record.backdropPositionYOverride ?? 50);
   return {
     ...record,
     title: normalizeText(draft.titleOverride) || record.title,
@@ -982,11 +1038,14 @@ function applyFilmMetadataDraft(record = {}, draft = {}) {
     backdropPath: backdropPathOverride || record.backdropPath,
     backdropPathOverride: backdropPathOverride || record.backdropPathOverride,
     backdropUrl: backdropUrlOverride || record.backdropUrl,
-    backdropUrlOverride: backdropUrlOverride || record.backdropUrlOverride
+    backdropUrlOverride: backdropUrlOverride || record.backdropUrlOverride,
+    backdropZoomOverride,
+    backdropPositionXOverride,
+    backdropPositionYOverride
   };
 }
 
-export function FilmDetailPage({ record = null, notesEditing = false, notesDraft = '', notesPreview = false, metadataEditing = false, metadataDraft = null, metadataFocusField = '', moreActionsOpen = false, imagePickerMode = '', imagePickerDraft = '', backdropIndex = 0, saveStatus = null } = {}) {
+export function FilmDetailPage({ record = null, notesEditing = false, notesDraft = '', notesPreview = false, metadataEditing = false, metadataDraft = null, metadataFocusField = '', moreActionsOpen = false, imagePickerMode = '', imagePickerDraft = '', imagePickerFrameDraft = null, backdropIndex = 0, saveStatus = null } = {}) {
   if (!record) {
     return '';
   }
@@ -1009,6 +1068,8 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const backdropUrl = autoBackdropUrls.length
     ? autoBackdropUrls[autoBackdropIndex]
     : getRecordBackdropUrl(displayRecord);
+  const backdropFrame = getBackdropFrame(displayRecord, imagePickerMode === 'backdrop' ? imagePickerFrameDraft : null);
+  const backdropFrameStyle = renderBackdropFrameStyle(backdropFrame);
   const canEditLocalMetadata = isSavedEntry && !displayRecord.manualDraft;
   const releaseMeta = displayRecord.releaseDate
     ? formatWatchedDateLong(displayRecord.releaseDate)
@@ -1036,7 +1097,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
     ? renderFilmMetadataEditor(displayRecord, metadataDraft || {}, { focusField: metadataFocusField })
     : '';
   const imagePicker = isSavedEntry
-    ? renderFilmImagePicker(displayRecord, { mode: imagePickerMode, draft: imagePickerDraft })
+    ? renderFilmImagePicker(displayRecord, { mode: imagePickerMode, draft: imagePickerDraft, frameDraft: imagePickerFrameDraft })
     : '';
   const detailSaveStatus = saveStatus?.label
     ? `<span class="cml-film-save-status is-visible is-${escapeHtml(saveStatus.state || 'saved')}" data-film-save-status="detail">${escapeHtml(saveStatus.label)}</span>`
@@ -1044,7 +1105,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   return `
     <section class="cml-film-detail-page" data-film-detail-page>
       <div class="cml-film-detail-page__backdrop" aria-hidden="true">
-        ${backdropUrl ? `<img class="cml-film-detail-page__backdrop-image" src="${escapeHtml(backdropUrl)}" alt="" loading="eager" decoding="async" data-film-backdrop-index="${escapeHtml(autoBackdropIndex)}" />` : ''}
+        ${backdropUrl ? `<img class="cml-film-detail-page__backdrop-image" src="${escapeHtml(backdropUrl)}" alt="" loading="eager" decoding="async" data-film-backdrop-index="${escapeHtml(autoBackdropIndex)}" style="${backdropFrameStyle}" />` : ''}
       </div>
       <div class="cml-film-detail-page__scrim" aria-hidden="true"></div>
       <div class="cml-film-detail-page__content">
@@ -1076,10 +1137,12 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
             <div class="cml-film-detail__meta-row">
               ${renderDetailMetaColumn('Director', displayRecord.director || '-', '', { editable: canEditLocalMetadata, field: 'directorOverride', filmId: displayRecord.id || '' })}
               ${renderDetailMetaColumn('Release', releaseMeta || '-', '', { editable: canEditLocalMetadata, field: 'releaseDateOverride', filmId: displayRecord.id || '' })}
-              ${renderDetailMetaColumn('TMDb rating', formatTmdbDetailRating(displayRecord), '')}
             </div>
             ${metadataEditor}
             ${imagePicker}
+          </div>
+        </div>
+        <div class="cml-film-detail__lower">
             <div class="cml-film-detail__diary-grid">
               <aside class="cml-film-detail__diary-rail">
                 ${isSavedEntry ? renderFilmWatchHistory(displayRecord) : ''}
@@ -1109,7 +1172,6 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
                 <button type="button" class="cml-film-detail__action is-active" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(displayRecord.tmdbId || '')}" ${displayRecord.isSaving ? 'disabled' : ''}>Mark Watched</button>
               `}
             </div>
-          </div>
         </div>
       </div>
     </section>
@@ -1311,7 +1373,7 @@ export function FilmSearchResults({ results = [], loading = false, loadingMore =
             ${savedRecord ? `<span class="cml-films-result__saved-state">In Films - ${escapeHtml(getSearchStatusLabel(savedStatus))}</span>` : ''}
           </div>
           <h3 class="cml-films-result__title">${escapeHtml(movie.title || 'Untitled film')}</h3>
-          <p class="cml-films-result__meta">${escapeHtml([movie.releaseDate ? String(movie.releaseDate).slice(0, 4) : '', movie.voteAverage ? `TMDb ${Number(movie.voteAverage).toFixed(1)}` : ''].filter(Boolean).join(' - '))}</p>
+          <p class="cml-films-result__meta">${escapeHtml([movie.releaseDate ? String(movie.releaseDate).slice(0, 4) : '', Array.isArray(movie.genres) ? movie.genres.slice(0, 2).join(' / ') : ''].filter(Boolean).join(' - '))}</p>
           ${movie.overview ? `<p class="cml-films-result__overview">${escapeHtml(movie.overview)}</p>` : ''}
           <div class="cml-films-result__actions">
             <button type="button" class="cml-films-result__button ${isWantCurrent ? 'is-current' : ''}" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}" ${(isSaving || isWantCurrent) ? 'disabled' : ''}>${isSaving ? 'Saving...' : isWantCurrent ? 'Want saved' : 'Want'}</button>
