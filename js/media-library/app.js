@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=6';
-import { FilmDetailPage, FilmSearchResults, FilmsPage, renderMarkdownBlocks } from './films-components.js?v=57';
+import { FilmDetailPage, FilmSearchResults, FilmsPage, renderMarkdownBlocks } from './films-components.js?v=58';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -150,17 +150,16 @@ const FILM_ACTION_NAMES = new Set([
   'film-edit-notes',
   'film-notes-format',
   'film-notes-preview-toggle',
-  'film-toggle-more-actions',
   'film-edit-metadata',
   'film-change-poster',
   'film-change-backdrop',
   'film-pick-image',
+  'film-pin-backdrop',
   'film-apply-image-url',
   'film-clear-image-override',
   'film-reset-backdrop-frame',
   'film-close-image-picker',
   'film-refresh-tmdb',
-  'film-open-tmdb',
   'film-mark-rewatch',
   'film-remove-entry',
   'film-undo-remove-entry',
@@ -169,6 +168,7 @@ const FILM_ACTION_NAMES = new Set([
 ]);
 const FILM_ACTIONS_WITHOUT_IMAGE_URL_AUTOSAVE = new Set([
   'film-pick-image',
+  'film-pin-backdrop',
   'film-apply-image-url',
   'film-clear-image-override',
   'film-reset-backdrop-frame'
@@ -10158,6 +10158,12 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-image-picker', {
     parentSelector: '.cml-film-detail__body'
   });
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__synopsis-inline', {
+    parentSelector: '.cml-film-detail__body'
+  });
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__image-tools', {
+    parentSelector: '.cml-film-detail__body'
+  });
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__diary-rail');
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__diary-main > .cml-film-detail__section:not(.cml-film-detail__section--notes)', {
     parentSelector: '.cml-film-detail__diary-main'
@@ -11512,28 +11518,12 @@ async function markFilmRewatch(filmId) {
   }, { successMessage: '', savedLabel: 'Added watch' });
 }
 
-async function toggleFilmMoreActions() {
-  if (!await commitPendingFilmEditsBeforeAction({ actionName: 'film-toggle-more-actions', keepDetailOpen: true })) {
-    return;
-  }
-  state.filmMoreActionsOpen = !state.filmMoreActionsOpen;
-  renderFilmMutationState();
-}
-
 function changeFilmPoster(filmId) {
   void openFilmImagePicker(filmId, 'poster');
 }
 
 function changeFilmBackdrop(filmId) {
   void openFilmImagePicker(filmId, 'backdrop');
-}
-
-function openFilmTmdbPage(tmdbId) {
-  const normalizedId = Number(tmdbId);
-  if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
-    return;
-  }
-  window.open(`https://www.themoviedb.org/movie/${encodeURIComponent(String(normalizedId))}`, '_blank', 'noopener,noreferrer');
 }
 
 async function refreshFilmFromTmdb(filmId, { quiet = false } = {}) {
@@ -15056,9 +15046,6 @@ function handleAction(actionTarget) {
     case 'film-notes-preview-toggle':
       toggleFilmNotesPreview();
       return true;
-    case 'film-toggle-more-actions':
-      void toggleFilmMoreActions();
-      return true;
     case 'film-edit-metadata':
       void (async () => {
         if (await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: true })) {
@@ -15088,6 +15075,9 @@ function handleAction(actionTarget) {
     case 'film-pick-image':
       void applyFilmImagePathOverride(actionTarget.dataset.filmImageMode || state.filmImagePickerMode, actionTarget.dataset.filmImagePath || '');
       return true;
+    case 'film-pin-backdrop':
+      void applyFilmImagePathOverride('backdrop', actionTarget.dataset.filmImagePath || getActiveFilmRecord()?.backdropPathOverride || getActiveFilmRecord()?.backdropPath || '');
+      return true;
     case 'film-apply-image-url':
       void applyFilmImageOverride(state.filmImagePickerMode, state.filmImagePickerDraft);
       return true;
@@ -15106,15 +15096,6 @@ function handleAction(actionTarget) {
       return true;
     case 'film-refresh-tmdb':
       void refreshFilmFromTmdb(actionTarget.dataset.filmId || state.activeFilmId);
-      return true;
-    case 'film-open-tmdb':
-      void (async () => {
-        if (await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: true })) {
-          state.filmMoreActionsOpen = false;
-          renderFilmMutationState({ allowRenderFallback: false });
-          openFilmTmdbPage(actionTarget.dataset.tmdbId || getActiveFilmRecord()?.tmdbId);
-        }
-      })();
       return true;
     case 'film-remove-entry':
       void removeFilmEntry(actionTarget.dataset.filmId || state.activeFilmId);
@@ -15145,7 +15126,6 @@ function handleClick(event) {
   const actionTarget = event.target instanceof Element ? event.target.closest('[data-action], [data-primary], [data-secondary], [data-year], [data-anchor]') : null;
   const filmCardTarget = event.target instanceof Element ? event.target.closest('.cml-film-card, .cml-film-poster-card') : null;
   const tileTarget = event.target instanceof Element ? event.target.closest('.cml-media-tile') : null;
-  const clickedInsideFilmMore = event.target instanceof Element && event.target.closest('.cml-film-detail__more');
   const clickedControl = event.target instanceof HTMLElement
     ? event.target.closest('button, a, input, textarea, select, label')
     : null;
@@ -15157,13 +15137,6 @@ function handleClick(event) {
 
   if (clickedRenderedFilmNoteLink) {
     return;
-  }
-
-  if (state.filmMoreActionsOpen && !clickedInsideFilmMore) {
-    state.filmMoreActionsOpen = false;
-    if (!(actionTarget instanceof HTMLElement) || !FILM_ACTION_NAMES.has(actionTarget.dataset.action || '')) {
-      renderFilmMutationState();
-    }
   }
 
   if (state.filmNotesEditing) {
@@ -15200,7 +15173,7 @@ function handleClick(event) {
       && imagePicker instanceof HTMLElement
       && imagePicker.contains(event.target);
     const clickedImagePickerAction = actionTarget instanceof HTMLElement
-      && ['film-pick-image', 'film-apply-image-url', 'film-clear-image-override', 'film-close-image-picker'].includes(actionTarget.dataset.action || '');
+      && ['film-pick-image', 'film-pin-backdrop', 'film-apply-image-url', 'film-clear-image-override', 'film-close-image-picker'].includes(actionTarget.dataset.action || '');
     if (!clickedInsideImagePicker && !clickedImagePickerAction && !clickedFilmAction && !clickedSavedFilmCard && pointerStartEditSurface !== 'imagePicker') {
       void commitFilmImagePickerDraft({ keepDetailOpen: true });
     }

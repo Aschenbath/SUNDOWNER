@@ -598,11 +598,10 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
   if (!notesEditing) {
     const readableClass = editable ? ' cml-film-detail__section--notes-readable' : '';
     const editAttrs = editable
-      ? ` data-action="film-edit-notes" data-film-id="${escapeHtml(record.id || '')}" role="button" tabindex="0" aria-label="Edit My notes"`
+      ? ` data-action="film-edit-notes" data-film-id="${escapeHtml(record.id || '')}" role="button" tabindex="0" aria-label="Edit notes"`
       : '';
     return `
       <section class="cml-film-detail__section cml-film-detail__section--notes${readableClass}"${editAttrs}>
-        <h2>My notes</h2>
         <div class="cml-film-detail__markdown">${renderMarkdownBlocks(savedNote)}</div>
       </section>
     `;
@@ -610,7 +609,6 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
   return `
     <section class="cml-film-detail__section cml-film-detail__section--notes cml-film-detail__section--notes-editing cml-film-notes-editor">
       <div class="cml-film-detail__section-head">
-        <h2>My notes</h2>
         <div class="cml-film-notes-editor__autosave">
           <span>Autosave on blur</span>
           ${notesSaveStatus}
@@ -631,7 +629,7 @@ function renderFilmMetadataInput({ label, field, value = '', placeholder = '', t
     : `<input class="cml-film-metadata-editor__input" data-film-metadata-field="${escapeHtml(field)}" type="${escapeHtml(type)}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" ${required ? 'required' : ''} />`;
   return `
     <label class="cml-film-metadata-editor__field">
-      <span>${escapeHtml(label)}</span>
+      ${label ? `<span>${escapeHtml(label)}</span>` : ''}
       ${control}
     </label>
   `;
@@ -697,8 +695,8 @@ const FOCUSED_METADATA_FIELDS = {
     }
   },
   overviewOverride: {
-    title: 'Edit synopsis',
-    label: 'Synopsis',
+    title: 'Edit overview',
+    label: 'Overview',
     multiline: true,
     placeholder(record = {}) {
       return record.overview || '';
@@ -742,7 +740,7 @@ function renderFilmMetadataFieldPicker(record = {}) {
         </div>
         <div class="cml-film-metadata-shortcuts__group">
           <p>Writing</p>
-          ${renderFilmMetadataShortcut('Synopsis', 'overviewOverride', filmId)}
+          ${renderFilmMetadataShortcut('Overview', 'overviewOverride', filmId)}
         </div>
         <div class="cml-film-metadata-shortcuts__group">
           <p>Images</p>
@@ -759,6 +757,7 @@ function renderFocusedFilmMetadataEditor(record = {}, draft = {}, focusedField =
   if (!config) {
     return '';
   }
+  const isEmbeddedOverview = embedded && focusedField === 'overviewOverride';
   const tag = embedded ? 'div' : 'section';
   const className = [
     embedded ? '' : 'cml-film-detail__section',
@@ -768,14 +767,14 @@ function renderFocusedFilmMetadataEditor(record = {}, draft = {}, focusedField =
   ].filter(Boolean).join(' ');
   return `
     <${tag} class="${className}">
-      <div class="cml-film-detail__section-head">
+      ${isEmbeddedOverview ? '' : `<div class="cml-film-detail__section-head">
         <div>
           <h2>${escapeHtml(config.title)}</h2>
         </div>
         <span class="cml-film-save-status" data-film-save-status="metadata"></span>
-      </div>
+      </div>`}
       ${renderFilmMetadataInput({
-        label: config.label,
+        label: isEmbeddedOverview ? '' : config.label,
         field: focusedField,
         value: draft[focusedField] || '',
         placeholder: typeof config.placeholder === 'function' ? config.placeholder(record) : '',
@@ -816,7 +815,7 @@ function renderFilmMetadataEditor(record = {}, draft = {}, { focusField = '' } =
         ${renderFilmMetadataInput({ label: 'Country override', field: 'countryOverride', value: draft.countryOverride || '', placeholder: record.country || '' })}
         ${renderFilmMetadataInput({ label: 'Language override', field: 'languageOverride', value: draft.languageOverride || '', placeholder: record.language || '' })}
       </div>
-      ${renderFilmMetadataInput({ label: 'Synopsis override', field: 'overviewOverride', value: draft.overviewOverride || '', placeholder: record.overview || '', multiline: true })}
+      ${renderFilmMetadataInput({ label: 'Overview override', field: 'overviewOverride', value: draft.overviewOverride || '', placeholder: record.overview || '', multiline: true })}
       <div class="cml-film-metadata-editor__grid">
         ${renderFilmMetadataInput({ label: 'Poster image URL override', field: 'posterUrlOverride', value: draft.posterUrlOverride || '', placeholder: 'https://... or /file/...' })}
         ${renderFilmMetadataInput({ label: 'Backdrop image URL override', field: 'backdropUrlOverride', value: draft.backdropUrlOverride || '', placeholder: 'https://... or /file/...' })}
@@ -826,27 +825,26 @@ function renderFilmMetadataEditor(record = {}, draft = {}, { focusField = '' } =
   `;
 }
 
-function renderFilmMoreActions(record = {}, { open = false, disabledAttr = '' } = {}) {
+function renderFilmDetailImageTools(record = {}, { disabledAttr = '' } = {}) {
   const filmId = escapeHtml(record.id || '');
-  const tmdbId = escapeHtml(record.tmdbId || '');
   return `
-    <div class="cml-film-detail__more">
-      <button type="button" class="cml-film-detail__action cml-film-detail__more-trigger ${open ? 'is-active' : ''}" data-action="film-toggle-more-actions" data-film-id="${filmId}" aria-expanded="${open ? 'true' : 'false'}" ${disabledAttr}>More</button>
-      ${open ? `
-        <div class="cml-film-detail__more-panel" data-film-more-panel>
-          <div class="cml-film-detail__more-group">
-            <p>Images</p>
-            <button type="button" class="cml-film-detail__more-item" data-action="film-change-poster" data-film-id="${filmId}" ${disabledAttr}>Change poster</button>
-            <button type="button" class="cml-film-detail__more-item" data-action="film-change-backdrop" data-film-id="${filmId}" ${disabledAttr}>Change backdrop</button>
-          </div>
-          ${tmdbId ? `
-            <div class="cml-film-detail__more-group">
-              <p>TMDb</p>
-              <button type="button" class="cml-film-detail__more-item" data-action="film-open-tmdb" data-tmdb-id="${tmdbId}" ${disabledAttr}>Open in TMDb</button>
-            </div>
-          ` : ''}
-        </div>
-      ` : ''}
+    <div class="cml-film-detail__image-tools" aria-label="Image tools">
+      <button type="button" class="cml-film-detail__image-tool" data-action="film-change-poster" data-film-id="${filmId}" ${disabledAttr}>Poster</button>
+      <button type="button" class="cml-film-detail__image-tool" data-action="film-change-backdrop" data-film-id="${filmId}" ${disabledAttr}>Backdrop</button>
+    </div>
+  `;
+}
+
+function renderFilmSynopsisInline(record = {}, { synopsis = '', editor = '', editable = false } = {}) {
+  const filmId = escapeHtml(record.id || '');
+  const editAttrs = editable && !editor
+    ? ` data-action="film-edit-metadata" data-film-id="${filmId}" data-film-metadata-focus-field="overviewOverride" role="button" tabindex="0" aria-label="Edit overview"`
+    : '';
+  return `
+    <div class="cml-film-detail__synopsis-inline ${editable && !editor ? 'is-editable' : ''}"${editAttrs}>
+      ${editor || (synopsis
+        ? `<p>${escapeHtml(synopsis)}</p>`
+        : '<p class="cml-film-detail__empty-text">No overview yet.</p>')}
     </div>
   `;
 }
@@ -894,6 +892,9 @@ function renderFilmImagePicker(record = {}, { mode = '', draft = '', frameDraft 
         <div class="cml-film-image-picker__preview ${isBackdrop ? 'is-backdrop' : 'is-poster'}">
           <img src="${escapeHtml(previewUrl)}" alt="" loading="eager" decoding="async" ${isBackdrop ? `style="${backdropFrameStyle}"` : ''} />
           <span>${escapeHtml(previewLabel)}</span>
+          ${isBackdrop && selectedTmdbPath && !draftValue && !currentUrlOverride ? `
+            <button type="button" class="cml-film-image-picker__pin" data-action="film-pin-backdrop" data-film-image-mode="backdrop" data-film-image-path="${escapeHtml(selectedTmdbPath)}" ${currentPathOverride ? 'disabled' : ''}>${currentPathOverride ? 'Pinned' : 'Pin backdrop'}</button>
+          ` : ''}
         </div>
       ` : ''}
       ${isBackdrop && previewUrl ? renderBackdropFrameControls(record, frameDraft) : ''}
@@ -1097,14 +1098,18 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
     && metadataFocusField !== 'overviewOverride'
     ? renderFilmMetadataEditor(displayRecord, metadataDraft || {}, { focusField: metadataFocusField })
     : '';
-  const synopsisMetadataEditor = isSavedEntry && metadataEditing && metadataFocusField === 'overviewOverride'
+  const synopsisMetadataEditor = canEditLocalMetadata && metadataEditing && metadataFocusField === 'overviewOverride'
     ? renderFocusedFilmMetadataEditor(displayRecord, metadataDraft || {}, 'overviewOverride', { embedded: true })
     : '';
   const imagePicker = isSavedEntry
     ? renderFilmImagePicker(displayRecord, { mode: imagePickerMode, draft: imagePickerDraft, frameDraft: imagePickerFrameDraft })
     : '';
+  const imageTools = canEditLocalMetadata ? renderFilmDetailImageTools(displayRecord, { disabledAttr }) : '';
+  const detailSynopsis = !displayRecord.manualDraft
+    ? renderFilmSynopsisInline(displayRecord, { synopsis, editor: synopsisMetadataEditor, editable: canEditLocalMetadata && !localActionDisabled })
+    : '';
   const detailActions = isSavedEntry
-    ? (displayRecord.manualDraft ? '' : renderFilmMoreActions(displayRecord, { open: moreActionsOpen, disabledAttr }))
+    ? ''
     : `
       <button type="button" class="cml-film-detail__action" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(displayRecord.tmdbId || '')}" ${displayRecord.isSaving ? 'disabled' : ''}>Save as Want</button>
       <button type="button" class="cml-film-detail__action is-active" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(displayRecord.tmdbId || '')}" ${displayRecord.isSaving ? 'disabled' : ''}>Mark Watched</button>
@@ -1130,8 +1135,8 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
               : renderPosterFallback(localTitle)}
           </div>
           <div class="cml-film-detail__body">
+            ${imageTools}
             <div class="cml-film-detail__title-block">
-              <p class="cml-film-detail__eyebrow">Private film archive</p>
               <h1 class="cml-film-detail__title ${canEditLocalMetadata ? 'is-editable' : ''}"${titleEditAttrs}>${escapeHtml(localTitle)}</h1>
               ${originalTitle && originalTitle !== localTitle ? `<p class="cml-film-detail__original ${canEditLocalMetadata ? 'is-editable' : ''}"${originalEditAttrs}>${escapeHtml(originalTitle)}</p>` : ''}
             </div>
@@ -1148,6 +1153,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
               ${renderDetailMetaColumn('Release', releaseMeta || '-', '', { editable: canEditLocalMetadata, field: 'releaseDateOverride', filmId: displayRecord.id || '' })}
               ${renderDetailMetaColumn('Runtime', runtime || '-', '', { editable: canEditLocalMetadata, field: 'runtimeOverride', filmId: displayRecord.id || '' })}
             </div>
+            ${detailSynopsis}
             ${detailActions ? `<div class="cml-film-detail__actions">${detailActions}</div>` : ''}
             ${metadataEditor}
             ${imagePicker}
@@ -1160,15 +1166,6 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
                 ${isSavedEntry ? renderFilmPrivateSignals(controlRecord, { userRating, watchedDate, disabledAttr }) : ''}
               </aside>
               <div class="cml-film-detail__diary-main">
-                <section class="cml-film-detail__section">
-                  <div class="cml-film-detail__section-head">
-                    <h2>Synopsis</h2>
-                    ${canEditLocalMetadata && !synopsisMetadataEditor ? `<button type="button" class="cml-film-detail__inline-edit" data-action="film-edit-metadata" data-film-id="${escapeHtml(displayRecord.id || '')}" data-film-metadata-focus-field="overviewOverride">Edit</button>` : ''}
-                  </div>
-                  ${synopsisMetadataEditor || (synopsis
-                    ? `<p>${escapeHtml(synopsis)}</p>`
-                    : '<p class="cml-film-detail__empty-text">No synopsis yet.</p>')}
-                </section>
                 ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesPreview, editable: isSavedEntry && !displayRecord.manualDraft && !displayRecord.isSaving, saveStatus })}
               </div>
             </div>
