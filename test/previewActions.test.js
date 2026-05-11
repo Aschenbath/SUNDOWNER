@@ -30,7 +30,7 @@ describe('media library download actions', () => {
     assert.match(html, /No saved films yet/);
     assert.ok(html.indexOf('cml-films-mvp') < html.indexOf('cml-films-filters'));
     assert.ok(html.indexOf('cml-films-filters') < html.indexOf('cml-films-empty'));
-    assert.ok(html.indexOf('Search my films') < html.indexOf('Add from TMDb'));
+    assert.doesNotMatch(html, /cml-films-library-search__label/);
   });
 
   it('keeps saved-library search as the only Films entry control at rest', () => {
@@ -48,7 +48,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /Add from TMDb/);
     assert.match(html, /data-film-library-search-input/);
     assert.match(html, /value="Cure"/);
-    assert.match(html, /Search my films/);
+    assert.match(html, /placeholder="Search films, TMDb, or add custom\.\.\."/);
     assert.doesNotMatch(html, /data-action="add-manual-film"/);
     assert.match(html, /data-action="clear-film-library-search"/);
     assert.match(html, /No saved films found\./);
@@ -108,6 +108,22 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="open-tmdb-film-detail"/);
     assert.match(html, /data-action="save-film-status" data-watch-status="wantToWatch"/);
     assert.match(html, /data-action="save-film-status" data-watch-status="watched"/);
+  });
+
+  it('places the custom film entry after the first three TMDb results', () => {
+    const html = FilmSearchResults({
+      query: '希区柯克',
+      results: [1, 2, 3, 4].map((id) => ({
+        tmdbId: id,
+        title: `TMDb ${id}`,
+        releaseDate: `200${id}-01-01`,
+      })),
+    });
+
+    assert.ok(html.indexOf('TMDb 1') < html.indexOf('TMDb 2'));
+    assert.ok(html.indexOf('TMDb 2') < html.indexOf('TMDb 3'));
+    assert.ok(html.indexOf('TMDb 3') < html.indexOf('Custom entry'));
+    assert.ok(html.indexOf('Custom entry') < html.indexOf('TMDb 4'));
   });
 
   it('marks TMDb search results that already exist in Films', () => {
@@ -288,7 +304,7 @@ describe('media library download actions', () => {
     assert.match(html, /My rating/);
     assert.match(html, /cml-film-detail__signal-row cml-film-detail__signal-row--rating[\s\S]*My rating/);
     assert.match(html, /cml-film-detail__rating-ticks/);
-    assert.match(html, /step="0\.5"/);
+    assert.match(html, /step="0\.1"/);
     assert.match(html, /data-label="0\.5"/);
     assert.match(html, /data-label="5"/);
     assert.doesNotMatch(html, /TMDb 7\.5/);

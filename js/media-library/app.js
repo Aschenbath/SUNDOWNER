@@ -46,7 +46,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=93';
+} from './components.js?v=94';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=62';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=63';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -534,6 +534,7 @@ const state = {
   filmNotesDraft: '',
   filmNotesActiveLine: 0,
   filmNotesPreview: false,
+  filmNotesComposing: false,
   filmMetadataEditing: false,
   filmMetadataDraft: null,
   filmMetadataFocusField: '',
@@ -2853,6 +2854,10 @@ function handleCompositionStart(event) {
     state.filmLibrarySearchComposing = true;
     return;
   }
+  if (event.target instanceof HTMLElement && event.target.hasAttribute('data-film-notes-line')) {
+    state.filmNotesComposing = true;
+    return;
+  }
   if (!(event.target instanceof HTMLElement) || event.target.dataset.mindInput !== 'message') {
     return;
   }
@@ -2869,6 +2874,11 @@ function handleCompositionEnd(event) {
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-library-search-input')) {
     state.filmLibrarySearchComposing = false;
     applyFilmLibrarySearchQuery(event.target.value);
+    return;
+  }
+  if (event.target instanceof HTMLElement && event.target.hasAttribute('data-film-notes-line')) {
+    state.filmNotesComposing = false;
+    updateFilmNotesLineDraft(event.target.dataset.filmNotesLineIndex || 0, event.target.textContent || '');
     return;
   }
   if (!(event.target instanceof HTMLElement) || event.target.dataset.mindInput !== 'message') {
@@ -11492,6 +11502,7 @@ function exitFilmNotesEdit() {
   state.filmNotesDraft = '';
   state.filmNotesActiveLine = 0;
   state.filmNotesPreview = false;
+  state.filmNotesComposing = false;
 }
 
 function cancelFilmNotesEdit() {
@@ -13372,6 +13383,7 @@ function mount() {
     refs.root.addEventListener('pointerdown', handlePointerDown, true);
     refs.root.addEventListener('click', handleClick, true);
     refs.root.addEventListener('dblclick', handleDoubleClick, true);
+    refs.root.addEventListener('beforeinput', handleBeforeInput);
     refs.root.addEventListener('input', handleInput);
     refs.root.addEventListener('paste', handlePaste);
     refs.root.addEventListener('change', handleChange);
@@ -15921,7 +15933,8 @@ function handleInput(event) {
     });
     activeDetail?.querySelectorAll('.cml-film-detail__stars').forEach((stars) => {
       if (stars instanceof HTMLElement) {
-        stars.style.setProperty('--film-star-fill', `${(normalizedRating / 5) * 100}%`);
+        const visualRating = Math.min(5, Math.max(0.5, Math.round(normalizedRating * 2) / 2));
+        stars.style.setProperty('--film-star-fill', `${(visualRating / 5) * 100}%`);
         stars.setAttribute('aria-label', `${normalizedRating.toFixed(1)} out of 5`);
       }
     });
@@ -16028,6 +16041,21 @@ function handlePaste(event) {
   }
   event.preventDefault();
   insertTextIntoFilmNotesLine(target, text);
+}
+
+function handleBeforeInput(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || !target.hasAttribute('data-film-notes-line')) {
+    return;
+  }
+  if (event.isComposing || state.filmNotesComposing) {
+    return;
+  }
+  if (event.inputType === 'insertParagraph' || event.inputType === 'insertLineBreak') {
+    event.preventDefault();
+    event.stopPropagation();
+    insertFilmNotesLineBreak(target);
+  }
 }
 
 function handleChange(event) {

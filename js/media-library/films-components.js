@@ -207,7 +207,8 @@ function renderRatingStars(value) {
   if (rating === null) {
     return '';
   }
-  const fill = `${(rating / 5) * 100}%`;
+  const visualRating = Math.min(5, Math.max(0.5, Math.round(rating * 2) / 2));
+  const fill = `${(visualRating / 5) * 100}%`;
   return `<span class="cml-film-detail__stars" style="--film-star-fill: ${escapeHtml(fill)};" aria-label="${escapeHtml(rating.toFixed(1))} out of 5"><span class="cml-film-detail__stars-base" aria-hidden="true">&#9734;&#9734;&#9734;&#9734;&#9734;</span><span class="cml-film-detail__stars-fill" aria-hidden="true">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>`;
 }
 
@@ -310,8 +311,8 @@ function renderDetailRatingControl(record = {}, userRating = '') {
   const ticks = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
     .map((tick) => {
       const isMajor = tick === 0.5 || Number.isInteger(tick);
-      const label = isMajor ? String(tick).replace('.0', '') : '';
-      return `<span class="${isMajor ? 'is-major' : ''}" ${label ? `data-label="${escapeHtml(label)}"` : ''}></span>`;
+      const label = tick === 0.5 || tick === 5 ? String(tick).replace('.0', '') : '';
+      return `<span class="${isMajor ? 'is-major' : ''} ${label ? 'has-label' : ''}" ${label ? `data-label="${escapeHtml(label)}"` : ''}></span>`;
     })
     .join('');
   return `
@@ -325,7 +326,7 @@ function renderDetailRatingControl(record = {}, userRating = '') {
           data-film-id="${escapeHtml(record.id || '')}"
           min="0.5"
           max="5"
-          step="0.5"
+          step="0.1"
           value="${escapeHtml(value)}"
           aria-label="Set your film rating"
           ${record.isSaving ? 'disabled' : ''}
@@ -1356,9 +1357,8 @@ export function FilmsPage({ records = [], totalCount = records.length, activeFil
           <p class="cml-films-page__subtitle">Your private film diary.</p>
         </div>
         <label class="cml-films-library-search cml-films-library-search--primary" aria-label="Search saved films">
-          <span class="cml-films-library-search__label">Search my films</span>
           <span class="cml-films-library-search__icon" aria-hidden="true"></span>
-          <input type="search" data-film-library-search-input value="${librarySearchValue}" placeholder="Title, director, note..." />
+          <input type="search" data-film-library-search-input value="${librarySearchValue}" placeholder="Search films, TMDb, or add custom..." />
           ${hasLibraryQuery ? '<button type="button" data-action="clear-film-library-search" aria-label="Clear saved films search">x</button>' : ''}
         </label>
       </header>
@@ -1422,7 +1422,7 @@ export function FilmSearchResults({ results = [], loading = false, loadingMore =
       </div>
     </article>
   ` : '';
-  const tmdbCards = results.length ? results.map((movie, index) => {
+  const tmdbCardItems = results.length ? results.map((movie, index) => {
     const tmdbId = Number(movie.tmdbId);
     const isSaving = savingTmdbIds instanceof Set && savingTmdbIds.has(tmdbId);
     const savedRecord = getSavedSearchRecord(savedRecordsByTmdbId, tmdbId);
@@ -1458,9 +1458,16 @@ export function FilmSearchResults({ results = [], loading = false, loadingMore =
         </div>
       </article>
     `;
-  }).join('') : '';
-  const resultCards = customCard || tmdbCards
-    ? `${customCard}${tmdbCards}`
+  }) : [];
+  const resultCardItems = customCard
+    ? [
+      ...tmdbCardItems.slice(0, 3),
+      customCard,
+      ...tmdbCardItems.slice(3)
+    ]
+    : tmdbCardItems;
+  const resultCards = resultCardItems.length
+    ? resultCardItems.join('')
     : `<p class="cml-films-mvp__empty">${emptyMessage}</p>`;
   return `
     <section class="cml-films-mvp cml-film-search-panel ${loading ? 'is-searching' : ''} ${loadingMore ? 'is-loading-more' : ''} ${settling ? 'is-settling' : ''} ${clearing ? 'is-clearing' : ''}" data-film-search-result-key="${escapeHtml(resultKey)}">
