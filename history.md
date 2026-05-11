@@ -38,6 +38,7 @@ This file is the working memory for the active SUNDOWNER repo. It keeps current-
 
 ###### Work Log
 
+- 19:54 | [films][detail-editing] Kept Synopsis editing in-place as a full-width detail surface; simplified Notes editing to one writing surface with no live-preview panel or instructional autosave copy. Cache: `app.js?v=257`, `films-components.js?v=59`, `media-library.css?v=241`. Validation: syntax checks, diff-check, targeted Films Mocha 149 passing.
 - 19:37 | [history][memory] Compacted project `history.md` into quick-read format: read protocol, scope map, active chronicle, archive index, and bottom Tail Capsule. Raw pre-compaction table preserved at `history.archive\2026-May-raw.md`. Validation: tail check, archive size check, cached diff-check.
 - 19:11 | [films][detail][surgical] Removed visible Synopsis block and redundant labels; moved synopsis under Director/Release/Runtime row; flattened image tools into quiet Poster/Backdrop controls; removed More/Open TMDb detail affordance. Cache: `app.js?v=256`, `films-components.js?v=58`, `media-library.css?v=240`. Validation: syntax checks, diff-check, targeted Films Mocha 149 passing.
 - 18:34 | [films][detail][refresh] Removed redundant lower action row; shrank More to image/TMDb popover; saved TMDb details auto-refresh silently once per session; backdrop frame slider live-previews picker thumbnail and active detail backdrop. Cache: app 255, films 57, css 239. Validation: targeted Films Mocha 149 passing.
@@ -122,7 +123,7 @@ This file is the working memory for the active SUNDOWNER repo. It keeps current-
 
 - read-protocol: start with `Get-Content history.md -Tail 12`; then read latest day if the task touches current work.
 - current-focus: Films detail UX polish, surgical changes only.
-- latest-state: 2026-May-11 19:11; `app.js?v=256`, `films-components.js?v=58`, `media-library.css?v=240`.
+- latest-state: 2026-May-11 19:54; `app.js?v=257`, `films-components.js?v=59`, `media-library.css?v=241`.
 - latest-validation: syntax checks, `git diff --check`, targeted Films Mocha 149 passing.
 - hot-path: Film Detail active patching should keep `[data-film-detail-page]` root/backdrop stable and patch targeted children.
 - current-boundaries: do not redesign global shell/theme/sidebar/topbar; do not touch unrelated media modules for Films polish.

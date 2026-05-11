@@ -592,9 +592,6 @@ export function renderMarkdownBlocks(source = '') {
 function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '', notesPreview = false, editable = false, saveStatus = null } = {}) {
   const savedNote = getSavedFilmNote(record);
   const draft = notesEditing ? normalizeMultilineText(notesDraft) : savedNote;
-  const notesSaveStatus = notesEditing
-    ? `<span class="cml-film-save-status is-visible is-${escapeHtml(saveStatus?.state || 'saved')}" data-film-save-status="notes">${escapeHtml(saveStatus?.label || 'Saved')}</span>`
-    : '<span class="cml-film-save-status" data-film-save-status="notes"></span>';
   if (!notesEditing) {
     const readableClass = editable ? ' cml-film-detail__section--notes-readable' : '';
     const editAttrs = editable
@@ -607,18 +604,8 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
     `;
   }
   return `
-    <section class="cml-film-detail__section cml-film-detail__section--notes cml-film-detail__section--notes-editing cml-film-notes-editor">
-      <div class="cml-film-detail__section-head">
-        <div class="cml-film-notes-editor__autosave">
-          <span>Autosave on blur</span>
-          ${notesSaveStatus}
-        </div>
-      </div>
-      <div class="cml-film-notes-editor__live">
-        <textarea class="cml-film-detail__notes-editor cml-film-notes-editor__textarea" data-film-notes-draft rows="10" placeholder="Write private notes in Markdown...">${escapeHtml(draft)}</textarea>
-        <div class="cml-film-detail__markdown cml-film-notes-editor__live-preview" data-film-notes-live-preview>${renderMarkdownBlocks(draft)}</div>
-      </div>
-      <p class="cml-film-notes-editor__hint">Markdown renders live. Click outside to save.</p>
+    <section class="cml-film-detail__section cml-film-detail__section--notes cml-film-detail__section--notes-editing cml-film-notes-editor is-editing">
+      <textarea class="cml-film-detail__notes-editor cml-film-notes-editor__textarea" data-film-notes-draft rows="14" placeholder="Write private notes...">${escapeHtml(draft)}</textarea>
     </section>
   `;
 }
@@ -758,6 +745,13 @@ function renderFocusedFilmMetadataEditor(record = {}, draft = {}, focusedField =
     return '';
   }
   const isEmbeddedOverview = embedded && focusedField === 'overviewOverride';
+  if (isEmbeddedOverview) {
+    return `
+      <div class="cml-film-detail__synopsis-editor is-editing">
+        <textarea class="cml-film-metadata-editor__textarea cml-film-detail__synopsis-textarea" data-film-metadata-field="overviewOverride" rows="10" placeholder="${escapeHtml(typeof config.placeholder === 'function' ? config.placeholder(record) : '')}">${escapeHtml(draft[focusedField] || '')}</textarea>
+      </div>
+    `;
+  }
   const tag = embedded ? 'div' : 'section';
   const className = [
     embedded ? '' : 'cml-film-detail__section',
@@ -767,14 +761,14 @@ function renderFocusedFilmMetadataEditor(record = {}, draft = {}, focusedField =
   ].filter(Boolean).join(' ');
   return `
     <${tag} class="${className}">
-      ${isEmbeddedOverview ? '' : `<div class="cml-film-detail__section-head">
+      <div class="cml-film-detail__section-head">
         <div>
           <h2>${escapeHtml(config.title)}</h2>
         </div>
         <span class="cml-film-save-status" data-film-save-status="metadata"></span>
-      </div>`}
+      </div>
       ${renderFilmMetadataInput({
-        label: isEmbeddedOverview ? '' : config.label,
+        label: config.label,
         field: focusedField,
         value: draft[focusedField] || '',
         placeholder: typeof config.placeholder === 'function' ? config.placeholder(record) : '',
@@ -840,8 +834,9 @@ function renderFilmSynopsisInline(record = {}, { synopsis = '', editor = '', edi
   const editAttrs = editable && !editor
     ? ` data-action="film-edit-metadata" data-film-id="${filmId}" data-film-metadata-focus-field="overviewOverride" role="button" tabindex="0" aria-label="Edit overview"`
     : '';
+  const stateClass = editor ? 'is-editing' : editable ? 'is-editable' : '';
   return `
-    <div class="cml-film-detail__synopsis-inline ${editable && !editor ? 'is-editable' : ''}"${editAttrs}>
+    <div class="cml-film-detail__synopsis-inline ${stateClass}"${editAttrs}>
       ${editor || (synopsis
         ? `<p>${escapeHtml(synopsis)}</p>`
         : '<p class="cml-film-detail__empty-text">No overview yet.</p>')}

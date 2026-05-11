@@ -459,11 +459,12 @@ describe('media library download actions', () => {
     assert.doesNotMatch(viewHtml, /My notes/);
     assert.match(editHtml, /data-film-notes-draft/);
     assert.match(editHtml, /cml-film-notes-editor/);
-    assert.match(editHtml, /Autosave on blur/);
-    assert.match(editHtml, /data-film-save-status="notes">Saved<\/span>/);
-    assert.match(editHtml, /data-film-notes-live-preview/);
-    assert.match(editHtml, /<strong>note<\/strong>/);
-    assert.match(editHtml, /Markdown renders live/);
+    assert.match(editHtml, /Draft \*\*note\*\*/);
+    assert.doesNotMatch(editHtml, /Autosave on blur/);
+    assert.doesNotMatch(editHtml, /data-film-save-status="notes"/);
+    assert.doesNotMatch(editHtml, /data-film-notes-live-preview/);
+    assert.doesNotMatch(editHtml, /cml-film-notes-editor__live/);
+    assert.doesNotMatch(editHtml, /Markdown renders live/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-format"/);
     assert.doesNotMatch(editHtml, /data-film-notes-format="bold"/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-preview-toggle"/);
@@ -475,10 +476,11 @@ describe('media library download actions', () => {
     assert.doesNotMatch(previewHtml, /data-action="film-notes-preview-toggle"/);
     assert.doesNotMatch(previewHtml, /cml-film-notes-editor__preview-toggle is-active/);
     assert.doesNotMatch(previewHtml, /data-film-notes-preview/);
-    assert.match(previewHtml, /data-film-notes-live-preview/);
-    assert.match(previewHtml, /<strong>note<\/strong>/);
-    assert.match(previewHtml, /data-film-save-status="notes">Saving\.\.\.<\/span>/);
-    assert.match(previewHtml, /Markdown renders live/);
+    assert.doesNotMatch(previewHtml, /data-film-notes-live-preview/);
+    assert.doesNotMatch(previewHtml, /<strong>note<\/strong>/);
+    assert.doesNotMatch(previewHtml, /data-film-save-status="notes"/);
+    assert.doesNotMatch(previewHtml, /Markdown renders live/);
+    assert.match(previewHtml, /data-film-save-status="detail">Saving\.\.\.<\/span>/);
     assert.match(previewHtml, /data-film-notes-draft/);
     assert.doesNotMatch(previewHtml, /data-action="film-notes-save"/);
     assert.doesNotMatch(previewHtml, /data-action="film-notes-cancel"/);
@@ -566,8 +568,9 @@ describe('media library download actions', () => {
       metadataDraft: { overviewOverride: 'Draft synopsis text' },
     });
 
-    assert.match(synopsisHtml, /cml-film-detail__synopsis-inline[\s\S]*cml-film-metadata-editor--inline[\s\S]*data-film-metadata-field="overviewOverride"/);
+    assert.match(synopsisHtml, /cml-film-detail__synopsis-inline is-editing[\s\S]*cml-film-detail__synopsis-editor[\s\S]*cml-film-detail__synopsis-textarea[\s\S]*data-film-metadata-field="overviewOverride"/);
     assert.doesNotMatch(synopsisHtml, /<h2>Synopsis<\/h2>/);
+    assert.doesNotMatch(synopsisHtml, /Click outside to save\./);
     assert.ok(synopsisHtml.indexOf('cml-film-detail__meta-row') < synopsisHtml.indexOf('data-film-metadata-field="overviewOverride"'));
     assert.ok(synopsisHtml.indexOf('data-film-metadata-field="overviewOverride"') < synopsisHtml.indexOf('cml-film-detail__lower'));
     assert.doesNotMatch(synopsisHtml, /data-film-metadata-field="directorOverride"/);
@@ -687,8 +690,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /function handlePointerDown\(event\)/);
     assert.match(appSource, /pointerStartEditSurface !== 'notes'/);
     assert.match(appSource, /optimisticExit: true/);
-    assert.match(appSource, /data-film-notes-live-preview/);
-    assert.match(appSource, /function syncFilmNotesLivePreview/);
+    assert.doesNotMatch(appSource, /data-film-notes-live-preview/);
+    assert.doesNotMatch(appSource, /function syncFilmNotesLivePreview/);
     assert.match(appSource, /focusedNotesSection/);
     assert.match(appSource, /async function commitPendingFilmEditsBeforeAction/);
     assert.match(appSource, /await commitFilmNotesEdit\(\{ silent: true, keepDetailOpen \}\)/);

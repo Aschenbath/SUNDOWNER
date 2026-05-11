@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=6';
-import { FilmDetailPage, FilmSearchResults, FilmsPage, renderMarkdownBlocks } from './films-components.js?v=58';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=59';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -10238,13 +10238,6 @@ function focusFilmNotesEditor() {
   });
 }
 
-function syncFilmNotesLivePreview() {
-  const preview = refs.root?.querySelector('[data-film-notes-live-preview]');
-  if (preview instanceof HTMLElement) {
-    preview.innerHTML = renderMarkdownBlocks(state.filmNotesDraft || '');
-  }
-}
-
 function focusFilmMetadataEditor(field = '') {
   window.requestAnimationFrame(() => {
     const preferredField = normalizeText(field || state.filmMetadataFocusField || '');
@@ -15581,7 +15574,6 @@ function handleInput(event) {
   }
   if (input.hasAttribute('data-film-notes-draft')) {
     state.filmNotesDraft = input.value;
-    syncFilmNotesLivePreview();
     return;
   }
   if (input.hasAttribute('data-film-image-picker-url')) {

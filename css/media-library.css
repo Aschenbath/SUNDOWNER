@@ -12357,6 +12357,31 @@ body.codex-media-library-active #app {
   outline: 0;
 }
 
+#codex-media-library-root .cml-film-detail__synopsis-inline.is-editing {
+  max-width: none;
+  padding-right: 0;
+}
+
+#codex-media-library-root .cml-film-detail__synopsis-editor {
+  display: grid;
+  width: 100%;
+}
+
+#codex-media-library-root .cml-film-detail__synopsis-textarea {
+  min-height: 250px;
+  width: 100%;
+  padding: 20px 22px;
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.038);
+  color: rgba(241, 238, 230, 0.84);
+  font-family: inherit;
+  font-size: clamp(15.5px, 1.05vw, 17px);
+  font-weight: 520;
+  line-height: 1.76;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 #codex-media-library-root .cml-film-detail__date-control {
   display: flex;
   flex-wrap: wrap;
@@ -13409,40 +13434,16 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-notes-editor {
   max-width: none;
-  min-height: 430px;
-  gap: 14px;
-  overflow: hidden;
+  min-height: 340px;
+  gap: 0;
+  overflow: visible;
   padding-top: 26px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   contain: layout paint;
 }
 
-#codex-media-library-root .cml-film-notes-editor > .cml-film-detail__section-head {
-  padding-bottom: 16px;
-}
-
-#codex-media-library-root .cml-film-notes-editor__autosave {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: rgba(241, 238, 230, 0.56);
-  font-size: 12px;
-}
-
-#codex-media-library-root .cml-film-notes-editor__autosave .cml-film-save-status {
-  min-height: auto;
-  opacity: 0.72;
-  transform: none;
-}
-
-#codex-media-library-root .cml-film-notes-editor__live {
-  display: grid;
-  gap: 14px;
-}
-
-#codex-media-library-root .cml-film-detail__notes-editor,
-#codex-media-library-root .cml-film-notes-editor__live-preview {
-  min-height: 220px;
+#codex-media-library-root .cml-film-detail__notes-editor {
+  min-height: 320px;
   width: 100%;
   padding: 22px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -13455,13 +13456,9 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-detail__notes-editor {
   resize: vertical;
   outline: 0;
-  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-  font-size: 14px;
-  line-height: 1.68;
-}
-
-#codex-media-library-root .cml-film-notes-editor__live-preview {
-  overflow: auto;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.72;
 }
 
 #codex-media-library-root .cml-film-detail__notes-editor:focus {
@@ -13471,15 +13468,6 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-detail__notes-editor::placeholder {
   color: rgba(241, 238, 230, 0.38);
-}
-
-#codex-media-library-root .cml-film-notes-editor__hint {
-  margin: 0;
-  color: rgba(241, 238, 230, 0.44) !important;
-  font-family: inherit !important;
-  font-size: 12px !important;
-  font-style: normal !important;
-  letter-spacing: 0.02em;
 }
 
 #codex-media-library-root .cml-film-detail__actions {
