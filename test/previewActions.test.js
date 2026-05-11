@@ -888,6 +888,27 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-film-card__barcode/);
   });
 
+  it('renders saved film card metadata in large single-line ticket rows', () => {
+    const html = FilmCard({
+      id: 'tmdb-42',
+      tmdbId: 42,
+      title: 'Love Letter',
+      originalTitle: 'Love Letter',
+      status: 'watched',
+      year: '1995',
+      runtime: 117,
+      country: 'Japan / JP',
+      language: 'Japanese',
+      watchedAt: '2026-05-11',
+      posterPath: '/poster.jpg',
+    });
+
+    assert.match(html, /cml-film-card__info-label">Release<\/span>\s*<strong class="cml-film-card__info-value">1995 \u00b7 1h 57m<\/strong>/);
+    assert.match(html, /cml-film-card__info-label">Locale<\/span>\s*<strong class="cml-film-card__info-value">Japan \u00b7 JP \u00b7 Japanese<\/strong>/);
+    assert.doesNotMatch(html, /1995 - 1h 57m/);
+    assert.doesNotMatch(html, /Japan \/ JP \/ Japanese/);
+  });
+
   it('keeps saved film card rating rings user-controlled instead of using TMDb scores', () => {
     const html = FilmCard({
       id: 'tmdb-42',

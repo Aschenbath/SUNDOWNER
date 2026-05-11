@@ -195,6 +195,20 @@ function renderFilmCardInfoItem(label, value) {
   `;
 }
 
+function formatFilmCardMetaLine(parts = []) {
+  const values = [];
+  parts
+    .flatMap((part) => String(part ?? '').split(/\s*(?:\/|\|)\s*/))
+    .map(normalizeText)
+    .filter(Boolean)
+    .forEach((part) => {
+      if (!values.includes(part)) {
+        values.push(part);
+      }
+    });
+  return values.join(' \u00b7 ');
+}
+
 function formatUserRating(value) {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric >= 0.5 && numeric <= 5
@@ -1257,15 +1271,14 @@ export function FilmCard(record = {}) {
   const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
   const originalTitle = normalizeText(record.originalTitle || record.title || '');
   const directorLine = normalizeText(record.director || '');
-  const localeLine = [record.country, record.language].filter(Boolean).join(' / ');
-  const genresLine = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' / ') : '';
   const runtime = formatRuntime(record.runtime);
   const watchedDate = record.status === 'watched' ? formatWatchedDate(record.watchedAt) : '';
   const ratingValue = formatUserRating(record.userRating ?? record.rating);
   const ratingLabel = ratingValue ? 'My rating' : 'Not rated';
-  const coverMeta = [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' - ');
+  const releaseLine = formatFilmCardMetaLine([record.year ? String(record.year) : '', runtime]);
+  const localeLine = formatFilmCardMetaLine([record.country, record.language]);
   const infoItems = [
-    renderFilmCardInfoItem('Release', [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' - ')),
+    renderFilmCardInfoItem('Release', releaseLine),
     renderFilmCardInfoItem('Locale', localeLine),
     renderFilmCardInfoItem('Watched', watchedDate)
   ].filter(Boolean).join('');

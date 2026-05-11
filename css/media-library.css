@@ -11745,19 +11745,19 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__info-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 14px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
   align-content: start;
 }
 
 #codex-media-library-root .cml-film-card__info-item {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
 }
 
 #codex-media-library-root .cml-film-card__info-label {
-  color: rgba(195, 201, 211, 0.62);
+  color: rgba(201, 169, 106, 0.82);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -11765,10 +11765,10 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card__info-value {
-  color: rgba(242, 244, 247, 0.84);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.45;
+  color: rgba(247, 249, 255, 0.94);
+  font-size: 27px;
+  font-weight: 650;
+  line-height: 1.08;
   word-break: break-word;
 }
 
@@ -14028,11 +14028,11 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__info-grid {
-    gap: 10px;
+    gap: 11px;
   }
 
   #codex-media-library-root .cml-film-card__info-value {
-    font-size: 12px;
+    font-size: 22px;
   }
 
   #codex-media-library-root .cml-film-card__footer {
@@ -14097,6 +14097,14 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-film-card__info-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
+  }
+
+  #codex-media-library-root .cml-film-card__info-label {
+    font-size: 9px;
+  }
+
+  #codex-media-library-root .cml-film-card__info-value {
+    font-size: 16px;
   }
 
   #codex-media-library-root .cml-film-card__info-item:nth-child(n+3) {
