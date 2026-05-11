@@ -187,8 +187,9 @@ function renderFilmCardInfoItem(label, value) {
   if (!normalizeText(value)) {
     return '';
   }
+  const labelKey = normalizeText(label).toLowerCase().replace(/[^a-z0-9]+/g, '-');
   return `
-    <div class="cml-film-card__info-item">
+    <div class="cml-film-card__info-item cml-film-card__info-item--${escapeHtml(labelKey)}">
       <span class="cml-film-card__info-label">${escapeHtml(label)}</span>
       <strong class="cml-film-card__info-value">${escapeHtml(value)}</strong>
     </div>

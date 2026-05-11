@@ -888,7 +888,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-film-card__barcode/);
   });
 
-  it('renders saved film card metadata in large single-line ticket rows', () => {
+  it('renders saved film card metadata with dot-separated ticket values', () => {
     const html = FilmCard({
       id: 'tmdb-42',
       tmdbId: 42,
@@ -903,8 +903,8 @@ describe('media library download actions', () => {
       posterPath: '/poster.jpg',
     });
 
-    assert.match(html, /cml-film-card__info-label">Release<\/span>\s*<strong class="cml-film-card__info-value">1995 \u00b7 1h 57m<\/strong>/);
-    assert.match(html, /cml-film-card__info-label">Locale<\/span>\s*<strong class="cml-film-card__info-value">Japan \u00b7 JP \u00b7 Japanese<\/strong>/);
+    assert.match(html, /cml-film-card__info-item--release[\s\S]*cml-film-card__info-label">Release<\/span>\s*<strong class="cml-film-card__info-value">1995 \u00b7 1h 57m<\/strong>/);
+    assert.match(html, /cml-film-card__info-item--locale[\s\S]*cml-film-card__info-label">Locale<\/span>\s*<strong class="cml-film-card__info-value">Japan \u00b7 JP \u00b7 Japanese<\/strong>/);
     assert.doesNotMatch(html, /1995 - 1h 57m/);
     assert.doesNotMatch(html, /Japan \/ JP \/ Japanese/);
   });

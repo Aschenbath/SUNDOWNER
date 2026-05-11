@@ -11745,15 +11745,19 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__info-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
   align-content: start;
 }
 
 #codex-media-library-root .cml-film-card__info-item {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
+}
+
+#codex-media-library-root .cml-film-card__info-item--release {
+  grid-column: 1 / -1;
 }
 
 #codex-media-library-root .cml-film-card__info-label {
@@ -11766,10 +11770,29 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__info-value {
   color: rgba(247, 249, 255, 0.94);
-  font-size: 27px;
+  font-size: 13px;
   font-weight: 650;
-  line-height: 1.08;
+  line-height: 1.35;
   word-break: break-word;
+}
+
+#codex-media-library-root .cml-film-card__info-item--release .cml-film-card__info-value {
+  font-size: 22px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+#codex-media-library-root .cml-film-card__info-item--locale .cml-film-card__info-value {
+  color: rgba(242, 244, 247, 0.82);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+#codex-media-library-root .cml-film-card__info-item--watched .cml-film-card__info-value {
+  font-size: 15px;
+  white-space: nowrap;
 }
 
 #codex-media-library-root .cml-film-card__footer {
@@ -14028,11 +14051,11 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__info-grid {
-    gap: 11px;
+    gap: 10px 12px;
   }
 
-  #codex-media-library-root .cml-film-card__info-value {
-    font-size: 22px;
+  #codex-media-library-root .cml-film-card__info-item--release .cml-film-card__info-value {
+    font-size: 20px;
   }
 
   #codex-media-library-root .cml-film-card__footer {
@@ -14103,8 +14126,13 @@ body.codex-media-library-active #app {
     font-size: 9px;
   }
 
-  #codex-media-library-root .cml-film-card__info-value {
+  #codex-media-library-root .cml-film-card__info-item--release .cml-film-card__info-value {
     font-size: 16px;
+  }
+
+  #codex-media-library-root .cml-film-card__info-item--watched .cml-film-card__info-value,
+  #codex-media-library-root .cml-film-card__info-value {
+    font-size: 12px;
   }
 
   #codex-media-library-root .cml-film-card__info-item:nth-child(n+3) {
