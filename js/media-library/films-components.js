@@ -188,28 +188,11 @@ function renderFilmCardInfoItem(label, value) {
     return '';
   }
   return `
-    <div class="cml-film-card__info-item cml-film-card__info-item--${escapeHtml(label.toLowerCase())}">
-      <span class="cml-film-card__info-icon" aria-hidden="true"></span>
-      <span class="cml-film-card__info-copy">
-        <span class="cml-film-card__info-label">${escapeHtml(label)}</span>
-        <strong class="cml-film-card__info-value">${escapeHtml(value)}</strong>
-      </span>
+    <div class="cml-film-card__info-item">
+      <span class="cml-film-card__info-label">${escapeHtml(label)}</span>
+      <strong class="cml-film-card__info-value">${escapeHtml(value)}</strong>
     </div>
   `;
-}
-
-function joinFilmCardMetaParts(parts = []) {
-  const values = [];
-  parts
-    .flatMap((part) => String(part ?? '').split(/\s*(?:\/|\|)\s*/))
-    .map(normalizeText)
-    .filter(Boolean)
-    .forEach((part) => {
-      if (!values.includes(part)) {
-        values.push(part);
-      }
-    });
-  return values.join(' \u00b7 ');
 }
 
 function formatUserRating(value) {
@@ -1274,14 +1257,15 @@ export function FilmCard(record = {}) {
   const localTitle = normalizeText(record.localTitle || record.title || 'Untitled film');
   const originalTitle = normalizeText(record.originalTitle || record.title || '');
   const directorLine = normalizeText(record.director || '');
+  const localeLine = [record.country, record.language].filter(Boolean).join(' / ');
+  const genresLine = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(' / ') : '';
   const runtime = formatRuntime(record.runtime);
   const watchedDate = record.status === 'watched' ? formatWatchedDate(record.watchedAt) : '';
   const ratingValue = formatUserRating(record.userRating ?? record.rating);
   const ratingLabel = ratingValue ? 'My rating' : 'Not rated';
-  const releaseLine = joinFilmCardMetaParts([record.year ? String(record.year) : '', runtime]);
-  const localeLine = joinFilmCardMetaParts([record.country, record.language]);
+  const coverMeta = [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' - ');
   const infoItems = [
-    renderFilmCardInfoItem('Release', releaseLine),
+    renderFilmCardInfoItem('Release', [record.year ? String(record.year) : '', runtime].filter(Boolean).join(' - ')),
     renderFilmCardInfoItem('Locale', localeLine),
     renderFilmCardInfoItem('Watched', watchedDate)
   ].filter(Boolean).join('');

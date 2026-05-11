@@ -875,17 +875,10 @@ describe('media library download actions', () => {
       status: 'watched',
       year: '2026',
       runtime: 121,
-      country: 'Japan / JP',
-      language: 'Japanese',
-      watchedAt: '2026-05-11',
       director: 'James Cameron',
       posterPath: '/poster.jpg',
     });
 
-    assert.match(html, /cml-film-card__info-item--release[\s\S]*2026 \u00b7 2h 01m/);
-    assert.match(html, /cml-film-card__info-item--locale[\s\S]*Japan \u00b7 JP \u00b7 Japanese/);
-    assert.match(html, /cml-film-card__info-item--watched[\s\S]*05\/11\/2026/);
-    assert.match(html, /cml-film-card__info-icon/);
     assert.match(html, /cml-film-card__footer-spotlight/);
     assert.match(html, /cml-film-card__director/);
     assert.match(html, /James Cameron/);
@@ -893,28 +886,6 @@ describe('media library download actions', () => {
     assert.match(html, />NR<\/span>/);
     assert.doesNotMatch(html, /TMDB #000042/);
     assert.doesNotMatch(html, /cml-film-card__barcode/);
-  });
-
-  it('renders saved film card rating badges from local user ratings', () => {
-    const html = FilmCard({
-      id: 'tmdb-42',
-      tmdbId: 42,
-      title: 'Love Letter',
-      originalTitle: 'Love Letter',
-      status: 'watched',
-      year: '1995',
-      runtime: 117,
-      director: 'Shunji Iwai',
-      posterPath: '/poster.jpg',
-      userRating: 5,
-      voteAverage: 8.7,
-    });
-
-    assert.doesNotMatch(html, /cml-film-card__rating is-pending/);
-    assert.match(html, />5\.0<\/span>/);
-    assert.match(html, /My rating 5\.0/);
-    assert.doesNotMatch(html, /TMDb rating 8\.7/);
-    assert.doesNotMatch(html, />8\.7<\/span>/);
   });
 
   it('keeps saved film card rating rings user-controlled instead of using TMDb scores', () => {

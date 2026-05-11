@@ -11416,8 +11416,8 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-films-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 20px;
 }
 
 #codex-media-library-root .cml-films-poster-grid {
@@ -11470,15 +11470,14 @@ body.codex-media-library-active #app {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  isolation: isolate;
-  border-radius: 30px;
+  border-radius: 28px;
   overflow: hidden;
   cursor: pointer;
   color: inherit;
   text-decoration: none;
-  background: #07080a;
-  border: 1px solid rgba(232, 236, 242, 0.10);
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.30);
+  background: #08090b;
+  border: 1px solid rgba(232, 236, 242, 0.12);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
@@ -11507,9 +11506,7 @@ body.codex-media-library-active #app {
   content: '';
   position: absolute;
   inset: auto 0 0;
-  display: block;
-  height: 40%;
-  background: linear-gradient(180deg, transparent, rgba(7, 8, 10, 0.54));
+  display: none;
   pointer-events: none;
 }
 
@@ -11600,25 +11597,10 @@ body.codex-media-library-active #app {
   display: flex;
   flex: 1;
   flex-direction: column;
-  z-index: 1;
-  min-height: 278px;
-  margin-top: -24px;
-  border-radius: 28px 28px 0 0;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(208, 169, 91, 0.12), transparent 34%),
-    linear-gradient(180deg, #161311 0%, #101114 52%, #0a0b0e 100%);
-  border-top: 1px dashed rgba(223, 184, 104, 0.42);
-  color: #f4f1ea;
-  box-shadow: 0 -18px 34px rgba(0, 0, 0, 0.30);
-}
-
-#codex-media-library-root .cml-film-card__ticket-panel::before {
-  content: '';
-  position: absolute;
-  inset: 11px 11px 20px;
-  border: 1px solid rgba(223, 184, 104, 0.12);
-  border-radius: 22px 22px 0 0;
-  pointer-events: none;
+  min-height: 236px;
+  background: #101114;
+  border-top: 1px dashed rgba(232, 236, 242, 0.26);
+  color: #f2f4f7;
 }
 
 #codex-media-library-root .cml-film-card__ticket-panel::after {
@@ -11636,29 +11618,29 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__notch {
   position: absolute;
-  top: -15px;
+  top: -13px;
   z-index: 2;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
   background: var(--cml-film-cutout-bg);
-  box-shadow: inset 0 0 0 1px rgba(223, 184, 104, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(232, 236, 242, 0.1);
 }
 
 #codex-media-library-root .cml-film-card__notch--left {
-  left: -15px;
+  left: -13px;
 }
 
 #codex-media-library-root .cml-film-card__notch--right {
-  right: -15px;
+  right: -13px;
 }
 
 #codex-media-library-root .cml-film-card__ticket-body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 16px;
-  padding: 28px 22px 18px;
+  gap: 13px;
+  padding: 19px 18px 16px;
 }
 
 #codex-media-library-root .cml-film-card__ticket-head {
@@ -11685,9 +11667,9 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__title {
   margin: 0;
-  color: #fff8ec;
+  color: #f7f7f8;
   font-family: "Times New Roman", Times, serif;
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.08;
   display: -webkit-box;
@@ -11698,7 +11680,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__original {
   margin: 0;
-  color: rgba(235, 225, 205, 0.62);
+  color: rgba(209, 213, 219, 0.58);
   font-size: 12px;
   line-height: 1.45;
   display: -webkit-box;
@@ -11713,24 +11695,20 @@ body.codex-media-library-active #app {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 76px;
-  height: 76px;
-  margin-left: auto;
+  width: 58px;
+  height: 58px;
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 24%, rgba(255, 245, 218, 0.08), transparent 38%),
-    #090a0c;
-  border: 1px solid rgba(223, 184, 104, 0.22);
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.32);
+  background: #0b0c0f;
+  border: 1px solid rgba(232, 236, 242, 0.1);
 }
 
 #codex-media-library-root .cml-film-card__rating::before {
   content: '';
   position: absolute;
-  inset: 5px;
+  inset: 3px;
   border-radius: inherit;
   background: transparent;
-  border: 2px solid rgba(223, 184, 104, 0.88);
+  border: 2px solid rgba(210, 174, 98, 0.78);
 }
 
 #codex-media-library-root .cml-film-card__rating.is-pending::before {
@@ -11741,8 +11719,8 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__rating-value {
   position: relative;
   z-index: 1;
-  color: #fff7e8;
-  font-size: 31px;
+  color: #f3f4f6;
+  font-size: 28px;
   font-weight: 800;
   line-height: 1;
 }
@@ -11759,7 +11737,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-card__separator {
   height: 1px;
   margin: 0;
-  background-image: radial-gradient(circle, rgba(223, 184, 104, 0.36) 1.1px, transparent 1.2px);
+  background-image: radial-gradient(circle, rgba(232, 236, 242, 0.3) 1.1px, transparent 1.2px);
   background-size: 8px 1px;
   background-repeat: repeat-x;
   background-position: center;
@@ -11767,100 +11745,30 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__info-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
   align-content: start;
 }
 
 #codex-media-library-root .cml-film-card__info-item {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-#codex-media-library-root .cml-film-card__info-icon {
-  position: relative;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: rgba(223, 184, 104, 0.08);
-  border: 1px solid rgba(223, 184, 104, 0.28);
-  box-shadow: inset 0 0 0 1px rgba(255, 245, 218, 0.04);
-}
-
-#codex-media-library-root .cml-film-card__info-icon::before,
-#codex-media-library-root .cml-film-card__info-icon::after {
-  content: '';
-  position: absolute;
-  box-sizing: border-box;
-}
-
-#codex-media-library-root .cml-film-card__info-icon::before {
-  inset: 10px 9px 8px;
-  border: 1.5px solid rgba(223, 184, 104, 0.82);
-  border-radius: 3px;
-}
-
-#codex-media-library-root .cml-film-card__info-icon::after {
-  left: 11px;
-  right: 11px;
-  top: 13px;
-  height: 1.5px;
-  background: rgba(223, 184, 104, 0.82);
-}
-
-#codex-media-library-root .cml-film-card__info-item--locale .cml-film-card__info-icon::before {
-  inset: 8px 10px 12px;
-  border-radius: 999px 999px 999px 3px;
-  transform: rotate(-45deg);
-}
-
-#codex-media-library-root .cml-film-card__info-item--locale .cml-film-card__info-icon::after {
-  top: 13px;
-  left: 14px;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(223, 184, 104, 0.82);
-}
-
-#codex-media-library-root .cml-film-card__info-item--watched .cml-film-card__info-icon::before {
-  inset: 8px;
-  border-radius: 999px;
-}
-
-#codex-media-library-root .cml-film-card__info-item--watched .cml-film-card__info-icon::after {
-  left: 12px;
-  top: 15px;
-  width: 11px;
-  height: 7px;
-  border-left: 2px solid rgba(223, 184, 104, 0.86);
-  border-bottom: 2px solid rgba(223, 184, 104, 0.86);
-  background: transparent;
-  transform: rotate(-45deg);
-}
-
-#codex-media-library-root .cml-film-card__info-copy {
-  display: grid;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 
 #codex-media-library-root .cml-film-card__info-label {
-  color: rgba(223, 184, 104, 0.88);
+  color: rgba(195, 201, 211, 0.62);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-film-card__info-value {
-  color: rgba(248, 243, 233, 0.88);
+  color: rgba(242, 244, 247, 0.84);
   font-size: 13px;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.45;
   word-break: break-word;
 }
 
@@ -11869,7 +11777,7 @@ body.codex-media-library-active #app {
   z-index: 2;
   display: grid;
   gap: 12px;
-  padding: 0 22px 28px;
+  padding: 0 18px 20px;
   margin-top: auto;
 }
 
@@ -11881,10 +11789,10 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-card__footer-spotlight {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  min-height: 78px;
+  gap: 12px;
+  min-height: 62px;
 }
 
 #codex-media-library-root .cml-film-card__director {
@@ -11895,15 +11803,15 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-card__director-label {
-  color: rgba(223, 184, 104, 0.78);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.18em;
+  color: rgba(154, 160, 171, 0.48);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-film-card__director-value {
-  color: rgba(255, 248, 236, 0.92);
+  color: rgba(242, 244, 247, 0.88);
   font-size: 19px;
   font-weight: 800;
   line-height: 1.12;
@@ -14050,7 +13958,7 @@ body.codex-media-library-active #app {
 @media (max-width: 640px) {
   #codex-media-library-root .cml-films-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    gap: 14px;
   }
 
   #codex-media-library-root .cml-films-poster-grid {
@@ -14094,13 +14002,12 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__ticket-panel {
-    min-height: 252px;
-    margin-top: -20px;
+    min-height: 218px;
   }
 
   #codex-media-library-root .cml-film-card__ticket-body {
-    gap: 13px;
-    padding: 24px 16px 14px;
+    gap: 11px;
+    padding: 16px 14px 13px;
   }
 
   #codex-media-library-root .cml-film-card__ticket-head {
@@ -14108,20 +14015,20 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__title {
-    font-size: 22px;
+    font-size: 19px;
   }
 
   #codex-media-library-root .cml-film-card__rating {
-    width: 64px;
-    height: 64px;
+    width: 72px;
+    height: 72px;
   }
 
   #codex-media-library-root .cml-film-card__rating-value {
-    font-size: 27px;
+    font-size: 33px;
   }
 
   #codex-media-library-root .cml-film-card__info-grid {
-    gap: 9px;
+    gap: 10px;
   }
 
   #codex-media-library-root .cml-film-card__info-value {
@@ -14129,7 +14036,11 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__footer {
-    padding: 0 16px 22px;
+    padding: 0 14px 18px;
+  }
+
+  #codex-media-library-root .cml-film-card__footer-row {
+    align-items: center;
   }
 }
 
@@ -14160,12 +14071,11 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__ticket-panel {
-    min-height: 214px;
-    margin-top: -16px;
+    min-height: 178px;
   }
 
   #codex-media-library-root .cml-film-card__ticket-body {
-    padding: 21px 12px 11px;
+    padding: 14px 12px 11px;
   }
 
   #codex-media-library-root .cml-film-card__ticket-head {
@@ -14181,12 +14091,7 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-card__rating {
-    width: 50px;
-    height: 50px;
-  }
-
-  #codex-media-library-root .cml-film-card__rating-value {
-    font-size: 20px;
+    display: none;
   }
 
   #codex-media-library-root .cml-film-card__info-grid {
@@ -14200,15 +14105,6 @@ body.codex-media-library-active #app {
 
   #codex-media-library-root .cml-film-card__footer {
     padding: 0 12px 16px;
-  }
-
-  #codex-media-library-root .cml-film-card__footer-spotlight {
-    min-height: 54px;
-    gap: 8px;
-  }
-
-  #codex-media-library-root .cml-film-card__director-value {
-    font-size: 15px;
   }
 }
 
