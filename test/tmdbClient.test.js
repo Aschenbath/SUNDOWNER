@@ -14,6 +14,9 @@ describe('TMDbClient', () => {
       release_date: '1999-10-15',
       runtime: 139,
       genres: [{ id: 18, name: 'Drama' }],
+      production_countries: [{ iso_3166_1: 'US', name: 'United States of America' }],
+      spoken_languages: [{ iso_639_1: 'en', english_name: 'English' }],
+      original_language: 'en',
       vote_average: 8.4,
       vote_count: 26000,
       userRating: 10,
@@ -33,6 +36,8 @@ describe('TMDbClient', () => {
       releaseDate: '1999-10-15',
       runtime: 139,
       genres: ['Drama'],
+      country: 'United States of America',
+      language: 'English',
       voteAverage: 8.4,
       voteCount: 26000,
     });
@@ -114,6 +119,8 @@ describe('TMDbClient', () => {
       releaseDate: '2001-07-20',
       runtime: null,
       genres: [],
+      country: '',
+      language: '',
       voteAverage: 8.5,
       voteCount: 12000,
     }]);

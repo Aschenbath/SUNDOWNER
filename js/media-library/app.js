@@ -69,8 +69,8 @@ import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-sup
 import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
-} from './films-data.js?v=5';
-import { FilmDetailPage, FilmSearchResults, FilmsPage, renderMarkdownBlocks } from './films-components.js?v=55';
+} from './films-data.js?v=6';
+import { FilmDetailPage, FilmSearchResults, FilmsPage, renderMarkdownBlocks } from './films-components.js?v=56';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -120,6 +120,8 @@ const FILM_METADATA_FIELDS = [
   'releaseDateOverride',
   'runtimeOverride',
   'genresOverride',
+  'countryOverride',
+  'languageOverride',
   'overviewOverride',
   'posterPathOverride',
   'backdropPathOverride',
@@ -8561,6 +8563,8 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     : (Array.isArray(movie.genres)
       ? movie.genres
       : (Array.isArray(existingRecord?.cacheGenres) ? existingRecord.cacheGenres : []));
+  const cacheCountry = normalizeText(movie.cacheCountry || movie.country || existingRecord?.cacheCountry || existingRecord?.country || '');
+  const cacheLanguage = normalizeText(movie.cacheLanguage || movie.language || existingRecord?.cacheLanguage || existingRecord?.language || '');
   const moviePosterPath = movie.posterPathOverride ? '' : movie.posterPath;
   const moviePosterPaths = movie.posterPathOverride ? [] : movie.posterPaths;
   const existingPosterPath = existingRecord?.posterPathOverride ? '' : existingRecord?.posterPath;
@@ -8635,8 +8639,8 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     updatedAt: entry?.updatedAt || movie.updatedAt || existingRecord?.updatedAt || '',
     director: overrides.directorOverride || cacheDirector,
     genres,
-    country: existingRecord?.country || '',
-    language: existingRecord?.language || '',
+    country: overrides.countryOverride || cacheCountry,
+    language: overrides.languageOverride || cacheLanguage,
     runtime,
     posterPath: overrides.posterPathOverride || cachePosterPath || (!existingRecord?.posterPathOverride ? existingRecord?.posterPath : '') || '',
     posterPaths: normalizeFilmBackdropPaths([
@@ -8663,6 +8667,8 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     cacheReleaseDate,
     cacheRuntime,
     cacheGenres,
+    cacheCountry,
+    cacheLanguage,
     cachePosterPath,
     cachePosterPaths,
     cacheBackdropPath,
@@ -8673,6 +8679,8 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     releaseDateOverride: overrides.releaseDateOverride,
     runtimeOverride: overrides.runtimeOverride,
     genresOverride: overrides.genresOverride,
+    countryOverride: overrides.countryOverride,
+    languageOverride: overrides.languageOverride,
     overviewOverride: overrides.overviewOverride,
     posterPathOverride: overrides.posterPathOverride,
     backdropPathOverride: overrides.backdropPathOverride,
@@ -8811,6 +8819,8 @@ function normalizeFilmMetadataOverrides(source = {}) {
     releaseDateOverride: normalizeText(source.releaseDateOverride).slice(0, 40),
     runtimeOverride: normalizeFilmRuntimeOverride(source.runtimeOverride),
     genresOverride: normalizeFilmGenresOverride(source.genresOverride),
+    countryOverride: normalizeText(source.countryOverride).slice(0, 120),
+    languageOverride: normalizeText(source.languageOverride).slice(0, 120),
     overviewOverride: normalizeText(source.overviewOverride),
     posterPathOverride: normalizeFilmImagePathOverride(source.posterPathOverride),
     backdropPathOverride: normalizeFilmImagePathOverride(source.backdropPathOverride),
@@ -8915,6 +8925,8 @@ function createFilmMetadataDraft(record = {}) {
       ? ''
       : String(record.runtimeOverride),
     genresOverride: Array.isArray(record.genresOverride) ? record.genresOverride.join(', ') : normalizeText(record.genresOverride || ''),
+    countryOverride: normalizeText(record.countryOverride || ''),
+    languageOverride: normalizeText(record.languageOverride || ''),
     overviewOverride: normalizeText(record.overviewOverride || ''),
     posterPathOverride: normalizeText(record.posterPathOverride || ''),
     backdropPathOverride: normalizeText(record.backdropPathOverride || ''),
@@ -9192,6 +9204,8 @@ function toMoviePayload(source = {}, tmdbId = 0) {
     releaseDate: source.cacheReleaseDate || source.releaseDate || (source.year ? `${source.year}-01-01` : ''),
     runtime: source.cacheRuntime ?? source.runtime ?? null,
     genres: Array.isArray(source.cacheGenres) ? source.cacheGenres : (Array.isArray(source.genres) ? source.genres : []),
+    country: source.cacheCountry || source.country || '',
+    language: source.cacheLanguage || source.language || '',
     voteAverage: source.voteAverage ?? source.tmdbRating ?? null,
     voteCount: source.voteCount ?? null
   };
@@ -9284,6 +9298,8 @@ function createOptimisticManualFilmRecord(film = {}, patch = {}) {
     genres: Array.isArray(patch.genresOverride) && patch.genresOverride.length
       ? patch.genresOverride
       : (Array.isArray(film.genres) ? film.genres : (Array.isArray(existing?.genres) ? existing.genres : [])),
+    country: patch.countryOverride || film.country || existing?.country || '',
+    language: patch.languageOverride || film.language || existing?.language || '',
     voteAverage: null,
     voteCount: null
   };
@@ -9446,6 +9462,8 @@ function getVisibleFilmRecords() {
       record.title,
       record.originalTitle,
       record.director,
+      record.country,
+      record.language,
       ...(Array.isArray(record.genres) ? record.genres : []),
       record.year,
       record.releaseDate,
@@ -9464,9 +9482,6 @@ function getVisibleFilmRecords() {
   }
   if (activeFilter === 'Watched') {
     return filteredByQuery.filter((record) => record.status === 'watched');
-  }
-  if (activeFilter === 'Watching') {
-    return filteredByQuery.filter((record) => record.status === 'watching');
   }
   if (activeFilter === 'Watchlist') {
     return filteredByQuery.filter((record) => record.status === 'watchlist' || record.status === 'wantToWatch');
@@ -10005,6 +10020,89 @@ async function saveFilmWatchedDate(tmdbId, watchedAt, { silent = true } = {}) {
   }
 }
 
+function patchFilmSaveStatusDom() {
+  if (!refs.root || !state.filmDetailOpen) {
+    return false;
+  }
+  const status = state.filmSaveStatus;
+  const nodes = refs.root.querySelectorAll('[data-film-save-status]');
+  if (!nodes.length) {
+    return false;
+  }
+  nodes.forEach((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+    node.classList.remove('is-visible', 'is-saving', 'is-saved', 'is-error');
+    if (!status?.label) {
+      node.textContent = '';
+      return;
+    }
+    node.textContent = status.label;
+    node.classList.add('is-visible', `is-${status.state || 'saved'}`);
+  });
+  return true;
+}
+
+function refreshActiveFilmBackdropFrameFromState() {
+  syncFilmBackdropFrameImages(getActiveFilmRecord() || createFilmBackdropFrameDraft(), {
+    includeDetail: true,
+    includePicker: true
+  });
+}
+
+function patchFilmDetailChild(currentPage, nextPage, selector, { parentSelector = '' } = {}) {
+  const current = currentPage.querySelector(selector);
+  const next = nextPage.querySelector(selector);
+  if (current instanceof HTMLElement && next instanceof HTMLElement) {
+    if (current.outerHTML !== next.outerHTML) {
+      current.replaceWith(next);
+    }
+    return true;
+  }
+  if (current instanceof HTMLElement && !next) {
+    current.remove();
+    return true;
+  }
+  if (!current && next instanceof HTMLElement) {
+    const parent = parentSelector ? currentPage.querySelector(parentSelector) : currentPage;
+    if (parent instanceof HTMLElement) {
+      parent.appendChild(next);
+    } else {
+      currentPage.appendChild(next);
+    }
+    return true;
+  }
+  return false;
+}
+
+function patchFilmBackdropLayer(currentPage, nextPage) {
+  const currentLayer = currentPage.querySelector('.cml-film-detail-page__backdrop');
+  const nextLayer = nextPage.querySelector('.cml-film-detail-page__backdrop');
+  if (!(currentLayer instanceof HTMLElement) || !(nextLayer instanceof HTMLElement)) {
+    return patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail-page__backdrop');
+  }
+  const currentImage = currentLayer.querySelector('img');
+  const nextImage = nextLayer.querySelector('img');
+  if (!(nextImage instanceof HTMLImageElement)) {
+    currentLayer.textContent = '';
+    return true;
+  }
+  if (!(currentImage instanceof HTMLImageElement)) {
+    currentLayer.textContent = '';
+    currentLayer.appendChild(nextImage);
+    return true;
+  }
+  if (currentImage.getAttribute('src') !== nextImage.getAttribute('src')) {
+    currentImage.setAttribute('src', nextImage.getAttribute('src') || '');
+  }
+  currentImage.className = nextImage.className;
+  currentImage.alt = nextImage.alt;
+  currentImage.dataset.filmBackdropIndex = nextImage.dataset.filmBackdropIndex || '0';
+  currentImage.style.cssText = nextImage.style.cssText;
+  return true;
+}
+
 function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
   if (!refs.root || !state.filmDetailOpen || !state.activeFilmId) {
     return false;
@@ -10044,16 +10142,39 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
   if (!currentPage.isConnected || currentPage !== refs.root.querySelector('[data-film-detail-page]')) {
     return false;
   }
-  currentPage.replaceWith(nextPage);
-  syncFilmBackdropFrameImages(getActiveFilmRecord() || createFilmBackdropFrameDraft(), {
-    includeDetail: true,
-    includePicker: true
+  currentPage.className = nextPage.className;
+  patchFilmBackdropLayer(currentPage, nextPage);
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail-page__scrim');
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__topline');
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__poster-wrap');
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__title-block');
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__rating');
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__meta-row');
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__body > .cml-film-metadata-editor', {
+    parentSelector: '.cml-film-detail__body'
   });
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-image-picker', {
+    parentSelector: '.cml-film-detail__body'
+  });
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__diary-rail');
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__diary-main > .cml-film-detail__section:not(.cml-film-detail__section--notes)', {
+    parentSelector: '.cml-film-detail__diary-main'
+  });
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__section--notes', {
+    parentSelector: '.cml-film-detail__diary-main'
+  });
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__actions');
+  refreshActiveFilmBackdropFrameFromState();
   return true;
 }
 
-function renderFilmMutationState({ allowRenderFallback = true } = {}) {
-  if (patchActiveFilmDetailView({ allowRenderFallback })) {
+function renderFilmMutationState({ allowRenderFallback = true, patchDetail = true } = {}) {
+  if (patchDetail && patchActiveFilmDetailView({ allowRenderFallback })) {
+    scheduleFilmBackdropRotation();
+    return;
+  }
+  if (!patchDetail && patchFilmSaveStatusDom()) {
+    refreshActiveFilmBackdropFrameFromState();
     scheduleFilmBackdropRotation();
     return;
   }
@@ -10070,12 +10191,12 @@ function setFilmSaveStatus(label = '', statusState = 'saved', { duration = 1200 
   state.filmSaveStatus = label
     ? { label, state: statusState, updatedAt: Date.now() }
     : null;
-  renderFilmMutationState({ allowRenderFallback: true });
+  renderFilmMutationState({ allowRenderFallback: true, patchDetail: false });
   if (label && duration > 0) {
     filmSaveStatusTimer = window.setTimeout(() => {
       filmSaveStatusTimer = 0;
       state.filmSaveStatus = null;
-      renderFilmMutationState({ allowRenderFallback: true });
+      renderFilmMutationState({ allowRenderFallback: true, patchDetail: false });
     }, duration);
   }
 }
@@ -10197,6 +10318,8 @@ function buildFilmMetadataPatchFromDraft(draft = {}) {
     releaseDateOverride: draft.releaseDateOverride,
     runtimeOverride: draft.runtimeOverride,
     genresOverride: draft.genresOverride,
+    countryOverride: draft.countryOverride,
+    languageOverride: draft.languageOverride,
     overviewOverride: draft.overviewOverride,
     posterPathOverride: draft.posterPathOverride,
     backdropPathOverride: draft.backdropPathOverride,
@@ -10338,7 +10461,7 @@ function createManualFilmEntry() {
   focusFilmMetadataEditor('titleOverride');
 }
 
-async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film updated', keepDetailOpen = true, showSaving = false, showErrorToast = true, savedLabel = 'Saved' } = {}) {
+async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film updated', keepDetailOpen = true, showSaving = false, showErrorToast = true, savedLabel = 'Saved', patchDetail = true } = {}) {
   const existing = state.films.find((record) => record.id === filmId);
   const normalizedId = Number(existing?.tmdbId);
   if (!existing) {
@@ -10390,7 +10513,7 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
   if (state.filmDetailOpen || keepDetailOpen) {
     markFilmSaving('Saving...');
   }
-  renderFilmMutationState();
+  renderFilmMutationState({ patchDetail });
   try {
     markFilmSaving('Saving...');
     if (!isTmdbEntry && filmManualCreateRequests.has(existing.id)) {
@@ -10415,7 +10538,7 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
       showToast(successMessage, 'success');
     }
     markFilmSaved(savedLabel);
-    renderFilmMutationState({ allowRenderFallback: false });
+    renderFilmMutationState({ allowRenderFallback: false, patchDetail });
     return true;
   } catch (error) {
     state.films = previousFilms;
@@ -10424,7 +10547,7 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
     if (showErrorToast) {
       showToast(state.filmError, 'error');
     }
-    renderFilmMutationState();
+    renderFilmMutationState({ patchDetail });
     return false;
   } finally {
     if (showSaving && isTmdbEntry) {
@@ -10866,7 +10989,8 @@ async function saveFilmBackdropFrameDraft({ keepDetailOpen = true, savedLabel = 
     successMessage: '',
     keepDetailOpen,
     showErrorToast: false,
-    savedLabel
+    savedLabel,
+    patchDetail: false
   });
   if (saved) {
     state.filmBackdropFrameDraft = createFilmBackdropFrameDraft(getActiveFilmRecord() || frame);
@@ -10889,7 +11013,8 @@ async function resetFilmBackdropFrame() {
     successMessage: '',
     keepDetailOpen: true,
     showErrorToast: false,
-    savedLabel: 'Frame reset'
+    savedLabel: 'Frame reset',
+    patchDetail: false
   });
 }
 
@@ -10905,7 +11030,7 @@ async function applyFilmImagePathOverride(mode = state.filmImagePickerMode, path
   if (!nextPath) {
     state.filmError = 'No TMDb image path selected';
     markFilmSaveError('Could not save');
-    renderFilmMutationState();
+    renderFilmMutationState({ patchDetail: false });
     return false;
   }
   if (nextPath === currentPath && !normalizeFilmImageOverride(film[urlField] || '')) {
@@ -10972,7 +11097,7 @@ function resetFilmImageOverride(mode = state.filmImagePickerMode) {
   state.filmImagePickerMode = normalizedMode;
   state.filmImagePickerDraft = '';
   state.filmBackdropFrameDraft = normalizedMode === 'backdrop'
-    ? createFilmBackdropFrameDraft(film)
+    ? createFilmBackdropFrameDraft({})
     : null;
   void saveFilmEntryPatch(film.id, {
     [pathField]: '',
@@ -11001,7 +11126,7 @@ async function commitFilmImagePickerDraft({ keepDetailOpen = true } = {}) {
     if (rawValue && !nextValue) {
       state.filmError = 'Use an http(s) or /file/ image URL';
       markFilmSaveError('Could not save');
-      renderFilmMutationState();
+      renderFilmMutationState({ patchDetail: false });
       focusFilmImagePickerInput();
       return false;
     }

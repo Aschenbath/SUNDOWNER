@@ -20,6 +20,28 @@ function normalizeGenres(value) {
     .filter(Boolean);
 }
 
+function normalizeCountries(dto = {}) {
+  const countries = [];
+  const addCountry = (value) => {
+    const country = normalizeText(value, 80);
+    if (country && !countries.includes(country)) {
+      countries.push(country);
+    }
+  };
+  (Array.isArray(dto.production_countries) ? dto.production_countries : [])
+    .forEach((country) => addCountry(country?.name || country?.iso_3166_1));
+  (Array.isArray(dto.origin_country) ? dto.origin_country : [])
+    .forEach(addCountry);
+  return countries.slice(0, 4).join(' / ');
+}
+
+function normalizeLanguage(dto = {}) {
+  const original = normalizeText(dto.original_language, 40);
+  const spoken = Array.isArray(dto.spoken_languages) ? dto.spoken_languages : [];
+  const matched = spoken.find((language) => normalizeText(language?.iso_639_1, 40) === original);
+  return normalizeText(matched?.english_name || matched?.name || spoken[0]?.english_name || spoken[0]?.name || original, 80);
+}
+
 function normalizeBackdropPaths(dto = {}) {
   const paths = [];
   const addPath = (value) => {
@@ -149,6 +171,8 @@ export function normalizeTmdbMovie(dto = {}) {
     releaseDate: normalizeText(dto.release_date || dto.first_air_date, 40),
     runtime: normalizeNumber(dto.runtime, null),
     genres: normalizeGenres(dto.genres || dto.genre_names),
+    country: normalizeCountries(dto),
+    language: normalizeLanguage(dto),
     voteAverage: normalizeNumber(dto.vote_average, null),
     voteCount: normalizeNumber(dto.vote_count, null),
   };

@@ -32,6 +32,8 @@ function createMovie(overrides = {}) {
     releaseDate: '2026-01-01',
     runtime: 100,
     genres: ['Drama'],
+    country: 'United States',
+    language: 'English',
     director: 'Jane Director',
     voteAverage: 7.2,
     backdropPaths: ['/backdrop.jpg'],
@@ -103,12 +105,16 @@ describe('MovieRepository', () => {
     assert.equal(result.movie.title, 'Movie');
     assert.deepEqual(result.movie.posterPaths, ['/poster.jpg']);
     assert.deepEqual(result.movie.backdropPaths, ['/backdrop.jpg']);
+    assert.equal(result.movie.country, 'United States');
+    assert.equal(result.movie.language, 'English');
 
     const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
     assert.equal(cachedMovie.title, 'Movie');
     assert.equal(cachedMovie.director, 'Jane Director');
     assert.deepEqual(cachedMovie.posterPaths, ['/poster.jpg']);
     assert.deepEqual(cachedMovie.backdropPaths, ['/backdrop.jpg']);
+    assert.equal(cachedMovie.country, 'United States');
+    assert.equal(cachedMovie.language, 'English');
     assert.equal(cachedMovie.userRating, undefined);
     assert.equal(cachedMovie.note, undefined);
     assert.equal(cachedMovie.watchStatus, undefined);
@@ -303,6 +309,8 @@ describe('MovieRepository', () => {
       source: 'manual',
       watchStatus: 'wantToWatch',
       titleOverride: 'Manual One',
+      countryOverride: 'Japan',
+      languageOverride: 'Japanese',
       posterPathOverride: '/manual-poster.jpg',
       backdropUrlOverride: 'https://example.com/backdrop.jpg',
     });
@@ -316,9 +324,13 @@ describe('MovieRepository', () => {
     assert.equal(updated.entry.source, 'manual');
     assert.equal(updated.entry.tmdbId, null);
     assert.equal(updated.entry.titleOverride, 'Manual Two');
+    assert.equal(updated.entry.countryOverride, 'Japan');
+    assert.equal(updated.entry.languageOverride, 'Japanese');
     assert.equal(updated.entry.posterPathOverride, '/manual-poster.jpg');
     assert.equal(updated.entry.backdropUrlOverride, 'https://example.com/backdrop.jpg');
     assert.equal(updated.movie.title, 'Manual Two');
+    assert.equal(updated.movie.country, 'Japan');
+    assert.equal(updated.movie.language, 'Japanese');
 
     const list = await repository.listUserEntries();
     assert.equal(list.length, 1);

@@ -22,6 +22,7 @@ describe('media library download actions', () => {
     assert.match(html, /cml-films-search__live/);
     assert.match(html, /data-action="filter-films"/);
     assert.match(html, /data-film-filter="Watched"/);
+    assert.doesNotMatch(html, /data-film-filter="Watching"/);
     assert.doesNotMatch(html, /cml-films-filters__chip[^>]*disabled/);
     assert.match(html, /Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables/);
     assert.match(html, /No saved films yet/);
@@ -606,6 +607,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /FILM_BACKDROP_FRAME_FIELDS\.forEach/);
     const metadataFieldsMatch = appSource.match(/const FILM_METADATA_FIELDS = \[([\s\S]*?)\];/);
     assert.ok(metadataFieldsMatch);
+    assert.match(metadataFieldsMatch[1], /countryOverride/);
+    assert.match(metadataFieldsMatch[1], /languageOverride/);
     assert.doesNotMatch(metadataFieldsMatch[1], /backdropZoomOverride/);
     assert.match(appSource, /async function commitPendingFilmEditsBeforeAction/);
     assert.match(appSource, /function commitFilmNotesEdit/);
@@ -693,7 +696,18 @@ describe('media library download actions', () => {
     assert.match(appSource, /querySelector\('\.cml-film-metadata-editor'\)/);
     assert.match(appSource, /FILM_METADATA_FIELDS\.forEach/);
     assert.match(appSource, /function patchActiveFilmDetailView/);
+    assert.match(appSource, /function patchFilmBackdropLayer/);
+    assert.match(appSource, /function patchFilmDetailChild/);
+    const detailPatchFunction = appSource.match(/function patchActiveFilmDetailView[\s\S]*?function renderFilmMutationState/);
+    assert.ok(detailPatchFunction);
+    assert.doesNotMatch(detailPatchFunction[0], /currentPage\.replaceWith\(nextPage\)/);
+    assert.doesNotMatch(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__hero'\)/);
+    assert.doesNotMatch(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__lower'\)/);
+    assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__rating'\)/);
+    assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__diary-rail'\)/);
+    assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__section--notes'/);
     assert.match(appSource, /function renderFilmMutationState/);
+    assert.match(appSource, /patchDetail = true/);
     assert.match(appSource, /renderFilmMutationState\(\);/);
     assert.match(appSource, /const FILM_BACKDROP_ROTATION_MS = 7200/);
     assert.match(appSource, /filmBackdropIndexByFilmId: \{\}/);
@@ -711,6 +725,8 @@ describe('media library download actions', () => {
     assert.match(repositorySource, /posterPathOverride: normalizeImagePathOverride/);
     assert.match(repositorySource, /backdropPathOverride: normalizeImagePathOverride/);
     assert.match(repositorySource, /posterUrlOverride: normalizeImageUrlOverride/);
+    assert.match(repositorySource, /countryOverride: normalizeText/);
+    assert.match(repositorySource, /languageOverride: normalizeText/);
     assert.match(repositorySource, /backdropZoomOverride: normalizeBackdropZoomOverride/);
     assert.match(repositorySource, /backdropPositionXOverride: normalizeBackdropPositionOverride/);
     assert.match(repositorySource, /backdropPositionYOverride: normalizeBackdropPositionOverride/);
@@ -721,6 +737,8 @@ describe('media library download actions', () => {
     assert.match(clientSource, /append_to_response: 'credits,images'/);
     assert.match(clientSource, /function normalizePosterPaths/);
     assert.match(clientSource, /function normalizeBackdropPaths/);
+    assert.match(clientSource, /function normalizeCountries/);
+    assert.match(clientSource, /function normalizeLanguage/);
   });
 
   it('anchors shrink-fitted Film backdrop frames from the top without animated geometry', () => {

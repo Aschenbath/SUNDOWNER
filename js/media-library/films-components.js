@@ -1,4 +1,4 @@
-import { FILM_FILTERS } from './films-data.js?v=5';
+import { FILM_FILTERS } from './films-data.js?v=6';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -215,7 +215,7 @@ function getDetailStatusLabel(status = '') {
   const labels = {
     watchlist: 'Want',
     wantToWatch: 'Want',
-    watching: 'Watching',
+    watching: 'Want',
     watched: 'Watched',
     paused: 'Paused',
     dropped: 'Dropped'
@@ -227,7 +227,7 @@ function getSearchStatusLabel(status = '') {
   const labels = {
     watchlist: 'Want',
     wantToWatch: 'Want',
-    watching: 'Watching',
+    watching: 'Want',
     watched: 'Watched',
     paused: 'Paused',
     dropped: 'Dropped'
@@ -265,7 +265,7 @@ function renderDetailChip(label, extraClass = '', { editable = false, field = ''
   }
   if (
     extraClass.includes('cml-film-detail__chip--watched')
-    && !/(Want|Watching|Watched|Paused|Dropped)/.test(normalizedLabel)
+    && !/(Want|Watched|Paused|Dropped)/.test(normalizedLabel)
   ) {
     return '';
   }
@@ -288,13 +288,15 @@ function renderDetailMetaColumn(label, value, icon = '', { editable = false, fie
 }
 
 function getDetailStatusValue(status = '') {
+  if (status === 'watching') {
+    return 'wantToWatch';
+  }
   return status === 'watchlist' ? 'wantToWatch' : (status || '');
 }
 
 function renderDetailStatusControls(record = {}) {
   const statuses = [
     ['wantToWatch', 'Want'],
-    ['watching', 'Watching'],
     ['watched', 'Watched'],
     ['paused', 'Paused'],
     ['dropped', 'Dropped']
@@ -697,6 +699,20 @@ const FOCUSED_METADATA_FIELDS = {
       return Array.isArray(record.genres) ? record.genres.filter(Boolean).join(', ') : '';
     }
   },
+  countryOverride: {
+    title: 'Edit country',
+    label: 'Country',
+    placeholder(record = {}) {
+      return record.country || '';
+    }
+  },
+  languageOverride: {
+    title: 'Edit language',
+    label: 'Language',
+    placeholder(record = {}) {
+      return record.language || '';
+    }
+  },
   overviewOverride: {
     title: 'Edit synopsis',
     label: 'Synopsis',
@@ -738,6 +754,8 @@ function renderFilmMetadataFieldPicker(record = {}) {
           ${renderFilmMetadataShortcut('Date', 'releaseDateOverride', filmId)}
           ${renderFilmMetadataShortcut('Runtime', 'runtimeOverride', filmId)}
           ${renderFilmMetadataShortcut('Genres', 'genresOverride', filmId)}
+          ${renderFilmMetadataShortcut('Country', 'countryOverride', filmId)}
+          ${renderFilmMetadataShortcut('Language', 'languageOverride', filmId)}
         </div>
         <div class="cml-film-metadata-shortcuts__group">
           <p>Writing</p>
@@ -812,6 +830,8 @@ function renderFilmMetadataEditor(record = {}, draft = {}, { focusField = '' } =
         ${renderFilmMetadataInput({ label: 'Release date override', field: 'releaseDateOverride', type: 'date', value: String(draft.releaseDateOverride || '').slice(0, 10), placeholder: String(record.releaseDate || '').slice(0, 10) })}
         ${renderFilmMetadataInput({ label: 'Runtime override', field: 'runtimeOverride', type: 'number', value: draft.runtimeOverride || '', placeholder: record.runtime ? `${record.runtime}` : 'Minutes' })}
         ${renderFilmMetadataInput({ label: 'Genres override', field: 'genresOverride', value: draft.genresOverride || '', placeholder: genres })}
+        ${renderFilmMetadataInput({ label: 'Country override', field: 'countryOverride', value: draft.countryOverride || '', placeholder: record.country || '' })}
+        ${renderFilmMetadataInput({ label: 'Language override', field: 'languageOverride', value: draft.languageOverride || '', placeholder: record.language || '' })}
       </div>
       ${renderFilmMetadataInput({ label: 'Synopsis override', field: 'overviewOverride', value: draft.overviewOverride || '', placeholder: record.overview || '', multiline: true })}
       <div class="cml-film-metadata-editor__grid">
@@ -1042,6 +1062,8 @@ function applyFilmMetadataDraft(record = {}, draft = {}) {
     year: releaseDate ? releaseDate.slice(0, 4) : record.year,
     runtime: Number.isFinite(runtime) && runtime > 0 ? runtime : record.runtime,
     genres: genres.length ? genres : record.genres,
+    country: normalizeText(draft.countryOverride) || record.country,
+    language: normalizeText(draft.languageOverride) || record.language,
     overview: normalizeText(draft.overviewOverride) || record.overview,
     posterPath: posterPathOverride || record.posterPath,
     posterPathOverride: posterPathOverride || record.posterPathOverride,
