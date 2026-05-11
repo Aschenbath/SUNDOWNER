@@ -206,7 +206,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /const FILM_ACTION_NAMES = new Set\(\[/);
     assert.match(appSource, /FILM_ACTION_NAMES\.has\(actionTarget\.dataset\.action \|\| ''\)/);
     assert.match(appSource, /return '#\/films\/' \+ encodeURIComponent\(state\.activeFilmId\)/);
-    assert.match(appSource, /state\.filmDetailOpen = false;\s+clearTransientFilmDetail\(\);\s+resetFilmBackdropRotation\(\);\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesPreview = false;\s+state\.filmMetadataEditing = false;\s+state\.filmMetadataDraft = null;\s+state\.filmMetadataFocusField = '';\s+state\.filmMoreActionsOpen = false;\s+clearPrivateViewState\(\);/);
+    assert.match(appSource, /state\.filmDetailOpen = false;\s+clearTransientFilmDetail\(\);\s+resetFilmBackdropRotation\(\);\s+state\.filmNotesEditing = false;\s+state\.filmNotesDraft = '';\s+state\.filmNotesActiveLine = 0;\s+state\.filmNotesPreview = false;\s+state\.filmMetadataEditing = false;\s+state\.filmMetadataDraft = null;\s+state\.filmMetadataFocusField = '';\s+state\.filmMoreActionsOpen = false;\s+clearPrivateViewState\(\);/);
     assert.doesNotMatch(appSource, /case 'save-film-status':\s+void saveFilmStatus\([^;]+openAfterSave:\s*true/s);
     const detailFunction = appSource.slice(
       appSource.indexOf('async function openTmdbFilmDetail'),
@@ -286,7 +286,7 @@ describe('media library download actions', () => {
     assert.ok(html.indexOf('cml-film-detail__diary-grid') > html.indexOf('cml-film-detail__lower'));
     assert.ok(html.indexOf('cml-film-detail__diary-grid') > html.indexOf('cml-film-detail__hero'));
     assert.match(html, /cml-film-detail__watch-event-card/);
-    assert.match(html, /Add notes or rating for this watch/);
+    assert.doesNotMatch(html, /Add notes or rating for this watch/);
     assert.match(html, /Private signals/);
     assert.match(html, /cml-film-detail__signals-card/);
     assert.doesNotMatch(html, /Personal rating/);
@@ -315,6 +315,7 @@ describe('media library download actions', () => {
     assert.match(html, /cml-film-detail__image-tools/);
     assert.match(html, /data-action="film-change-poster"/);
     assert.match(html, /data-action="film-change-backdrop"/);
+    assert.match(html, /data-film-detail-overlays/);
     assert.match(html, /cml-film-image-picker/);
     assert.match(html, /data-film-image-picker="backdrop"/);
     assert.match(html, /cml-film-image-picker__preview/);
@@ -331,7 +332,7 @@ describe('media library download actions', () => {
     assert.match(html, /Selected/);
     assert.match(html, /data-film-image-picker-url/);
     assert.doesNotMatch(html, />Apply<\/button>/);
-    assert.match(html, /save as you leave the field/);
+    assert.doesNotMatch(html, /save as you leave the field/);
     assert.match(html, />Reset TMDb<\/button>/);
     assert.match(html, /data-action="film-clear-image-override"/);
     assert.doesNotMatch(html, /data-action="film-open-tmdb"/);
@@ -346,8 +347,8 @@ describe('media library download actions', () => {
     assert.match(pickerPreviewMatch[1], /--film-backdrop-scale: 0\.58/);
     assert.match(pickerPreviewMatch[1], /--film-backdrop-opacity: 0\.44/);
     assert.doesNotMatch(html, /data-action="film-mark-rewatch"/);
-    assert.doesNotMatch(html, /data-action="film-refresh-tmdb"/);
-    assert.doesNotMatch(html, /data-action="film-remove-entry"/);
+    assert.match(html, /data-action="film-refresh-tmdb"/);
+    assert.match(html, /data-action="film-remove-entry"/);
     assert.ok(html.indexOf('cml-film-detail__synopsis-inline') > html.indexOf('cml-film-detail__meta-row'));
     assert.ok(html.indexOf('cml-film-detail__synopsis-inline') < html.indexOf('cml-film-detail__lower'));
     assert.match(html, /data-film-watch-event-input/);
@@ -435,7 +436,7 @@ describe('media library download actions', () => {
         journal: 'Saved note',
       },
       notesEditing: true,
-      notesDraft: 'Draft **note**',
+      notesDraft: 'Draft **note**\nRendered **line**',
     });
     const previewHtml = FilmDetailPage({
       record: {
@@ -445,7 +446,7 @@ describe('media library download actions', () => {
         journal: 'Saved note',
       },
       notesEditing: true,
-      notesDraft: 'Draft **note**',
+      notesDraft: 'Draft **note**\nRendered **line**',
       notesPreview: true,
       saveStatus: { state: 'saving', label: 'Saving...' },
     });
@@ -459,6 +460,9 @@ describe('media library download actions', () => {
     assert.doesNotMatch(viewHtml, /My notes/);
     assert.match(editHtml, /data-film-notes-draft/);
     assert.match(editHtml, /cml-film-notes-editor/);
+    assert.match(editHtml, /cml-film-notes-editor__surface/);
+    assert.match(editHtml, /data-film-notes-line-index="0"[\s\S]*contenteditable="true"[\s\S]*Draft \*\*note\*\*/);
+    assert.match(editHtml, /data-action="film-edit-notes-line"[\s\S]*<strong>line<\/strong>/);
     assert.match(editHtml, /Draft \*\*note\*\*/);
     assert.doesNotMatch(editHtml, /Autosave on blur/);
     assert.doesNotMatch(editHtml, /data-film-save-status="notes"/);
@@ -478,6 +482,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(previewHtml, /data-film-notes-preview/);
     assert.doesNotMatch(previewHtml, /data-film-notes-live-preview/);
     assert.doesNotMatch(previewHtml, /<strong>note<\/strong>/);
+    assert.match(previewHtml, /<strong>line<\/strong>/);
     assert.doesNotMatch(previewHtml, /data-film-save-status="notes"/);
     assert.doesNotMatch(previewHtml, /Markdown renders live/);
     assert.match(previewHtml, /data-film-save-status="detail">Saving\.\.\.<\/span>/);

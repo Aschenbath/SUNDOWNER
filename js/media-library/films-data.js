@@ -11,6 +11,7 @@ export const FILM_FILTERS = ['All', 'Watched', 'Watchlist', 'Favourites'];
 export const FILM_STATUS_LABELS = {
   watchlist: 'Want',
   wantToWatch: 'Want',
+  watching: 'Watching',
   watched: 'Watched',
   paused: 'Paused',
   dropped: 'Dropped'

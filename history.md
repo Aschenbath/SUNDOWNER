@@ -38,6 +38,7 @@ This file is the working memory for the active SUNDOWNER repo. It keeps current-
 
 ###### Work Log
 
+- 20:47 | [films][detail-ux] Moved saved-film metadata and image pickers into anchored detail overlays; added poster/backdrop contextual controls, line-based hybrid Markdown notes editing, visible watch-date editing affordance, and restored real `watching` status semantics. Cache: `app.js?v=258`, `films-components.js?v=60`, `films-data.js?v=7`, `media-library.css?v=242`. Validation: syntax checks, `git diff --check`, full Mocha 390 passing.
 - 19:54 | [films][detail-editing] Kept Synopsis editing in-place as a full-width detail surface; simplified Notes editing to one writing surface with no live-preview panel or instructional autosave copy. Cache: `app.js?v=257`, `films-components.js?v=59`, `media-library.css?v=241`. Validation: syntax checks, diff-check, targeted Films Mocha 149 passing.
 - 19:37 | [history][memory] Compacted project `history.md` into quick-read format: read protocol, scope map, active chronicle, archive index, and bottom Tail Capsule. Raw pre-compaction table preserved at `history.archive\2026-May-raw.md`. Validation: tail check, archive size check, cached diff-check.
 - 19:11 | [films][detail][surgical] Removed visible Synopsis block and redundant labels; moved synopsis under Director/Release/Runtime row; flattened image tools into quiet Poster/Backdrop controls; removed More/Open TMDb detail affordance. Cache: `app.js?v=256`, `films-components.js?v=58`, `media-library.css?v=240`. Validation: syntax checks, diff-check, targeted Films Mocha 149 passing.
@@ -123,8 +124,8 @@ This file is the working memory for the active SUNDOWNER repo. It keeps current-
 
 - read-protocol: start with `Get-Content history.md -Tail 12`; then read latest day if the task touches current work.
 - current-focus: Films detail UX polish, surgical changes only.
-- latest-state: 2026-May-11 19:54; `app.js?v=257`, `films-components.js?v=59`, `media-library.css?v=241`.
-- latest-validation: syntax checks, `git diff --check`, targeted Films Mocha 149 passing.
+- latest-state: 2026-May-11 20:47; `app.js?v=258`, `films-components.js?v=60`, `films-data.js?v=7`, `media-library.css?v=242`.
+- latest-validation: syntax checks, `git diff --check`, full Mocha 390 passing.
 - hot-path: Film Detail active patching should keep `[data-film-detail-page]` root/backdrop stable and patch targeted children.
 - current-boundaries: do not redesign global shell/theme/sidebar/topbar; do not touch unrelated media modules for Films polish.
 - open-loop: browser/manual QA is not assumed unless explicitly documented.

@@ -69,8 +69,8 @@ import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-sup
 import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
-} from './films-data.js?v=6';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=59';
+} from './films-data.js?v=7';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=60';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -148,6 +148,7 @@ const FILM_ACTION_NAMES = new Set([
   'clear-film-library-search',
   'film-toggle-favourite',
   'film-edit-notes',
+  'film-edit-notes-line',
   'film-notes-format',
   'film-notes-preview-toggle',
   'film-edit-metadata',
@@ -517,6 +518,7 @@ const state = {
   filmError: '',
   filmNotesEditing: false,
   filmNotesDraft: '',
+  filmNotesActiveLine: 0,
   filmNotesPreview: false,
   filmMetadataEditing: false,
   filmMetadataDraft: null,
@@ -9393,6 +9395,7 @@ async function deleteFilmEntry(filmIdOrTmdbId, { silent = false } = {}) {
     state.filmMoreActionsOpen = false;
     state.filmNotesEditing = false;
     state.filmNotesDraft = '';
+    state.filmNotesActiveLine = 0;
     state.filmNotesPreview = false;
     state.filmMetadataEditing = false;
     state.filmMetadataDraft = null;
@@ -9777,6 +9780,7 @@ async function openTmdbFilmDetail(tmdbId) {
   state.filmError = '';
   state.filmNotesEditing = false;
   state.filmNotesDraft = '';
+  state.filmNotesActiveLine = 0;
   state.filmNotesPreview = false;
   state.filmMetadataEditing = false;
   state.filmMetadataDraft = null;
@@ -10122,6 +10126,7 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
     notesEditing: state.filmNotesEditing,
     notesDraft: state.filmNotesDraft,
     notesPreview: state.filmNotesPreview,
+    notesActiveLine: state.filmNotesActiveLine,
     metadataEditing: state.filmMetadataEditing,
     metadataDraft: state.filmMetadataDraft,
     metadataFocusField: state.filmMetadataFocusField,
@@ -10152,17 +10157,11 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__title-block');
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__rating');
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__meta-row');
-  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__body > .cml-film-metadata-editor', {
-    parentSelector: '.cml-film-detail__body'
-  });
-  patchFilmDetailChild(currentPage, nextPage, '.cml-film-image-picker', {
-    parentSelector: '.cml-film-detail__body'
-  });
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__synopsis-inline', {
     parentSelector: '.cml-film-detail__body'
   });
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__image-tools', {
-    parentSelector: '.cml-film-detail__body'
+    parentSelector: '.cml-film-detail-page__content'
   });
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__diary-rail');
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__diary-main > .cml-film-detail__section:not(.cml-film-detail__section--notes)', {
@@ -10170,6 +10169,9 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
   });
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__section--notes', {
     parentSelector: '.cml-film-detail__diary-main'
+  });
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__overlay-layer', {
+    parentSelector: '.cml-film-detail-page__content'
   });
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__actions');
   refreshActiveFilmBackdropFrameFromState();
@@ -10227,6 +10229,14 @@ function clearFilmSaveStatus() {
 
 function focusFilmNotesEditor() {
   window.requestAnimationFrame(() => {
+    const lineEditor = refs.root?.querySelector('[data-film-notes-line][contenteditable="true"]');
+    if (lineEditor instanceof HTMLElement) {
+      if (document.activeElement !== lineEditor) {
+        lineEditor.focus({ preventScroll: true });
+      }
+      placeCaretAtEnd(lineEditor);
+      return;
+    }
     const textarea = refs.root?.querySelector('[data-film-notes-draft]');
     if (!(textarea instanceof HTMLTextAreaElement)) {
       return;
@@ -10236,6 +10246,116 @@ function focusFilmNotesEditor() {
     }
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
   });
+}
+
+function getFilmNotesDraftLines() {
+  const draft = String(state.filmNotesDraft ?? '').replace(/\r\n?/g, '\n');
+  return draft.length ? draft.split('\n') : [''];
+}
+
+function setFilmNotesDraftLines(lines = []) {
+  const normalizedLines = Array.isArray(lines) && lines.length
+    ? lines.map((line) => String(line ?? '').replace(/\r\n?/g, '\n').replace(/\n/g, ''))
+    : [''];
+  state.filmNotesDraft = normalizedLines.join('\n');
+  state.filmNotesActiveLine = Math.max(0, Math.min(normalizedLines.length - 1, Number(state.filmNotesActiveLine) || 0));
+}
+
+function getContentEditableCaretOffset(element) {
+  if (!(element instanceof HTMLElement)) {
+    return 0;
+  }
+  const selection = window.getSelection?.();
+  if (!selection || !selection.rangeCount) {
+    return element.textContent?.length || 0;
+  }
+  const range = selection.getRangeAt(0);
+  const preRange = range.cloneRange();
+  preRange.selectNodeContents(element);
+  preRange.setEnd(range.endContainer, range.endOffset);
+  return preRange.toString().length;
+}
+
+function setFilmNotesActiveLine(index = 0) {
+  const lines = getFilmNotesDraftLines();
+  state.filmNotesActiveLine = Math.max(0, Math.min(lines.length - 1, Number(index) || 0));
+  renderFilmMutationState({ allowRenderFallback: true });
+  focusFilmNotesEditor();
+}
+
+function updateFilmNotesLineDraft(index = 0, value = '') {
+  const lines = getFilmNotesDraftLines();
+  const lineIndex = Math.max(0, Math.min(lines.length - 1, Number(index) || 0));
+  lines[lineIndex] = String(value ?? '').replace(/\r\n?/g, '\n').replace(/\n/g, '');
+  state.filmNotesActiveLine = lineIndex;
+  setFilmNotesDraftLines(lines);
+}
+
+function syncActiveFilmNotesLineFromDom() {
+  const line = refs.root?.querySelector('[data-film-notes-line][contenteditable="true"]');
+  if (line instanceof HTMLElement) {
+    updateFilmNotesLineDraft(line.dataset.filmNotesLineIndex || state.filmNotesActiveLine || 0, line.textContent || '');
+  }
+}
+
+function insertFilmNotesLineBreak(target) {
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const lines = getFilmNotesDraftLines();
+  const lineIndex = Math.max(0, Math.min(lines.length - 1, Number(target.dataset.filmNotesLineIndex) || 0));
+  const source = target.textContent || '';
+  const offset = Math.max(0, Math.min(source.length, getContentEditableCaretOffset(target)));
+  lines.splice(lineIndex, 1, source.slice(0, offset), source.slice(offset));
+  state.filmNotesActiveLine = lineIndex + 1;
+  setFilmNotesDraftLines(lines);
+  renderFilmMutationState({ allowRenderFallback: true });
+  focusFilmNotesEditor();
+}
+
+function removeFilmNotesLineBackward(target) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  const lines = getFilmNotesDraftLines();
+  const lineIndex = Math.max(0, Math.min(lines.length - 1, Number(target.dataset.filmNotesLineIndex) || 0));
+  const source = target.textContent || '';
+  if (lineIndex <= 0 || source || getContentEditableCaretOffset(target) > 0) {
+    return false;
+  }
+  lines.splice(lineIndex, 1);
+  state.filmNotesActiveLine = lineIndex - 1;
+  setFilmNotesDraftLines(lines);
+  renderFilmMutationState({ allowRenderFallback: true });
+  focusFilmNotesEditor();
+  return true;
+}
+
+function insertTextIntoFilmNotesLine(target, text = '') {
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const pasted = String(text ?? '').replace(/\r\n?/g, '\n');
+  if (!pasted) {
+    return;
+  }
+  const lines = getFilmNotesDraftLines();
+  const lineIndex = Math.max(0, Math.min(lines.length - 1, Number(target.dataset.filmNotesLineIndex) || 0));
+  const source = target.textContent || '';
+  const offset = Math.max(0, Math.min(source.length, getContentEditableCaretOffset(target)));
+  const insertedLines = pasted.split('\n');
+  const replacement = insertedLines.length === 1
+    ? [`${source.slice(0, offset)}${insertedLines[0]}${source.slice(offset)}`]
+    : [
+      `${source.slice(0, offset)}${insertedLines[0]}`,
+      ...insertedLines.slice(1, -1),
+      `${insertedLines[insertedLines.length - 1]}${source.slice(offset)}`
+    ];
+  lines.splice(lineIndex, 1, ...replacement);
+  state.filmNotesActiveLine = lineIndex + replacement.length - 1;
+  setFilmNotesDraftLines(lines);
+  renderFilmMutationState({ allowRenderFallback: true });
+  focusFilmNotesEditor();
 }
 
 function focusFilmMetadataEditor(field = '') {
@@ -10572,6 +10692,7 @@ function editFilmNotes(filmId) {
   state.filmDetailOpen = true;
   state.filmNotesEditing = true;
   state.filmNotesDraft = film.noteMarkdown || film.journal || '';
+  state.filmNotesActiveLine = 0;
   state.filmNotesPreview = false;
   state.filmMoreActionsOpen = false;
   renderFilmMutationState();
@@ -10697,6 +10818,7 @@ function moveFromFilmDetailToIndex() {
   resetFilmBackdropRotation();
   state.filmNotesEditing = false;
   state.filmNotesDraft = '';
+  state.filmNotesActiveLine = 0;
   state.filmNotesPreview = false;
   state.filmMetadataEditing = false;
   state.filmMetadataDraft = null;
@@ -10756,11 +10878,7 @@ async function openFilmImagePicker(filmId, mode = 'poster') {
     : null;
   state.filmMoreActionsOpen = false;
   renderFilmMutationState();
-  if (state.filmImagePickerMode === 'backdrop') {
-    focusFilmBackdropFrameControl();
-  } else {
-    focusFilmImagePickerInput();
-  }
+  focusFilmImagePickerInput();
 }
 
 function getFilmImageOverrideFields(mode = 'poster') {
@@ -11022,6 +11140,63 @@ async function resetFilmBackdropFrame() {
   });
 }
 
+function buildFilmTmdbImageUrl(path = '', size = 'w342') {
+  const normalized = normalizeFilmImagePathOverride(path);
+  return normalized ? `https://image.tmdb.org/t/p/${size}${normalized}` : '';
+}
+
+function previewFilmImageOverrideDom(mode = 'poster', { path = '', url = '' } = {}) {
+  if (!refs.root) {
+    return;
+  }
+  const normalizedMode = mode === 'backdrop' ? 'backdrop' : 'poster';
+  const customUrl = normalizeFilmImageOverride(url);
+  const tmdbPath = normalizeFilmImagePathOverride(path);
+  refs.root.querySelectorAll(`.cml-film-image-picker__choice[data-film-image-mode="${normalizedMode}"]`).forEach((choice) => {
+    if (!(choice instanceof HTMLElement)) {
+      return;
+    }
+    const active = Boolean(tmdbPath) && normalizeFilmImagePathOverride(choice.dataset.filmImagePath || '') === tmdbPath && !customUrl;
+    choice.classList.toggle('is-active', active);
+    let badge = choice.querySelector('span');
+    if (active && !badge) {
+      badge = document.createElement('span');
+      badge.textContent = 'Selected';
+      choice.appendChild(badge);
+    } else if (!active && badge instanceof HTMLElement) {
+      badge.remove();
+    }
+  });
+  const detailUrl = customUrl || buildFilmTmdbImageUrl(tmdbPath, normalizedMode === 'backdrop' ? 'w1280' : 'w342');
+  const pickerUrl = customUrl || buildFilmTmdbImageUrl(tmdbPath, normalizedMode === 'backdrop' ? 'w780' : 'w342');
+  if (!detailUrl && !pickerUrl) {
+    return;
+  }
+  if (normalizedMode === 'backdrop') {
+    const detailImage = refs.root.querySelector('.cml-film-detail-page__backdrop-image');
+    if (detailImage instanceof HTMLImageElement && detailUrl) {
+      detailImage.src = detailUrl;
+    }
+    const previewImage = refs.root.querySelector('.cml-film-image-picker__preview.is-backdrop img');
+    if (previewImage instanceof HTMLImageElement && pickerUrl) {
+      previewImage.src = pickerUrl;
+    }
+    syncFilmBackdropFrameImages(state.filmBackdropFrameDraft || getActiveFilmRecord() || createFilmBackdropFrameDraft(), {
+      includeDetail: true,
+      includePicker: true
+    });
+    return;
+  }
+  const posterImage = refs.root.querySelector('.cml-film-detail__poster');
+  if (posterImage instanceof HTMLImageElement && detailUrl) {
+    posterImage.src = detailUrl;
+  }
+  const previewImage = refs.root.querySelector('.cml-film-image-picker__preview.is-poster img');
+  if (previewImage instanceof HTMLImageElement && pickerUrl) {
+    previewImage.src = pickerUrl;
+  }
+}
+
 async function applyFilmImagePathOverride(mode = state.filmImagePickerMode, path = '', { keepPickerOpen = true } = {}) {
   const film = getActiveFilmRecord();
   const { mode: normalizedMode, pathField, urlField } = getFilmImageOverrideFields(mode);
@@ -11048,13 +11223,14 @@ async function applyFilmImagePathOverride(mode = state.filmImagePickerMode, path
   if (normalizedMode === 'backdrop' && !state.filmBackdropFrameDraft) {
     state.filmBackdropFrameDraft = createFilmBackdropFrameDraft(film);
   }
+  previewFilmImageOverrideDom(normalizedMode, { path: nextPath });
   if (!keepPickerOpen) {
     closeFilmImagePicker({ shouldRender: false });
   }
   return saveFilmEntryPatch(film.id, {
     [pathField]: nextPath,
     [urlField]: ''
-  }, { successMessage: '', keepDetailOpen: true, showErrorToast: false, savedLabel: normalizedMode === 'backdrop' ? 'Backdrop saved' : 'Poster saved' });
+  }, { successMessage: '', keepDetailOpen: true, showErrorToast: false, savedLabel: normalizedMode === 'backdrop' ? 'Backdrop saved' : 'Poster saved', patchDetail: false });
 }
 
 async function applyFilmImageOverride(mode = state.filmImagePickerMode, value = state.filmImagePickerDraft, { keepPickerOpen = true } = {}) {
@@ -11082,13 +11258,14 @@ async function applyFilmImageOverride(mode = state.filmImagePickerMode, value = 
   }
   state.filmImagePickerMode = normalizedMode;
   state.filmImagePickerDraft = nextValue;
+  previewFilmImageOverrideDom(normalizedMode, { url: nextValue });
   if (!keepPickerOpen) {
     closeFilmImagePicker({ shouldRender: false });
   }
   return saveFilmEntryPatch(film.id, {
     [pathField]: '',
     [urlField]: nextValue
-  }, { successMessage: '', keepDetailOpen: true, showErrorToast: false, savedLabel: normalizedMode === 'backdrop' ? 'Backdrop saved' : 'Poster saved' });
+  }, { successMessage: '', keepDetailOpen: true, showErrorToast: false, savedLabel: normalizedMode === 'backdrop' ? 'Backdrop saved' : 'Poster saved', patchDetail: false });
 }
 
 function resetFilmImageOverride(mode = state.filmImagePickerMode) {
@@ -11136,10 +11313,11 @@ async function commitFilmImagePickerDraft({ keepDetailOpen = true } = {}) {
     }
     if (nextValue !== currentValue) {
       state.filmImagePickerDraft = nextValue;
+      previewFilmImageOverrideDom(state.filmImagePickerMode, { url: nextValue });
       imageSaved = await saveFilmEntryPatch(film.id, {
         [pathField]: '',
         [urlField]: nextValue
-      }, { successMessage: '', keepDetailOpen, showErrorToast: false, savedLabel: 'Image saved' });
+      }, { successMessage: '', keepDetailOpen, showErrorToast: false, savedLabel: 'Image saved', patchDetail: false });
     }
   }
   if (!imageSaved) {
@@ -11230,6 +11408,7 @@ async function commitFilmMetadataEdit({ keepDetailOpen = Boolean(state.filmDetai
 function exitFilmNotesEdit() {
   state.filmNotesEditing = false;
   state.filmNotesDraft = '';
+  state.filmNotesActiveLine = 0;
   state.filmNotesPreview = false;
 }
 
@@ -11330,6 +11509,7 @@ async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(st
   if (!state.filmNotesEditing) {
     return true;
   }
+  syncActiveFilmNotesLineFromDom();
   const film = getActiveFilmRecord();
   if (!film) {
     exitFilmNotesEdit();
@@ -11717,6 +11897,7 @@ async function openFilmDetail(filmId) {
   state.filmDetailOpen = true;
   state.filmNotesEditing = false;
   state.filmNotesDraft = '';
+  state.filmNotesActiveLine = 0;
   state.filmNotesPreview = false;
   state.filmMetadataEditing = false;
   state.filmMetadataDraft = null;
@@ -11745,6 +11926,7 @@ async function closeFilmDetail() {
   resetFilmBackdropRotation();
   state.filmNotesEditing = false;
   state.filmNotesDraft = '';
+  state.filmNotesActiveLine = 0;
   state.filmNotesPreview = false;
   state.filmMetadataEditing = false;
   state.filmMetadataDraft = null;
@@ -12150,6 +12332,7 @@ function render() {
                     notesEditing: state.filmNotesEditing,
                     notesDraft: state.filmNotesDraft,
                     notesPreview: state.filmNotesPreview,
+                    notesActiveLine: state.filmNotesActiveLine,
                     metadataEditing: state.filmMetadataEditing,
                     metadataDraft: state.filmMetadataDraft,
                     metadataFocusField: state.filmMetadataFocusField,
@@ -13108,6 +13291,7 @@ function mount() {
     refs.root.addEventListener('click', handleClick, true);
     refs.root.addEventListener('dblclick', handleDoubleClick, true);
     refs.root.addEventListener('input', handleInput);
+    refs.root.addEventListener('paste', handlePaste);
     refs.root.addEventListener('change', handleChange);
     refs.root.addEventListener('compositionstart', handleCompositionStart);
     refs.root.addEventListener('compositionend', handleCompositionEnd);
@@ -15033,6 +15217,11 @@ function handleAction(actionTarget) {
         }
       })();
       return true;
+    case 'film-edit-notes-line':
+      if (state.filmNotesEditing) {
+        setFilmNotesActiveLine(actionTarget.dataset.filmNotesLineIndex || 0);
+      }
+      return true;
     case 'film-notes-format':
       applyFilmNotesFormat(actionTarget.dataset.filmNotesFormat || '');
       return true;
@@ -15530,6 +15719,10 @@ function handleInput(event) {
       : readMindDraftFromEditor(input);
     return;
   }
+  if (input instanceof HTMLElement && input.hasAttribute('data-film-notes-line')) {
+    updateFilmNotesLineDraft(input.dataset.filmNotesLineIndex || 0, input.textContent || '');
+    return;
+  }
   if (input instanceof HTMLInputElement && input.hasAttribute('data-audio-progress')) {
     seekAudio(input.value);
     return;
@@ -15699,6 +15892,19 @@ function handleInput(event) {
   }
 }
 
+function handlePaste(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || !target.hasAttribute('data-film-notes-line')) {
+    return;
+  }
+  const text = event.clipboardData?.getData('text/plain') || '';
+  if (!text) {
+    return;
+  }
+  event.preventDefault();
+  insertTextIntoFilmNotesLine(target, text);
+}
+
 function handleChange(event) {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) {
@@ -15854,9 +16060,81 @@ function handleKeyDown(event) {
   }
 
   if (state.filmDetailOpen) {
+    if (event.target instanceof HTMLElement && event.target.hasAttribute('data-film-notes-line')) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        insertFilmNotesLineBreak(event.target);
+        return;
+      }
+      if (event.key === 'Backspace' && removeFilmNotesLineBackward(event.target)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelFilmNotesEdit();
+      }
+      return;
+    }
+    if (event.target instanceof HTMLTextAreaElement && event.target.hasAttribute('data-film-notes-draft')) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelFilmNotesEdit();
+      }
+      return;
+    }
+    if (
+      (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
+      && event.target.hasAttribute('data-film-metadata-field')
+    ) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelFilmMetadataEdit();
+      } else if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
+        event.preventDefault();
+        event.target.blur();
+      }
+      return;
+    }
+    if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-image-picker-url')) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        void commitFilmImagePickerDraft({ keepDetailOpen: true }).then((saved) => {
+          if (saved) {
+            closeFilmImagePicker();
+          }
+        });
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        void applyFilmImageOverride(state.filmImagePickerMode, event.target.value);
+      }
+      return;
+    }
+    if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-watch-event-input')) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.target.blur();
+      }
+      return;
+    }
     const focusedNotesSection = event.target instanceof HTMLElement && event.target.dataset.action === 'film-edit-notes'
       ? event.target
       : null;
+    const focusedNotesLine = event.target instanceof HTMLElement && event.target.dataset.action === 'film-edit-notes-line'
+      ? event.target
+      : null;
+    if (focusedNotesLine && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      event.stopPropagation();
+      handleAction(focusedNotesLine);
+      return;
+    }
     if (focusedNotesSection && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault();
       event.stopPropagation();
@@ -16356,9 +16634,10 @@ function restoreNavigationFromHash() {
         clearTransientFilmDetail();
         resetFilmBackdropRotation();
       }
-      state.filmNotesEditing = false;
-      state.filmNotesDraft = '';
-      state.filmNotesPreview = false;
+  state.filmNotesEditing = false;
+  state.filmNotesDraft = '';
+  state.filmNotesActiveLine = 0;
+  state.filmNotesPreview = false;
       state.filmMetadataEditing = false;
       state.filmMetadataDraft = null;
       state.filmMetadataFocusField = '';
@@ -16437,6 +16716,7 @@ function restoreNavigationFromHash() {
       resetFilmBackdropRotation();
       state.filmNotesEditing = false;
       state.filmNotesDraft = '';
+      state.filmNotesActiveLine = 0;
       state.filmNotesPreview = false;
       state.filmMetadataEditing = false;
       state.filmMetadataDraft = null;
@@ -16453,6 +16733,7 @@ function restoreNavigationFromHash() {
     resetFilmBackdropRotation();
     state.filmNotesEditing = false;
     state.filmNotesDraft = '';
+    state.filmNotesActiveLine = 0;
     state.filmNotesPreview = false;
     state.filmMetadataEditing = false;
     state.filmMetadataDraft = null;
