@@ -212,6 +212,7 @@ describe('manage movies route', () => {
           backdropPathOverride: '/chosen-backdrop.jpg',
           posterUrlOverride: 'https://example.com/poster.jpg',
           backdropUrlOverride: '/file/backdrop.jpg',
+          backdropOpacityOverride: 0.42,
         }),
       }),
       env,
@@ -226,6 +227,7 @@ describe('manage movies route', () => {
     assert.equal(payload.entry.backdropPathOverride, '/chosen-backdrop.jpg');
     assert.equal(payload.entry.posterUrlOverride, 'https://example.com/poster.jpg');
     assert.equal(payload.entry.backdropUrlOverride, '/file/backdrop.jpg');
+    assert.equal(payload.entry.backdropOpacityOverride, 0.42);
     assert.equal(payload.movie.title, 'TMDb Movie');
     assert.equal(payload.movie.posterPathOverride, undefined);
     assert.equal(payload.movie.posterUrlOverride, undefined);

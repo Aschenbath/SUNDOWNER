@@ -244,6 +244,7 @@ describe('media library download actions', () => {
         backdropZoomOverride: 0.82,
         backdropPositionXOverride: 62,
         backdropPositionYOverride: 34,
+        backdropOpacityOverride: 0.72,
       },
       moreActionsOpen: true,
       imagePickerMode: 'backdrop',
@@ -251,6 +252,7 @@ describe('media library download actions', () => {
         backdropZoomOverride: 0.58,
         backdropPositionXOverride: 58,
         backdropPositionYOverride: 29,
+        backdropOpacityOverride: 0.44,
       },
       backdropIndex: 1,
     });
@@ -262,6 +264,7 @@ describe('media library download actions', () => {
     assert.match(html, /--film-backdrop-position-x: 62%/);
     assert.match(html, /--film-backdrop-position-y: 34%/);
     assert.match(html, /--film-backdrop-scale: 0\.82/);
+    assert.match(html, /--film-backdrop-opacity: 0\.72/);
     assert.match(html, /Back to Films/);
     assert.match(html, /Silence of the Sea/);
     assert.match(html, /Le silence de la mer/);
@@ -309,12 +312,13 @@ describe('media library download actions', () => {
     assert.match(html, /data-film-backdrop-frame-field="zoom" style="--film-frame-range-fill:/);
     assert.match(html, /data-film-backdrop-frame-field="x"/);
     assert.match(html, /data-film-backdrop-frame-field="y"/);
+    assert.match(html, /data-film-backdrop-frame-field="opacity"/);
     assert.match(html, /data-action="film-reset-backdrop-frame"/);
     assert.match(html, /data-action="film-pick-image"/);
     assert.match(html, /Selected/);
     assert.match(html, /data-film-image-picker-url/);
-    assert.match(html, />Apply<\/button>/);
-    assert.match(html, /click outside to save/);
+    assert.doesNotMatch(html, />Apply<\/button>/);
+    assert.match(html, /save as you leave the field/);
     assert.match(html, />Reset TMDb<\/button>/);
     assert.match(html, /data-action="film-clear-image-override"/);
     assert.match(html, /data-action="film-refresh-tmdb"/);
@@ -323,10 +327,12 @@ describe('media library download actions', () => {
     const detailBackdropMatch = html.match(/<img class="cml-film-detail-page__backdrop-image"[\s\S]*?style="([^"]+)"/);
     assert.ok(detailBackdropMatch);
     assert.match(detailBackdropMatch[1], /--film-backdrop-scale: 0\.82/);
+    assert.match(detailBackdropMatch[1], /--film-backdrop-opacity: 0\.72/);
     assert.doesNotMatch(detailBackdropMatch[1], /0\.58/);
     const pickerPreviewMatch = html.match(/<div class="cml-film-image-picker__preview is-backdrop">[\s\S]*?<img[^>]*style="([^"]+)"/);
     assert.ok(pickerPreviewMatch);
     assert.match(pickerPreviewMatch[1], /--film-backdrop-scale: 0\.58/);
+    assert.match(pickerPreviewMatch[1], /--film-backdrop-opacity: 0\.44/);
     assert.match(html, /data-action="film-mark-rewatch"/);
     assert.match(html, /data-action="film-remove-entry"/);
     assert.ok(html.indexOf('data-action="film-toggle-favourite"') < html.lastIndexOf('data-action="film-edit-notes"'));
@@ -341,6 +347,8 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /quiet resistance against the German officer/);
     assert.doesNotMatch(html, /role="dialog"/);
     assert.doesNotMatch(html, /cml-film-modal/);
+    assert.doesNotMatch(html, /cml-film-detail__meta-label">My rating/);
+    assert.match(html, /cml-film-detail__meta-label">Runtime/);
   });
 
   it('keeps metadata draft edits from changing saved backdrop framing', () => {
@@ -441,22 +449,25 @@ describe('media library download actions', () => {
     assert.match(editHtml, /cml-film-notes-editor/);
     assert.match(editHtml, /Autosave on blur/);
     assert.match(editHtml, /data-film-save-status="notes">Saved<\/span>/);
-    assert.match(editHtml, /data-action="film-notes-format"/);
-    assert.match(editHtml, /data-film-notes-format="bold"/);
-    assert.match(editHtml, /data-action="film-notes-preview-toggle" aria-pressed="false"/);
-    assert.match(editHtml, /click outside to save/);
+    assert.match(editHtml, /data-film-notes-live-preview/);
+    assert.match(editHtml, /<strong>note<\/strong>/);
+    assert.match(editHtml, /Markdown renders live/);
+    assert.doesNotMatch(editHtml, /data-action="film-notes-format"/);
+    assert.doesNotMatch(editHtml, /data-film-notes-format="bold"/);
+    assert.doesNotMatch(editHtml, /data-action="film-notes-preview-toggle"/);
     assert.doesNotMatch(editHtml, /data-film-notes-preview/);
     assert.doesNotMatch(editHtml, /cml-film-detail__section--notes-readable/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-save"/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-cancel"/);
 
-    assert.match(previewHtml, /data-action="film-notes-preview-toggle" aria-pressed="true"/);
-    assert.match(previewHtml, /cml-film-notes-editor__preview-toggle is-active/);
-    assert.match(previewHtml, /data-film-notes-preview/);
+    assert.doesNotMatch(previewHtml, /data-action="film-notes-preview-toggle"/);
+    assert.doesNotMatch(previewHtml, /cml-film-notes-editor__preview-toggle is-active/);
+    assert.doesNotMatch(previewHtml, /data-film-notes-preview/);
+    assert.match(previewHtml, /data-film-notes-live-preview/);
     assert.match(previewHtml, /<strong>note<\/strong>/);
     assert.match(previewHtml, /data-film-save-status="notes">Saving\.\.\.<\/span>/);
-    assert.match(previewHtml, /click outside to save/);
-    assert.doesNotMatch(previewHtml, /data-film-notes-draft/);
+    assert.match(previewHtml, /Markdown renders live/);
+    assert.match(previewHtml, /data-film-notes-draft/);
     assert.doesNotMatch(previewHtml, /data-action="film-notes-save"/);
     assert.doesNotMatch(previewHtml, /data-action="film-notes-cancel"/);
   });
@@ -637,6 +648,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /backdropZoomOverride/);
     assert.match(appSource, /backdropPositionXOverride/);
     assert.match(appSource, /backdropPositionYOverride/);
+    assert.match(appSource, /backdropOpacityOverride/);
+    assert.match(appSource, /--film-backdrop-opacity/);
     assert.match(appSource, /case 'film-close-image-picker':/);
     assert.match(appSource, /case 'film-close-image-picker':\s+void \(async \(\) => \{\s+if \(await commitPendingFilmEditsBeforeAction\(\{ actionName, keepDetailOpen: true \}\)\) \{/);
     assert.doesNotMatch(appSource, /'film-close-image-picker'\s*\]\);/);
@@ -653,6 +666,13 @@ describe('media library download actions', () => {
     assert.match(appSource, /if \(isUnsavedActiveFilmPreview\(normalizedId\)\) \{\s+return;\s+\}/);
     assert.match(appSource, /querySelector\('\.cml-film-notes-editor'\)/);
     assert.match(appSource, /clickedRenderedFilmNoteLink/);
+    assert.match(appSource, /let filmPointerStartEditSurface = ''/);
+    assert.match(appSource, /refs\.root\.addEventListener\('pointerdown', handlePointerDown, true\)/);
+    assert.match(appSource, /function handlePointerDown\(event\)/);
+    assert.match(appSource, /pointerStartEditSurface !== 'notes'/);
+    assert.match(appSource, /optimisticExit: true/);
+    assert.match(appSource, /data-film-notes-live-preview/);
+    assert.match(appSource, /function syncFilmNotesLivePreview/);
     assert.match(appSource, /focusedNotesSection/);
     assert.match(appSource, /async function commitPendingFilmEditsBeforeAction/);
     assert.match(appSource, /await commitFilmNotesEdit\(\{ silent: true, keepDetailOpen \}\)/);
@@ -694,6 +714,7 @@ describe('media library download actions', () => {
     assert.match(repositorySource, /backdropZoomOverride: normalizeBackdropZoomOverride/);
     assert.match(repositorySource, /backdropPositionXOverride: normalizeBackdropPositionOverride/);
     assert.match(repositorySource, /backdropPositionYOverride: normalizeBackdropPositionOverride/);
+    assert.match(repositorySource, /backdropOpacityOverride: normalizeBackdropOpacityOverride/);
     assert.match(repositorySource, /Manual film title is required/);
     assert.match(repositorySource, /posterPaths: normalizeImagePathArray/);
     assert.match(repositorySource, /backdropPaths: normalizeImagePathArray/);

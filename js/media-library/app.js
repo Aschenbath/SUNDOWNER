@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=5';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=54';
+import { FilmDetailPage, FilmSearchResults, FilmsPage, renderMarkdownBlocks } from './films-components.js?v=55';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -129,7 +129,8 @@ const FILM_METADATA_FIELDS = [
 const FILM_BACKDROP_FRAME_FIELDS = [
   'backdropZoomOverride',
   'backdropPositionXOverride',
-  'backdropPositionYOverride'
+  'backdropPositionYOverride',
+  'backdropOpacityOverride'
 ];
 const FILM_ACTION_NAMES = new Set([
   'save-film-status',
@@ -610,6 +611,7 @@ let filmSaveStatusTimer = 0;
 let filmImagePickerCloseTimer = 0;
 let filmBackdropFrameStyleRaf = 0;
 let pendingFilmBackdropFrameStyle = null;
+let filmPointerStartEditSurface = '';
 const filmSearchCache = new Map();
 const filmDetailLoadingTmdbIds = new Set();
 const filmManualCreateRequests = new Map();
@@ -8679,6 +8681,7 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     backdropZoomOverride: backdropFrame.backdropZoomOverride,
     backdropPositionXOverride: backdropFrame.backdropPositionXOverride,
     backdropPositionYOverride: backdropFrame.backdropPositionYOverride,
+    backdropOpacityOverride: backdropFrame.backdropOpacityOverride,
     isSaving: Number.isFinite(tmdbId) && tmdbId > 0 && state.filmSavingTmdbIds.has(tmdbId)
   };
 }
@@ -8766,11 +8769,20 @@ function normalizeFilmBackdropPositionOverride(value) {
   return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
+function normalizeFilmBackdropOpacityOverride(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0.66;
+  }
+  return Math.max(0.18, Math.min(0.92, Math.round(numeric * 100) / 100));
+}
+
 function normalizeFilmBackdropFrameOverrides(source = {}) {
   return {
     backdropZoomOverride: normalizeFilmBackdropZoomOverride(source.backdropZoomOverride),
     backdropPositionXOverride: normalizeFilmBackdropPositionOverride(source.backdropPositionXOverride),
-    backdropPositionYOverride: normalizeFilmBackdropPositionOverride(source.backdropPositionYOverride)
+    backdropPositionYOverride: normalizeFilmBackdropPositionOverride(source.backdropPositionYOverride),
+    backdropOpacityOverride: normalizeFilmBackdropOpacityOverride(source.backdropOpacityOverride)
   };
 }
 
@@ -8779,7 +8791,8 @@ function backdropFrameEqualsRecord(frame = {}, record = {}) {
   const right = normalizeFilmBackdropFrameOverrides(record);
   return left.backdropZoomOverride === right.backdropZoomOverride
     && left.backdropPositionXOverride === right.backdropPositionXOverride
-    && left.backdropPositionYOverride === right.backdropPositionYOverride;
+    && left.backdropPositionYOverride === right.backdropPositionYOverride
+    && left.backdropOpacityOverride === right.backdropOpacityOverride;
 }
 
 function normalizeFilmBackdropPaths(value = []) {
@@ -10096,6 +10109,13 @@ function focusFilmNotesEditor() {
   });
 }
 
+function syncFilmNotesLivePreview() {
+  const preview = refs.root?.querySelector('[data-film-notes-live-preview]');
+  if (preview instanceof HTMLElement) {
+    preview.innerHTML = renderMarkdownBlocks(state.filmNotesDraft || '');
+  }
+}
+
 function focusFilmMetadataEditor(field = '') {
   window.requestAnimationFrame(() => {
     const preferredField = normalizeText(field || state.filmMetadataFocusField || '');
@@ -10680,6 +10700,7 @@ function applyFilmBackdropFrameToImage(image, frame = createFilmBackdropFrameDra
   image.style.setProperty('--film-backdrop-position-x', `${normalized.backdropPositionXOverride}%`);
   image.style.setProperty('--film-backdrop-position-y', `${normalized.backdropPositionYOverride}%`);
   image.style.setProperty('--film-backdrop-scale', String(normalized.backdropZoomOverride));
+  image.style.setProperty('--film-backdrop-opacity', String(normalized.backdropOpacityOverride));
   const fitted = getFilmBackdropFrameStyleForImage(image, normalized);
   if (!fitted) {
     return false;
@@ -10727,6 +10748,9 @@ function getFilmBackdropFrameRangeFill(field = '', value = 0) {
   if (field === 'zoom') {
     return Math.max(0, Math.min(100, ((numeric - 0.5) / 1.3) * 100));
   }
+  if (field === 'opacity') {
+    return Math.max(0, Math.min(100, ((numeric - 0.18) / 0.74) * 100));
+  }
   return Math.max(0, Math.min(100, numeric));
 }
 
@@ -10735,6 +10759,7 @@ function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
   const x = `${normalized.backdropPositionXOverride}%`;
   const y = `${normalized.backdropPositionYOverride}%`;
   const zoom = String(normalized.backdropZoomOverride);
+  const opacity = String(normalized.backdropOpacityOverride);
   refs.root?.querySelectorAll('.cml-film-image-picker__preview.is-backdrop img').forEach((node) => {
     if (!(node instanceof HTMLImageElement)) {
       return;
@@ -10742,6 +10767,7 @@ function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
     node.style.setProperty('--film-backdrop-position-x', x);
     node.style.setProperty('--film-backdrop-position-y', y);
     node.style.setProperty('--film-backdrop-scale', zoom);
+    node.style.setProperty('--film-backdrop-opacity', opacity);
     applyFilmBackdropFrameToImage(node, normalized);
   });
   refs.root?.querySelectorAll('[data-film-backdrop-frame-field]').forEach((node) => {
@@ -10753,6 +10779,8 @@ function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
       ? normalized.backdropZoomOverride
       : field === 'x'
       ? normalized.backdropPositionXOverride
+      : field === 'opacity'
+      ? normalized.backdropOpacityOverride
       : normalized.backdropPositionYOverride;
     node.value = String(nextValue);
     node.style.setProperty('--film-frame-range-fill', `${getFilmBackdropFrameRangeFill(field, nextValue)}%`);
@@ -10760,6 +10788,8 @@ function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
     if (output instanceof HTMLOutputElement) {
       output.textContent = field === 'zoom'
         ? `${normalized.backdropZoomOverride.toFixed(2)}x`
+        : field === 'opacity'
+        ? `${Math.round(normalized.backdropOpacityOverride * 100)}%`
         : `${nextValue}%`;
     }
   });
@@ -10810,6 +10840,8 @@ function updateFilmBackdropFrameDraft(field = '', value = '') {
     next.backdropPositionXOverride = normalizeFilmBackdropPositionOverride(value);
   } else if (field === 'y') {
     next.backdropPositionYOverride = normalizeFilmBackdropPositionOverride(value);
+  } else if (field === 'opacity') {
+    next.backdropOpacityOverride = normalizeFilmBackdropOpacityOverride(value);
   } else {
     return;
   }
@@ -11165,7 +11197,7 @@ function applyFilmNotesFormat(format = '') {
   textarea.setSelectionRange(nextStart, nextEnd);
 }
 
-async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(state.filmDetailOpen) } = {}) {
+async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(state.filmDetailOpen), optimisticExit = false } = {}) {
   if (!state.filmNotesEditing) {
     return true;
   }
@@ -11182,6 +11214,9 @@ async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(st
     renderFilmMutationState();
     return true;
   }
+  if (optimisticExit) {
+    exitFilmNotesEdit();
+  }
   const saved = await saveFilmEntryPatch(film.id, {
     journal: draft,
     noteMarkdown: draft
@@ -11193,7 +11228,9 @@ async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(st
     focusFilmNotesEditor();
     return false;
   }
-  exitFilmNotesEdit();
+  if (!optimisticExit) {
+    exitFilmNotesEdit();
+  }
   if (!silent) {
     markFilmSaved('Notes saved');
   }
@@ -12922,6 +12959,7 @@ function mount() {
   consumePendingUploadRequest();
 
   if (!mounted && refs.root) {
+    refs.root.addEventListener('pointerdown', handlePointerDown, true);
     refs.root.addEventListener('click', handleClick, true);
     refs.root.addEventListener('dblclick', handleDoubleClick, true);
     refs.root.addEventListener('input', handleInput);
@@ -14940,6 +14978,8 @@ function handleAction(actionTarget) {
 }
 
 function handleClick(event) {
+  const pointerStartEditSurface = filmPointerStartEditSurface;
+  filmPointerStartEditSurface = '';
   const actionTarget = event.target instanceof Element ? event.target.closest('[data-action], [data-primary], [data-secondary], [data-year], [data-anchor]') : null;
   const filmCardTarget = event.target instanceof Element ? event.target.closest('.cml-film-card, .cml-film-poster-card') : null;
   const tileTarget = event.target instanceof Element ? event.target.closest('.cml-media-tile') : null;
@@ -14971,9 +15011,9 @@ function handleClick(event) {
       && notesEditor.contains(event.target);
     const clickedNotesEditAction = actionTarget instanceof HTMLElement
       && actionTarget.dataset.action === 'film-edit-notes';
-    if (!clickedInsideNotesEditor && !clickedNotesEditAction) {
+    if (!clickedInsideNotesEditor && !clickedNotesEditAction && pointerStartEditSurface !== 'notes') {
       if (!clickedFilmAction && !clickedSavedFilmCard) {
-        void commitFilmNotesEdit({ silent: false, keepDetailOpen: true });
+        void commitFilmNotesEdit({ silent: false, keepDetailOpen: true, optimisticExit: true });
       }
     }
   }
@@ -14985,7 +15025,7 @@ function handleClick(event) {
       && metadataEditor.contains(event.target);
     const clickedMetadataEditAction = actionTarget instanceof HTMLElement
       && actionTarget.dataset.action === 'film-edit-metadata';
-    if (!clickedInsideMetadataEditor && !clickedMetadataEditAction) {
+    if (!clickedInsideMetadataEditor && !clickedMetadataEditAction && pointerStartEditSurface !== 'metadata') {
       if (!clickedFilmAction && !clickedSavedFilmCard) {
         void commitFilmMetadataEdit({ keepDetailOpen: true });
       }
@@ -14999,7 +15039,7 @@ function handleClick(event) {
       && imagePicker.contains(event.target);
     const clickedImagePickerAction = actionTarget instanceof HTMLElement
       && ['film-pick-image', 'film-apply-image-url', 'film-clear-image-override', 'film-close-image-picker'].includes(actionTarget.dataset.action || '');
-    if (!clickedInsideImagePicker && !clickedImagePickerAction && !clickedFilmAction && !clickedSavedFilmCard) {
+    if (!clickedInsideImagePicker && !clickedImagePickerAction && !clickedFilmAction && !clickedSavedFilmCard && pointerStartEditSurface !== 'imagePicker') {
       void commitFilmImagePickerDraft({ keepDetailOpen: true });
     }
   }
@@ -15299,6 +15339,24 @@ function handleClick(event) {
   }
 }
 
+function handlePointerDown(event) {
+  filmPointerStartEditSurface = '';
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+  if (state.filmNotesEditing && event.target.closest('.cml-film-notes-editor')) {
+    filmPointerStartEditSurface = 'notes';
+    return;
+  }
+  if (state.filmMetadataEditing && event.target.closest('.cml-film-metadata-editor')) {
+    filmPointerStartEditSurface = 'metadata';
+    return;
+  }
+  if (state.filmImagePickerMode && event.target.closest('.cml-film-image-picker')) {
+    filmPointerStartEditSurface = 'imagePicker';
+  }
+}
+
 function handleDoubleClick(event) {
   if (!(event.target instanceof Element) || !refs.root) {
     return;
@@ -15388,6 +15446,7 @@ function handleInput(event) {
   }
   if (input.hasAttribute('data-film-notes-draft')) {
     state.filmNotesDraft = input.value;
+    syncFilmNotesLivePreview();
     return;
   }
   if (input.hasAttribute('data-film-image-picker-url')) {
@@ -16181,6 +16240,7 @@ function restoreNavigationFromHash() {
       state.filmImagePickerDraft = '';
       state.filmBackdropFrameDraft = null;
       clearPrivateViewState();
+      filmPointerStartEditSurface = '';
       break;
     case 'mind':
       state.primaryFilter = 'Mind';
@@ -16256,6 +16316,7 @@ function restoreNavigationFromHash() {
       state.filmMetadataFocusField = '';
       state.filmMoreActionsOpen = false;
       clearPrivateViewState();
+      filmPointerStartEditSurface = '';
       break;
   }
   if (state.primaryFilter !== 'Films') {
@@ -16270,6 +16331,7 @@ function restoreNavigationFromHash() {
     state.filmMetadataDraft = null;
     state.filmMetadataFocusField = '';
     state.filmMoreActionsOpen = false;
+    filmPointerStartEditSurface = '';
   }
   if (state.primaryFilter !== 'Mind') {
     clearMindVisitStickyMessages();

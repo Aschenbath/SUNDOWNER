@@ -429,6 +429,7 @@ describe('MovieRepository', () => {
       backdropZoomOverride: 0.52,
       backdropPositionXOverride: 62,
       backdropPositionYOverride: 31,
+      backdropOpacityOverride: 0.41,
     });
     assert.equal(saved.entry.posterPathOverride, '/chosen-poster.jpg');
     assert.equal(saved.entry.backdropPathOverride, '/chosen-backdrop.jpg');
@@ -437,6 +438,7 @@ describe('MovieRepository', () => {
     assert.equal(saved.entry.backdropZoomOverride, 0.52);
     assert.equal(saved.entry.backdropPositionXOverride, 62);
     assert.equal(saved.entry.backdropPositionYOverride, 31);
+    assert.equal(saved.entry.backdropOpacityOverride, 0.41);
 
     const reset = await repository.saveOrUpdateUserEntry({
       tmdbId: 42,
@@ -447,6 +449,7 @@ describe('MovieRepository', () => {
       backdropZoomOverride: 1.02,
       backdropPositionXOverride: 50,
       backdropPositionYOverride: 50,
+      backdropOpacityOverride: 0.66,
     });
     assert.equal(reset.entry.posterPathOverride, '');
     assert.equal(reset.entry.backdropPathOverride, '');
@@ -455,6 +458,7 @@ describe('MovieRepository', () => {
     assert.equal(reset.entry.backdropZoomOverride, 1.02);
     assert.equal(reset.entry.backdropPositionXOverride, 50);
     assert.equal(reset.entry.backdropPositionYOverride, 50);
+    assert.equal(reset.entry.backdropOpacityOverride, 0.66);
 
     const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
     assert.equal(cachedMovie.posterPath, '/tmdb-poster.jpg');
@@ -484,6 +488,7 @@ describe('MovieRepository', () => {
       backdropZoomOverride: 1.33,
       backdropPositionXOverride: 41,
       backdropPositionYOverride: 64,
+      backdropOpacityOverride: 0.57,
       journal: 'private note',
     });
     const refreshed = await repository.saveOrUpdateUserEntry({
@@ -502,6 +507,7 @@ describe('MovieRepository', () => {
     assert.equal(refreshed.entry.backdropZoomOverride, 1.33);
     assert.equal(refreshed.entry.backdropPositionXOverride, 41);
     assert.equal(refreshed.entry.backdropPositionYOverride, 64);
+    assert.equal(refreshed.entry.backdropOpacityOverride, 0.57);
     assert.equal(refreshed.entry.journal, 'private note');
 
     const cachedMovie = JSON.parse(await db.get('manage@sysConfig@movieCache@42'));
