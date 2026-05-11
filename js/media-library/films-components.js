@@ -258,23 +258,6 @@ function getDetailPersonalNote(record = {}) {
   return 'No private note yet.';
 }
 
-function renderDetailChip(label, extraClass = '', { editable = false, field = '', filmId = '' } = {}) {
-  const normalizedLabel = normalizeText(label);
-  if (!normalizedLabel) {
-    return '';
-  }
-  if (
-    extraClass.includes('cml-film-detail__chip--watched')
-    && !/(Want|Watched|Paused|Dropped)/.test(normalizedLabel)
-  ) {
-    return '';
-  }
-  const editAttrs = editable && field
-    ? ` data-action="film-edit-metadata" data-film-id="${escapeHtml(filmId)}" data-film-metadata-focus-field="${escapeHtml(field)}" role="button" aria-label="Edit ${escapeHtml(normalizedLabel)}"`
-    : '';
-  return `<span class="cml-film-detail__chip ${extraClass} ${editable && field ? 'is-editable' : ''}"${editAttrs}>${escapeHtml(normalizedLabel)}</span>`;
-}
-
 function renderDetailMetaColumn(label, value, icon = '', { editable = false, field = '', filmId = '' } = {}) {
   const editAttrs = editable && field
     ? ` data-action="film-edit-metadata" data-film-id="${escapeHtml(filmId)}" data-film-metadata-focus-field="${escapeHtml(field)}" role="button" aria-label="Edit ${escapeHtml(label)}"`
@@ -843,7 +826,7 @@ function renderFilmMetadataEditor(record = {}, draft = {}, { focusField = '' } =
   `;
 }
 
-function renderFilmMoreActions(record = {}, { open = false, metadataEditing = false, disabledAttr = '' } = {}) {
+function renderFilmMoreActions(record = {}, { open = false, disabledAttr = '' } = {}) {
   const filmId = escapeHtml(record.id || '');
   const tmdbId = escapeHtml(record.tmdbId || '');
   return `
@@ -852,22 +835,16 @@ function renderFilmMoreActions(record = {}, { open = false, metadataEditing = fa
       ${open ? `
         <div class="cml-film-detail__more-panel" data-film-more-panel>
           <div class="cml-film-detail__more-group">
-            <p>Customize</p>
-            <button type="button" class="cml-film-detail__more-item ${metadataEditing ? 'is-active' : ''}" data-action="film-edit-metadata" data-film-id="${filmId}" ${disabledAttr}>Edit details</button>
+            <p>Images</p>
             <button type="button" class="cml-film-detail__more-item" data-action="film-change-poster" data-film-id="${filmId}" ${disabledAttr}>Change poster</button>
             <button type="button" class="cml-film-detail__more-item" data-action="film-change-backdrop" data-film-id="${filmId}" ${disabledAttr}>Change backdrop</button>
           </div>
           ${tmdbId ? `
             <div class="cml-film-detail__more-group">
-              <p>Sync</p>
-              <button type="button" class="cml-film-detail__more-item" data-action="film-refresh-tmdb" data-film-id="${filmId}" ${disabledAttr}>Refresh from TMDb</button>
+              <p>TMDb</p>
               <button type="button" class="cml-film-detail__more-item" data-action="film-open-tmdb" data-tmdb-id="${tmdbId}" ${disabledAttr}>Open in TMDb</button>
             </div>
           ` : ''}
-          <div class="cml-film-detail__more-group cml-film-detail__more-group--danger">
-            <p>Danger</p>
-            <button type="button" class="cml-film-detail__more-item cml-film-detail__more-item--danger" data-action="film-remove-entry" data-film-id="${filmId}" ${disabledAttr}>Remove from Films</button>
-          </div>
         </div>
       ` : ''}
     </div>
@@ -1087,11 +1064,9 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const localTitle = normalizeText(displayRecord.localTitle || displayRecord.title || 'Untitled film');
   const originalTitle = normalizeText(displayRecord.originalTitle || displayRecord.title || '');
   const runtime = formatRuntime(displayRecord.runtime);
-  const genres = Array.isArray(displayRecord.genres) ? displayRecord.genres.filter(Boolean).join(' / ') : '';
   const userRating = formatUserRating(displayRecord.userRating ?? displayRecord.rating);
   const myRatingLabel = userRating ? `${userRating} / 5.0` : 'Not rated';
   const watchedDate = formatWatchedDateLong(displayRecord.watchedAt);
-  const statusLabel = getDetailStatusLabel(displayRecord.status);
   const posterUrl = getRecordPosterUrl(displayRecord);
   const autoBackdropUrls = getRecordAutoBackdropUrls(displayRecord);
   const autoBackdropIndex = autoBackdropUrls.length
@@ -1106,12 +1081,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const releaseMeta = displayRecord.releaseDate
     ? formatWatchedDateLong(displayRecord.releaseDate)
     : (displayRecord.year ? String(displayRecord.year) : '-');
-  const chips = [
-    renderDetailChip(genres),
-    renderDetailChip(statusLabel, 'cml-film-detail__chip--watched')
-  ].join('');
   const synopsis = getDetailSynopsis(displayRecord);
-  const favoriteActionLabel = displayRecord.favorite ? 'Saved to Favourites' : 'Save to Favourites';
   const titleEditAttrs = canEditLocalMetadata
     ? ` data-action="film-edit-metadata" data-film-id="${escapeHtml(displayRecord.id || '')}" data-film-metadata-focus-field="titleOverride" role="button" tabindex="0" aria-label="Edit title"`
     : '';
@@ -1133,6 +1103,12 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const imagePicker = isSavedEntry
     ? renderFilmImagePicker(displayRecord, { mode: imagePickerMode, draft: imagePickerDraft, frameDraft: imagePickerFrameDraft })
     : '';
+  const detailActions = isSavedEntry
+    ? (displayRecord.manualDraft ? '' : renderFilmMoreActions(displayRecord, { open: moreActionsOpen, disabledAttr }))
+    : `
+      <button type="button" class="cml-film-detail__action" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(displayRecord.tmdbId || '')}" ${displayRecord.isSaving ? 'disabled' : ''}>Save as Want</button>
+      <button type="button" class="cml-film-detail__action is-active" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(displayRecord.tmdbId || '')}" ${displayRecord.isSaving ? 'disabled' : ''}>Mark Watched</button>
+    `;
   const detailSaveStatus = saveStatus?.label
     ? `<span class="cml-film-save-status is-visible is-${escapeHtml(saveStatus.state || 'saved')}" data-film-save-status="detail">${escapeHtml(saveStatus.label)}</span>`
     : '<span class="cml-film-save-status" data-film-save-status="detail"></span>';
@@ -1158,7 +1134,6 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
               <p class="cml-film-detail__eyebrow">Private film archive</p>
               <h1 class="cml-film-detail__title ${canEditLocalMetadata ? 'is-editable' : ''}"${titleEditAttrs}>${escapeHtml(localTitle)}</h1>
               ${originalTitle && originalTitle !== localTitle ? `<p class="cml-film-detail__original ${canEditLocalMetadata ? 'is-editable' : ''}"${originalEditAttrs}>${escapeHtml(originalTitle)}</p>` : ''}
-              <div class="cml-film-detail__chips">${chips}</div>
             </div>
             <section class="cml-film-detail__rating" aria-label="My rating">
               <span class="cml-film-detail__rating-label">My rating</span>
@@ -1173,6 +1148,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
               ${renderDetailMetaColumn('Release', releaseMeta || '-', '', { editable: canEditLocalMetadata, field: 'releaseDateOverride', filmId: displayRecord.id || '' })}
               ${renderDetailMetaColumn('Runtime', runtime || '-', '', { editable: canEditLocalMetadata, field: 'runtimeOverride', filmId: displayRecord.id || '' })}
             </div>
+            ${detailActions ? `<div class="cml-film-detail__actions">${detailActions}</div>` : ''}
             ${metadataEditor}
             ${imagePicker}
           </div>
@@ -1195,17 +1171,6 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
                 </section>
                 ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesPreview, editable: isSavedEntry && !displayRecord.manualDraft && !displayRecord.isSaving, saveStatus })}
               </div>
-            </div>
-            <div class="cml-film-detail__actions">
-              ${isSavedEntry ? `
-                <button type="button" class="cml-film-detail__action ${displayRecord.favorite ? 'is-active' : ''}" data-action="film-toggle-favourite" data-film-id="${escapeHtml(displayRecord.id || '')}" ${disabledAttr}>${escapeHtml(favoriteActionLabel)}</button>
-                <button type="button" class="cml-film-detail__action" data-action="film-edit-notes" data-film-id="${escapeHtml(displayRecord.id || '')}" ${disabledAttr}>Edit Notes</button>
-                <button type="button" class="cml-film-detail__action" data-action="film-mark-rewatch" data-film-id="${escapeHtml(displayRecord.id || '')}" ${disabledAttr}>Mark Rewatch</button>
-                ${renderFilmMoreActions(displayRecord, { open: moreActionsOpen, metadataEditing, disabledAttr })}
-              ` : `
-                <button type="button" class="cml-film-detail__action" data-action="save-film-status" data-watch-status="wantToWatch" data-tmdb-id="${escapeHtml(displayRecord.tmdbId || '')}" ${displayRecord.isSaving ? 'disabled' : ''}>Save as Want</button>
-                <button type="button" class="cml-film-detail__action is-active" data-action="save-film-status" data-watch-status="watched" data-tmdb-id="${escapeHtml(displayRecord.tmdbId || '')}" ${displayRecord.isSaving ? 'disabled' : ''}>Mark Watched</button>
-              `}
             </div>
         </div>
       </div>

@@ -13399,12 +13399,22 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-detail__actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  align-items: stretch;
-  gap: clamp(14px, 2.4vw, 34px);
-  padding-top: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+#codex-media-library-root .cml-film-detail__body > .cml-film-detail__actions .cml-film-detail__action {
+  width: auto;
+  min-width: 124px;
+}
+
+#codex-media-library-root .cml-film-detail__body > .cml-film-detail__actions .cml-film-detail__more {
+  width: auto;
+  min-width: 124px;
 }
 
 #codex-media-library-root .cml-film-detail__action {
@@ -13526,7 +13536,8 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-detail__more-panel {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 10px);
+  top: calc(100% + 10px);
+  bottom: auto;
   z-index: 8;
   display: grid;
   min-width: 220px;
@@ -13591,7 +13602,7 @@ body.codex-media-library-active #app {
 @keyframes cml-film-more-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(-6px);
   }
 
   to {
