@@ -306,6 +306,7 @@ describe('media library download actions', () => {
     assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w780\/backdrop\.jpg"/);
     assert.match(html, /Backdrop frame/);
     assert.match(html, /min="0\.5" max="1\.8" step="0\.01" value="0\.58" data-film-backdrop-frame-field="zoom"/);
+    assert.match(html, /data-film-backdrop-frame-field="zoom" style="--film-frame-range-fill:/);
     assert.match(html, /data-film-backdrop-frame-field="x"/);
     assert.match(html, /data-film-backdrop-frame-field="y"/);
     assert.match(html, /data-action="film-reset-backdrop-frame"/);
@@ -715,6 +716,28 @@ describe('media library download actions', () => {
     assert.doesNotMatch(detailRule, /\b(?:transform|width|height|left|top) 260ms/);
     assert.ok(pickerRule);
     assert.match(pickerRule, /transition: none;/);
+  });
+
+  it('keeps Film image picker motion and backdrop sliders smooth without immediate full rerenders', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+
+    assert.match(appSource, /const FILM_IMAGE_PICKER_CLOSE_MS = 150/);
+    assert.match(appSource, /function closeFilmImagePicker\(\{ shouldRender = true, animate = shouldRender \} = \{\}\)/);
+    assert.match(appSource, /picker\.classList\.add\('is-closing'\)/);
+    assert.match(appSource, /window\.setTimeout\(\(\) => \{\s+filmImagePickerCloseTimer = 0;\s+finalizeFilmImagePickerClose\(\{ shouldRender \}\);/);
+    assert.match(appSource, /function scheduleFilmBackdropFrameStyle/);
+    assert.match(appSource, /filmBackdropFrameStyleRaf = window\.requestAnimationFrame/);
+    assert.match(appSource, /function flushFilmBackdropFrameStyle/);
+    assert.match(appSource, /state\.filmBackdropFrameDraft = next;\s+scheduleFilmBackdropFrameStyle\(next\);/);
+    assert.match(appSource, /flushFilmBackdropFrameStyle\(\);\s+const film = getActiveFilmRecord\(\);/);
+    assert.match(appSource, /function focusFilmBackdropFrameControl/);
+    assert.match(cssSource, /@keyframes cml-film-picker-enter/);
+    assert.match(cssSource, /\.cml-film-image-picker\.is-closing/);
+    assert.match(cssSource, /@keyframes cml-film-frame-enter/);
+    assert.match(cssSource, /--film-frame-range-fill/);
+    assert.match(cssSource, /::-webkit-slider-thumb/);
+    assert.match(cssSource, /touch-action: pan-y;/);
   });
 
   it('removes dead legacy Films components from the live component module', () => {

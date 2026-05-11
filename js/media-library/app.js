@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=5';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=53';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=54';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -112,6 +112,7 @@ const FILM_SEARCH_DEBOUNCE_MS = 180;
 const FILM_SEARCH_MIN_LOADING_MS = 80;
 const FILM_SEARCH_CLEAR_TRANSITION_MS = 180;
 const FILM_BACKDROP_ROTATION_MS = 7200;
+const FILM_IMAGE_PICKER_CLOSE_MS = 150;
 const FILM_METADATA_FIELDS = [
   'titleOverride',
   'originalTitleOverride',
@@ -606,6 +607,9 @@ let filmWarmupStarted = false;
 let filmBackdropRotationTimer = 0;
 let filmRemoveUndoTimer = 0;
 let filmSaveStatusTimer = 0;
+let filmImagePickerCloseTimer = 0;
+let filmBackdropFrameStyleRaf = 0;
+let pendingFilmBackdropFrameStyle = null;
 const filmSearchCache = new Map();
 const filmDetailLoadingTmdbIds = new Set();
 const filmManualCreateRequests = new Map();
@@ -10124,6 +10128,47 @@ function focusFilmImagePickerInput() {
   });
 }
 
+function focusFilmBackdropFrameControl() {
+  window.requestAnimationFrame(() => {
+    const input = refs.root?.querySelector('[data-film-backdrop-frame-field="zoom"]');
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    if (document.activeElement !== input) {
+      input.focus({ preventScroll: true });
+    }
+  });
+}
+
+function filmPrefersReducedMotion() {
+  return typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function clearFilmImagePickerCloseTimer() {
+  if (filmImagePickerCloseTimer) {
+    window.clearTimeout(filmImagePickerCloseTimer);
+    filmImagePickerCloseTimer = 0;
+  }
+  refs.root?.querySelectorAll('.cml-film-image-picker.is-closing').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.classList.remove('is-closing');
+      node.removeAttribute('aria-hidden');
+    }
+  });
+}
+
+function finalizeFilmImagePickerClose({ shouldRender = true } = {}) {
+  clearFilmImagePickerCloseTimer();
+  cancelFilmBackdropFrameStyleRaf();
+  state.filmImagePickerMode = '';
+  state.filmImagePickerDraft = '';
+  state.filmBackdropFrameDraft = null;
+  if (shouldRender) {
+    renderFilmMutationState();
+  }
+}
+
 function buildFilmMetadataPatchFromDraft(draft = {}) {
   return normalizeFilmMetadataOverrides({
     titleOverride: draft.titleOverride,
@@ -10428,13 +10473,32 @@ function cancelFilmMetadataEdit() {
   render();
 }
 
-function closeFilmImagePicker({ shouldRender = true } = {}) {
-  state.filmImagePickerMode = '';
-  state.filmImagePickerDraft = '';
-  state.filmBackdropFrameDraft = null;
-  if (shouldRender) {
-    renderFilmMutationState();
+function closeFilmImagePicker({ shouldRender = true, animate = shouldRender } = {}) {
+  if (!state.filmImagePickerMode) {
+    clearFilmImagePickerCloseTimer();
+    return;
   }
+  if (!shouldRender || !animate || filmPrefersReducedMotion()) {
+    finalizeFilmImagePickerClose({ shouldRender });
+    return;
+  }
+  const picker = refs.root?.querySelector('.cml-film-image-picker');
+  if (!(picker instanceof HTMLElement)) {
+    finalizeFilmImagePickerClose({ shouldRender });
+    return;
+  }
+  if (picker.classList.contains('is-closing')) {
+    return;
+  }
+  picker.classList.add('is-closing');
+  picker.setAttribute('aria-hidden', 'true');
+  if (filmImagePickerCloseTimer) {
+    window.clearTimeout(filmImagePickerCloseTimer);
+  }
+  filmImagePickerCloseTimer = window.setTimeout(() => {
+    filmImagePickerCloseTimer = 0;
+    finalizeFilmImagePickerClose({ shouldRender });
+  }, FILM_IMAGE_PICKER_CLOSE_MS);
 }
 
 function saveFilmWatchedDateForTarget(target = '', watchedAt, options = {}) {
@@ -10536,6 +10600,7 @@ async function openFilmImagePicker(filmId, mode = 'poster') {
   if (!await commitPendingFilmEditsBeforeAction({ actionName: `film-change-${mode === 'backdrop' ? 'backdrop' : 'poster'}`, keepDetailOpen: true })) {
     return;
   }
+  clearFilmImagePickerCloseTimer();
   state.activeFilmId = film.id;
   state.filmDetailOpen = true;
   state.filmImagePickerMode = mode === 'backdrop' ? 'backdrop' : 'poster';
@@ -10547,7 +10612,11 @@ async function openFilmImagePicker(filmId, mode = 'poster') {
     : null;
   state.filmMoreActionsOpen = false;
   renderFilmMutationState();
-  focusFilmImagePickerInput();
+  if (state.filmImagePickerMode === 'backdrop') {
+    focusFilmBackdropFrameControl();
+  } else {
+    focusFilmImagePickerInput();
+  }
 }
 
 function getFilmImageOverrideFields(mode = 'poster') {
@@ -10650,6 +10719,17 @@ function syncFilmBackdropFrameImages(frame = getActiveFilmRecord() || createFilm
   });
 }
 
+function getFilmBackdropFrameRangeFill(field = '', value = 0) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  if (field === 'zoom') {
+    return Math.max(0, Math.min(100, ((numeric - 0.5) / 1.3) * 100));
+  }
+  return Math.max(0, Math.min(100, numeric));
+}
+
 function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
   const normalized = normalizeFilmBackdropFrameOverrides(frame);
   const x = `${normalized.backdropPositionXOverride}%`;
@@ -10675,6 +10755,7 @@ function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
       ? normalized.backdropPositionXOverride
       : normalized.backdropPositionYOverride;
     node.value = String(nextValue);
+    node.style.setProperty('--film-frame-range-fill', `${getFilmBackdropFrameRangeFill(field, nextValue)}%`);
     const output = node.closest('.cml-film-image-picker__range')?.querySelector('output');
     if (output instanceof HTMLOutputElement) {
       output.textContent = field === 'zoom'
@@ -10682,6 +10763,38 @@ function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
         : `${nextValue}%`;
     }
   });
+}
+
+function scheduleFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
+  pendingFilmBackdropFrameStyle = normalizeFilmBackdropFrameOverrides(frame);
+  if (filmBackdropFrameStyleRaf) {
+    return;
+  }
+  filmBackdropFrameStyleRaf = window.requestAnimationFrame(() => {
+    filmBackdropFrameStyleRaf = 0;
+    const next = pendingFilmBackdropFrameStyle || createFilmBackdropFrameDraft();
+    pendingFilmBackdropFrameStyle = null;
+    setFilmBackdropFrameStyle(next);
+  });
+}
+
+function flushFilmBackdropFrameStyle() {
+  if (!filmBackdropFrameStyleRaf) {
+    return;
+  }
+  window.cancelAnimationFrame(filmBackdropFrameStyleRaf);
+  filmBackdropFrameStyleRaf = 0;
+  const next = pendingFilmBackdropFrameStyle || state.filmBackdropFrameDraft || createFilmBackdropFrameDraft();
+  pendingFilmBackdropFrameStyle = null;
+  setFilmBackdropFrameStyle(next);
+}
+
+function cancelFilmBackdropFrameStyleRaf() {
+  if (filmBackdropFrameStyleRaf) {
+    window.cancelAnimationFrame(filmBackdropFrameStyleRaf);
+    filmBackdropFrameStyleRaf = 0;
+  }
+  pendingFilmBackdropFrameStyle = null;
 }
 
 function updateFilmBackdropFrameDraft(field = '', value = '') {
@@ -10701,13 +10814,14 @@ function updateFilmBackdropFrameDraft(field = '', value = '') {
     return;
   }
   state.filmBackdropFrameDraft = next;
-  setFilmBackdropFrameStyle(next);
+  scheduleFilmBackdropFrameStyle(next);
 }
 
 async function saveFilmBackdropFrameDraft({ keepDetailOpen = true, savedLabel = 'Frame saved' } = {}) {
   if (state.filmImagePickerMode !== 'backdrop') {
     return true;
   }
+  flushFilmBackdropFrameStyle();
   const film = getActiveFilmRecord();
   if (!film?.id) {
     return true;
@@ -15432,6 +15546,7 @@ function handleChange(event) {
     }
   }
   if (target.hasAttribute('data-film-backdrop-frame-field')) {
+    flushFilmBackdropFrameStyle();
     updateFilmBackdropFrameDraft(target.dataset.filmBackdropFrameField || '', target.value);
     void saveFilmBackdropFrameDraft({ keepDetailOpen: true });
   }

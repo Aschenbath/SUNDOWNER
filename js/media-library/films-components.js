@@ -980,6 +980,16 @@ function renderBackdropFrameStyle(frame = {}) {
   return `--film-backdrop-position-x: ${escapeHtml(x)}%; --film-backdrop-position-y: ${escapeHtml(y)}%; --film-backdrop-scale: ${escapeHtml(zoom)};`;
 }
 
+function renderFrameRangeFill(value = 0, min = 0, max = 100) {
+  const numeric = Number(value);
+  const lower = Number(min);
+  const upper = Number(max);
+  if (!Number.isFinite(numeric) || !Number.isFinite(lower) || !Number.isFinite(upper) || upper <= lower) {
+    return '0';
+  }
+  return String(Math.max(0, Math.min(100, ((numeric - lower) / (upper - lower)) * 100)));
+}
+
 function renderBackdropFrameControls(record = {}, frameDraft = null) {
   const frame = getBackdropFrame(record, frameDraft);
   return `
@@ -993,17 +1003,17 @@ function renderBackdropFrameControls(record = {}, frameDraft = null) {
       </div>
       <label class="cml-film-image-picker__range">
         <span>Zoom</span>
-        <input type="range" min="0.5" max="1.8" step="0.01" value="${escapeHtml(frame.zoom)}" data-film-backdrop-frame-field="zoom" />
+        <input type="range" min="0.5" max="1.8" step="0.01" value="${escapeHtml(frame.zoom)}" data-film-backdrop-frame-field="zoom" style="--film-frame-range-fill: ${escapeHtml(renderFrameRangeFill(frame.zoom, 0.5, 1.8))}%;" />
         <output>${escapeHtml(frame.zoom.toFixed(2))}x</output>
       </label>
       <label class="cml-film-image-picker__range">
         <span>Move X</span>
-        <input type="range" min="0" max="100" step="1" value="${escapeHtml(frame.x)}" data-film-backdrop-frame-field="x" />
+        <input type="range" min="0" max="100" step="1" value="${escapeHtml(frame.x)}" data-film-backdrop-frame-field="x" style="--film-frame-range-fill: ${escapeHtml(renderFrameRangeFill(frame.x, 0, 100))}%;" />
         <output>${escapeHtml(frame.x)}%</output>
       </label>
       <label class="cml-film-image-picker__range">
         <span>Move Y</span>
-        <input type="range" min="0" max="100" step="1" value="${escapeHtml(frame.y)}" data-film-backdrop-frame-field="y" />
+        <input type="range" min="0" max="100" step="1" value="${escapeHtml(frame.y)}" data-film-backdrop-frame-field="y" style="--film-frame-range-fill: ${escapeHtml(renderFrameRangeFill(frame.y, 0, 100))}%;" />
         <output>${escapeHtml(frame.y)}%</output>
       </label>
     </div>
