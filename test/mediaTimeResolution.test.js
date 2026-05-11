@@ -63,6 +63,21 @@ describe('media time resolution', () => {
     });
   });
 
+  it('uses noon for date-only separated filename patterns', () => {
+    const timestamp = resolveMediaCaptureTimestamp({
+      FileName: 'holiday-2024.07.12.jpg'
+    });
+
+    assertLocalDateParts(timestamp, {
+      year: 2024,
+      month: 7,
+      day: 12,
+      hours: 12,
+      minutes: 0,
+      seconds: 0
+    });
+  });
+
   it('accepts top-level capture fields from older metadata shapes', () => {
     const timestamp = resolveMediaCaptureTimestamp({
       DateTaken: '2025-09-01 15:09:00',
@@ -76,6 +91,24 @@ describe('media time resolution', () => {
       hours: 15,
       minutes: 9,
       seconds: 0
+    });
+  });
+
+  it('falls through invalid EXIF dates to later top-level capture fields', () => {
+    const timestamp = resolveMediaCaptureTimestamp({
+      Exif: {
+        DateTimeOriginal: '2024:13:40 25:61:61'
+      },
+      ShotAt: '2025-10-03 07:08:09'
+    });
+
+    assertLocalDateParts(timestamp, {
+      year: 2025,
+      month: 10,
+      day: 3,
+      hours: 7,
+      minutes: 8,
+      seconds: 9
     });
   });
 

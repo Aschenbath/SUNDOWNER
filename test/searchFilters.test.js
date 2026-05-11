@@ -119,6 +119,54 @@ describe('media search filters', () => {
     assert.equal(countActiveMediaSearchFilters(parsed.filters), 2);
   });
 
+  it('keeps unknown prefixed tokens as plain query text while merging repeated facets', () => {
+    const parsed = parseMediaSearchQuery('type:music loc:park location:"night market" tag:summer tags:"family trip" rating:five');
+
+    assert.equal(parsed.textQuery, 'rating:five');
+    assert.deepEqual(parsed.filters, {
+      type: 'audio',
+      locationQuery: 'park night market',
+      categoryQuery: '',
+      cameraQuery: '',
+      tagQuery: 'summer family trip',
+      hasLocation: false,
+    });
+
+    assert.equal(matchesMediaSearchFilters({
+      type: 'audio',
+      location: 'Park night market',
+      isDocumentLike: false,
+      tags: ['summer family trip'],
+      personLabels: [],
+    }, parsed.filters), true);
+
+    assert.deepEqual(summarizeMediaSearch(parsed.filters), [
+      'Music',
+      'Location: park night market',
+      'Tag: summer family trip',
+    ]);
+    assert.equal(countActiveMediaSearchFilters(parsed.filters), 3);
+  });
+
+  it('matches has:location from GPS even when text location is missing', () => {
+    const parsed = parseMediaSearchQuery('has:gps');
+
+    assert.equal(parsed.filters.hasLocation, true);
+    assert.equal(matchesMediaSearchFilters({
+      type: 'photo',
+      location: '',
+      isDocumentLike: false,
+      tags: [],
+      personLabels: [],
+      exif: {
+        gps: {
+          latitude: 0,
+          longitude: 113.2,
+        },
+      },
+    }, parsed.filters), true);
+  });
+
   it('supports camera, tag, and has:location facets for richer metadata search', () => {
     const parsed = parseMediaSearchQuery('camera:"Canon EOS" tag:night has:location');
 

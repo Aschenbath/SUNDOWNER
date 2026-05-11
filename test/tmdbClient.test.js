@@ -51,6 +51,21 @@ describe('TMDbClient', () => {
     );
   });
 
+  it('returns an empty search result for blank queries without requiring credentials', async () => {
+    const client = new TMDbClient({}, {
+      fetchImpl: async () => {
+        throw new Error('fetch should not run for blank search');
+      },
+    });
+
+    assert.deepEqual(await client.searchMovies('   '), {
+      page: 1,
+      totalPages: 0,
+      totalResults: 0,
+      results: [],
+    });
+  });
+
   it('searches movies with bearer token and normalized results', async () => {
     const calls = [];
     const client = new TMDbClient({ TMDB_ACCESS_TOKEN: 'token-123' }, {
@@ -102,6 +117,46 @@ describe('TMDbClient', () => {
       voteAverage: 8.5,
       voteCount: 12000,
     }]);
+  });
+
+  it('trims search queries and clamps invalid pages before remote requests', async () => {
+    const calls = [];
+    const client = new TMDbClient({ TMDB_ACCESS_TOKEN: 'token-123' }, {
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { page: 1, total_pages: 0, total_results: 0, results: [] };
+          },
+        };
+      },
+    });
+
+    await client.searchMovies('  movie title  ', -3);
+
+    const url = new URL(calls[0].url);
+    assert.equal(url.searchParams.get('query'), 'movie title');
+    assert.equal(url.searchParams.get('page'), '1');
+    assert.equal(url.searchParams.get('include_adult'), 'false');
+  });
+
+  it('surfaces TMDb error payload messages', async () => {
+    const client = new TMDbClient({ TMDB_ACCESS_TOKEN: 'token-123' }, {
+      fetchImpl: async () => ({
+        ok: false,
+        status: 401,
+        async json() {
+          return { status_message: 'Invalid API key' };
+        },
+      }),
+    });
+
+    await assert.rejects(
+      () => client.searchMovies('movie'),
+      /Invalid API key/
+    );
   });
 
   it('supports TMDB_API_KEY when a v4 access token is not configured', async () => {

@@ -535,6 +535,64 @@ describe('MovieRepository', () => {
     assert.deepEqual(await repository.listUserEntries(), []);
   });
 
+  it('rejects unsupported watch statuses without writing partial entries', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie();
+        },
+      },
+    });
+
+    await assert.rejects(
+      () => repository.saveOrUpdateUserEntry({ tmdbId: 42, watchStatus: 'archived' }),
+      /Unsupported watchStatus/
+    );
+    assert.deepEqual(await repository.listUserEntries(), []);
+  });
+
+  it('drops unsafe manual image override protocols while preserving valid file URLs', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, { db, client: {} });
+
+    const saved = await repository.saveOrUpdateUserEntry({
+      source: 'manual',
+      titleOverride: 'Local Film',
+      posterUrlOverride: 'javascript:alert(1)',
+      backdropUrlOverride: '/file/manual-backdrop.jpg',
+      posterPathOverride: '/file/not-a-tmdb-path.jpg',
+      backdropPathOverride: 'https://example.com/not-a-path.jpg',
+    });
+
+    assert.equal(saved.entry.posterUrlOverride, '');
+    assert.equal(saved.entry.backdropUrlOverride, '/file/manual-backdrop.jpg');
+    assert.equal(saved.entry.posterPathOverride, '');
+    assert.equal(saved.entry.backdropPathOverride, '');
+    assert.equal(saved.movie.posterUrl, '');
+    assert.equal(saved.movie.backdropUrl, '/file/manual-backdrop.jpg');
+  });
+
+  it('deletes TMDb user entries by numeric id string without deleting cached movie data', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie();
+        },
+      },
+    });
+
+    await repository.saveOrUpdateUserEntry({ tmdbId: 42, watchStatus: 'wantToWatch' });
+    const deleted = await repository.deleteUserEntry('42');
+
+    assert.deepEqual(deleted, { deleted: true });
+    assert.deepEqual(await repository.listUserEntries(), []);
+    assert.ok(await db.get('manage@sysConfig@movieCache@42'));
+  });
+
   it('preserves local entry fields when patching only metadata overrides', async () => {
     const db = new MemoryDB();
     const repository = new MovieRepository({}, {

@@ -66,6 +66,61 @@ describe('manage movies route', () => {
     assert.equal(payload.totalResults, 91);
   });
 
+  it('passes warmup requests through without touching search or entries', async () => {
+    let warmupCalled = false;
+    const response = await onRequest({
+      request: new Request('https://example.com/api/manage/movies?action=warmup'),
+      env: { img_url: new MemoryKV() },
+      repository: {
+        async warmup() {
+          warmupCalled = true;
+          return { warmed: true };
+        },
+      },
+    });
+
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(warmupCalled, true);
+    assert.deepEqual(payload, { warmed: true });
+  });
+
+  it('rejects unsupported entry status filters before listing', async () => {
+    const response = await onRequest({
+      request: new Request('https://example.com/api/manage/movies?action=entries&status=archived'),
+      env: { img_url: new MemoryKV() },
+      repository: {
+        async listUserEntries() {
+          throw new Error('list should not run for invalid status');
+        },
+      },
+    });
+
+    const payload = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(payload.error, 'Unsupported watchStatus');
+  });
+
+  it('maps invalid JSON bodies to a 400 response', async () => {
+    const response = await onRequest({
+      request: new Request('https://example.com/api/manage/movies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{bad json',
+      }),
+      env: { img_url: new MemoryKV() },
+      repository: {
+        async saveOrUpdateUserEntry() {
+          throw new Error('save should not run for invalid json');
+        },
+      },
+    });
+
+    const payload = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(payload.error, 'Invalid JSON');
+  });
+
   it('lists locally saved movie entries', async () => {
     const env = { img_url: new MemoryKV() };
     await env.img_url.put('manage@sysConfig@movieCache@42', JSON.stringify({

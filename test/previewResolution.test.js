@@ -47,4 +47,49 @@ describe('preview resolution', () => {
 
     assert.equal(match?.id, 'managed-bridge');
   });
+
+  it('prefers an exact managed id before comparing stale source hints', () => {
+    const items = [
+      {
+        id: 'managed-a',
+        sourceId: 'photos/a.jpg',
+        sourceUrl: '/file/photos/a.jpg',
+        thumbnailUrl: '/file/photos/a-thumb.jpg',
+        posterUrl: '',
+      },
+      {
+        id: 'managed-b',
+        sourceId: 'photos/b.jpg',
+        sourceUrl: '/file/photos/b.jpg',
+        thumbnailUrl: '/file/photos/b-thumb.jpg',
+        posterUrl: '',
+      }
+    ];
+
+    const match = findPreviewMatch(items, {
+      id: 'managed-a',
+      sourceHint: '/file/photos/b-thumb.jpg',
+    });
+
+    assert.equal(match?.id, 'managed-a');
+  });
+
+  it('uses alternate hints when the primary live hint is missing', () => {
+    const items = [
+      {
+        id: 'managed-poster',
+        sourceId: 'videos/clip.mp4',
+        sourceUrl: '/file/videos/clip.mp4',
+        thumbnailUrl: '',
+        posterUrl: 'https://cdn.example.test/posters/clip.jpg?sig=1',
+      }
+    ];
+
+    const match = findPreviewMatch(items, {
+      id: 'stale-video-card',
+      altHints: ['/posters/clip.jpg'],
+    });
+
+    assert.equal(match?.id, 'managed-poster');
+  });
 });

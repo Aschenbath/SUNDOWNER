@@ -60,12 +60,26 @@ describe('picker state helpers', () => {
     assert.equal(getVideoAlbumSelectionTarget({ videoAlbumSelectionTarget: '  Travel  ' }), 'Travel');
   });
 
+  it('trims overlong video album targets before picker checks use them', () => {
+    const longTarget = '  ' + 'Road Trip '.repeat(8) + '  ';
+    const normalized = getVideoAlbumSelectionTarget({ videoAlbumSelectionTarget: longTarget });
+
+    assert.equal(normalized.length, 48);
+    assert.equal(normalized, 'Road Trip Road Trip Road Trip Road Trip Road Tri');
+    assert.equal(hasAnyPickerTarget({ videoAlbumSelectionTarget: longTarget }), true);
+    assert.equal(canUseDistinctAlbumPicker({
+      albumSelectionTarget: 'album-a',
+      videoAlbumSelectionTarget: longTarget,
+    }), false);
+  });
+
   it('detects photos route replay correctly', () => {
     assert.equal(isPhotosRouteReplay('photos'), true);
     assert.equal(isPhotosRouteReplay('photos/private'), true);
     assert.equal(isPhotosRouteReplay('photos/anything'), true);
     assert.equal(isPhotosRouteReplay('albums/scenery'), false);
     assert.equal(isPhotosRouteReplay('videos/travel'), false);
+    assert.equal(isPhotosRouteReplay('PHOTOS/private'), true);
     assert.equal(isPhotosRouteReplay(''), true);
   });
 
