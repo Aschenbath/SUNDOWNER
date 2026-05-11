@@ -12320,6 +12320,18 @@ body.codex-media-library-active #app {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+#codex-media-library-root .cml-film-detail__section--notes-readable {
+  cursor: text;
+  border-radius: 16px;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+#codex-media-library-root .cml-film-detail__section--notes-readable:hover,
+#codex-media-library-root .cml-film-detail__section--notes-readable:focus {
+  background: rgba(255, 255, 255, 0.025);
+  outline: 0;
+}
+
 #codex-media-library-root .cml-film-detail__watch-history {
   gap: 12px;
   padding-top: 18px;

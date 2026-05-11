@@ -293,7 +293,7 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="film-edit-notes"/);
     assert.match(html, /data-action="film-mark-rewatch"/);
     assert.match(html, /data-action="film-remove-entry"/);
-    assert.ok(html.indexOf('data-action="film-toggle-favourite"') < html.indexOf('data-action="film-edit-notes"'));
+    assert.ok(html.indexOf('data-action="film-toggle-favourite"') < html.lastIndexOf('data-action="film-edit-notes"'));
     assert.ok(html.indexOf('data-action="film-mark-rewatch"') < html.indexOf('data-action="film-toggle-more-actions"'));
     assert.ok(html.indexOf('data-action="film-remove-entry"') > html.indexOf('data-action="film-toggle-more-actions"'));
     assert.match(html, /data-film-watch-event-input/);
@@ -355,9 +355,12 @@ describe('media library download actions', () => {
     assert.match(viewHtml, /<strong>Great<\/strong>/);
     assert.match(viewHtml, /href="https:\/\/example\.com"/);
     assert.doesNotMatch(viewHtml, /javascript:alert/);
+    assert.match(viewHtml, /cml-film-detail__section--notes-readable/);
+    assert.match(viewHtml, /data-action="film-edit-notes" data-film-id="tmdb-42" role="button" tabindex="0"/);
     assert.match(editHtml, /data-film-notes-draft/);
     assert.match(editHtml, /cml-film-notes-editor/);
     assert.match(editHtml, /click outside to save/);
+    assert.doesNotMatch(editHtml, /cml-film-detail__section--notes-readable/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-save"/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-cancel"/);
     assert.doesNotMatch(editHtml, /data-action="film-notes-preview-toggle"/);
@@ -511,6 +514,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /function isUnsavedActiveFilmPreview\(tmdbId = null\)/);
     assert.match(appSource, /if \(isUnsavedActiveFilmPreview\(normalizedId\)\) \{\s+return;\s+\}/);
     assert.match(appSource, /querySelector\('\.cml-film-notes-editor'\)/);
+    assert.match(appSource, /clickedRenderedFilmNoteLink/);
+    assert.match(appSource, /focusedNotesSection/);
     assert.match(appSource, /async function commitPendingFilmEditsBeforeAction/);
     assert.match(appSource, /await commitFilmNotesEdit\(\{ silent: true, keepDetailOpen \}\)/);
     assert.match(appSource, /await commitFilmMetadataEdit\(\{ keepDetailOpen \}\)/);

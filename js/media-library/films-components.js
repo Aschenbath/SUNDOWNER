@@ -539,12 +539,16 @@ function renderMarkdownBlocks(source = '') {
   return blocks.join('');
 }
 
-function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '' } = {}) {
+function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '', editable = false } = {}) {
   const savedNote = getSavedFilmNote(record);
   const draft = notesEditing ? normalizeMultilineText(notesDraft) : savedNote;
   if (!notesEditing) {
+    const readableClass = editable ? ' cml-film-detail__section--notes-readable' : '';
+    const editAttrs = editable
+      ? ` data-action="film-edit-notes" data-film-id="${escapeHtml(record.id || '')}" role="button" tabindex="0" aria-label="Edit My notes"`
+      : '';
     return `
-      <section class="cml-film-detail__section cml-film-detail__section--notes">
+      <section class="cml-film-detail__section cml-film-detail__section--notes${readableClass}"${editAttrs}>
         <h2>My notes</h2>
         <div class="cml-film-detail__markdown">${renderMarkdownBlocks(savedNote)}</div>
       </section>
@@ -975,7 +979,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
                 ? `<p>${escapeHtml(synopsis)}</p>`
                 : '<p class="cml-film-detail__empty-text">No synopsis yet.</p>'}
             </section>
-            ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesPreview })}
+            ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesPreview, editable: isSavedEntry && !displayRecord.manualDraft && !displayRecord.isSaving })}
             <div class="cml-film-detail__actions">
               ${isSavedEntry ? `
                 <button type="button" class="cml-film-detail__action ${displayRecord.favorite ? 'is-active' : ''}" data-action="film-toggle-favourite" data-film-id="${escapeHtml(displayRecord.id || '')}" ${disabledAttr}>${escapeHtml(favoriteActionLabel)}</button>

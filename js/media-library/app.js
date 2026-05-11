@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=5';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=48';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=49';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -14455,6 +14455,12 @@ function handleClick(event) {
   const pendingActionName = actionTarget instanceof HTMLElement ? actionTarget.dataset.action || '' : '';
   const clickedFilmAction = FILM_ACTION_NAMES.has(pendingActionName);
   const clickedSavedFilmCard = filmCardTarget instanceof HTMLElement && Boolean(filmCardTarget.dataset.filmId);
+  const clickedRenderedFilmNoteLink = pendingActionName === 'film-edit-notes'
+    && clickedControl instanceof HTMLAnchorElement;
+
+  if (clickedRenderedFilmNoteLink) {
+    return;
+  }
 
   if (state.filmMoreActionsOpen && !clickedInsideFilmMore) {
     state.filmMoreActionsOpen = false;
@@ -15153,6 +15159,15 @@ function handleKeyDown(event) {
   }
 
   if (state.filmDetailOpen) {
+    const focusedNotesSection = event.target instanceof HTMLElement && event.target.dataset.action === 'film-edit-notes'
+      ? event.target
+      : null;
+    if (focusedNotesSection && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      event.stopPropagation();
+      handleAction(focusedNotesSection);
+      return;
+    }
     if (event.key === 'Escape') {
       if (state.filmMoreActionsOpen) {
         state.filmMoreActionsOpen = false;
