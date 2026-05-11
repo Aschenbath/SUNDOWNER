@@ -11882,18 +11882,31 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-detail-page__backdrop-image {
   display: block;
+  position: absolute;
+  left: var(--film-backdrop-position-x, 50%);
+  top: var(--film-backdrop-position-y, 50%);
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: var(--film-backdrop-position-x, 50%) var(--film-backdrop-position-y, 50%);
   opacity: 0.66;
   filter: saturate(1) contrast(1.08) brightness(1.06);
-  transform: scale(var(--film-backdrop-scale, 1.02));
+  transform: translate(calc(var(--film-backdrop-position-x, 50%) * -1), calc(var(--film-backdrop-position-y, 50%) * -1));
   transition:
     opacity 260ms ease,
     filter 260ms ease,
-    transform 260ms ease;
-  will-change: opacity, filter, transform;
+    transform 260ms ease,
+    width 260ms ease,
+    height 260ms ease,
+    left 260ms ease,
+    top 260ms ease;
+  will-change: opacity, filter, transform, width, height;
+}
+
+#codex-media-library-root .cml-film-detail-page__backdrop-image.is-frame-fitted {
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
 }
 
 #codex-media-library-root .cml-film-detail-page__backdrop-image.is-switching {
@@ -12341,6 +12354,8 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-detail__section--notes {
+  contain: layout paint;
+  min-height: 188px;
   padding-top: 26px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -12348,7 +12363,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-detail__section--notes-readable {
   cursor: text;
   border-radius: 16px;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition: none;
 }
 
 #codex-media-library-root .cml-film-detail__section--notes-readable:hover,
@@ -12692,6 +12707,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-detail__markdown {
   display: grid;
   gap: 14px;
+  min-height: 120px;
   color: rgba(241, 238, 230, 0.74);
   font-size: clamp(15.5px, 1.05vw, 17px);
   line-height: 1.72;
@@ -12915,6 +12931,15 @@ body.codex-media-library-active #app {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
+#codex-media-library-root .cml-film-metadata-editor--inline {
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 #codex-media-library-root .cml-film-image-picker__head {
   display: flex;
   align-items: flex-start;
@@ -12968,8 +12993,27 @@ body.codex-media-library-active #app {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+#codex-media-library-root .cml-film-image-picker__preview.is-backdrop img {
+  position: absolute;
+  left: var(--film-backdrop-position-x, 50%);
+  top: var(--film-backdrop-position-y, 50%);
   object-position: var(--film-backdrop-position-x, 50%) var(--film-backdrop-position-y, 50%);
-  transform: scale(var(--film-backdrop-scale, 1));
+  transform: translate(calc(var(--film-backdrop-position-x, 50%) * -1), calc(var(--film-backdrop-position-y, 50%) * -1));
+  transition:
+    transform 160ms ease,
+    width 160ms ease,
+    height 160ms ease,
+    left 160ms ease,
+    top 160ms ease;
+  will-change: transform, width, height;
+}
+
+#codex-media-library-root .cml-film-image-picker__preview.is-backdrop img.is-frame-fitted {
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
 }
 
 #codex-media-library-root .cml-film-image-picker__preview span,
@@ -13180,10 +13224,12 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-notes-editor {
   max-width: none;
+  min-height: 430px;
   gap: 0;
   overflow: hidden;
   padding-top: 26px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  contain: layout paint;
 }
 
 #codex-media-library-root .cml-film-notes-editor > .cml-film-detail__section-head {

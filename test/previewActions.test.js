@@ -528,6 +528,24 @@ describe('media library download actions', () => {
     assert.match(focusedHtml, /data-film-metadata-field="directorOverride"/);
     assert.doesNotMatch(focusedHtml, /data-film-metadata-field="posterUrlOverride"/);
     assert.doesNotMatch(focusedHtml, /data-film-metadata-field="backdropUrlOverride"/);
+
+    const synopsisHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-44',
+        tmdbId: 44,
+        title: 'Synopsis Movie',
+        status: 'watched',
+        overview: 'Existing synopsis text',
+      },
+      metadataEditing: true,
+      metadataFocusField: 'overviewOverride',
+      metadataDraft: { overviewOverride: 'Draft synopsis text' },
+    });
+
+    assert.match(synopsisHtml, /<h2>Synopsis<\/h2>[\s\S]*cml-film-metadata-editor--inline[\s\S]*data-film-metadata-field="overviewOverride"/);
+    assert.ok(synopsisHtml.indexOf('<h2>Synopsis</h2>') < synopsisHtml.indexOf('data-film-metadata-field="overviewOverride"'));
+    assert.ok(synopsisHtml.indexOf('cml-film-detail__lower') < synopsisHtml.indexOf('data-film-metadata-field="overviewOverride"'));
+    assert.doesNotMatch(synopsisHtml, /data-film-metadata-field="directorOverride"/);
   });
 
   it('renders TMDb image choices as path overrides and custom URLs separately', () => {
@@ -605,6 +623,11 @@ describe('media library download actions', () => {
     assert.match(appSource, /case 'film-reset-backdrop-frame':/);
     assert.match(appSource, /function updateFilmBackdropFrameDraft/);
     assert.match(appSource, /function saveFilmBackdropFrameDraft/);
+    assert.match(appSource, /function getFilmBackdropFrameStyleForImage/);
+    assert.match(appSource, /const containScale = Math\.min/);
+    assert.match(appSource, /const coverScale = Math\.max/);
+    assert.match(appSource, /normalized\.backdropZoomOverride < 1/);
+    assert.match(appSource, /function applyFilmBackdropFrameToImage/);
     const frameStyleFunction = appSource.match(/function setFilmBackdropFrameStyle[\s\S]*?function updateFilmBackdropFrameDraft/);
     assert.ok(frameStyleFunction);
     assert.match(frameStyleFunction[0], /querySelectorAll\('\.cml-film-image-picker__preview\.is-backdrop img'\)/);

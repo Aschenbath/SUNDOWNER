@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=5';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=52';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=53';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -10028,6 +10028,10 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
     return false;
   }
   currentPage.replaceWith(nextPage);
+  syncFilmBackdropFrameImages(getActiveFilmRecord() || createFilmBackdropFrameDraft(), {
+    includeDetail: true,
+    includePicker: true
+  });
   return true;
 }
 
@@ -10381,7 +10385,7 @@ function editFilmNotes(filmId) {
   state.filmNotesDraft = film.noteMarkdown || film.journal || '';
   state.filmNotesPreview = false;
   state.filmMoreActionsOpen = false;
-  render();
+  renderFilmMutationState();
   focusFilmNotesEditor();
 }
 
@@ -10398,7 +10402,7 @@ function editFilmMetadata(filmId, { focusField = '' } = {}) {
   state.filmMetadataDraft = createFilmMetadataDraft(film);
   state.filmMetadataFocusField = normalizeText(focusField);
   state.filmMoreActionsOpen = false;
-  render();
+  renderFilmMutationState();
   if (state.filmMetadataFocusField) {
     focusFilmMetadataEditor(focusField);
   }
@@ -10559,18 +10563,95 @@ function createFilmBackdropFrameDraft(record = {}) {
   return normalizeFilmBackdropFrameOverrides(record);
 }
 
+function getFilmBackdropFrameStyleForImage(image, frame = createFilmBackdropFrameDraft()) {
+  if (!(image instanceof HTMLImageElement)) {
+    return null;
+  }
+  const container = image.parentElement;
+  if (!(container instanceof HTMLElement)) {
+    return null;
+  }
+  const containerWidth = container.clientWidth || container.getBoundingClientRect().width;
+  const containerHeight = container.clientHeight || container.getBoundingClientRect().height;
+  const naturalWidth = image.naturalWidth || 0;
+  const naturalHeight = image.naturalHeight || 0;
+  if (!containerWidth || !containerHeight || !naturalWidth || !naturalHeight) {
+    return null;
+  }
+  const normalized = normalizeFilmBackdropFrameOverrides(frame);
+  const containScale = Math.min(containerWidth / naturalWidth, containerHeight / naturalHeight);
+  const coverScale = Math.max(containerWidth / naturalWidth, containerHeight / naturalHeight);
+  const extraZoom = Math.max(1, normalized.backdropZoomOverride);
+  const scale = normalized.backdropZoomOverride < 1
+    ? containScale + ((coverScale - containScale) * ((normalized.backdropZoomOverride - 0.5) / 0.5))
+    : coverScale * extraZoom;
+  return {
+    x: `${normalized.backdropPositionXOverride}%`,
+    y: `${normalized.backdropPositionYOverride}%`,
+    width: `${Math.max(1, naturalWidth * scale)}px`,
+    height: `${Math.max(1, naturalHeight * scale)}px`
+  };
+}
+
+function applyFilmBackdropFrameToImage(image, frame = createFilmBackdropFrameDraft()) {
+  if (!(image instanceof HTMLImageElement)) {
+    return false;
+  }
+  const normalized = normalizeFilmBackdropFrameOverrides(frame);
+  image.style.setProperty('--film-backdrop-position-x', `${normalized.backdropPositionXOverride}%`);
+  image.style.setProperty('--film-backdrop-position-y', `${normalized.backdropPositionYOverride}%`);
+  image.style.setProperty('--film-backdrop-scale', String(normalized.backdropZoomOverride));
+  const fitted = getFilmBackdropFrameStyleForImage(image, normalized);
+  if (!fitted) {
+    return false;
+  }
+  image.classList.add('is-frame-fitted');
+  image.style.width = fitted.width;
+  image.style.height = fitted.height;
+  image.style.left = fitted.x;
+  image.style.top = fitted.y;
+  return true;
+}
+
+function syncFilmBackdropFrameImages(frame = getActiveFilmRecord() || createFilmBackdropFrameDraft(), { includeDetail = true, includePicker = true } = {}) {
+  if (!refs.root) {
+    return;
+  }
+  const normalized = normalizeFilmBackdropFrameOverrides(frame);
+  const selectors = [];
+  if (includeDetail) {
+    selectors.push('.cml-film-detail-page__backdrop-image');
+  }
+  if (includePicker) {
+    selectors.push('.cml-film-image-picker__preview.is-backdrop img');
+  }
+  if (!selectors.length) {
+    return;
+  }
+  refs.root.querySelectorAll(selectors.join(', ')).forEach((node) => {
+    if (!(node instanceof HTMLImageElement)) {
+      return;
+    }
+    if (!applyFilmBackdropFrameToImage(node, normalized)) {
+      const onLoad = () => applyFilmBackdropFrameToImage(node, normalized);
+      node.addEventListener('load', onLoad, { once: true });
+    }
+  });
+}
+
 function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
   const normalized = normalizeFilmBackdropFrameOverrides(frame);
   const x = `${normalized.backdropPositionXOverride}%`;
   const y = `${normalized.backdropPositionYOverride}%`;
   const zoom = String(normalized.backdropZoomOverride);
   refs.root?.querySelectorAll('.cml-film-image-picker__preview.is-backdrop img').forEach((node) => {
-    if (!(node instanceof HTMLElement)) {
+    if (!(node instanceof HTMLImageElement)) {
       return;
     }
     node.style.setProperty('--film-backdrop-position-x', x);
     node.style.setProperty('--film-backdrop-position-y', y);
     node.style.setProperty('--film-backdrop-scale', zoom);
+    applyFilmBackdropFrameToImage(node, normalized);
   });
   refs.root?.querySelectorAll('[data-film-backdrop-frame-field]').forEach((node) => {
     if (!(node instanceof HTMLInputElement)) {
@@ -12075,6 +12156,10 @@ function render() {
   setupPreviewTouchHandlers();
   setupYearScrollerDrag();
   setupImageLoadAnimations();
+  syncFilmBackdropFrameImages(getActiveFilmRecord() || createFilmBackdropFrameDraft(), {
+    includeDetail: viewModel.isFilmsView && state.filmDetailOpen,
+    includePicker: viewModel.isFilmsView && state.filmImagePickerMode === 'backdrop'
+  });
   scheduleFilmBackdropRotation();
   if (viewModel.isMindView) {
     window.requestAnimationFrame(() => scrollMindToBottom({ force: false }));

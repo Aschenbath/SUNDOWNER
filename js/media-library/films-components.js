@@ -776,6 +776,39 @@ function renderFilmMetadataFieldPicker(record = {}) {
   `;
 }
 
+function renderFocusedFilmMetadataEditor(record = {}, draft = {}, focusedField = '', { embedded = false } = {}) {
+  const config = FOCUSED_METADATA_FIELDS[focusedField];
+  if (!config) {
+    return '';
+  }
+  const tag = embedded ? 'div' : 'section';
+  const className = [
+    embedded ? '' : 'cml-film-detail__section',
+    'cml-film-metadata-editor',
+    'cml-film-metadata-editor--focused',
+    embedded ? 'cml-film-metadata-editor--inline' : ''
+  ].filter(Boolean).join(' ');
+  return `
+    <${tag} class="${className}">
+      <div class="cml-film-detail__section-head">
+        <div>
+          <h2>${escapeHtml(config.title)}</h2>
+        </div>
+        <span class="cml-film-save-status" data-film-save-status="metadata"></span>
+      </div>
+      ${renderFilmMetadataInput({
+        label: config.label,
+        field: focusedField,
+        value: draft[focusedField] || '',
+        placeholder: typeof config.placeholder === 'function' ? config.placeholder(record) : '',
+        type: config.type || 'text',
+        multiline: Boolean(config.multiline)
+      })}
+      <p class="cml-film-metadata-editor__hint">Click outside to save.</p>
+    </${tag}>
+  `;
+}
+
 function renderFilmMetadataEditor(record = {}, draft = {}, { focusField = '' } = {}) {
   const genres = Array.isArray(record.genres) ? record.genres.filter(Boolean).join(', ') : '';
   const isManualDraft = record.manualDraft === true;
@@ -784,26 +817,7 @@ function renderFilmMetadataEditor(record = {}, draft = {}, { focusField = '' } =
     return renderFilmMetadataFieldPicker(record);
   }
   if (focusedField) {
-    const config = FOCUSED_METADATA_FIELDS[focusedField];
-    return `
-      <section class="cml-film-detail__section cml-film-metadata-editor cml-film-metadata-editor--focused">
-        <div class="cml-film-detail__section-head">
-          <div>
-            <h2>${escapeHtml(config.title)}</h2>
-          </div>
-          <span class="cml-film-save-status" data-film-save-status="metadata"></span>
-        </div>
-        ${renderFilmMetadataInput({
-          label: config.label,
-          field: focusedField,
-          value: draft[focusedField] || '',
-          placeholder: typeof config.placeholder === 'function' ? config.placeholder(record) : '',
-          type: config.type || 'text',
-          multiline: Boolean(config.multiline)
-        })}
-        <p class="cml-film-metadata-editor__hint">Click outside to save.</p>
-      </section>
-    `;
+    return renderFocusedFilmMetadataEditor(record, draft, focusedField);
   }
   return `
     <section class="cml-film-detail__section cml-film-metadata-editor ${isManualDraft ? 'is-manual-draft' : ''}">
@@ -1089,7 +1103,11 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
     ? { ...displayRecord, isSaving: true }
     : displayRecord;
   const metadataEditor = isSavedEntry && metadataEditing
+    && metadataFocusField !== 'overviewOverride'
     ? renderFilmMetadataEditor(displayRecord, metadataDraft || {}, { focusField: metadataFocusField })
+    : '';
+  const synopsisMetadataEditor = isSavedEntry && metadataEditing && metadataFocusField === 'overviewOverride'
+    ? renderFocusedFilmMetadataEditor(displayRecord, metadataDraft || {}, 'overviewOverride', { embedded: true })
     : '';
   const imagePicker = isSavedEntry
     ? renderFilmImagePicker(displayRecord, { mode: imagePickerMode, draft: imagePickerDraft, frameDraft: imagePickerFrameDraft })
@@ -1148,11 +1166,11 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
                 <section class="cml-film-detail__section">
                   <div class="cml-film-detail__section-head">
                     <h2>Synopsis</h2>
-                    ${canEditLocalMetadata ? `<button type="button" class="cml-film-detail__inline-edit" data-action="film-edit-metadata" data-film-id="${escapeHtml(displayRecord.id || '')}" data-film-metadata-focus-field="overviewOverride">Edit</button>` : ''}
+                    ${canEditLocalMetadata && !synopsisMetadataEditor ? `<button type="button" class="cml-film-detail__inline-edit" data-action="film-edit-metadata" data-film-id="${escapeHtml(displayRecord.id || '')}" data-film-metadata-focus-field="overviewOverride">Edit</button>` : ''}
                   </div>
-                  ${synopsis
+                  ${synopsisMetadataEditor || (synopsis
                     ? `<p>${escapeHtml(synopsis)}</p>`
-                    : '<p class="cml-film-detail__empty-text">No synopsis yet.</p>'}
+                    : '<p class="cml-film-detail__empty-text">No synopsis yet.</p>')}
                 </section>
                 ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesPreview, editable: isSavedEntry && !displayRecord.manualDraft && !displayRecord.isSaving, saveStatus })}
               </div>
