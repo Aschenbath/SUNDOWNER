@@ -26,6 +26,7 @@ describe('media library download actions', () => {
     assert.match(html, /No saved films yet/);
     assert.ok(html.indexOf('cml-films-mvp') < html.indexOf('cml-films-filters'));
     assert.ok(html.indexOf('cml-films-filters') < html.indexOf('cml-films-empty'));
+    assert.ok(html.indexOf('Search my films') < html.indexOf('Add from TMDb'));
   });
 
   it('renders saved-library search separately from TMDb search', () => {
@@ -46,6 +47,10 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="add-manual-film"/);
     assert.match(html, /data-action="clear-film-library-search"/);
     assert.match(html, /No saved films found\./);
+    assert.match(html, /cml-films-library-search--primary/);
+    assert.ok(html.indexOf('data-film-library-search-input') < html.indexOf('data-form="films-search"'));
+    const tmdbForm = html.slice(html.indexOf('data-form="films-search"'), html.indexOf('</form>', html.indexOf('data-form="films-search"')));
+    assert.doesNotMatch(tmdbForm, /data-action="add-manual-film"/);
   });
 
   it('renders saved Films in a poster-only view mode', () => {
@@ -254,6 +259,7 @@ describe('media library download actions', () => {
     assert.match(html, /data-film-metadata-focus-field="directorOverride"/);
     assert.match(html, /data-film-metadata-focus-field="runtimeOverride"/);
     assert.match(html, /data-film-metadata-focus-field="overviewOverride"/);
+    assert.match(html, /data-film-metadata-focus-field="titleOverride"/);
     assert.match(html, /Customize/);
     assert.match(html, /Sync/);
     assert.match(html, /Danger/);
@@ -266,7 +272,8 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="film-pick-image"/);
     assert.match(html, /Selected/);
     assert.match(html, /data-film-image-picker-url/);
-    assert.match(html, />Save URL<\/button>/);
+    assert.match(html, />Apply<\/button>/);
+    assert.match(html, /click outside to save/);
     assert.match(html, />Reset TMDb<\/button>/);
     assert.match(html, /data-action="film-clear-image-override"/);
     assert.match(html, /data-action="film-refresh-tmdb"/);
@@ -279,6 +286,8 @@ describe('media library download actions', () => {
     assert.ok(html.indexOf('data-action="film-remove-entry"') > html.indexOf('data-action="film-toggle-more-actions"'));
     assert.match(html, /data-film-watch-event-input/);
     assert.match(html, /data-film-watch-event-id="watch-[^"]+"/);
+    assert.match(html, /data-film-watch-event-rating=""/);
+    assert.match(html, /data-film-watch-event-note=""/);
     assert.match(html, /data-action="film-delete-watch-event"/);
     assert.match(html, /No synopsis yet\./);
     assert.doesNotMatch(html, /quiet resistance against the German officer/);
@@ -384,6 +393,25 @@ describe('media library download actions', () => {
     assert.match(savedHtml, /src="\/file\/backdrop\.jpg"/);
     assert.doesNotMatch(previewHtml, /data-action="film-edit-metadata"/);
     assert.doesNotMatch(previewHtml, /cml-film-metadata-editor/);
+
+    const focusedHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-43',
+        tmdbId: 43,
+        title: 'Focused Movie',
+        status: 'watched',
+        director: 'Existing Director',
+      },
+      metadataEditing: true,
+      metadataFocusField: 'directorOverride',
+      metadataDraft: { directorOverride: 'Draft Director' },
+    });
+
+    assert.match(focusedHtml, /cml-film-metadata-editor--focused/);
+    assert.match(focusedHtml, /Edit director/);
+    assert.match(focusedHtml, /data-film-metadata-field="directorOverride"/);
+    assert.doesNotMatch(focusedHtml, /data-film-metadata-field="posterUrlOverride"/);
+    assert.doesNotMatch(focusedHtml, /data-film-metadata-field="backdropUrlOverride"/);
   });
 
   it('renders TMDb image choices as path overrides and custom URLs separately', () => {
@@ -447,6 +475,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /case 'film-clear-image-override':/);
     assert.match(appSource, /function resetFilmImageOverride/);
     assert.match(appSource, /case 'film-close-image-picker':/);
+    assert.match(appSource, /case 'film-close-image-picker':\s+void \(async \(\) => \{\s+if \(await commitPendingFilmEditsBeforeAction\(\{ actionName, keepDetailOpen: true \}\)\) \{/);
+    assert.doesNotMatch(appSource, /'film-close-image-picker'\s*\]\);/);
     assert.match(appSource, /case 'film-refresh-tmdb':/);
     assert.match(appSource, /case 'film-open-tmdb':/);
     assert.match(appSource, /case 'film-remove-entry':/);
@@ -550,7 +580,7 @@ describe('media library download actions', () => {
     assert.match(html, /cml-film-card__director/);
     assert.match(html, /James Cameron/);
     assert.match(html, /cml-film-card__rating is-pending/);
-    assert.match(html, />待<\/span>/);
+    assert.match(html, />NR<\/span>/);
     assert.doesNotMatch(html, /TMDB #000042/);
     assert.doesNotMatch(html, /cml-film-card__barcode/);
   });
@@ -572,7 +602,7 @@ describe('media library download actions', () => {
     assert.match(html, /Director/);
     assert.match(html, /James Cameron/);
     assert.match(html, /cml-film-card__rating is-pending/);
-    assert.match(html, />待<\/span>/);
+    assert.match(html, />NR<\/span>/);
     assert.doesNotMatch(html, /TMDb rating 9\.0/);
     assert.doesNotMatch(html, />9\.0<\/span>/);
   });

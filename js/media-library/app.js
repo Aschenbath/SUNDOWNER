@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=4';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=46';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=47';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -156,8 +156,7 @@ const FILM_ACTION_NAMES = new Set([
 const FILM_ACTIONS_WITHOUT_IMAGE_URL_AUTOSAVE = new Set([
   'film-pick-image',
   'film-apply-image-url',
-  'film-clear-image-override',
-  'film-close-image-picker'
+  'film-clear-image-override'
 ]);
 const MEDIA_LIBRARY_UPLOAD_ACCEPT = 'image/*,video/*,audio/*,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.*,text/*';
 const COLLECTION_PAGE_SIZE = 24;
@@ -9938,6 +9937,7 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
     notesPreview: state.filmNotesPreview,
     metadataEditing: state.filmMetadataEditing,
     metadataDraft: state.filmMetadataDraft,
+    metadataFocusField: state.filmMetadataFocusField,
     moreActionsOpen: state.filmMoreActionsOpen,
     imagePickerMode: state.filmImagePickerMode,
     imagePickerDraft: state.filmImagePickerDraft,
@@ -10888,6 +10888,7 @@ async function removeFilmEntry(filmId) {
   if (!await commitPendingFilmEditsBeforeAction({ actionName: 'film-remove-entry', keepDetailOpen: true })) {
     return;
   }
+  state.filmMoreActionsOpen = false;
   const film = state.films.find((record) => record.id === targetFilmId);
   if (!film) {
     return;
@@ -11380,6 +11381,7 @@ function render() {
                     notesPreview: state.filmNotesPreview,
                     metadataEditing: state.filmMetadataEditing,
                     metadataDraft: state.filmMetadataDraft,
+                    metadataFocusField: state.filmMetadataFocusField,
                     moreActionsOpen: state.filmMoreActionsOpen,
                     imagePickerMode: state.filmImagePickerMode,
                     imagePickerDraft: state.filmImagePickerDraft,
@@ -14231,6 +14233,7 @@ function handleAction(actionTarget) {
     case 'film-edit-notes':
       void (async () => {
         if (await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: true })) {
+          state.filmMoreActionsOpen = false;
           editFilmNotes(actionTarget.dataset.filmId || state.activeFilmId);
         }
       })();
@@ -14241,6 +14244,7 @@ function handleAction(actionTarget) {
     case 'film-edit-metadata':
       void (async () => {
         if (await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: true })) {
+          state.filmMoreActionsOpen = false;
           editFilmMetadata(actionTarget.dataset.filmId || state.activeFilmId, {
             focusField: actionTarget.dataset.filmMetadataFocusField || ''
           });
@@ -14250,6 +14254,7 @@ function handleAction(actionTarget) {
     case 'film-change-poster':
       void (async () => {
         if (await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: true })) {
+          state.filmMoreActionsOpen = false;
           changeFilmPoster(actionTarget.dataset.filmId || state.activeFilmId);
         }
       })();
@@ -14257,6 +14262,7 @@ function handleAction(actionTarget) {
     case 'film-change-backdrop':
       void (async () => {
         if (await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: true })) {
+          state.filmMoreActionsOpen = false;
           changeFilmBackdrop(actionTarget.dataset.filmId || state.activeFilmId);
         }
       })();
@@ -14271,7 +14277,11 @@ function handleAction(actionTarget) {
       resetFilmImageOverride(actionTarget.dataset.filmImageMode || state.filmImagePickerMode);
       return true;
     case 'film-close-image-picker':
-      closeFilmImagePicker();
+      void (async () => {
+        if (await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: true })) {
+          closeFilmImagePicker();
+        }
+      })();
       return true;
     case 'film-refresh-tmdb':
       void refreshFilmFromTmdb(actionTarget.dataset.filmId || state.activeFilmId);
@@ -14279,6 +14289,8 @@ function handleAction(actionTarget) {
     case 'film-open-tmdb':
       void (async () => {
         if (await commitPendingFilmEditsBeforeAction({ actionName, keepDetailOpen: true })) {
+          state.filmMoreActionsOpen = false;
+          renderFilmMutationState({ allowRenderFallback: false });
           openFilmTmdbPage(actionTarget.dataset.tmdbId || getActiveFilmRecord()?.tmdbId);
         }
       })();
@@ -14317,7 +14329,7 @@ function handleClick(event) {
 
   if (state.filmMoreActionsOpen && !clickedInsideFilmMore) {
     state.filmMoreActionsOpen = false;
-    if (!(actionTarget instanceof HTMLElement)) {
+    if (!(actionTarget instanceof HTMLElement) || !FILM_ACTION_NAMES.has(actionTarget.dataset.action || '')) {
       renderFilmMutationState();
     }
   }
@@ -14347,6 +14359,18 @@ function handleClick(event) {
       if (!clickedFilmAction && !clickedSavedFilmCard) {
         void commitFilmMetadataEdit({ keepDetailOpen: true });
       }
+    }
+  }
+
+  if (state.filmImagePickerMode) {
+    const imagePicker = refs.root?.querySelector('.cml-film-image-picker');
+    const clickedInsideImagePicker = event.target instanceof Element
+      && imagePicker instanceof HTMLElement
+      && imagePicker.contains(event.target);
+    const clickedImagePickerAction = actionTarget instanceof HTMLElement
+      && ['film-pick-image', 'film-apply-image-url', 'film-clear-image-override', 'film-close-image-picker'].includes(actionTarget.dataset.action || '');
+    if (!clickedInsideImagePicker && !clickedImagePickerAction && !clickedFilmAction && !clickedSavedFilmCard) {
+      void commitFilmImagePickerDraft({ keepDetailOpen: true });
     }
   }
 
@@ -14918,6 +14942,10 @@ function handleFocusOut(event) {
     }
     return;
   }
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-image-picker-url')) {
+    void commitFilmImagePickerDraft({ keepDetailOpen: true });
+    return;
+  }
   if (event.target instanceof HTMLElement && event.target.dataset.mindInput === 'message' && isMobileLayout()) {
     window.setTimeout(() => {
       stabilizeMobileMindViewport();
@@ -14969,6 +14997,19 @@ function handleKeyDown(event) {
 
   if (state.filmDetailOpen) {
     if (event.key === 'Escape') {
+      if (state.filmMoreActionsOpen) {
+        state.filmMoreActionsOpen = false;
+        renderFilmMutationState();
+        return;
+      }
+      if (state.filmImagePickerMode) {
+        void commitFilmImagePickerDraft({ keepDetailOpen: true }).then((saved) => {
+          if (saved) {
+            closeFilmImagePicker();
+          }
+        });
+        return;
+      }
       void closeFilmDetail();
     }
     return;
