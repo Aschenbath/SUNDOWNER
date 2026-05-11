@@ -63,7 +63,7 @@ function normalizeBackdropZoomOverride(value) {
   if (!Number.isFinite(numeric)) {
     return 1.02;
   }
-  return Math.max(1, Math.min(1.8, Math.round(numeric * 100) / 100));
+  return Math.max(0.5, Math.min(1.8, Math.round(numeric * 100) / 100));
 }
 
 function normalizeBackdropPositionOverride(value) {

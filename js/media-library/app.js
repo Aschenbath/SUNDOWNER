@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=5';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=51';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=52';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -123,7 +123,9 @@ const FILM_METADATA_FIELDS = [
   'posterPathOverride',
   'backdropPathOverride',
   'posterUrlOverride',
-  'backdropUrlOverride',
+  'backdropUrlOverride'
+];
+const FILM_BACKDROP_FRAME_FIELDS = [
   'backdropZoomOverride',
   'backdropPositionXOverride',
   'backdropPositionYOverride'
@@ -8599,6 +8601,11 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
   const runtime = overrides.runtimeOverride ?? cacheRuntime;
   const localNote = normalizeText(entry?.note || existingRecord?.note || '');
   const localJournal = normalizeMultilineText(entry?.journal || entry?.noteMarkdown || existingRecord?.journal || existingRecord?.noteMarkdown || '');
+  const backdropFrame = normalizeFilmBackdropFrameOverrides({
+    ...existingRecord,
+    ...movie,
+    ...entry
+  });
   return {
     id,
     source,
@@ -8665,9 +8672,9 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     backdropPathOverride: overrides.backdropPathOverride,
     posterUrlOverride: overrides.posterUrlOverride,
     backdropUrlOverride: overrides.backdropUrlOverride,
-    backdropZoomOverride: overrides.backdropZoomOverride,
-    backdropPositionXOverride: overrides.backdropPositionXOverride,
-    backdropPositionYOverride: overrides.backdropPositionYOverride,
+    backdropZoomOverride: backdropFrame.backdropZoomOverride,
+    backdropPositionXOverride: backdropFrame.backdropPositionXOverride,
+    backdropPositionYOverride: backdropFrame.backdropPositionYOverride,
     isSaving: Number.isFinite(tmdbId) && tmdbId > 0 && state.filmSavingTmdbIds.has(tmdbId)
   };
 }
@@ -8744,7 +8751,7 @@ function normalizeFilmBackdropZoomOverride(value) {
   if (!Number.isFinite(numeric)) {
     return 1.02;
   }
-  return Math.max(1, Math.min(1.8, Math.round(numeric * 100) / 100));
+  return Math.max(0.5, Math.min(1.8, Math.round(numeric * 100) / 100));
 }
 
 function normalizeFilmBackdropPositionOverride(value) {
@@ -8791,8 +8798,7 @@ function normalizeFilmMetadataOverrides(source = {}) {
     posterPathOverride: normalizeFilmImagePathOverride(source.posterPathOverride),
     backdropPathOverride: normalizeFilmImagePathOverride(source.backdropPathOverride),
     posterUrlOverride: normalizeFilmImageOverride(source.posterUrlOverride),
-    backdropUrlOverride: normalizeFilmImageOverride(source.backdropUrlOverride),
-    ...normalizeFilmBackdropFrameOverrides(source)
+    backdropUrlOverride: normalizeFilmImageOverride(source.backdropUrlOverride)
   };
 }
 
@@ -8896,8 +8902,7 @@ function createFilmMetadataDraft(record = {}) {
     posterPathOverride: normalizeText(record.posterPathOverride || ''),
     backdropPathOverride: normalizeText(record.backdropPathOverride || ''),
     posterUrlOverride: normalizeText(record.posterUrlOverride || ''),
-    backdropUrlOverride: normalizeText(record.backdropUrlOverride || ''),
-    ...normalizeFilmBackdropFrameOverrides(record)
+    backdropUrlOverride: normalizeText(record.backdropUrlOverride || '')
   };
 }
 
@@ -8950,6 +8955,7 @@ function rotateActiveFilmBackdrop() {
     || state.filmNotesEditing
     || state.filmMetadataEditing
     || state.filmImagePickerMode
+    || state.filmSaveStatus?.state === 'saving'
     || document.hidden
     || (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   ) {
@@ -8974,6 +8980,7 @@ function scheduleFilmBackdropRotation() {
     || state.filmNotesEditing
     || state.filmMetadataEditing
     || state.filmImagePickerMode
+    || state.filmSaveStatus?.state === 'saving'
     || document.hidden
     || (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
     || getFilmAutoBackdropPaths(record).length <= 1
@@ -9061,6 +9068,7 @@ function upsertFilmRecord(record, { preserveLocal = false } = {}) {
     status: preserveLocal ? (existing?.status ?? record.status ?? merged.status) : (record.status ?? existing?.status ?? merged.status),
     favorite: preserveLocal ? (existing?.favorite ?? record.favorite ?? false) : (record.favorite ?? existing?.favorite ?? false),
     ...normalizeFilmMetadataOverrides(preserveLocal ? { ...record, ...existing } : { ...existing, ...record }),
+    ...normalizeFilmBackdropFrameOverrides(preserveLocal ? { ...record, ...existing } : { ...existing, ...record }),
     isSaving: Boolean(record.isSaving)
   };
   const nextFilms = state.films.slice();
@@ -9208,6 +9216,10 @@ function createOptimisticFilmRecord(tmdbId, patch = {}, { isSaving = true } = {}
       ? patch.noteMarkdown
       : existing?.noteMarkdown || existing?.journal || '',
     ...normalizeFilmMetadataOverrides({
+      ...existing,
+      ...patch
+    }),
+    ...normalizeFilmBackdropFrameOverrides({
       ...existing,
       ...patch
     }),
@@ -10120,10 +10132,7 @@ function buildFilmMetadataPatchFromDraft(draft = {}) {
     posterPathOverride: draft.posterPathOverride,
     backdropPathOverride: draft.backdropPathOverride,
     posterUrlOverride: draft.posterUrlOverride,
-    backdropUrlOverride: draft.backdropUrlOverride,
-    backdropZoomOverride: draft.backdropZoomOverride,
-    backdropPositionXOverride: draft.backdropPositionXOverride,
-    backdropPositionYOverride: draft.backdropPositionYOverride
+    backdropUrlOverride: draft.backdropUrlOverride
   });
 }
 
@@ -10178,6 +10187,11 @@ function buildFilmEntryPatchBody(existing = {}, patch = {}, watchStatus = normal
     body.watchEventId = patch.watchEventId;
   }
   FILM_METADATA_FIELDS.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(patch, field)) {
+      body[field] = patch[field];
+    }
+  });
+  FILM_BACKDROP_FRAME_FIELDS.forEach((field) => {
     if (Object.prototype.hasOwnProperty.call(patch, field)) {
       body[field] = patch[field];
     }
@@ -10271,6 +10285,9 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
   const changedMetadataPatch = Object.fromEntries(FILM_METADATA_FIELDS
     .filter((field) => Object.prototype.hasOwnProperty.call(patch, field))
     .map((field) => [field, patch[field]]));
+  const changedBackdropFramePatch = Object.fromEntries(FILM_BACKDROP_FRAME_FIELDS
+    .filter((field) => Object.prototype.hasOwnProperty.call(patch, field))
+    .map((field) => [field, patch[field]]));
   const optimisticPatch = {
     watchStatus,
     userRating: Object.prototype.hasOwnProperty.call(patch, 'userRating') ? patch.userRating : existing.userRating ?? null,
@@ -10278,6 +10295,7 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
     journal: Object.prototype.hasOwnProperty.call(patch, 'journal') ? patch.journal : existing.journal || existing.noteMarkdown || '',
     noteMarkdown: Object.prototype.hasOwnProperty.call(patch, 'noteMarkdown') ? patch.noteMarkdown : existing.noteMarkdown || existing.journal || '',
     ...changedMetadataPatch,
+    ...changedBackdropFramePatch,
     isFavorite: Object.prototype.hasOwnProperty.call(patch, 'isFavorite') ? patch.isFavorite : Boolean(existing.favorite),
     watchedAt: Object.prototype.hasOwnProperty.call(patch, 'watchedAt') ? patch.watchedAt : existing.watchedAt || '',
     watchEvents: Object.prototype.hasOwnProperty.call(patch, 'watchEvents')
@@ -10312,7 +10330,7 @@ async function saveFilmEntryPatch(filmId, patch = {}, { successMessage = 'Film u
         throw new Error('Manual film has not saved yet');
       }
     }
-    const body = buildFilmEntryPatchBody(existing, { ...patch, ...changedMetadataPatch }, watchStatus);
+    const body = buildFilmEntryPatchBody(existing, { ...patch, ...changedMetadataPatch, ...changedBackdropFramePatch }, watchStatus);
     const payload = await postJson('/api/manage/movies', body);
     const record = normalizeMovieRecord(payload?.movie || {}, payload?.entry || null);
     upsertFilmRecord(record);
@@ -10546,7 +10564,7 @@ function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
   const x = `${normalized.backdropPositionXOverride}%`;
   const y = `${normalized.backdropPositionYOverride}%`;
   const zoom = String(normalized.backdropZoomOverride);
-  refs.root?.querySelectorAll('.cml-film-detail-page__backdrop-image, .cml-film-image-picker__preview.is-backdrop img').forEach((node) => {
+  refs.root?.querySelectorAll('.cml-film-image-picker__preview.is-backdrop img').forEach((node) => {
     if (!(node instanceof HTMLElement)) {
       return;
     }
@@ -11188,7 +11206,8 @@ function restoreFilmEntryPayload(record = {}) {
     isFavorite: Boolean(record.favorite),
     watchedAt: record.watchedAt || '',
     watchEvents: normalizeFilmWatchEvents(record.watchEvents || []),
-    ...normalizeFilmMetadataOverrides(record)
+    ...normalizeFilmMetadataOverrides(record),
+    ...normalizeFilmBackdropFrameOverrides(record)
   };
   if (target.tmdbId) {
     payload.tmdbId = target.tmdbId;

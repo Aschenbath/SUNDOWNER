@@ -426,7 +426,7 @@ describe('MovieRepository', () => {
       backdropPathOverride: '/chosen-backdrop.jpg',
       posterUrlOverride: 'https://example.com/poster.jpg',
       backdropUrlOverride: '/file/backdrop.jpg',
-      backdropZoomOverride: 1.24,
+      backdropZoomOverride: 0.52,
       backdropPositionXOverride: 62,
       backdropPositionYOverride: 31,
     });
@@ -434,7 +434,7 @@ describe('MovieRepository', () => {
     assert.equal(saved.entry.backdropPathOverride, '/chosen-backdrop.jpg');
     assert.equal(saved.entry.posterUrlOverride, 'https://example.com/poster.jpg');
     assert.equal(saved.entry.backdropUrlOverride, '/file/backdrop.jpg');
-    assert.equal(saved.entry.backdropZoomOverride, 1.24);
+    assert.equal(saved.entry.backdropZoomOverride, 0.52);
     assert.equal(saved.entry.backdropPositionXOverride, 62);
     assert.equal(saved.entry.backdropPositionYOverride, 31);
 

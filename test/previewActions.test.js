@@ -114,6 +114,7 @@ describe('media library download actions', () => {
         id: 'tmdb-27205',
         tmdbId: 27205,
         status: 'watched',
+        userRating: 4.5,
       }]]),
       results: [{
         tmdbId: 27205,
@@ -126,6 +127,8 @@ describe('media library download actions', () => {
 
     assert.match(html, /cml-film-search-result[^"]*is-saved/);
     assert.match(html, /In Films - Watched/);
+    assert.match(html, /My rating 4\.5/);
+    assert.doesNotMatch(html, /TMDb 8\.4/);
     assert.match(html, /is-current"[^>]*data-watch-status="watched"[^>]*disabled/);
     assert.match(html, />Watched saved<\/button>/);
   });
@@ -238,14 +241,14 @@ describe('media library download actions', () => {
         posterPaths: ['/poster.jpg', '/poster-2.jpg'],
         backdropPath: '/backdrop.jpg',
         backdropPaths: ['/backdrop.jpg', '/backdrop-2.jpg'],
-        backdropZoomOverride: 1.18,
+        backdropZoomOverride: 0.82,
         backdropPositionXOverride: 62,
         backdropPositionYOverride: 34,
       },
       moreActionsOpen: true,
       imagePickerMode: 'backdrop',
       imagePickerFrameDraft: {
-        backdropZoomOverride: 1.26,
+        backdropZoomOverride: 0.58,
         backdropPositionXOverride: 58,
         backdropPositionYOverride: 29,
       },
@@ -256,15 +259,16 @@ describe('media library download actions', () => {
     assert.match(html, /data-film-detail-page/);
     assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w1280\/backdrop-2\.jpg"/);
     assert.match(html, /data-film-backdrop-index="1"/);
-    assert.match(html, /--film-backdrop-position-x: 58%/);
-    assert.match(html, /--film-backdrop-position-y: 29%/);
-    assert.match(html, /--film-backdrop-scale: 1\.26/);
+    assert.match(html, /--film-backdrop-position-x: 62%/);
+    assert.match(html, /--film-backdrop-position-y: 34%/);
+    assert.match(html, /--film-backdrop-scale: 0\.82/);
     assert.match(html, /Back to Films/);
     assert.match(html, /Silence of the Sea/);
     assert.match(html, /Le silence de la mer/);
     assert.match(html, /Pierre Boutron/);
     assert.match(html, /Romance \/ Drama \/ War \/ TV Movie/);
     assert.match(html, /5\.0 \/ 5\.0/);
+    assert.match(html, /My rating/);
     assert.doesNotMatch(html, /TMDb 7\.5/);
     assert.doesNotMatch(html, /TMDb rating/);
     assert.match(html, /May 9, 2026/);
@@ -277,7 +281,7 @@ describe('media library download actions', () => {
     assert.match(html, /Add notes or rating for this watch/);
     assert.match(html, /Private signals/);
     assert.match(html, /cml-film-detail__signals-card/);
-    assert.match(html, /Personal rating/);
+    assert.doesNotMatch(html, /Personal rating/);
     assert.match(html, /2 watches/);
     assert.match(html, /May 1, 2026/);
     assert.match(html, /Synopsis/);
@@ -301,7 +305,7 @@ describe('media library download actions', () => {
     assert.match(html, /cml-film-image-picker__preview/);
     assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w780\/backdrop\.jpg"/);
     assert.match(html, /Backdrop frame/);
-    assert.match(html, /data-film-backdrop-frame-field="zoom"/);
+    assert.match(html, /min="0\.5" max="1\.8" step="0\.01" value="0\.58" data-film-backdrop-frame-field="zoom"/);
     assert.match(html, /data-film-backdrop-frame-field="x"/);
     assert.match(html, /data-film-backdrop-frame-field="y"/);
     assert.match(html, /data-action="film-reset-backdrop-frame"/);
@@ -315,6 +319,13 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="film-refresh-tmdb"/);
     assert.match(html, /data-action="film-open-tmdb"/);
     assert.match(html, /data-action="film-edit-notes"/);
+    const detailBackdropMatch = html.match(/<img class="cml-film-detail-page__backdrop-image"[\s\S]*?style="([^"]+)"/);
+    assert.ok(detailBackdropMatch);
+    assert.match(detailBackdropMatch[1], /--film-backdrop-scale: 0\.82/);
+    assert.doesNotMatch(detailBackdropMatch[1], /0\.58/);
+    const pickerPreviewMatch = html.match(/<div class="cml-film-image-picker__preview is-backdrop">[\s\S]*?<img[^>]*style="([^"]+)"/);
+    assert.ok(pickerPreviewMatch);
+    assert.match(pickerPreviewMatch[1], /--film-backdrop-scale: 0\.58/);
     assert.match(html, /data-action="film-mark-rewatch"/);
     assert.match(html, /data-action="film-remove-entry"/);
     assert.ok(html.indexOf('data-action="film-toggle-favourite"') < html.lastIndexOf('data-action="film-edit-notes"'));
@@ -329,6 +340,38 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /quiet resistance against the German officer/);
     assert.doesNotMatch(html, /role="dialog"/);
     assert.doesNotMatch(html, /cml-film-modal/);
+  });
+
+  it('keeps metadata draft edits from changing saved backdrop framing', () => {
+    const html = FilmDetailPage({
+      record: {
+        id: 'tmdb-77',
+        tmdbId: 77,
+        title: 'Saved Frame',
+        status: 'watched',
+        backdropPath: '/saved-backdrop.jpg',
+        backdropZoomOverride: 0.74,
+        backdropPositionXOverride: 61,
+        backdropPositionYOverride: 39,
+      },
+      metadataEditing: true,
+      metadataDraft: {
+        titleOverride: 'Edited title',
+        directorOverride: 'Edited director',
+        backdropZoomOverride: 1.72,
+        backdropPositionXOverride: 4,
+        backdropPositionYOverride: 96,
+      },
+    });
+
+    const detailBackdropMatch = html.match(/<img class="cml-film-detail-page__backdrop-image"[\s\S]*?style="([^"]+)"/);
+    assert.ok(detailBackdropMatch);
+    assert.match(detailBackdropMatch[1], /--film-backdrop-position-x: 61%/);
+    assert.match(detailBackdropMatch[1], /--film-backdrop-position-y: 39%/);
+    assert.match(detailBackdropMatch[1], /--film-backdrop-scale: 0\.74/);
+    assert.doesNotMatch(detailBackdropMatch[1], /1\.72/);
+    assert.match(html, /Edited title/);
+    assert.match(html, /Edited director/);
   });
 
   it('renders unsaved TMDb detail previews with explicit add actions only', () => {
@@ -529,6 +572,11 @@ describe('media library download actions', () => {
     assert.match(appSource, /if \(!record\?\.id && !record\?\.tmdbId\)/);
     assert.match(appSource, /case 'add-manual-film':/);
     assert.match(appSource, /function buildFilmEntryPatchBody/);
+    assert.match(appSource, /const FILM_BACKDROP_FRAME_FIELDS = \[/);
+    assert.match(appSource, /FILM_BACKDROP_FRAME_FIELDS\.forEach/);
+    const metadataFieldsMatch = appSource.match(/const FILM_METADATA_FIELDS = \[([\s\S]*?)\];/);
+    assert.ok(metadataFieldsMatch);
+    assert.doesNotMatch(metadataFieldsMatch[1], /backdropZoomOverride/);
     assert.match(appSource, /async function commitPendingFilmEditsBeforeAction/);
     assert.match(appSource, /function commitFilmNotesEdit/);
     assert.match(appSource, /function commitFilmMetadataEdit/);
@@ -557,6 +605,10 @@ describe('media library download actions', () => {
     assert.match(appSource, /case 'film-reset-backdrop-frame':/);
     assert.match(appSource, /function updateFilmBackdropFrameDraft/);
     assert.match(appSource, /function saveFilmBackdropFrameDraft/);
+    const frameStyleFunction = appSource.match(/function setFilmBackdropFrameStyle[\s\S]*?function updateFilmBackdropFrameDraft/);
+    assert.ok(frameStyleFunction);
+    assert.match(frameStyleFunction[0], /querySelectorAll\('\.cml-film-image-picker__preview\.is-backdrop img'\)/);
+    assert.doesNotMatch(frameStyleFunction[0], /cml-film-detail-page__backdrop-image/);
     assert.match(appSource, /data-film-backdrop-frame-field/);
     assert.match(appSource, /backdropZoomOverride/);
     assert.match(appSource, /backdropPositionXOverride/);
