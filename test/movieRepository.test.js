@@ -193,6 +193,62 @@ describe('MovieRepository', () => {
     assert.equal(updated.entry.watchEvents.find((event) => event.id === 'watch-b').watchedAt, '2026-05-03');
   });
 
+  it('clears the primary watched date without deleting ambiguous manual watch events', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie();
+        },
+      },
+    });
+
+    await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      watchedAt: '2026-05-01',
+      watchEvents: [
+        { id: 'manual-a', watchedAt: '2026-05-01', note: 'first watch', createdAt: '2026-05-01T00:00:00.000Z' },
+        { id: 'manual-b', watchedAt: '2026-05-01', rating: 4.5, createdAt: '2026-05-01T01:00:00.000Z' },
+      ],
+    });
+
+    const updated = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchedAt: '',
+    });
+
+    assert.equal(updated.entry.watchedAt, '2026-05-01');
+    assert.deepEqual(updated.entry.watchEvents.map((event) => event.id), ['manual-b', 'manual-a']);
+  });
+
+  it('clears the auto primary watch event when watchedAt is explicitly cleared', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie();
+        },
+      },
+    });
+
+    await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      watchedAt: '2026-05-01',
+    });
+
+    const updated = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchedAt: '',
+    });
+
+    assert.equal(updated.entry.watchedAt, '');
+    assert.deepEqual(updated.entry.watchEvents, []);
+  });
+
   it('stores manual metadata and image overrides on UserMovieEntry only', async () => {
     const db = new MemoryDB();
     const repository = new MovieRepository({}, {

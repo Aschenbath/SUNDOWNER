@@ -14,12 +14,38 @@ async function readJson(request) {
   try {
     return await request.json();
   } catch {
-    throw new Error('Invalid JSON');
+    const error = new Error('Invalid JSON');
+    error.status = 400;
+    error.expose = true;
+    throw error;
   }
 }
 
 function getAction(url, fallback = '') {
   return String(url.searchParams.get('action') || fallback || '').trim();
+}
+
+function mapMovieRouteError(error) {
+  const message = error?.message || 'Movie operation failed';
+  if (Number.isInteger(error?.status)) {
+    return {
+      status: error.status,
+      error: error.expose === false && error.status >= 500 ? 'Movie operation failed' : message,
+    };
+  }
+  if (/TMDb credentials are not configured/i.test(message)) {
+    return { status: 503, error: message };
+  }
+  if (/TMDb request failed/i.test(message) || /Invalid TMDb movie detail payload/i.test(message)) {
+    return { status: 502, error: 'TMDb request failed' };
+  }
+  if (/not found/i.test(message)) {
+    return { status: 404, error: 'Movie not found' };
+  }
+  if (/Invalid JSON|tmdbId is required|Unsupported watchStatus|Manual film title is required|Movie entry id is required|userRating must be between/i.test(message)) {
+    return { status: 400, error: message };
+  }
+  return { status: 500, error: 'Movie operation failed' };
 }
 
 export async function onRequest(context) {
@@ -66,8 +92,13 @@ export async function onRequest(context) {
 
     return jsonResponse({ error: 'Method not allowed' }, { status: 405 });
   } catch (error) {
-    const message = error?.message || 'Movie operation failed';
-    const status = message.includes('not configured') ? 503 : 400;
-    return jsonResponse({ error: message }, { status });
+    const mapped = mapMovieRouteError(error);
+    console.error('[movies route] request failed', {
+      method: request.method,
+      action: getAction(url),
+      status: mapped.status,
+      error: error?.message || String(error),
+    });
+    return jsonResponse({ error: mapped.error }, { status: mapped.status });
   }
 }

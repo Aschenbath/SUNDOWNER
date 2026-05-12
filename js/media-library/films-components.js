@@ -210,11 +210,28 @@ function formatFilmCardMetaLine(parts = []) {
   return values.join(' \u00b7 ');
 }
 
-function formatUserRating(value) {
+function formatUserRating5(value) {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric >= 0.5 && numeric <= 5
     ? numeric.toFixed(1)
     : '';
+}
+
+function formatTmdbRating10(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 && numeric <= 10
+    ? numeric.toFixed(1)
+    : '';
+}
+
+function getUserRatingLabel(value) {
+  const formatted = formatUserRating5(value);
+  return formatted ? `${formatted} / 5.0` : 'Not rated';
+}
+
+function getTmdbRatingLabel(value) {
+  const formatted = formatTmdbRating10(value);
+  return formatted ? `${formatted} / 10` : '';
 }
 
 function renderRatingStars(value) {
@@ -264,14 +281,6 @@ function getSavedSearchRecord(savedRecordsByTmdbId, tmdbId) {
 
 function getDetailSynopsis(record = {}) {
   return normalizeText(record.overview || '');
-}
-
-function getDetailPersonalNote(record = {}) {
-  const existing = normalizeText(record.journal || '');
-  if (existing) {
-    return existing;
-  }
-  return 'No private note yet.';
 }
 
 function renderDetailMetaColumn(label, value, icon = '', { editable = false, field = '', filmId = '' } = {}) {
@@ -363,28 +372,6 @@ function renderDetailRatingControl(record = {}, userRating = '') {
 function renderDetailPreviewSaveHint() {
   return `
     <p class="cml-film-detail__save-hint">Save this film to your diary before rating, dating, or writing private notes.</p>
-  `;
-}
-
-function renderDetailWatchedDateColumn(record = {}, watchedDate = '', { editable = true } = {}) {
-  const value = normalizeText(record.watchedAt).slice(0, 10);
-  return `
-    <div class="cml-film-detail__meta-item">
-      <span class="cml-film-detail__meta-label">Watched date</span>
-      <strong class="cml-film-detail__meta-value"><span data-film-watched-at-output>${escapeHtml(watchedDate)}</span></strong>
-      ${editable ? `<div class="cml-film-detail__date-control">
-        <input
-          type="date"
-          class="cml-film-detail__date-input"
-          data-film-watched-at-input
-          data-tmdb-id="${escapeHtml(record.tmdbId || '')}"
-          data-film-id="${escapeHtml(record.id || '')}"
-          data-last-saved-value="${escapeHtml(value)}"
-          value="${escapeHtml(value)}"
-          ${record.isSaving ? 'disabled' : ''}
-        />
-      </div>` : ''}
-    </div>
   `;
 }
 
@@ -655,7 +642,7 @@ function renderFilmNoteEditorLine(line = '', index = 0, activeLineIndex = 0) {
   `;
 }
 
-function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '', notesPreview = false, notesActiveLine = 0, editable = false, saveStatus = null } = {}) {
+function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '', notesActiveLine = 0, editable = false } = {}) {
   const savedNote = getSavedFilmNote(record);
   const draft = notesEditing ? normalizeMultilineText(notesDraft) : savedNote;
   if (!notesEditing) {
@@ -1138,7 +1125,7 @@ function applyFilmMetadataDraft(record = {}, draft = {}) {
   };
 }
 
-export function FilmDetailPage({ record = null, notesEditing = false, notesDraft = '', notesPreview = false, notesActiveLine = 0, metadataEditing = false, metadataDraft = null, metadataFocusField = '', moreActionsOpen = false, imagePickerMode = '', imagePickerDraft = '', imagePickerFrameDraft = null, backdropIndex = 0, saveStatus = null } = {}) {
+export function FilmDetailPage({ record = null, notesEditing = false, notesDraft = '', notesActiveLine = 0, metadataEditing = false, metadataDraft = null, metadataFocusField = '', imagePickerMode = '', imagePickerDraft = '', imagePickerFrameDraft = null, backdropIndex = 0, saveStatus = null } = {}) {
   if (!record) {
     return '';
   }
@@ -1149,8 +1136,8 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const localTitle = normalizeText(displayRecord.localTitle || displayRecord.title || 'Untitled film');
   const originalTitle = normalizeText(displayRecord.originalTitle || displayRecord.title || '');
   const runtime = formatRuntime(displayRecord.runtime);
-  const userRating = formatUserRating(displayRecord.userRating ?? displayRecord.rating);
-  const myRatingLabel = userRating ? `${userRating} / 5.0` : 'Not rated';
+  const userRating = formatUserRating5(displayRecord.userRating);
+  const myRatingLabel = getUserRatingLabel(displayRecord.userRating);
   const watchedDate = formatWatchedDateLong(displayRecord.watchedAt);
   const posterUrl = getRecordPosterUrl(displayRecord);
   const autoBackdropUrls = getRecordAutoBackdropUrls(displayRecord);
@@ -1249,7 +1236,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
                 ${isSavedEntry ? renderFilmPrivateSignals(controlRecord, { userRating, watchedDate, disabledAttr }) : ''}
               </aside>
               <div class="cml-film-detail__diary-main">
-                ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesPreview, notesActiveLine, editable: isSavedEntry && !displayRecord.manualDraft && !displayRecord.isSaving, saveStatus })}
+                ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesActiveLine, editable: isSavedEntry && !displayRecord.manualDraft && !displayRecord.isSaving })}
               </div>
             </div>
         </div>
@@ -1268,7 +1255,7 @@ export function FilmCard(record = {}) {
   const directorLine = normalizeText(record.director || '');
   const runtime = formatRuntime(record.runtime);
   const watchedDate = record.status === 'watched' ? formatWatchedDate(record.watchedAt) : '';
-  const ratingValue = formatUserRating(record.userRating ?? record.rating);
+  const ratingValue = formatUserRating5(record.userRating);
   const ratingLabel = ratingValue ? 'My rating' : 'Not rated';
   const releaseLine = formatFilmCardMetaLine([record.year ? String(record.year) : '', runtime]);
   const localeLine = formatFilmCardMetaLine([record.country, record.language]);
@@ -1347,7 +1334,7 @@ export function FilmTimelineSection(section = {}, { viewMode = 'ticket' } = {}) 
   `;
 }
 
-export function FilmsPage({ records = [], totalCount = records.length, activeFilter = 'All', viewMode = 'ticket', libraryQuery = '', searchQuery = '', searchPanelHtml = '', addFlowOpen = false } = {}) {
+export function FilmsPage({ records = [], totalCount = records.length, activeFilter = 'All', viewMode = 'ticket', libraryQuery = '', searchPanelHtml = '' } = {}) {
   const sections = groupFilmsByTimeline(records);
   const librarySearchValue = escapeHtml(libraryQuery);
   const hasAnySavedFilms = Number(totalCount) > 0;
@@ -1439,7 +1426,7 @@ export function FilmSearchResults({ results = [], loading = false, loadingMore =
     const isWantCurrent = normalizedSavedStatus === 'wantToWatch';
     const isWatchedCurrent = normalizedSavedStatus === 'watched';
     const isNew = index >= Math.max(0, Number(newResultStartIndex) || 0);
-    const savedRating = savedRecord ? formatUserRating(savedRecord.userRating ?? savedRecord.rating) : '';
+    const savedRating = savedRecord ? formatUserRating5(savedRecord.userRating) : '';
     const metaLine = [
       movie.releaseDate ? String(movie.releaseDate).slice(0, 4) : '',
       savedRating ? `My rating ${savedRating}` : (Array.isArray(movie.genres) ? movie.genres.slice(0, 2).join(' / ') : '')

@@ -21,6 +21,13 @@ const BACKDROP_FRAME_FIELDS = Object.keys(BACKDROP_DEFAULT_FRAME);
 export const WATCH_STATUSES = new Set(['wantToWatch', 'watching', 'watched', 'paused', 'dropped']);
 export const MOVIE_SOURCES = new Set(['tmdb', 'manual']);
 
+function createStatusError(message, status, { expose = true } = {}) {
+  const error = new Error(message);
+  error.status = status;
+  error.expose = expose;
+  return error;
+}
+
 function normalizeText(value, maxLength = 0) {
   const normalized = String(value ?? '').replace(/\s+/g, ' ').trim();
   return maxLength > 0 ? normalized.slice(0, maxLength) : normalized;
@@ -249,6 +256,15 @@ function ensureWatchEvent(events = [], watchedAt = '', timestamp = nowIso()) {
   }], timestamp);
 }
 
+function isAutoPrimaryWatchEvent(event = {}, previousDate = '') {
+  const normalizedDate = normalizeWatchDate(previousDate);
+  if (!normalizedDate || event.watchedAt !== normalizedDate) {
+    return false;
+  }
+  return !normalizeText(event.note)
+    && event.rating === null;
+}
+
 function replaceWatchEvent(events = [], previousWatchedAt = '', nextWatchedAt = '', timestamp = nowIso(), watchEventId = '') {
   const previousDate = normalizeWatchDate(previousWatchedAt);
   const nextDate = normalizeWatchDate(nextWatchedAt);
@@ -265,6 +281,30 @@ function replaceWatchEvent(events = [], previousWatchedAt = '', nextWatchedAt = 
     ), timestamp);
   }
   return ensureWatchEvent(normalizedEvents, nextDate, timestamp);
+}
+
+function prunePrimaryWatchEvent(events = [], previousWatchedAt = '', watchEventId = '', timestamp = nowIso()) {
+  const previousDate = normalizeWatchDate(previousWatchedAt);
+  const targetId = normalizeText(watchEventId, 120);
+  const normalizedEvents = normalizeWatchEvents(events, timestamp);
+  if (!normalizedEvents.length) {
+    return normalizedEvents;
+  }
+  if (targetId) {
+    return normalizedEvents.filter((event) => event.id !== targetId);
+  }
+  if (previousDate) {
+    const matchingIndexes = normalizedEvents
+      .map((event, index) => ({ event, index }))
+      .filter(({ event }) => isAutoPrimaryWatchEvent(event, previousDate));
+    // Without an explicit watchEventId we only prune an unannotated sole match.
+    // Multiple same-date events may be deliberate rewatch history, so preserve them.
+    if (matchingIndexes.length === 1) {
+      const [{ index: matchIndex }] = matchingIndexes;
+      return normalizedEvents.filter((event, index) => index !== matchIndex);
+    }
+  }
+  return normalizedEvents;
 }
 
 export function normalizeMovieCache(input = {}, timestamp = nowIso()) {
@@ -299,22 +339,29 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
     ? normalizeNumber(input.tmdbId ?? existing?.tmdbId, 0)
     : null;
   if (source === 'tmdb' && !tmdbId) {
-    throw new Error('tmdbId is required');
+    throw createStatusError('tmdbId is required', 400);
   }
   const watchStatus = normalizeText(hasOwn(input, 'watchStatus') ? input.watchStatus : existing?.watchStatus || 'wantToWatch');
   if (!WATCH_STATUSES.has(watchStatus)) {
-    throw new Error('Unsupported watchStatus');
+    throw createStatusError('Unsupported watchStatus', 400);
   }
   const rating = hasOwn(input, 'userRating')
     ? normalizeUserRating(input.userRating, { strict: true })
     : normalizeUserRating(existing?.userRating);
-  const watchedAt = normalizeText(input.watchedAt ?? existing?.watchedAt, 40);
+  let watchedAt = normalizeText(input.watchedAt ?? existing?.watchedAt, 40);
   let watchEvents = normalizeWatchEvents(
     hasOwn(input, 'watchEvents') ? input.watchEvents : existing?.watchEvents,
     timestamp
   );
   if (hasOwn(input, 'appendWatchEvent')) {
     watchEvents = ensureWatchEvent(watchEvents, input.appendWatchEvent || watchedAt, timestamp);
+  } else if (!hasOwn(input, 'watchEvents') && hasOwn(input, 'watchedAt') && !watchedAt) {
+    // When the primary watched date is explicitly cleared, remove the auto-primary
+    // event only. Other manually logged watches remain intact.
+    watchEvents = prunePrimaryWatchEvent(watchEvents, existing?.watchedAt, input.watchEventId, timestamp);
+    if (watchEvents.length) {
+      watchedAt = watchEvents[0].watchedAt;
+    }
   } else if (!hasOwn(input, 'watchEvents') && hasOwn(input, 'watchedAt') && watchedAt) {
     watchEvents = replaceWatchEvent(watchEvents, existing?.watchedAt, watchedAt, timestamp, input.watchEventId);
   } else if (watchStatus === 'watched' && watchedAt && watchEvents.length === 0) {
@@ -492,7 +539,7 @@ export class MovieRepository {
       ? normalizeNumber(input.tmdbId ?? existingEntry?.tmdbId, 0)
       : 0;
     if (source === 'tmdb' && !tmdbId) {
-      throw new Error('tmdbId is required');
+      throw createStatusError('tmdbId is required', 400);
     }
 
     let movie = null;
@@ -514,7 +561,7 @@ export class MovieRepository {
 
     const nextEntry = normalizeUserMovieEntry({ ...input, source, tmdbId: source === 'tmdb' ? tmdbId : null }, existingEntry, timestamp);
     if (source === 'manual' && !normalizeText(nextEntry.titleOverride || nextEntry.originalTitleOverride)) {
-      throw new Error('Manual film title is required');
+      throw createStatusError('Manual film title is required', 400);
     }
     if (source === 'manual') {
       movie = buildManualMovieFromEntry(nextEntry, timestamp);
@@ -543,7 +590,7 @@ export class MovieRepository {
     const db = this.getDb();
     const target = normalizeText(idOrTmdbId);
     if (!target) {
-      throw new Error('Movie entry id is required');
+      throw createStatusError('Movie entry id is required', 400);
     }
     const entries = await getRawUserEntries(db);
     const nextEntries = entries.filter((entry) =>

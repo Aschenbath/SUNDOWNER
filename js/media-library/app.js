@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=68';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=69';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -10326,12 +10326,10 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
     record,
     notesEditing: state.filmNotesEditing,
     notesDraft: state.filmNotesDraft,
-    notesPreview: state.filmNotesPreview,
     notesActiveLine: state.filmNotesActiveLine,
     metadataEditing: state.filmMetadataEditing,
     metadataDraft: state.filmMetadataDraft,
     metadataFocusField: state.filmMetadataFocusField,
-    moreActionsOpen: state.filmMoreActionsOpen,
     imagePickerMode: state.filmImagePickerMode,
     imagePickerDraft: state.filmImagePickerDraft,
     imagePickerFrameDraft: state.filmBackdropFrameDraft,
@@ -11146,6 +11144,8 @@ function getFilmBackdropFrameStyleForImage(image, frame = createFilmBackdropFram
     : coverScale * extraZoom;
   const fittedWidth = Math.max(1, naturalWidth * scale);
   const fittedHeight = Math.max(1, naturalHeight * scale);
+  const canPanX = fittedWidth > containerWidth + 0.5;
+  const canPanY = fittedHeight > containerHeight + 0.5;
   const left = fittedWidth <= containerWidth
     ? Math.max(0, (containerWidth - fittedWidth) / 2)
     : (containerWidth - fittedWidth) * (normalized.backdropPositionXOverride / 100);
@@ -11158,7 +11158,9 @@ function getFilmBackdropFrameStyleForImage(image, frame = createFilmBackdropFram
     left: `${left}px`,
     top: `${top}px`,
     width: `${fittedWidth}px`,
-    height: `${fittedHeight}px`
+    height: `${fittedHeight}px`,
+    canPanX,
+    canPanY
   };
 }
 
@@ -11175,13 +11177,15 @@ function applyFilmBackdropFrameToImage(image, frame = createFilmBackdropFrameDra
   if (!fitted) {
     return false;
   }
+  image.dataset.filmBackdropPanX = fitted.canPanX ? 'true' : 'false';
+  image.dataset.filmBackdropPanY = fitted.canPanY ? 'true' : 'false';
   image.classList.add('is-frame-fitted');
   image.style.width = fitted.width;
   image.style.height = fitted.height;
   image.style.left = fitted.left;
   image.style.top = fitted.top;
   image.style.transform = 'none';
-  return true;
+  return fitted;
 }
 
 function syncFilmBackdropFrameImages(frame = getActiveFilmRecord() || createFilmBackdropFrameDraft(), { includeDetail = true, includePicker = true } = {}) {
@@ -11204,10 +11208,14 @@ function syncFilmBackdropFrameImages(frame = getActiveFilmRecord() || createFilm
       return;
     }
     if (!applyFilmBackdropFrameToImage(node, normalized)) {
-      const onLoad = () => applyFilmBackdropFrameToImage(node, normalized);
+      const onLoad = () => {
+        applyFilmBackdropFrameToImage(node, normalized);
+        syncFilmBackdropFrameAxisControls(normalized);
+      };
       node.addEventListener('load', onLoad, { once: true });
     }
   });
+  syncFilmBackdropFrameAxisControls(normalized);
 }
 
 function getFilmBackdropFrameRangeFill(field = '', value = 0) {
@@ -11233,6 +11241,7 @@ function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
   const livePreviewTargets = state.filmImagePickerMode === 'backdrop'
     ? '.cml-film-image-picker__preview.is-backdrop img, .cml-film-detail-page__backdrop-image'
     : '.cml-film-image-picker__preview.is-backdrop img';
+  let panState = null;
   refs.root?.querySelectorAll(livePreviewTargets).forEach((node) => {
     if (!(node instanceof HTMLImageElement)) {
       return;
@@ -11241,8 +11250,15 @@ function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
     node.style.setProperty('--film-backdrop-position-y', y);
     node.style.setProperty('--film-backdrop-scale', zoom);
     node.style.setProperty('--film-backdrop-opacity', opacity);
-    applyFilmBackdropFrameToImage(node, normalized);
+    const fitted = applyFilmBackdropFrameToImage(node, normalized);
+    if (fitted && !panState) {
+      panState = {
+        x: Boolean(fitted.canPanX),
+        y: Boolean(fitted.canPanY)
+      };
+    }
   });
+  syncFilmBackdropFrameAxisControls(normalized, panState);
   refs.root?.querySelectorAll('[data-film-backdrop-frame-field]').forEach((node) => {
     if (!(node instanceof HTMLInputElement)) {
       return;
@@ -11264,6 +11280,40 @@ function setFilmBackdropFrameStyle(frame = createFilmBackdropFrameDraft()) {
         : field === 'opacity'
         ? `${Math.round(normalized.backdropOpacityOverride * 100)}%`
         : `${nextValue}%`;
+    }
+  });
+}
+
+function syncFilmBackdropFrameAxisControls(frame = state.filmBackdropFrameDraft || createFilmBackdropFrameDraft(), panState = null) {
+  const controls = refs.root?.querySelectorAll('[data-film-backdrop-frame-field]');
+  if (!controls?.length) {
+    return;
+  }
+  let resolvedPanState = panState;
+  if (!resolvedPanState) {
+    const sourceImage = refs.root?.querySelector('.cml-film-image-picker__preview.is-backdrop img')
+      || refs.root?.querySelector('.cml-film-detail-page__backdrop-image');
+    const fitted = sourceImage instanceof HTMLImageElement
+      ? getFilmBackdropFrameStyleForImage(sourceImage, frame)
+      : null;
+    resolvedPanState = fitted
+      ? { x: Boolean(fitted.canPanX), y: Boolean(fitted.canPanY) }
+      : null;
+  }
+  controls.forEach((node) => {
+    if (!(node instanceof HTMLInputElement)) {
+      return;
+    }
+    const field = node.dataset.filmBackdropFrameField || '';
+    if (field !== 'x' && field !== 'y') {
+      return;
+    }
+    const isDisabled = Boolean(resolvedPanState && !resolvedPanState[field]);
+    node.disabled = isDisabled;
+    node.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+    const range = node.closest('.cml-film-image-picker__range');
+    if (range instanceof HTMLElement) {
+      range.classList.toggle('is-disabled', isDisabled);
     }
   });
 }
@@ -12586,12 +12636,10 @@ function render() {
                     record: viewModel.filmRecord,
                     notesEditing: state.filmNotesEditing,
                     notesDraft: state.filmNotesDraft,
-                    notesPreview: state.filmNotesPreview,
                     notesActiveLine: state.filmNotesActiveLine,
                     metadataEditing: state.filmMetadataEditing,
                     metadataDraft: state.filmMetadataDraft,
                     metadataFocusField: state.filmMetadataFocusField,
-                    moreActionsOpen: state.filmMoreActionsOpen,
                     imagePickerMode: state.filmImagePickerMode,
                     imagePickerDraft: state.filmImagePickerDraft,
                     imagePickerFrameDraft: state.filmBackdropFrameDraft,
@@ -12604,13 +12652,6 @@ function render() {
                     activeFilter: state.filmActiveFilter,
                     viewMode: state.filmViewMode,
                     libraryQuery: state.filmLibraryQuery,
-                    searchQuery: state.filmSearchQuery,
-                    addFlowOpen: state.filmTmdbAddOpen
-                      || Boolean(normalizeText(state.filmSearchQuery))
-                      || state.filmSearchResults.length > 0
-                      || state.filmSearchLoading
-                      || state.filmSearchLoadingMore
-                      || state.filmSearchClearing,
                     searchPanelHtml: FilmSearchResults({
                       results: state.filmSearchResults,
                       loading: state.filmSearchLoading,
