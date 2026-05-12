@@ -348,7 +348,9 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
   const rating = hasOwn(input, 'userRating')
     ? normalizeUserRating(input.userRating, { strict: true })
     : normalizeUserRating(existing?.userRating);
-  let watchedAt = normalizeText(input.watchedAt ?? existing?.watchedAt, 40);
+  let watchedAt = hasOwn(input, 'watchedAt')
+    ? normalizeText(input.watchedAt, 40)
+    : normalizeText(existing?.watchedAt, 40);
   let watchEvents = normalizeWatchEvents(
     hasOwn(input, 'watchEvents') ? input.watchEvents : existing?.watchEvents,
     timestamp
@@ -359,9 +361,6 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
     // When the primary watched date is explicitly cleared, remove the auto-primary
     // event only. Other manually logged watches remain intact.
     watchEvents = prunePrimaryWatchEvent(watchEvents, existing?.watchedAt, input.watchEventId, timestamp);
-    if (watchEvents.length) {
-      watchedAt = watchEvents[0].watchedAt;
-    }
   } else if (!hasOwn(input, 'watchEvents') && hasOwn(input, 'watchedAt') && watchedAt) {
     watchEvents = replaceWatchEvent(watchEvents, existing?.watchedAt, watchedAt, timestamp, input.watchEventId);
   } else if (watchStatus === 'watched' && watchedAt && watchEvents.length === 0) {

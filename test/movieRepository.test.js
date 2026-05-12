@@ -219,11 +219,11 @@ describe('MovieRepository', () => {
       watchedAt: '',
     });
 
-    assert.equal(updated.entry.watchedAt, '2026-05-01');
+    assert.equal(updated.entry.watchedAt, '');
     assert.deepEqual(updated.entry.watchEvents.map((event) => event.id), ['manual-b', 'manual-a']);
   });
 
-  it('clears the auto primary watch event when watchedAt is explicitly cleared', async () => {
+  it('supports distinct watchedAt clear and preserve semantics', async () => {
     const db = new MemoryDB();
     const repository = new MovieRepository({}, {
       db,
@@ -240,13 +240,32 @@ describe('MovieRepository', () => {
       watchedAt: '2026-05-01',
     });
 
-    const updated = await repository.saveOrUpdateUserEntry({
+    const preserved = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      userRating: 4.1,
+    });
+    assert.equal(preserved.entry.watchedAt, '2026-05-01');
+    assert.deepEqual(preserved.entry.watchEvents.map((event) => event.watchedAt), ['2026-05-01']);
+
+    const clearedWithNull = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchedAt: null,
+    });
+    assert.equal(clearedWithNull.entry.watchedAt, '');
+    assert.deepEqual(clearedWithNull.entry.watchEvents, []);
+
+    await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      watchedAt: '2026-05-02',
+    });
+
+    const clearedWithEmptyString = await repository.saveOrUpdateUserEntry({
       tmdbId: 42,
       watchedAt: '',
     });
-
-    assert.equal(updated.entry.watchedAt, '');
-    assert.deepEqual(updated.entry.watchEvents, []);
+    assert.equal(clearedWithEmptyString.entry.watchedAt, '');
+    assert.deepEqual(clearedWithEmptyString.entry.watchEvents, []);
   });
 
   it('stores manual metadata and image overrides on UserMovieEntry only', async () => {

@@ -363,6 +363,95 @@ describe('manage movies route', () => {
     assert.equal(payload.entry.watchEvents.find((event) => event.id === 'watch-b').watchedAt, '2026-05-03');
   });
 
+  it('clears watchedAt through the route for null and empty string while preserving absent watchedAt', async () => {
+    const env = { img_url: new MemoryKV() };
+    await env.img_url.put('manage@sysConfig@movieCache@42', JSON.stringify({
+      tmdbId: 42,
+      title: 'TMDb Movie',
+      originalTitle: 'TMDb Movie',
+      overview: '',
+      posterPath: '/poster.jpg',
+      backdropPath: '/backdrop.jpg',
+      releaseDate: '2026-01-01',
+      runtime: 100,
+      genres: ['Drama'],
+      director: 'TMDb Director',
+      voteAverage: 7,
+      voteCount: 1200,
+      updatedAt: new Date().toISOString(),
+    }));
+    await env.img_url.put('manage@sysConfig@userMovieEntries', JSON.stringify([{
+      id: 'tmdb-42',
+      tmdbId: 42,
+      watchStatus: 'watched',
+      watchedAt: '2026-05-01',
+      watchEvents: [{ id: 'watch-a', watchedAt: '2026-05-01', createdAt: '2026-05-01T00:00:00.000Z' }],
+      createdAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:00.000Z',
+    }]));
+
+    const preservedResponse = await onRequest({
+      request: new Request('https://example.com/api/manage/movies', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tmdbId: 42,
+          userRating: 4.2,
+        }),
+      }),
+      env,
+    });
+    const preserved = await preservedResponse.json();
+    assert.equal(preservedResponse.status, 200);
+    assert.equal(preserved.entry.watchedAt, '2026-05-01');
+    assert.deepEqual(preserved.entry.watchEvents.map((event) => event.id), ['watch-a']);
+
+    const nullResponse = await onRequest({
+      request: new Request('https://example.com/api/manage/movies', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tmdbId: 42,
+          watchedAt: null,
+        }),
+      }),
+      env,
+    });
+    const nullPayload = await nullResponse.json();
+    assert.equal(nullResponse.status, 200);
+    assert.equal(nullPayload.entry.watchedAt, '');
+    assert.deepEqual(nullPayload.entry.watchEvents, []);
+
+    await onRequest({
+      request: new Request('https://example.com/api/manage/movies', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tmdbId: 42,
+          watchStatus: 'watched',
+          watchedAt: '2026-05-02',
+        }),
+      }),
+      env,
+    });
+
+    const emptyResponse = await onRequest({
+      request: new Request('https://example.com/api/manage/movies', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tmdbId: 42,
+          watchedAt: '',
+        }),
+      }),
+      env,
+    });
+    const emptyPayload = await emptyResponse.json();
+    assert.equal(emptyResponse.status, 200);
+    assert.equal(emptyPayload.entry.watchedAt, '');
+    assert.deepEqual(emptyPayload.entry.watchEvents, []);
+  });
+
   it('persists manual films without requiring TMDb credentials or cache', async () => {
     const env = { img_url: new MemoryKV() };
     const response = await onRequest({
