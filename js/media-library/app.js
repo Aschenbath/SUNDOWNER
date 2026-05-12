@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=72';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=73';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -16555,6 +16555,15 @@ function handleClick(event) {
     }
 
     if (handleAction(actionTarget)) {
+      return;
+    }
+  }
+
+  if (state.filmNotesEditing && event.target instanceof Element) {
+    const notesSurface = event.target.closest('[data-film-notes-surface]');
+    const clickedNoteLine = event.target.closest('[data-film-notes-line], [data-action="film-edit-notes-line"]');
+    if (notesSurface instanceof HTMLElement && !clickedNoteLine) {
+      setFilmNotesActiveLine(getFilmNotesDraftLines().length - 1);
       return;
     }
   }

@@ -661,9 +661,13 @@ describe('media library download actions', () => {
       notesDraft: 'before\n```\n# not heading\n```',
       notesActiveLine: 2,
     });
+    const activeLineTag = secondHeadingActiveHtml.match(/<div(?=[^>]*data-film-notes-source-line)[^>]*>/)?.[0] || '';
 
+    assert.match(secondHeadingActiveHtml, /cml-film-notes-editor__surface cml-film-detail__markdown" data-film-notes-surface role="textbox" aria-multiline="true"/);
     assert.match(secondHeadingActiveHtml, /data-film-notes-line-index="0"[\s\S]*<h4>1<\/h4>/);
     assert.match(secondHeadingActiveHtml, /data-film-notes-line-index="2"[\s\S]*contenteditable="true"[\s\S]*# \u4f60\u597d/);
+    assert.match(activeLineTag, /data-film-notes-source-line/);
+    assert.doesNotMatch(activeLineTag, /role="textbox"/);
     assert.doesNotMatch(secondHeadingActiveHtml, /data-film-notes-line-index="2"[\s\S]*<h3>\u4f60\u597d<\/h3>/);
     assert.equal((secondHeadingActiveHtml.match(/# \u4f60\u597d/g) || []).length, 1);
     assert.match(firstHeadingActiveHtml, /data-film-notes-line-index="0"[\s\S]*contenteditable="true"[\s\S]*## 1/);
@@ -677,6 +681,7 @@ describe('media library download actions', () => {
   it('keeps film note Enter and save paths split between draft and commit normalization', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const componentSource = fs.readFileSync(new URL('../js/media-library/films-components.js', import.meta.url), 'utf8');
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
 
     assert.match(componentSource, /function normalizeFilmNoteDraftForEdit\(value\)[\s\S]*replace\(\/\\r\\n\?\/g, '\\n'\);/);
     assert.match(componentSource, /const draft = notesEditing \? normalizeFilmNoteDraftForEdit\(notesDraft\) : savedNote;/);
@@ -697,6 +702,9 @@ describe('media library download actions', () => {
     assert.doesNotMatch(editFunction, /clearFilmNotesSyncError/);
     assert.match(appSource, /ArrowDown[\s\S]*moveFilmNotesActiveLineFromKeyboard/);
     assert.match(componentSource, /data-action="film-retry-notes"/);
+    assert.match(componentSource, /data-film-notes-surface role="textbox" aria-multiline="true"/);
+    assert.match(cssSource, /cml-film-notes-editor__line \{[\s\S]*border: 0;[\s\S]*border-radius: 0;[\s\S]*background: transparent;/);
+    assert.match(cssSource, /cml-film-notes-editor__line--source:focus \{[\s\S]*background: transparent;[\s\S]*box-shadow: none;/);
   });
 
   it('renders film detail metadata overrides as an inline editor for saved films only', () => {
