@@ -77,6 +77,7 @@ This file is the working memory for the active SUNDOWNER repo. It keeps current-
 
 ###### Work Log
 
+- 10:46 | [films][picker][responsiveness] Tightened Film Detail image-picker responsiveness: close/escape/autosave paths now enter a closing state immediately, backdrop/poster selection and reset mark saving before async persistence, and the backdrop picker close button no longer feels dead while waiting on URL/frame commits. Cache: `app.js?v=267`, `components.js?v=98`, `films-components.js?v=68`, `films-data.js?v=7`, `media-library.css?v=249`. Validation: Node syntax check for `app.js`; `git diff --check`; focused `previewActions.test.js` + `lightChromeCss.test.js` 108 passing.
 - 10:18 | [perf][startup] Audited media-library startup and tightened low-risk first-load behavior: added opt-in `?cmlPerf=1` performance marks/table for script, storage, route restore, first render, library sync, and Films entries fetch; stopped mount-time album/playlist/films/storage/live-sync tasks from each force-rendering the shell; deferred Films warmup to idle; changed non-critical media-grid and Films index posters to lazy/async loading while keeping detail hero media eager. Cache: `app.js?v=266`, `components.js?v=98`, `films-components.js?v=68`, `films-data.js?v=7`, `media-library.css?v=249`. Validation: Node syntax checks for `app.js`, `components.js`, and `films-components.js`; `git diff --check`; focused `previewActions.test.js` + `lightChromeCss.test.js` 108 passing; full Mocha 394 passing.
 - 00:38 | [films][detail][overlay] Tightened Film Detail to contextual overlays only: backdrop tool is now a hero hotspot, refresh/remove moved into metadata shortcuts, private signals use calm text rows, metadata draft reuse no longer resets mid-edit, and cross-surface autosave now commits before switching so notes/metadata/image pickers stop getting stuck in fake-open states. Cache: `app.js?v=265`, `components.js?v=97`, `films-components.js?v=67`, `films-data.js?v=7`, `media-library.css?v=249`. Validation: Node syntax checks for `app.js` and `films-components.js`; `git diff --check`; focused `previewActions.test.js` 5 passing; `lightChromeCss.test.js` 9 passing.
 
@@ -141,7 +142,8 @@ This file is the working memory for the active SUNDOWNER repo. It keeps current-
 - read-protocol: start with `Get-Content history.md -Tail 12`; then read latest day if the task touches current work.
 - current-focus: Films detail UX polish, surgical changes only.
 - latest-state: 2026-May-12 10:18; `app.js?v=266`, `components.js?v=98`, `films-components.js?v=68`, `films-data.js?v=7`, `media-library.css?v=249`.
-- latest-validation: Node syntax checks for `app.js`, `components.js`, and `films-components.js`; `git diff --check`; focused `previewActions.test.js` + `lightChromeCss.test.js` 108 passing; full Mocha 394 passing.
+- latest-state: 2026-May-12 10:46; `app.js?v=267`, `components.js?v=98`, `films-components.js?v=68`, `films-data.js?v=7`, `media-library.css?v=249`.
+- latest-validation: Node syntax check for `app.js`; `git diff --check`; focused `previewActions.test.js` + `lightChromeCss.test.js` 108 passing.
 - hot-path: Film Detail active patching should keep `[data-film-detail-page]` root/backdrop stable, and cross-surface switches must commit pending notes/metadata/image edits before opening the next overlay.
 - current-boundaries: do not redesign global shell/theme/sidebar/topbar; do not touch unrelated media modules for Films polish.
 - open-loop: browser/manual QA is not assumed unless explicitly documented.
