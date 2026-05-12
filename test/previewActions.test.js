@@ -568,6 +568,68 @@ describe('media library download actions', () => {
     assert.doesNotMatch(previewHtml, /data-action="film-notes-cancel"/);
   });
 
+  it('keeps film note live-preview drafts untrimmed while editing', () => {
+    const trailingHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Movie',
+        journal: '',
+      },
+      notesEditing: true,
+      notesDraft: '#\n',
+      notesActiveLine: 1,
+    });
+    const switchedHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Movie',
+        journal: '',
+      },
+      notesEditing: true,
+      notesDraft: '# Title\nhello **world**',
+      notesActiveLine: 1,
+    });
+    const blankLinesHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Movie',
+        journal: '',
+      },
+      notesEditing: true,
+      notesDraft: 'one\n\n\nlast',
+      notesActiveLine: 2,
+    });
+
+    assert.equal((trailingHtml.match(/data-film-notes-line-index=/g) || []).length, 2);
+    assert.match(trailingHtml, /data-film-notes-line-index="0"[\s\S]*>#<\/p>/);
+    assert.match(trailingHtml, /data-film-notes-line-index="1"[\s\S]*contenteditable="true"/);
+    assert.doesNotMatch(trailingHtml, /Write a note\.\.\./);
+    assert.match(switchedHtml, /data-film-notes-line-index="0"[\s\S]*<h3>Title<\/h3>/);
+    assert.match(switchedHtml, /data-film-notes-line-index="1"[\s\S]*contenteditable="true"[\s\S]*hello \*\*world\*\*/);
+    assert.doesNotMatch(switchedHtml, /data-film-notes-line-index="1"[\s\S]*<strong>world<\/strong>[\s\S]*<\/div>/);
+    assert.equal((blankLinesHtml.match(/data-film-notes-line-index=/g) || []).length, 4);
+    assert.equal((blankLinesHtml.match(/cml-film-notes-editor__blank-line/g) || []).length, 1);
+  });
+
+  it('keeps film note Enter and save paths split between draft and commit normalization', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const componentSource = fs.readFileSync(new URL('../js/media-library/films-components.js', import.meta.url), 'utf8');
+
+    assert.match(componentSource, /function normalizeFilmNoteDraftForEdit\(value\)[\s\S]*replace\(\/\\r\\n\?\/g, '\\n'\);/);
+    assert.match(componentSource, /const draft = notesEditing \? normalizeFilmNoteDraftForEdit\(notesDraft\) : savedNote;/);
+    assert.match(componentSource, /const lines = draft === '' \? \[''\] : draft\.split\('\\n'\);/);
+    assert.match(appSource, /function normalizeFilmNoteDraftForEdit\(value, maxLength = 12000\)/);
+    assert.match(appSource, /function normalizeFilmNoteForSave\(value, maxLength = 12000\)[\s\S]*\.trim\(\);/);
+    assert.match(appSource, /const editDraft = normalizeFilmNoteDraftForEdit\(state\.filmNotesDraft\);/);
+    assert.match(appSource, /const draft = normalizeFilmNoteForSave\(editDraft\);/);
+    assert.match(appSource, /lines\.splice\(lineIndex, 1, before, `\$\{continuation\}\$\{after\}`\);/);
+    assert.match(appSource, /filmNotesPendingCaretOffset = continuation\.length;/);
+    assert.match(appSource, /ArrowDown[\s\S]*moveFilmNotesActiveLineFromKeyboard/);
+  });
+
   it('renders film detail metadata overrides as an inline editor for saved films only', () => {
     const savedHtml = FilmDetailPage({
       record: {

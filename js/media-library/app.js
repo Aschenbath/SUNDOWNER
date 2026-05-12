@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=70';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=71';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -752,6 +752,7 @@ let filmBackdropFrameStyleRaf = 0;
 let filmBackdropFrameResizeRaf = 0;
 let pendingFilmBackdropFrameStyle = null;
 let filmPointerStartEditSurface = '';
+let filmNotesPendingCaretOffset = null;
 let filmEntryPatchSequence = 0;
 let filmBackdropFrameResizeObserver = null;
 const filmSearchCache = new Map();
@@ -2053,6 +2054,18 @@ function normalizeMultilineText(value, maxLength = 12000) {
   return maxLength > 0 ? normalized.slice(0, maxLength) : normalized;
 }
 
+function normalizeFilmNoteDraftForEdit(value, maxLength = 12000) {
+  const normalized = String(value ?? '').replace(/\r\n?/g, '\n');
+  return maxLength > 0 ? normalized.slice(0, maxLength) : normalized;
+}
+
+function normalizeFilmNoteForSave(value, maxLength = 12000) {
+  const normalized = normalizeFilmNoteDraftForEdit(value, 0)
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+  return maxLength > 0 ? normalized.slice(0, maxLength) : normalized;
+}
+
 function getFilmUserRatingMood(value) {
   const rating = Number(value);
   if (!Number.isFinite(rating)) {
@@ -2931,6 +2944,41 @@ function placeCaretAtEnd(element) {
   const range = document.createRange();
   range.selectNodeContents(element);
   range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function placeCaretAtTextOffset(element, offset = 0) {
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+  const selection = window.getSelection?.();
+  if (!selection) {
+    return;
+  }
+  const targetOffset = Math.max(0, Number(offset) || 0);
+  let remaining = targetOffset;
+  let targetNode = element;
+  let nodeOffset = 0;
+  const walker = document.createTreeWalker(element, window.NodeFilter?.SHOW_TEXT || 4);
+  let node = walker.nextNode();
+  while (node) {
+    const length = node.textContent?.length || 0;
+    if (remaining <= length) {
+      targetNode = node;
+      nodeOffset = remaining;
+      break;
+    }
+    remaining -= length;
+    node = walker.nextNode();
+  }
+  if (!node) {
+    targetNode = element;
+    nodeOffset = element.childNodes.length;
+  }
+  const range = document.createRange();
+  range.setStart(targetNode, nodeOffset);
+  range.collapse(true);
   selection.removeAllRanges();
   selection.addRange(range);
 }
@@ -10626,7 +10674,13 @@ function focusFilmNotesEditor() {
       if (document.activeElement !== lineEditor) {
         lineEditor.focus({ preventScroll: true });
       }
-      placeCaretAtEnd(lineEditor);
+      if (filmNotesPendingCaretOffset !== null) {
+        const offset = filmNotesPendingCaretOffset;
+        filmNotesPendingCaretOffset = null;
+        placeCaretAtTextOffset(lineEditor, offset);
+      } else {
+        placeCaretAtEnd(lineEditor);
+      }
       return;
     }
     const textarea = refs.root?.querySelector('[data-film-notes-draft]');
@@ -10641,7 +10695,7 @@ function focusFilmNotesEditor() {
 }
 
 function getFilmNotesDraftLines() {
-  const draft = String(state.filmNotesDraft ?? '').replace(/\r\n?/g, '\n');
+  const draft = normalizeFilmNoteDraftForEdit(state.filmNotesDraft);
   return draft.length ? draft.split('\n') : [''];
 }
 
@@ -10651,6 +10705,29 @@ function setFilmNotesDraftLines(lines = []) {
     : [''];
   state.filmNotesDraft = normalizedLines.join('\n');
   state.filmNotesActiveLine = Math.max(0, Math.min(normalizedLines.length - 1, Number(state.filmNotesActiveLine) || 0));
+}
+
+function getFilmNotesContinuationPrefix(line = '') {
+  const source = String(line ?? '');
+  if (/^\s*[-*]\s+\S/.test(source)) {
+    return source.replace(/^(\s*[-*]\s+).*/, '$1');
+  }
+  const ordered = source.match(/^(\s*)(\d+)(\.\s+)\S/);
+  if (ordered) {
+    return `${ordered[1]}${Number(ordered[2]) + 1}${ordered[3]}`;
+  }
+  if (/^\s*>\s*\S/.test(source)) {
+    return source.replace(/^(\s*>\s?).*/, '$1');
+  }
+  return '';
+}
+
+function shouldExitFilmNotesContinuation(line = '', prefix = '') {
+  const source = String(line ?? '');
+  return /^\s*[-*]\s*$/.test(source)
+    || /^\s*\d+\.\s*$/.test(source)
+    || /^\s*>\s*$/.test(source)
+    || (Boolean(prefix) && source === prefix);
 }
 
 function getContentEditableCaretOffset(element) {
@@ -10669,6 +10746,7 @@ function getContentEditableCaretOffset(element) {
 }
 
 function setFilmNotesActiveLine(index = 0) {
+  syncActiveFilmNotesLineFromDom();
   const lines = getFilmNotesDraftLines();
   state.filmNotesActiveLine = Math.max(0, Math.min(lines.length - 1, Number(index) || 0));
   renderFilmMutationState({ allowRenderFallback: true });
@@ -10698,8 +10776,21 @@ function insertFilmNotesLineBreak(target) {
   const lineIndex = Math.max(0, Math.min(lines.length - 1, Number(target.dataset.filmNotesLineIndex) || 0));
   const source = target.textContent || '';
   const offset = Math.max(0, Math.min(source.length, getContentEditableCaretOffset(target)));
-  lines.splice(lineIndex, 1, source.slice(0, offset), source.slice(offset));
+  const before = source.slice(0, offset);
+  const after = source.slice(offset);
+  if (!after && shouldExitFilmNotesContinuation(before, getFilmNotesContinuationPrefix(before))) {
+    lines.splice(lineIndex, 1, '');
+    state.filmNotesActiveLine = lineIndex;
+    filmNotesPendingCaretOffset = 0;
+    setFilmNotesDraftLines(lines);
+    renderFilmMutationState({ allowRenderFallback: true });
+    focusFilmNotesEditor();
+    return;
+  }
+  const continuation = after ? '' : getFilmNotesContinuationPrefix(before);
+  lines.splice(lineIndex, 1, before, `${continuation}${after}`);
   state.filmNotesActiveLine = lineIndex + 1;
+  filmNotesPendingCaretOffset = continuation.length;
   setFilmNotesDraftLines(lines);
   renderFilmMutationState({ allowRenderFallback: true });
   focusFilmNotesEditor();
@@ -10712,11 +10803,39 @@ function removeFilmNotesLineBackward(target) {
   const lines = getFilmNotesDraftLines();
   const lineIndex = Math.max(0, Math.min(lines.length - 1, Number(target.dataset.filmNotesLineIndex) || 0));
   const source = target.textContent || '';
-  if (lineIndex <= 0 || source || getContentEditableCaretOffset(target) > 0) {
+  const offset = getContentEditableCaretOffset(target);
+  if (lineIndex <= 0 || offset > 0) {
     return false;
   }
+  const previousLength = lines[lineIndex - 1]?.length || 0;
+  lines[lineIndex - 1] = `${lines[lineIndex - 1] || ''}${source}`;
   lines.splice(lineIndex, 1);
   state.filmNotesActiveLine = lineIndex - 1;
+  filmNotesPendingCaretOffset = previousLength;
+  setFilmNotesDraftLines(lines);
+  renderFilmMutationState({ allowRenderFallback: true });
+  focusFilmNotesEditor();
+  return true;
+}
+
+function moveFilmNotesActiveLineFromKeyboard(target, delta = 0) {
+  if (!(target instanceof HTMLElement) || !delta) {
+    return false;
+  }
+  const lines = getFilmNotesDraftLines();
+  const lineIndex = Math.max(0, Math.min(lines.length - 1, Number(target.dataset.filmNotesLineIndex) || 0));
+  const source = target.textContent || '';
+  const offset = Math.max(0, Math.min(source.length, getContentEditableCaretOffset(target)));
+  if ((delta < 0 && lineIndex <= 0) || (delta > 0 && lineIndex >= lines.length - 1)) {
+    return false;
+  }
+  if ((delta < 0 && offset > 0) || (delta > 0 && offset < source.length)) {
+    return false;
+  }
+  lines[lineIndex] = source.replace(/\r\n?/g, '\n').replace(/\n/g, '');
+  const nextIndex = lineIndex + delta;
+  state.filmNotesActiveLine = nextIndex;
+  filmNotesPendingCaretOffset = Math.min(lines[nextIndex]?.length || 0, offset);
   setFilmNotesDraftLines(lines);
   renderFilmMutationState({ allowRenderFallback: true });
   focusFilmNotesEditor();
@@ -10745,6 +10864,9 @@ function insertTextIntoFilmNotesLine(target, text = '') {
     ];
   lines.splice(lineIndex, 1, ...replacement);
   state.filmNotesActiveLine = lineIndex + replacement.length - 1;
+  filmNotesPendingCaretOffset = insertedLines.length === 1
+    ? offset + insertedLines[0].length
+    : insertedLines[insertedLines.length - 1].length;
   setFilmNotesDraftLines(lines);
   renderFilmMutationState({ allowRenderFallback: true });
   focusFilmNotesEditor();
@@ -11154,7 +11276,7 @@ function editFilmNotes(filmId) {
   state.activeFilmId = film.id;
   state.filmDetailOpen = true;
   state.filmNotesEditing = true;
-  state.filmNotesDraft = film.noteMarkdown || film.journal || '';
+  state.filmNotesDraft = normalizeFilmNoteDraftForEdit(film.noteMarkdown || film.journal || '');
   state.filmNotesActiveLine = 0;
   state.filmNotesPreview = false;
   state.filmMoreActionsOpen = false;
@@ -12096,8 +12218,9 @@ async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(st
     render();
     return true;
   }
-  const draft = normalizeMultilineText(state.filmNotesDraft);
-  const savedNote = normalizeMultilineText(film.noteMarkdown || film.journal || '');
+  const editDraft = normalizeFilmNoteDraftForEdit(state.filmNotesDraft);
+  const draft = normalizeFilmNoteForSave(editDraft);
+  const savedNote = normalizeFilmNoteForSave(film.noteMarkdown || film.journal || '');
   if (draft === savedNote) {
     exitFilmNotesEdit();
     renderFilmMutationState();
@@ -12117,7 +12240,7 @@ async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(st
   const saved = await savePromise;
   if (!saved) {
     state.filmNotesEditing = true;
-    state.filmNotesDraft = draft;
+    state.filmNotesDraft = editDraft;
     renderFilmMutationState();
     focusFilmNotesEditor();
     return false;
@@ -16822,6 +16945,16 @@ function handleKeyDown(event) {
 
   if (state.filmDetailOpen) {
     if (event.target instanceof HTMLElement && event.target.hasAttribute('data-film-notes-line')) {
+      if (event.key === 'ArrowUp' && moveFilmNotesActiveLineFromKeyboard(event.target, -1)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (event.key === 'ArrowDown' && moveFilmNotesActiveLineFromKeyboard(event.target, 1)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (event.key === 'Enter') {
         event.preventDefault();
         event.stopPropagation();

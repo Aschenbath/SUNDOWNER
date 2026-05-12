@@ -13677,6 +13677,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-notes-editor__line--source {
+  position: relative;
   padding: 4px 8px;
   color: rgba(241, 238, 230, 0.9);
   font-size: clamp(15.5px, 1.05vw, 17px);
@@ -13684,6 +13685,12 @@ body.codex-media-library-active #app {
   outline: 0;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+#codex-media-library-root .cml-film-notes-editor__line--source:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(241, 238, 230, 0.34);
+  pointer-events: none;
 }
 
 #codex-media-library-root .cml-film-notes-editor__line--source:focus {
@@ -13705,6 +13712,14 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-notes-editor__line--rendered .cml-film-detail__markdown,
 #codex-media-library-root .cml-film-notes-editor__line--rendered p {
   min-height: 0;
+}
+
+#codex-media-library-root .cml-film-notes-editor__line--source-preview code {
+  display: block;
+  color: rgba(241, 238, 230, 0.62);
+  font-size: 0.92em;
+  line-height: 1.65;
+  white-space: pre-wrap;
 }
 
 #codex-media-library-root .cml-film-notes-editor__blank-line {

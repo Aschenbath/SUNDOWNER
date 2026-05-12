@@ -14,8 +14,16 @@ function normalizeText(value) {
 }
 
 function normalizeMultilineText(value) {
+  return normalizeFilmNoteForSave(value);
+}
+
+function normalizeFilmNoteDraftForEdit(value) {
   return String(value ?? '')
-    .replace(/\r\n?/g, '\n')
+    .replace(/\r\n?/g, '\n');
+}
+
+function normalizeFilmNoteForSave(value) {
+  return normalizeFilmNoteDraftForEdit(value)
     .replace(/[ \t]+\n/g, '\n')
     .trim();
 }
@@ -590,22 +598,57 @@ export function renderMarkdownBlocks(source = '') {
   return blocks.join('');
 }
 
-function renderFilmNoteEditorLine(line = '', index = 0, activeLineIndex = 0) {
+function getFilmNoteSourceBlockRange(lines = [], activeLineIndex = 0) {
+  let fenceStart = -1;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!String(lines[index] ?? '').startsWith('```')) {
+      continue;
+    }
+    if (fenceStart < 0) {
+      fenceStart = index;
+      continue;
+    }
+    if (activeLineIndex >= fenceStart && activeLineIndex <= index) {
+      return { start: fenceStart, end: index };
+    }
+    fenceStart = -1;
+  }
+  if (fenceStart >= 0 && activeLineIndex >= fenceStart) {
+    return { start: fenceStart, end: lines.length - 1 };
+  }
+  return null;
+}
+
+function renderFilmNoteEditorLine(line = '', index = 0, activeLineIndex = 0, { sourcePreview = false } = {}) {
   const lineIndex = Math.max(0, Number(index) || 0);
   const active = lineIndex === Math.max(0, Number(activeLineIndex) || 0);
   const source = String(line ?? '');
   if (active) {
+    const placeholder = lineIndex === 0 && !source ? 'Write a note...' : '';
     return `
       <div
         class="cml-film-notes-editor__line cml-film-notes-editor__line--source is-active"
         data-film-notes-line
         data-film-notes-line-index="${escapeHtml(lineIndex)}"
         data-film-notes-draft
+        ${placeholder ? `data-placeholder="${escapeHtml(placeholder)}"` : ''}
         contenteditable="true"
         spellcheck="true"
         role="textbox"
         aria-label="Edit note line ${escapeHtml(lineIndex + 1)}"
       >${escapeHtml(source)}</div>
+    `;
+  }
+  if (sourcePreview) {
+    return `
+      <div
+        class="cml-film-notes-editor__line cml-film-notes-editor__line--rendered cml-film-notes-editor__line--source-preview"
+        data-action="film-edit-notes-line"
+        data-film-notes-line-index="${escapeHtml(lineIndex)}"
+        role="button"
+        tabindex="0"
+        aria-label="Edit note line ${escapeHtml(lineIndex + 1)}"
+      ><code>${source ? escapeHtml(source) : '&nbsp;'}</code></div>
     `;
   }
   const rendered = normalizeText(source)
@@ -625,7 +668,7 @@ function renderFilmNoteEditorLine(line = '', index = 0, activeLineIndex = 0) {
 
 function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '', notesActiveLine = 0, editable = false } = {}) {
   const savedNote = getSavedFilmNote(record);
-  const draft = notesEditing ? normalizeMultilineText(notesDraft) : savedNote;
+  const draft = notesEditing ? normalizeFilmNoteDraftForEdit(notesDraft) : savedNote;
   if (!notesEditing) {
     const readableClass = editable ? ' cml-film-detail__section--notes-readable' : '';
     const editAttrs = editable
@@ -637,12 +680,15 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
       </section>
     `;
   }
-  const lines = draft ? draft.split('\n') : [''];
+  const lines = draft === '' ? [''] : draft.split('\n');
   const activeLineIndex = Math.max(0, Math.min(lines.length - 1, Number(notesActiveLine) || 0));
+  const sourceBlockRange = getFilmNoteSourceBlockRange(lines, activeLineIndex);
   return `
     <section class="cml-film-detail__section cml-film-detail__section--notes cml-film-detail__section--notes-editing cml-film-notes-editor is-editing">
       <div class="cml-film-notes-editor__surface" data-film-notes-surface>
-        ${lines.map((line, index) => renderFilmNoteEditorLine(line, index, activeLineIndex)).join('')}
+        ${lines.map((line, index) => renderFilmNoteEditorLine(line, index, activeLineIndex, {
+          sourcePreview: Boolean(sourceBlockRange && index >= sourceBlockRange.start && index <= sourceBlockRange.end && index !== activeLineIndex)
+        })).join('')}
       </div>
     </section>
   `;
