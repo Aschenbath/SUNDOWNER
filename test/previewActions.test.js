@@ -5,7 +5,7 @@ import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, Documents
 import { FilmCard, FilmDetailPage, FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
 
 describe('media library download actions', () => {
-  it('renders Films search as one local-first input with TMDb feedback above the local film list', () => {
+  it('renders Films search as one local-first input with generic movie-search feedback above the local film list', () => {
     const panel = FilmSearchResults({
       error: 'TMDb credentials are not configured. Set TMDB_ACCESS_TOKEN or TMDB_API_KEY.',
       query: '花样',
@@ -26,7 +26,8 @@ describe('media library download actions', () => {
     assert.match(html, /data-film-filter="Watched"/);
     assert.doesNotMatch(html, /data-film-filter="Watching"/);
     assert.doesNotMatch(html, /cml-films-filters__chip[^>]*disabled/);
-    assert.match(html, /Add TMDB_ACCESS_TOKEN or TMDB_API_KEY in Cloudflare Pages environment variables/);
+    assert.match(html, /Movie search is unavailable\. Try again later\./);
+    assert.doesNotMatch(html, /TMDB_ACCESS_TOKEN|TMDB_API_KEY|credentials|Add from TMDb|TMDb result/);
     assert.match(html, /No saved films yet/);
     assert.ok(html.indexOf('cml-films-mvp') < html.indexOf('cml-films-filters'));
     assert.ok(html.indexOf('cml-films-filters') < html.indexOf('cml-films-empty'));
@@ -48,7 +49,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /Add from TMDb/);
     assert.match(html, /data-film-library-search-input/);
     assert.match(html, /value="Cure"/);
-    assert.match(html, /placeholder="Search films, TMDb, or add custom\.\.\."/);
+    assert.match(html, /placeholder="Search by title\.\.\."/);
     assert.doesNotMatch(html, /data-action="add-manual-film"/);
     assert.match(html, /data-action="clear-film-library-search"/);
     assert.match(html, /No saved films found\./);
@@ -145,11 +146,11 @@ describe('media library download actions', () => {
     });
 
     assert.match(html, /cml-film-search-result[^"]*is-saved/);
-    assert.match(html, /In Films - Watched/);
+    assert.match(html, /Saved &middot; Watched/);
     assert.match(html, /My rating 4\.5/);
     assert.doesNotMatch(html, /TMDb 8\.4/);
     assert.match(html, /is-current"[^>]*data-watch-status="watched"[^>]*disabled/);
-    assert.match(html, />Watched saved<\/button>/);
+    assert.match(html, />Saved<\/button>/);
   });
 
   it('restores add actions for TMDb search results after a film is removed from saved state', () => {
@@ -172,10 +173,10 @@ describe('media library download actions', () => {
     });
 
     assert.match(savedHtml, /cml-film-search-result[^"]*is-saved/);
-    assert.match(savedHtml, /In Films - Want/);
-    assert.match(savedHtml, /data-watch-status="wantToWatch"[^>]*disabled>Want saved<\/button>/);
+    assert.match(savedHtml, /Saved &middot; Want/);
+    assert.match(savedHtml, /data-watch-status="wantToWatch"[^>]*disabled>Saved<\/button>/);
     assert.doesNotMatch(removedHtml, /cml-film-search-result[^"]*is-saved/);
-    assert.doesNotMatch(removedHtml, /In Films -/);
+    assert.doesNotMatch(removedHtml, /Saved &middot;/);
     assert.match(removedHtml, /data-watch-status="wantToWatch"[^>]*>Want<\/button>/);
     assert.match(removedHtml, /data-watch-status="watched"[^>]*>Watched<\/button>/);
   });
@@ -244,8 +245,10 @@ describe('media library download actions', () => {
     assert.match(appSource, /isSavedEntry: false/);
     assert.match(appSource, /Number\(state\.filmTransientDetailRecord\?\.tmdbId\) === normalizedId/);
     assert.match(appSource, /journal: preserveLocal/);
-    assert.match(appSource, /const watchedAt = watchStatus === 'watched' \? new Date\(\)\.toISOString\(\)\.slice\(0, 10\) : undefined/);
-    assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false, silent = false, showSaving = !silent, savedLabel = 'Status saved' \} = \{\}\)/);
+    assert.match(appSource, /const watchedAt = watchStatus === 'watched' \? new Date\(\)\.toISOString\(\)\.slice\(0, 10\) : ''/);
+    assert.match(appSource, /body\.watchedAt = watchedAt \|\| null/);
+    assert.match(appSource, /shouldClearWatchEventsWhenMovingToWant\(existingEvents\) \? \[\] : existingEvents/);
+    assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false, silent = false, showSaving = !silent, savedLabel = 'Saved' \} = \{\}\)/);
     assert.match(appSource, /const filmAutoRefreshTmdbIds = new Set\(\)/);
     assert.match(appSource, /function scheduleFilmAutoRefresh\(filmId = ''\)/);
     assert.match(appSource, /refreshFilmFromTmdb\(film\.id, \{ quiet: true \}\)/);
@@ -328,34 +331,36 @@ describe('media library download actions', () => {
     assert.match(html, /Pierre Boutron/);
     assert.doesNotMatch(html, /cml-film-detail__chips/);
     assert.doesNotMatch(html, /Romance \/ Drama \/ War \/ TV Movie/);
-    assert.match(html, /5\.0 \/ 5\.0/);
+    assert.match(html, /aria-label="5\.0 out of 5"/);
+    assert.match(html, /<strong data-film-rating-output>5\.0<\/strong>/);
     assert.match(html, /My rating/);
-    assert.match(html, /cml-film-detail__signal-row cml-film-detail__signal-row--rating[\s\S]*My rating/);
+    assert.match(html, /cml-film-rating-control has-rating/);
     assert.doesNotMatch(html, /cml-film-detail__signal-icon/);
-    assert.match(html, /cml-film-detail__rating-ticks/);
-    assert.match(html, /step="0\.1"/);
-    assert.match(html, /data-label="0\.5"/);
-    assert.match(html, /data-label="5"/);
+    assert.doesNotMatch(html, /cml-film-detail__rating-ticks/);
+    assert.doesNotMatch(html, /data-film-rating-input/);
+    assert.doesNotMatch(html, /step="0\.1"/);
     assert.doesNotMatch(html, /TMDb 7\.5/);
     assert.doesNotMatch(html, /TMDb rating/);
     assert.match(html, /May 9, 2026/);
-    assert.match(html, /Watch history/);
+    assert.match(html, /<h2>Watch<\/h2>/);
+    assert.match(html, /Watched &middot; Latest May 9, 2026 &middot; First May 1, 2026/);
     assert.match(html, /cml-film-detail__diary-grid/);
     assert.match(html, /cml-film-detail__lower[\s\S]*cml-film-detail__diary-grid/);
     assert.ok(html.indexOf('cml-film-detail__diary-grid') > html.indexOf('cml-film-detail__lower'));
     assert.ok(html.indexOf('cml-film-detail__diary-grid') > html.indexOf('cml-film-detail__hero'));
     assert.match(html, /cml-film-detail__watch-event-card/);
     assert.doesNotMatch(html, /Add notes or rating for this watch/);
-    assert.match(html, /Private signals/);
+    assert.match(html, /Personal/);
     assert.match(html, /cml-film-detail__signals-card/);
     assert.doesNotMatch(html, /Personal rating/);
+    assert.doesNotMatch(html, /Private signals|Status|Last watched|Watching|Paused|Dropped|Unset|Not rated|NR/);
     assert.match(html, /2 watches/);
     assert.match(html, /May 1, 2026/);
     assert.doesNotMatch(html, /Synopsis/);
     assert.doesNotMatch(html, /Private film archive/);
     assert.doesNotMatch(html, /My notes/);
     assert.match(html, /cml-film-detail__synopsis-inline/);
-    assert.match(html, /No overview yet\./);
+    assert.match(html, /Add overview/);
     assert.match(html, /cml-film-detail__markdown/);
     assert.doesNotMatch(html, /Save to Favourites/);
     assert.match(html, /data-action="film-toggle-favourite"/);
@@ -376,13 +381,14 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="film-change-backdrop"/);
     assert.doesNotMatch(html, />Details<\/button>/);
     assert.doesNotMatch(html, />Refresh<\/button>/);
-    assert.doesNotMatch(html, />Remove<\/button>/);
+    assert.doesNotMatch(html, /cml-film-detail__image-hotspot[^>]*>Remove<\/button>/);
     assert.match(html, /data-film-detail-overlays/);
     assert.match(html, /cml-film-image-picker/);
     assert.match(html, /data-film-image-picker="backdrop"/);
     assert.match(html, /cml-film-image-picker__preview/);
     assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w780\/backdrop\.jpg"/);
-    assert.match(html, /Backdrop frame/);
+    assert.match(html, /Reposition/);
+    assert.match(html, /<h3>Frame<\/h3>/);
     assert.match(html, /min="0\.5" max="1\.8" step="0\.01" value="0\.58" data-film-backdrop-frame-field="zoom"/);
     assert.match(html, /data-film-backdrop-frame-field="zoom" style="--film-frame-range-fill:/);
     assert.match(html, /data-film-backdrop-frame-field="x"/);
@@ -395,7 +401,7 @@ describe('media library download actions', () => {
     assert.match(html, /data-film-image-picker-url/);
     assert.doesNotMatch(html, />Apply<\/button>/);
     assert.doesNotMatch(html, /save as you leave the field/);
-    assert.match(html, />Reset TMDb<\/button>/);
+    assert.match(html, />Use catalog image<\/button>/);
     assert.match(html, /data-action="film-clear-image-override"/);
     assert.doesNotMatch(html, /data-action="film-open-tmdb"/);
     assert.match(html, /data-action="film-edit-notes"/);
@@ -408,12 +414,16 @@ describe('media library download actions', () => {
     assert.ok(pickerPreviewMatch);
     assert.match(pickerPreviewMatch[1], /--film-backdrop-scale: 0\.58/);
     assert.match(pickerPreviewMatch[1], /--film-backdrop-opacity: 0\.44/);
-    assert.doesNotMatch(html, /data-action="film-mark-rewatch"/);
+    assert.match(html, /data-action="film-mark-rewatch"/);
+    assert.match(html, /\+ Rewatch/);
+    assert.match(html, /Move to Want/);
     assert.match(html, /data-action="film-refresh-tmdb"/);
-    assert.match(html, /Refresh TMDb/);
-    assert.match(html, /Danger zone/);
-    assert.match(html, /Remove from Films/);
+    assert.match(html, /Refresh details/);
+    assert.match(html, /Manage/);
+    assert.match(html, /Remove from library/);
     assert.match(html, /data-action="film-remove-entry"/);
+    assert.doesNotMatch(html, />[^<]*(TMDb|TMDB|credentials|override|Private signals|Status|Last watched|Not rated|NR|Unset|Locale|Danger zone|Refresh TMDb|Reset TMDb|Remove from Films|Backdrop frame)[^<]*</);
+    assert.doesNotMatch(html, /aria-label="[^"]*(TMDb|TMDB|credentials|override|Private signals|Status|Last watched|Not rated|NR|Unset|Locale|Danger zone)[^"]*"/);
     assert.ok(html.indexOf('cml-film-detail__synopsis-inline') > html.indexOf('cml-film-detail__meta-row'));
     assert.ok(html.indexOf('cml-film-detail__synopsis-inline') < html.indexOf('cml-film-detail__lower'));
     assert.match(html, /data-film-watch-event-input/);
@@ -551,7 +561,8 @@ describe('media library download actions', () => {
     assert.match(previewHtml, /<strong>line<\/strong>/);
     assert.doesNotMatch(previewHtml, /data-film-save-status="notes"/);
     assert.doesNotMatch(previewHtml, /Markdown renders live/);
-    assert.match(previewHtml, /data-film-save-status="detail">Saving\.\.\.<\/span>/);
+    assert.doesNotMatch(previewHtml, /Saving\.\.\./);
+    assert.doesNotMatch(previewHtml, /data-film-save-status="detail">Saving/);
     assert.match(previewHtml, /data-film-notes-draft/);
     assert.doesNotMatch(previewHtml, /data-action="film-notes-save"/);
     assert.doesNotMatch(previewHtml, /data-action="film-notes-cancel"/);
@@ -590,12 +601,12 @@ describe('media library download actions', () => {
     });
 
     assert.match(savedHtml, /cml-film-metadata-shortcuts/);
-    assert.match(savedHtml, /Edit fields/);
+    assert.match(savedHtml, /Edit details/);
     assert.match(savedHtml, /Identity/);
     assert.match(savedHtml, /Release/);
     assert.match(savedHtml, /Writing/);
     assert.match(savedHtml, /Images/);
-    assert.match(savedHtml, /Danger zone/);
+    assert.match(savedHtml, /Manage/);
     assert.match(savedHtml, /data-film-metadata-focus-field="titleOverride"/);
     assert.match(savedHtml, /data-film-metadata-focus-field="originalTitleOverride"/);
     assert.match(savedHtml, /data-film-metadata-focus-field="releaseDateOverride"/);
@@ -604,6 +615,9 @@ describe('media library download actions', () => {
     assert.match(savedHtml, /data-action="film-remove-entry"/);
     assert.doesNotMatch(savedHtml, /data-film-metadata-field="posterUrlOverride"/);
     assert.doesNotMatch(savedHtml, /Local overrides only/);
+    assert.doesNotMatch(savedHtml, /Title override|Director override|fallback to TMDb|Danger zone|Refresh TMDb|Remove from Films/);
+    assert.match(savedHtml, /Refresh details/);
+    assert.match(savedHtml, /Remove from library/);
     assert.match(savedHtml, /https:\/\/example\.com\/poster\.jpg/);
     assert.match(savedHtml, /src="https:\/\/example\.com\/poster\.jpg"/);
     assert.match(savedHtml, /src="\/file\/backdrop\.jpg"/);
@@ -665,11 +679,12 @@ describe('media library download actions', () => {
       imagePickerMode: 'poster',
     });
 
-    assert.match(html, /TMDb override/);
+    assert.match(html, /Selected image/);
     assert.match(html, /data-film-image-path="\/poster-alt\.jpg"[^>]*aria-label="Use this poster"/);
     assert.match(html, /data-action="film-pick-image"/);
     assert.match(html, /data-action="film-clear-image-override"/);
     assert.doesNotMatch(html, /value="https:\/\/image\.tmdb\.org\/t\/p/);
+    assert.doesNotMatch(html, /TMDb override|TMDb image|Reset TMDb|No TMDb/);
   });
 
   it('keeps Films detail local actions wired through app handlers', () => {
@@ -780,6 +795,11 @@ describe('media library download actions', () => {
     assert.match(appSource, /commitFilmImagePickerDraft\(\{ keepDetailOpen, background \}\)/);
     assert.match(appSource, /commitPendingFilmEditsBeforeAction\(\{ actionName, keepDetailOpen: true, background: false \}\)/);
     assert.match(appSource, /case 'film-mark-rewatch':/);
+    assert.match(appSource, /case 'film-mark-watched':/);
+    assert.match(appSource, /case 'film-move-to-want':/);
+    assert.match(appSource, /function markFilmWatched/);
+    assert.match(appSource, /function moveFilmToWant/);
+    assert.match(appSource, /function shouldClearWatchEventsWhenMovingToWant/);
     assert.match(appSource, /case 'film-delete-watch-event':/);
     assert.match(appSource, /case 'film-undo-watch-event-delete':/);
     assert.match(appSource, /function undoDeleteFilmWatchEvent/);
@@ -942,8 +962,8 @@ describe('media library download actions', () => {
     assert.match(html, /cml-film-card__footer-spotlight/);
     assert.match(html, /cml-film-card__director/);
     assert.match(html, /James Cameron/);
-    assert.match(html, /cml-film-card__rating is-pending/);
-    assert.match(html, />NR<\/span>/);
+    assert.doesNotMatch(html, /cml-film-card__rating/);
+    assert.doesNotMatch(html, />NR<\/span>|Not rated/);
     assert.doesNotMatch(html, /TMDB #000042/);
     assert.doesNotMatch(html, /cml-film-card__barcode/);
   });
@@ -963,8 +983,10 @@ describe('media library download actions', () => {
       posterPath: '/poster.jpg',
     });
 
-    assert.match(html, /cml-film-card__info-item--release[\s\S]*cml-film-card__info-label">Release<\/span>\s*<strong class="cml-film-card__info-value">1995 \u00b7 1h 57m<\/strong>/);
-    assert.match(html, /cml-film-card__info-item--locale[\s\S]*cml-film-card__info-label">Locale<\/span>\s*<strong class="cml-film-card__info-value">Japan \u00b7 JP \u00b7 Japanese<\/strong>/);
+    assert.match(html, /cml-film-card__info-item--release[\s\S]*<strong class="cml-film-card__info-value">1995 \u00b7 1h 57m<\/strong>/);
+    assert.match(html, /cml-film-card__info-item--watched[\s\S]*<strong class="cml-film-card__info-value">05\/11\/2026<\/strong>/);
+    assert.doesNotMatch(html, /cml-film-card__info-label">Release<\/span>/);
+    assert.doesNotMatch(html, /cml-film-card__info-item--locale|Locale/);
     assert.doesNotMatch(html, /1995 - 1h 57m/);
     assert.doesNotMatch(html, /Japan \/ JP \/ Japanese/);
   });
@@ -983,10 +1005,10 @@ describe('media library download actions', () => {
       voteAverage: 9,
     });
 
-    assert.match(html, /Director/);
     assert.match(html, /James Cameron/);
-    assert.match(html, /cml-film-card__rating is-pending/);
-    assert.match(html, />NR<\/span>/);
+    assert.doesNotMatch(html, /cml-film-card__director-label|>Director<\/span>/);
+    assert.doesNotMatch(html, /cml-film-card__rating/);
+    assert.doesNotMatch(html, />NR<\/span>|Not rated/);
     assert.doesNotMatch(html, /TMDb rating 9\.0/);
     assert.doesNotMatch(html, />9\.0<\/span>/);
   });
@@ -1005,7 +1027,8 @@ describe('media library download actions', () => {
     });
 
     assert.match(html, /cml-films-result cml-film-search-result[^"]*is-saving/);
-    assert.match(html, /disabled>Saving\.\.\.<\/button>/);
+    assert.match(html, /disabled>Adding\.\.\.<\/button>/);
+    assert.doesNotMatch(html, /Saving\.\.\./);
     assert.doesNotMatch(html, /TMDb 8\.2/);
   });
 

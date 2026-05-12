@@ -34,15 +34,15 @@ function mapMovieRouteError(error) {
     };
   }
   if (/TMDb credentials are not configured/i.test(message)) {
-    return { status: 503, error: message };
+    return { status: 503, error: 'Movie search is unavailable' };
   }
   if (/TMDb request failed/i.test(message) || /Invalid TMDb movie detail payload/i.test(message)) {
-    return { status: 502, error: 'TMDb request failed' };
+    return { status: 502, error: 'Movie search failed' };
   }
   if (/not found/i.test(message)) {
     return { status: 404, error: 'Movie not found' };
   }
-  if (/Invalid JSON|tmdbId is required|Unsupported watchStatus|Manual film title is required|Movie entry id is required|userRating must be between/i.test(message)) {
+  if (/Invalid JSON|tmdbId is required|Unsupported watch(?:Status| state)|Manual film title is required|Movie entry id is required|userRating must be between/i.test(message)) {
     return { status: 400, error: message };
   }
   return { status: 500, error: 'Movie operation failed' };
@@ -73,7 +73,7 @@ export async function onRequest(context) {
       if (action === 'entries') {
         const watchStatus = url.searchParams.get('watchStatus') || url.searchParams.get('status') || '';
         if (watchStatus && !WATCH_STATUSES.has(watchStatus)) {
-          return jsonResponse({ error: 'Unsupported watchStatus' }, { status: 400 });
+          return jsonResponse({ error: 'Unsupported watch state' }, { status: 400 });
         }
         return jsonResponse({ entries: await repository.listUserEntries({ watchStatus }) });
       }

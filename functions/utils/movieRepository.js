@@ -343,7 +343,7 @@ export function normalizeUserMovieEntry(input = {}, existing = null, timestamp =
   }
   const watchStatus = normalizeText(hasOwn(input, 'watchStatus') ? input.watchStatus : existing?.watchStatus || 'wantToWatch');
   if (!WATCH_STATUSES.has(watchStatus)) {
-    throw createStatusError('Unsupported watchStatus', 400);
+    throw createStatusError('Unsupported watch state', 400);
   }
   const rating = hasOwn(input, 'userRating')
     ? normalizeUserRating(input.userRating, { strict: true })

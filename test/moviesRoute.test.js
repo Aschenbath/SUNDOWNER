@@ -29,7 +29,7 @@ class MemoryKV {
 }
 
 describe('manage movies route', () => {
-  it('returns a clear 503 when searching without TMDb credentials', async () => {
+  it('returns a generic 503 when movie search is unavailable', async () => {
     const response = await onRequest({
       request: new Request('https://example.com/api/manage/movies?action=search&q=yi+yi'),
       env: { img_url: new MemoryKV() },
@@ -37,7 +37,7 @@ describe('manage movies route', () => {
 
     const payload = await response.json();
     assert.equal(response.status, 503);
-    assert.match(payload.error, /TMDb credentials are not configured/);
+    assert.equal(payload.error, 'Movie search is unavailable');
   });
 
   it('passes TMDb search pagination through the route', async () => {
@@ -98,7 +98,7 @@ describe('manage movies route', () => {
 
     const payload = await response.json();
     assert.equal(response.status, 400);
-    assert.equal(payload.error, 'Unsupported watchStatus');
+    assert.equal(payload.error, 'Unsupported watch state');
   });
 
   it('maps invalid JSON bodies to a 400 response', async () => {

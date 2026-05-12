@@ -698,7 +698,7 @@ describe('MovieRepository', () => {
 
     await assert.rejects(
       () => repository.saveOrUpdateUserEntry({ tmdbId: 42, watchStatus: 'archived' }),
-      /Unsupported watchStatus/
+      /Unsupported watch state/
     );
     assert.deepEqual(await repository.listUserEntries(), []);
   });
