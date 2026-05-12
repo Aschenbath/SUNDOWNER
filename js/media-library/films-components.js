@@ -494,20 +494,17 @@ function renderFilmPrivateSignals(record = {}, { userRating = '', watchedDate = 
       <h2>Private signals</h2>
       <div class="cml-film-detail__signals-card">
         <div class="cml-film-detail__signal-row">
-          <span class="cml-film-detail__signal-icon" aria-hidden="true">&#9678;</span>
           <span class="cml-film-detail__signal-label">Status</span>
-          <div class="cml-film-detail__signal-value">
-            <span class="cml-film-detail__signal-pill">${escapeHtml(statusLabel)}</span>
+          <div class="cml-film-detail__signal-value cml-film-detail__signal-value--status">
+            <span class="cml-film-detail__signal-text">${escapeHtml(statusLabel)}</span>
             ${renderDetailStatusControls(record)}
           </div>
         </div>
         <div class="cml-film-detail__signal-row">
-          <span class="cml-film-detail__signal-icon" aria-hidden="true">&#9719;</span>
           <span class="cml-film-detail__signal-label">Last watched</span>
           <div class="cml-film-detail__signal-value">${renderDetailWatchedDateSignal(record, watchedDate)}</div>
         </div>
         <div class="cml-film-detail__signal-row cml-film-detail__signal-row--rating">
-          <span class="cml-film-detail__signal-icon" aria-hidden="true">&#9734;</span>
           <span class="cml-film-detail__signal-label">My rating</span>
           <div class="cml-film-detail__signal-value cml-film-detail__signal-value--rating">
             <span class="cml-film-detail__signal-rating-label" data-film-rating-output>${escapeHtml(ratingLabel)}</span>
@@ -516,7 +513,6 @@ function renderFilmPrivateSignals(record = {}, { userRating = '', watchedDate = 
           </div>
         </div>
         <div class="cml-film-detail__signal-row">
-          <span class="cml-film-detail__signal-icon" aria-hidden="true">&#9671;</span>
           <span class="cml-film-detail__signal-label">Favourite</span>
           <button
             type="button"
@@ -526,7 +522,7 @@ function renderFilmPrivateSignals(record = {}, { userRating = '', watchedDate = 
             aria-pressed="${record.favorite ? 'true' : 'false'}"
             aria-label="${record.favorite ? 'Remove favourite' : 'Save to favourites'}"
             ${disabledAttr}
-          >&#9825;</button>
+          >${record.favorite ? 'On' : 'Off'}</button>
         </div>
       </div>
     </section>
@@ -804,8 +800,13 @@ function renderFilmMetadataFieldPicker(record = {}) {
         </div>
         <div class="cml-film-metadata-shortcuts__group">
           <p>Images</p>
-          <button type="button" class="cml-film-metadata-shortcuts__item" data-action="film-change-poster" data-film-id="${escapeHtml(filmId)}">Poster</button>
-          <button type="button" class="cml-film-metadata-shortcuts__item" data-action="film-change-backdrop" data-film-id="${escapeHtml(filmId)}">Backdrop</button>
+          <button type="button" class="cml-film-metadata-shortcuts__item" data-action="film-change-poster" data-film-id="${escapeHtml(filmId)}">Change poster</button>
+          <button type="button" class="cml-film-metadata-shortcuts__item" data-action="film-change-backdrop" data-film-id="${escapeHtml(filmId)}">Change backdrop</button>
+          ${record.tmdbId ? '<button type="button" class="cml-film-metadata-shortcuts__item cml-film-metadata-shortcuts__item--secondary" data-action="film-refresh-tmdb" data-film-id="' + escapeHtml(filmId) + '">Refresh TMDb</button>' : ''}
+        </div>
+        <div class="cml-film-metadata-shortcuts__group cml-film-metadata-shortcuts__group--danger">
+          <p>Danger zone</p>
+          <button type="button" class="cml-film-metadata-shortcuts__item cml-film-metadata-shortcuts__item--danger" data-action="film-remove-entry" data-film-id="${escapeHtml(filmId)}">Remove from Films</button>
         </div>
       </div>
     </section>
@@ -901,15 +902,9 @@ function renderFilmPosterTool(record = {}, { disabledAttr = '' } = {}) {
 
 function renderFilmDetailImageTools(record = {}, { disabledAttr = '' } = {}) {
   const filmId = escapeHtml(record.id || '');
-  const refreshAction = record.tmdbId
-    ? `<button type="button" class="cml-film-detail__image-tool" data-action="film-refresh-tmdb" data-film-id="${filmId}" ${disabledAttr}>Refresh</button>`
-    : '';
   return `
-    <div class="cml-film-detail__image-tools" aria-label="Film detail tools" data-film-detail-tools>
-      <button type="button" class="cml-film-detail__image-tool" data-action="film-change-backdrop" data-film-id="${filmId}" ${disabledAttr}>Backdrop</button>
-      <button type="button" class="cml-film-detail__image-tool" data-action="film-edit-metadata" data-film-id="${filmId}" ${disabledAttr}>Details</button>
-      ${refreshAction}
-      <button type="button" class="cml-film-detail__image-tool cml-film-detail__image-tool--danger" data-action="film-remove-entry" data-film-id="${filmId}" ${disabledAttr}>Remove</button>
+    <div class="cml-film-detail__image-tools" aria-label="Backdrop tools" data-film-detail-tools>
+      <button type="button" class="cml-film-detail__image-hotspot" data-action="film-change-backdrop" data-film-id="${filmId}" aria-label="Change backdrop" ${disabledAttr}>Backdrop</button>
     </div>
   `;
 }
@@ -1184,7 +1179,6 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
     ? { ...displayRecord, isSaving: true }
     : displayRecord;
   const metadataEditor = isSavedEntry && metadataEditing
-    && metadataFocusField !== 'overviewOverride'
     ? renderFilmMetadataEditor(displayRecord, metadataDraft || {}, { focusField: metadataFocusField })
     : '';
   const synopsisMetadataEditor = canEditLocalMetadata && metadataEditing && metadataFocusField === 'overviewOverride'

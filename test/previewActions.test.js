@@ -275,7 +275,7 @@ describe('media library download actions', () => {
         backdropPositionYOverride: 34,
         backdropOpacityOverride: 0.72,
       },
-      moreActionsOpen: true,
+      metadataEditing: true,
       imagePickerMode: 'backdrop',
       imagePickerFrameDraft: {
         backdropZoomOverride: 0.58,
@@ -303,6 +303,7 @@ describe('media library download actions', () => {
     assert.match(html, /5\.0 \/ 5\.0/);
     assert.match(html, /My rating/);
     assert.match(html, /cml-film-detail__signal-row cml-film-detail__signal-row--rating[\s\S]*My rating/);
+    assert.doesNotMatch(html, /cml-film-detail__signal-icon/);
     assert.match(html, /cml-film-detail__rating-ticks/);
     assert.match(html, /step="0\.1"/);
     assert.match(html, /data-label="0\.5"/);
@@ -341,10 +342,13 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-film-detail__more/);
     assert.doesNotMatch(html, /Customize/);
     assert.doesNotMatch(html, /Sync/);
-    assert.doesNotMatch(html, /Danger/);
     assert.match(html, /cml-film-detail__image-tools/);
+    assert.match(html, /cml-film-detail__image-hotspot/);
     assert.match(html, /data-action="film-change-poster"/);
     assert.match(html, /data-action="film-change-backdrop"/);
+    assert.doesNotMatch(html, />Details<\/button>/);
+    assert.doesNotMatch(html, />Refresh<\/button>/);
+    assert.doesNotMatch(html, />Remove<\/button>/);
     assert.match(html, /data-film-detail-overlays/);
     assert.match(html, /cml-film-image-picker/);
     assert.match(html, /data-film-image-picker="backdrop"/);
@@ -378,6 +382,9 @@ describe('media library download actions', () => {
     assert.match(pickerPreviewMatch[1], /--film-backdrop-opacity: 0\.44/);
     assert.doesNotMatch(html, /data-action="film-mark-rewatch"/);
     assert.match(html, /data-action="film-refresh-tmdb"/);
+    assert.match(html, /Refresh TMDb/);
+    assert.match(html, /Danger zone/);
+    assert.match(html, /Remove from Films/);
     assert.match(html, /data-action="film-remove-entry"/);
     assert.ok(html.indexOf('cml-film-detail__synopsis-inline') > html.indexOf('cml-film-detail__meta-row'));
     assert.ok(html.indexOf('cml-film-detail__synopsis-inline') < html.indexOf('cml-film-detail__lower'));
@@ -423,6 +430,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(detailBackdropMatch[1], /1\.72/);
     assert.match(html, /Edited title/);
     assert.match(html, /Edited director/);
+    assert.match(html, /cml-film-metadata-shortcuts/);
   });
 
   it('renders unsaved TMDb detail previews with explicit add actions only', () => {
@@ -559,10 +567,13 @@ describe('media library download actions', () => {
     assert.match(savedHtml, /Release/);
     assert.match(savedHtml, /Writing/);
     assert.match(savedHtml, /Images/);
+    assert.match(savedHtml, /Danger zone/);
     assert.match(savedHtml, /data-film-metadata-focus-field="titleOverride"/);
     assert.match(savedHtml, /data-film-metadata-focus-field="originalTitleOverride"/);
     assert.match(savedHtml, /data-film-metadata-focus-field="releaseDateOverride"/);
     assert.match(savedHtml, /data-action="film-change-poster"/);
+    assert.match(savedHtml, /data-action="film-refresh-tmdb"/);
+    assert.match(savedHtml, /data-action="film-remove-entry"/);
     assert.doesNotMatch(savedHtml, /data-film-metadata-field="posterUrlOverride"/);
     assert.doesNotMatch(savedHtml, /Local overrides only/);
     assert.match(savedHtml, /https:\/\/example\.com\/poster\.jpg/);
@@ -734,6 +745,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /async function commitPendingFilmEditsBeforeAction/);
     assert.match(appSource, /await commitFilmNotesEdit\(\{ silent: true, keepDetailOpen \}\)/);
     assert.match(appSource, /await commitFilmMetadataEdit\(\{ keepDetailOpen \}\)/);
+    assert.match(appSource, /closeFilmImagePicker\(\{ shouldRender: false, animate: false \}\)/);
     assert.match(appSource, /commitFilmImagePickerDraft\(\{ keepDetailOpen \}\)/);
     assert.match(appSource, /case 'film-mark-rewatch':/);
     assert.match(appSource, /case 'film-delete-watch-event':/);
@@ -747,7 +759,8 @@ describe('media library download actions', () => {
     assert.match(appSource, /appendWatchEvent: watchedAt/);
     assert.match(appSource, /data-film-notes-draft/);
     assert.match(appSource, /data-film-metadata-field/);
-    assert.match(appSource, /querySelector\('\.cml-film-metadata-editor'\)/);
+    assert.match(appSource, /querySelectorAll\('\.cml-film-metadata-editor'\)/);
+    assert.match(appSource, /querySelectorAll\('\.cml-film-image-picker'\)/);
     assert.match(appSource, /FILM_METADATA_FIELDS\.forEach/);
     assert.match(appSource, /function patchActiveFilmDetailView/);
     assert.match(appSource, /function patchFilmBackdropLayer/);

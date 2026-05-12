@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=66';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=67';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -10794,15 +10794,19 @@ function editFilmMetadata(filmId, { focusField = '' } = {}) {
   }
   closeFilmImagePicker({ shouldRender: false });
   clearTransientFilmDetail();
+  const nextFocusField = normalizeText(focusField);
+  const shouldReuseDraft = state.filmMetadataEditing && state.activeFilmId === film.id && state.filmMetadataDraft;
   state.activeFilmId = film.id;
   state.filmDetailOpen = true;
+  if (!shouldReuseDraft) {
+    state.filmMetadataDraft = createFilmMetadataDraft(film);
+  }
   state.filmMetadataEditing = true;
-  state.filmMetadataDraft = createFilmMetadataDraft(film);
-  state.filmMetadataFocusField = normalizeText(focusField);
+  state.filmMetadataFocusField = nextFocusField;
   state.filmMoreActionsOpen = false;
   renderFilmMutationState();
   if (state.filmMetadataFocusField) {
-    focusFilmMetadataEditor(focusField);
+    focusFilmMetadataEditor(nextFocusField);
   }
 }
 
@@ -10961,6 +10965,9 @@ async function openFilmImagePicker(filmId, mode = 'poster') {
   clearFilmImagePickerCloseTimer();
   state.activeFilmId = film.id;
   state.filmDetailOpen = true;
+  state.filmMetadataEditing = false;
+  state.filmMetadataDraft = null;
+  state.filmMetadataFocusField = '';
   state.filmImagePickerMode = mode === 'backdrop' ? 'backdrop' : 'poster';
   state.filmImagePickerDraft = state.filmImagePickerMode === 'backdrop'
     ? normalizeText(film.backdropUrlOverride || '')
@@ -11658,6 +11665,7 @@ async function commitPendingFilmEditsBeforeAction({ actionName = '', keepDetailO
     if (!imageSaved) {
       return false;
     }
+    closeFilmImagePicker({ shouldRender: false, animate: false });
   }
   return true;
 }
@@ -15459,34 +15467,32 @@ function handleClick(event) {
     const clickedNotesEditAction = actionTarget instanceof HTMLElement
       && actionTarget.dataset.action === 'film-edit-notes';
     if (!clickedInsideNotesEditor && !clickedNotesEditAction && pointerStartEditSurface !== 'notes') {
-      if (!clickedFilmAction && !clickedSavedFilmCard) {
-        void commitFilmNotesEdit({ silent: false, keepDetailOpen: true, optimisticExit: true });
-      }
+      void commitFilmNotesEdit({ silent: false, keepDetailOpen: true, optimisticExit: true });
     }
   }
 
   if (state.filmMetadataEditing) {
-    const metadataEditor = refs.root?.querySelector('.cml-film-metadata-editor');
+    const metadataEditors = refs.root
+      ? Array.from(refs.root.querySelectorAll('.cml-film-metadata-editor'))
+      : [];
     const clickedInsideMetadataEditor = event.target instanceof Element
-      && metadataEditor instanceof HTMLElement
-      && metadataEditor.contains(event.target);
+      && metadataEditors.some((node) => node instanceof HTMLElement && node.contains(event.target));
     const clickedMetadataEditAction = actionTarget instanceof HTMLElement
       && actionTarget.dataset.action === 'film-edit-metadata';
     if (!clickedInsideMetadataEditor && !clickedMetadataEditAction && pointerStartEditSurface !== 'metadata') {
-      if (!clickedFilmAction && !clickedSavedFilmCard) {
-        void commitFilmMetadataEdit({ keepDetailOpen: true });
-      }
+      void commitFilmMetadataEdit({ keepDetailOpen: true });
     }
   }
 
   if (state.filmImagePickerMode) {
-    const imagePicker = refs.root?.querySelector('.cml-film-image-picker');
+    const imagePickers = refs.root
+      ? Array.from(refs.root.querySelectorAll('.cml-film-image-picker'))
+      : [];
     const clickedInsideImagePicker = event.target instanceof Element
-      && imagePicker instanceof HTMLElement
-      && imagePicker.contains(event.target);
+      && imagePickers.some((node) => node instanceof HTMLElement && node.contains(event.target));
     const clickedImagePickerAction = actionTarget instanceof HTMLElement
       && ['film-pick-image', 'film-pin-backdrop', 'film-apply-image-url', 'film-clear-image-override', 'film-close-image-picker'].includes(actionTarget.dataset.action || '');
-    if (!clickedInsideImagePicker && !clickedImagePickerAction && !clickedFilmAction && !clickedSavedFilmCard && pointerStartEditSurface !== 'imagePicker') {
+    if (!clickedInsideImagePicker && !clickedImagePickerAction && pointerStartEditSurface !== 'imagePicker') {
       void commitFilmImagePickerDraft({ keepDetailOpen: true });
     }
   }

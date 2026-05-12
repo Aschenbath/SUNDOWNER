@@ -73,6 +73,16 @@ This file is the working memory for the active SUNDOWNER repo. It keeps current-
 - Keep Films follow-up work surgical unless Gilbert reopens broader visual redesign.
 - For visual regression, compare against accepted Films Detail anchor `353e771` before making broad CSS changes.
 
+##### 12th
+
+###### Work Log
+
+- 00:38 | [films][detail][overlay] Tightened Film Detail to contextual overlays only: backdrop tool is now a hero hotspot, refresh/remove moved into metadata shortcuts, private signals use calm text rows, metadata draft reuse no longer resets mid-edit, and cross-surface autosave now commits before switching so notes/metadata/image pickers stop getting stuck in fake-open states. Cache: `app.js?v=265`, `components.js?v=97`, `films-components.js?v=67`, `films-data.js?v=7`, `media-library.css?v=249`. Validation: Node syntax checks for `app.js` and `films-components.js`; `git diff --check`; focused `previewActions.test.js` 5 passing; `lightChromeCss.test.js` 9 passing.
+
+###### Debug / Decision Capsules
+
+- [films-detail-surface-transitions] Symptom: switching from notes/metadata/image picker into another Film Detail action could leave stale edit surfaces or visible jank. Cause: outside-click autosave skipped many Film actions and the click hit-tests only checked the first matching overlay node. Fix: always commit pending film edits before surface switches and treat metadata/image picker overlays as multi-node surfaces when checking click containment. Guard: focused previewActions assertions plus syntax/diff checks.
+
 ##### 10th
 
 ###### Work Log
@@ -128,9 +138,9 @@ This file is the working memory for the active SUNDOWNER repo. It keeps current-
 
 - read-protocol: start with `Get-Content history.md -Tail 12`; then read latest day if the task touches current work.
 - current-focus: Films detail UX polish, surgical changes only.
-- latest-state: 2026-May-11 23:52; `app.js?v=264`, `components.js?v=97`, `films-components.js?v=66`, `films-data.js?v=7`, `media-library.css?v=248`.
-- latest-validation: syntax checks, `git diff --check`, focused Films/light CSS Mocha 31 passing, full Mocha 394 passing.
-- hot-path: Film Detail active patching should keep `[data-film-detail-page]` root/backdrop stable and patch targeted children.
+- latest-state: 2026-May-12 00:38; `app.js?v=265`, `components.js?v=97`, `films-components.js?v=67`, `films-data.js?v=7`, `media-library.css?v=249`.
+- latest-validation: Node syntax checks for `app.js` and `films-components.js`; `git diff --check`; focused `previewActions.test.js` 5 passing; `lightChromeCss.test.js` 9 passing.
+- hot-path: Film Detail active patching should keep `[data-film-detail-page]` root/backdrop stable, and cross-surface switches must commit pending notes/metadata/image edits before opening the next overlay.
 - current-boundaries: do not redesign global shell/theme/sidebar/topbar; do not touch unrelated media modules for Films polish.
 - open-loop: browser/manual QA is not assumed unless explicitly documented.
 - archive: raw pre-rewrite table is `history.archive\2026-May-raw.md`.
