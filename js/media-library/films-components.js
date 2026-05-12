@@ -619,15 +619,36 @@ function getFilmNoteSourceBlockRange(lines = [], activeLineIndex = 0) {
   return null;
 }
 
-function renderFilmNoteEditorLine(line = '', index = 0, activeLineIndex = 0, { sourcePreview = false } = {}) {
+function getFilmNoteLineKind(source = '') {
+  const line = String(source ?? '');
+  if (!line) {
+    return 'blank';
+  }
+  if (line.startsWith('```')) {
+    return 'code';
+  }
+  if (/^(#{1,3})\s+/.test(line)) {
+    return 'heading';
+  }
+  if (/^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line)) {
+    return 'list';
+  }
+  if (/^>\s?/.test(line)) {
+    return 'quote';
+  }
+  return 'paragraph';
+}
+
+function renderFilmNoteEditorLine(line = '', index = 0, activeLineIndex = 0, { sourcePreview = false, sourceBlock = false } = {}) {
   const lineIndex = Math.max(0, Number(index) || 0);
   const active = lineIndex === Math.max(0, Number(activeLineIndex) || 0);
   const source = String(line ?? '');
   if (active) {
     const placeholder = lineIndex === 0 && !source ? 'Write a note...' : '';
+    const lineKind = sourceBlock ? 'code' : getFilmNoteLineKind(source);
     return `
       <div
-        class="cml-film-notes-editor__line cml-film-notes-editor__line--source is-active"
+        class="cml-film-notes-editor__line cml-film-notes-editor__line--source cml-film-notes-editor__line--${escapeHtml(lineKind)} is-active"
         data-film-notes-line
         data-film-notes-line-index="${escapeHtml(lineIndex)}"
         data-film-notes-draft
@@ -666,9 +687,22 @@ function renderFilmNoteEditorLine(line = '', index = 0, activeLineIndex = 0, { s
   `;
 }
 
-function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '', notesActiveLine = 0, editable = false } = {}) {
+function renderFilmNotesSyncStatus(record = {}, notesSyncError = false) {
+  if (!notesSyncError) {
+    return '';
+  }
+  return `
+    <div class="cml-film-notes-editor__sync is-error">
+      <span>Unsynced</span>
+      <button type="button" data-action="film-retry-notes" data-film-id="${escapeHtml(record.id || '')}">Retry</button>
+    </div>
+  `;
+}
+
+function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft = '', notesActiveLine = 0, notesSyncError = false, editable = false } = {}) {
   const savedNote = getSavedFilmNote(record);
   const draft = notesEditing ? normalizeFilmNoteDraftForEdit(notesDraft) : savedNote;
+  const syncStatus = renderFilmNotesSyncStatus(record, notesSyncError);
   if (!notesEditing) {
     const readableClass = editable ? ' cml-film-detail__section--notes-readable' : '';
     const editAttrs = editable
@@ -677,6 +711,7 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
     return `
       <section class="cml-film-detail__section cml-film-detail__section--notes${readableClass}"${editAttrs}>
         <div class="cml-film-detail__markdown">${renderMarkdownBlocks(savedNote)}</div>
+        ${syncStatus}
       </section>
     `;
   }
@@ -687,9 +722,11 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
     <section class="cml-film-detail__section cml-film-detail__section--notes cml-film-detail__section--notes-editing cml-film-notes-editor is-editing">
       <div class="cml-film-notes-editor__surface" data-film-notes-surface>
         ${lines.map((line, index) => renderFilmNoteEditorLine(line, index, activeLineIndex, {
-          sourcePreview: Boolean(sourceBlockRange && index >= sourceBlockRange.start && index <= sourceBlockRange.end && index !== activeLineIndex)
+          sourcePreview: Boolean(sourceBlockRange && index >= sourceBlockRange.start && index <= sourceBlockRange.end && index !== activeLineIndex),
+          sourceBlock: Boolean(sourceBlockRange && index >= sourceBlockRange.start && index <= sourceBlockRange.end)
         })).join('')}
       </div>
+      ${syncStatus}
     </section>
   `;
 }
@@ -1151,7 +1188,7 @@ function applyFilmMetadataDraft(record = {}, draft = {}) {
   };
 }
 
-export function FilmDetailPage({ record = null, notesEditing = false, notesDraft = '', notesActiveLine = 0, metadataEditing = false, metadataDraft = null, metadataFocusField = '', imagePickerMode = '', imagePickerDraft = '', imagePickerFrameDraft = null, backdropIndex = 0, saveStatus = null } = {}) {
+export function FilmDetailPage({ record = null, notesEditing = false, notesDraft = '', notesActiveLine = 0, notesSyncError = false, metadataEditing = false, metadataDraft = null, metadataFocusField = '', imagePickerMode = '', imagePickerDraft = '', imagePickerFrameDraft = null, backdropIndex = 0, saveStatus = null } = {}) {
   if (!record) {
     return '';
   }
@@ -1265,7 +1302,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
                 ${isSavedEntry ? renderFilmPrivateSignals(controlRecord, { userRating, disabledAttr }) : ''}
               </aside>
               <div class="cml-film-detail__diary-main">
-                ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesActiveLine, editable: isSavedEntry && !displayRecord.manualDraft && !displayRecord.isSaving })}
+                ${renderFilmNotesSection(displayRecord, { notesEditing, notesDraft, notesActiveLine, notesSyncError, editable: isSavedEntry && !displayRecord.manualDraft && !displayRecord.isSaving })}
               </div>
             </div>
         </div>

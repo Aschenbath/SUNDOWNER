@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=71';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=72';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -167,6 +167,7 @@ const FILM_ACTION_NAMES = new Set([
   'film-toggle-favourite',
   'film-edit-notes',
   'film-edit-notes-line',
+  'film-retry-notes',
   'film-notes-format',
   'film-notes-preview-toggle',
   'film-edit-metadata',
@@ -655,6 +656,9 @@ const state = {
   filmNotesActiveLine: 0,
   filmNotesPreview: false,
   filmNotesComposing: false,
+  filmNotesSyncError: false,
+  filmNotesSyncDraft: '',
+  filmNotesSyncFilmId: '',
   filmMetadataEditing: false,
   filmMetadataDraft: null,
   filmMetadataFocusField: '',
@@ -10567,6 +10571,7 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
     notesEditing: state.filmNotesEditing,
     notesDraft: state.filmNotesDraft,
     notesActiveLine: state.filmNotesActiveLine,
+    notesSyncError: hasFilmNotesSyncError(record.id),
     metadataEditing: state.filmMetadataEditing,
     metadataDraft: state.filmMetadataDraft,
     metadataFocusField: state.filmMetadataFocusField,
@@ -10870,6 +10875,38 @@ function insertTextIntoFilmNotesLine(target, text = '') {
   setFilmNotesDraftLines(lines);
   renderFilmMutationState({ allowRenderFallback: true });
   focusFilmNotesEditor();
+}
+
+function retryFilmNotesSync(filmId = state.activeFilmId) {
+  const film = findFilmRecordByTarget(filmId) || findFilmRecordByTarget(state.filmNotesSyncFilmId);
+  if (!film) {
+    clearFilmNotesSyncError();
+    renderFilmMutationState({ allowRenderFallback: false });
+    return;
+  }
+  const shouldUseStoredDraft = Boolean(state.filmNotesSyncError && state.filmNotesSyncFilmId === film.id);
+  const retryDraft = normalizeFilmNoteDraftForEdit(
+    shouldUseStoredDraft ? state.filmNotesSyncDraft : (state.filmNotesDraft || film.noteMarkdown || film.journal || '')
+  );
+  state.activeFilmId = film.id;
+  state.filmDetailOpen = true;
+  state.filmNotesEditing = true;
+  state.filmNotesDraft = retryDraft;
+  state.filmNotesActiveLine = Math.max(0, getFilmNotesDraftLines().length - 1);
+  clearFilmNotesSyncError();
+  renderFilmMutationState();
+  void commitFilmNotesEdit({
+    silent: true,
+    keepDetailOpen: true,
+    optimisticExit: true,
+    background: true,
+    patchDetail: false,
+    force: true
+  });
+}
+
+function hasFilmNotesSyncError(filmId = state.activeFilmId) {
+  return Boolean(state.filmNotesSyncError && normalizeText(filmId) && state.filmNotesSyncFilmId === normalizeText(filmId));
 }
 
 function focusFilmMetadataEditor(field = '') {
@@ -12114,6 +12151,18 @@ function exitFilmNotesEdit() {
   state.filmNotesComposing = false;
 }
 
+function setFilmNotesSyncError(failedDraft = '', filmId = state.activeFilmId) {
+  state.filmNotesSyncError = true;
+  state.filmNotesSyncDraft = normalizeFilmNoteDraftForEdit(failedDraft);
+  state.filmNotesSyncFilmId = normalizeText(filmId);
+}
+
+function clearFilmNotesSyncError() {
+  state.filmNotesSyncError = false;
+  state.filmNotesSyncDraft = '';
+  state.filmNotesSyncFilmId = '';
+}
+
 function cancelFilmNotesEdit() {
   exitFilmNotesEdit();
   render();
@@ -12207,7 +12256,7 @@ function applyFilmNotesFormat(format = '') {
   textarea.setSelectionRange(nextStart, nextEnd);
 }
 
-async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(state.filmDetailOpen), optimisticExit = false, background = false, patchDetail = !background } = {}) {
+async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(state.filmDetailOpen), optimisticExit = false, background = false, patchDetail = !background, force = false } = {}) {
   if (!state.filmNotesEditing) {
     return true;
   }
@@ -12221,7 +12270,7 @@ async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(st
   const editDraft = normalizeFilmNoteDraftForEdit(state.filmNotesDraft);
   const draft = normalizeFilmNoteForSave(editDraft);
   const savedNote = normalizeFilmNoteForSave(film.noteMarkdown || film.journal || '');
-  if (draft === savedNote) {
+  if (!force && draft === savedNote) {
     exitFilmNotesEdit();
     renderFilmMutationState();
     return true;
@@ -12232,19 +12281,36 @@ async function commitFilmNotesEdit({ silent = false, keepDetailOpen = Boolean(st
   const savePromise = saveFilmEntryPatch(film.id, {
     journal: draft,
     noteMarkdown: draft
-  }, { successMessage: '', keepDetailOpen, showErrorToast: false, savedLabel: 'Notes saved', patchDetail });
+  }, {
+    successMessage: '',
+    keepDetailOpen,
+    showErrorToast: false,
+    savedLabel: 'Notes saved',
+    patchDetail,
+    showErrorStatus: false,
+    markRecordSyncError: false
+  });
   if (background) {
-    void savePromise;
+    void savePromise.then((saved) => {
+      if (saved === false) {
+        setFilmNotesSyncError(editDraft, film.id);
+        renderFilmMutationState({ allowRenderFallback: false });
+        return;
+      }
+      clearFilmNotesSyncError();
+    });
     return true;
   }
   const saved = await savePromise;
   if (!saved) {
     state.filmNotesEditing = true;
     state.filmNotesDraft = editDraft;
+    setFilmNotesSyncError(editDraft, film.id);
     renderFilmMutationState();
     focusFilmNotesEditor();
     return false;
   }
+  clearFilmNotesSyncError();
   if (!optimisticExit) {
     exitFilmNotesEdit();
   }
@@ -13094,6 +13160,7 @@ function render() {
                     notesEditing: state.filmNotesEditing,
                     notesDraft: state.filmNotesDraft,
                     notesActiveLine: state.filmNotesActiveLine,
+                    notesSyncError: hasFilmNotesSyncError(viewModel.filmRecord.id),
                     metadataEditing: state.filmMetadataEditing,
                     metadataDraft: state.filmMetadataDraft,
                     metadataFocusField: state.filmMetadataFocusField,
@@ -16052,6 +16119,9 @@ function handleAction(actionTarget, event = null) {
       if (state.filmNotesEditing) {
         setFilmNotesActiveLine(actionTarget.dataset.filmNotesLineIndex || 0);
       }
+      return true;
+    case 'film-retry-notes':
+      retryFilmNotesSync(actionTarget.dataset.filmId || state.activeFilmId);
       return true;
     case 'film-notes-format':
       applyFilmNotesFormat(actionTarget.dataset.filmNotesFormat || '');

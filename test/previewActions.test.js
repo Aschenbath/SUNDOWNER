@@ -602,6 +602,17 @@ describe('media library download actions', () => {
       notesDraft: 'one\n\n\nlast',
       notesActiveLine: 2,
     });
+    const doubleTrailingHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Movie',
+        journal: '',
+      },
+      notesEditing: true,
+      notesDraft: '#\n\n',
+      notesActiveLine: 2,
+    });
 
     assert.equal((trailingHtml.match(/data-film-notes-line-index=/g) || []).length, 2);
     assert.match(trailingHtml, /data-film-notes-line-index="0"[\s\S]*>#<\/p>/);
@@ -612,6 +623,55 @@ describe('media library download actions', () => {
     assert.doesNotMatch(switchedHtml, /data-film-notes-line-index="1"[\s\S]*<strong>world<\/strong>[\s\S]*<\/div>/);
     assert.equal((blankLinesHtml.match(/data-film-notes-line-index=/g) || []).length, 4);
     assert.equal((blankLinesHtml.match(/cml-film-notes-editor__blank-line/g) || []).length, 1);
+    assert.equal((doubleTrailingHtml.match(/data-film-notes-line-index=/g) || []).length, 3);
+    assert.match(doubleTrailingHtml, /data-film-notes-line-index="2"[\s\S]*contenteditable="true"/);
+  });
+
+  it('renders film note source mode in-place for the active line only', () => {
+    const secondHeadingActiveHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Movie',
+        journal: '',
+      },
+      notesEditing: true,
+      notesDraft: '## 1\n\n# \u4f60\u597d',
+      notesActiveLine: 2,
+    });
+    const firstHeadingActiveHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Movie',
+        journal: '',
+      },
+      notesEditing: true,
+      notesDraft: '## 1\n\n# \u4f60\u597d',
+      notesActiveLine: 0,
+    });
+    const codeHtml = FilmDetailPage({
+      record: {
+        id: 'tmdb-42',
+        tmdbId: 42,
+        title: 'Movie',
+        journal: '',
+      },
+      notesEditing: true,
+      notesDraft: 'before\n```\n# not heading\n```',
+      notesActiveLine: 2,
+    });
+
+    assert.match(secondHeadingActiveHtml, /data-film-notes-line-index="0"[\s\S]*<h4>1<\/h4>/);
+    assert.match(secondHeadingActiveHtml, /data-film-notes-line-index="2"[\s\S]*contenteditable="true"[\s\S]*# \u4f60\u597d/);
+    assert.doesNotMatch(secondHeadingActiveHtml, /data-film-notes-line-index="2"[\s\S]*<h3>\u4f60\u597d<\/h3>/);
+    assert.equal((secondHeadingActiveHtml.match(/# \u4f60\u597d/g) || []).length, 1);
+    assert.match(firstHeadingActiveHtml, /data-film-notes-line-index="0"[\s\S]*contenteditable="true"[\s\S]*## 1/);
+    assert.match(firstHeadingActiveHtml, /data-film-notes-line-index="2"[\s\S]*<h3>\u4f60\u597d<\/h3>/);
+    assert.doesNotMatch(firstHeadingActiveHtml, /data-film-notes-line-index="2"[\s\S]*# \u4f60\u597d[\s\S]*<\/div>/);
+    assert.match(codeHtml, /data-film-notes-line-index="1"[\s\S]*<code>```<\/code>/);
+    assert.match(codeHtml, /data-film-notes-line-index="2"[\s\S]*contenteditable="true"[\s\S]*# not heading/);
+    assert.doesNotMatch(codeHtml, /<h3>not heading<\/h3>/);
   });
 
   it('keeps film note Enter and save paths split between draft and commit normalization', () => {
@@ -627,7 +687,16 @@ describe('media library download actions', () => {
     assert.match(appSource, /const draft = normalizeFilmNoteForSave\(editDraft\);/);
     assert.match(appSource, /lines\.splice\(lineIndex, 1, before, `\$\{continuation\}\$\{after\}`\);/);
     assert.match(appSource, /filmNotesPendingCaretOffset = continuation\.length;/);
+    assert.match(appSource, /showErrorStatus: false,\s+markRecordSyncError: false/);
+    assert.match(appSource, /case 'film-retry-notes':/);
+    assert.match(appSource, /force = false/);
+    assert.match(appSource, /force: true/);
+    const retryFunction = appSource.match(/function retryFilmNotesSync[\s\S]*?function hasFilmNotesSyncError/)?.[0] || '';
+    assert.match(retryFunction, /shouldUseStoredDraft \? state\.filmNotesSyncDraft/);
+    const editFunction = appSource.match(/function editFilmNotes[\s\S]*?function editFilmMetadata/)?.[0] || '';
+    assert.doesNotMatch(editFunction, /clearFilmNotesSyncError/);
     assert.match(appSource, /ArrowDown[\s\S]*moveFilmNotesActiveLineFromKeyboard/);
+    assert.match(componentSource, /data-action="film-retry-notes"/);
   });
 
   it('renders film detail metadata overrides as an inline editor for saved films only', () => {
