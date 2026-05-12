@@ -46,7 +46,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=97';
+} from './components.js?v=98';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=67';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=68';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -125,6 +125,7 @@ const FILM_BACKDROP_LEGACY_DEFAULT_FRAME = Object.freeze({
   backdropPositionYOverride: 50,
   backdropOpacityOverride: 0.66
 });
+const PERF_QUERY_FLAG = 'cmlPerf';
 const FILM_METADATA_FIELDS = [
   'titleOverride',
   'originalTitleOverride',
@@ -209,6 +210,117 @@ const PREVIEW_INFO_HEADING_STYLE = 'margin:0 0 12px;color:#c2cad6;font-size:12px
 const PREVIEW_INFO_VALUE_STYLE = 'margin:0;color:#f3f6fb;font-size:16px;font-weight:600;line-height:1.35;';
 const PREVIEW_INFO_META_STYLE = 'margin:8px 0 0;color:#c2cad6;font-size:13px;line-height:1.45;';
 const PREVIEW_INFO_TAG_STYLE = 'display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.1);color:#eef3fa;font-size:11px;font-weight:600;';
+
+function isPerfReportingEnabled() {
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const queryEnabled = params.get(PERF_QUERY_FLAG) === '1';
+    if (queryEnabled) {
+      window.sessionStorage.setItem(PERF_QUERY_FLAG, '1');
+      return true;
+    }
+    return window.sessionStorage.getItem(PERF_QUERY_FLAG) === '1';
+  } catch {
+    return false;
+  }
+}
+
+const perfReporter = {
+  enabled: typeof window !== 'undefined' && typeof performance !== 'undefined' && isPerfReportingEnabled(),
+  reportTimer: 0,
+  firstRenderMeasured: false,
+  firstUsableMarked: false
+};
+
+function markPerf(name) {
+  if (!perfReporter.enabled) {
+    return;
+  }
+  try {
+    performance.mark(`cml:${name}`);
+  } catch {
+    // Ignore mark failures so dev instrumentation never breaks the app.
+  }
+}
+
+function measurePerf(name, start, end) {
+  if (!perfReporter.enabled) {
+    return;
+  }
+  try {
+    performance.measure(`cml:${name}`, `cml:${start}`, `cml:${end}`);
+  } catch {
+    // Ignore partial measure failures when marks are not yet available.
+  }
+  schedulePerfReport();
+}
+
+function getPerfMetricValue(entry, key) {
+  const value = Number(entry?.[key]);
+  return Number.isFinite(value) ? Math.round(value * 10) / 10 : null;
+}
+
+function flushPerfReport() {
+  perfReporter.reportTimer = 0;
+  if (!perfReporter.enabled || typeof console === 'undefined' || typeof console.table !== 'function') {
+    return;
+  }
+  const rows = [];
+  const navigationEntry = performance.getEntriesByType?.('navigation')?.[0] || null;
+  if (navigationEntry) {
+    rows.push(
+      { metric: 'nav:ttfb', ms: getPerfMetricValue(navigationEntry, 'responseStart') },
+      { metric: 'nav:domInteractive', ms: getPerfMetricValue(navigationEntry, 'domInteractive') },
+      { metric: 'nav:domContentLoaded', ms: getPerfMetricValue(navigationEntry, 'domContentLoadedEventEnd') },
+      { metric: 'nav:loadEventEnd', ms: getPerfMetricValue(navigationEntry, 'loadEventEnd') }
+    );
+  }
+  const measures = performance.getEntriesByType?.('measure') || [];
+  measures
+    .filter((entry) => entry.name.startsWith('cml:'))
+    .forEach((entry) => {
+      rows.push({
+        metric: entry.name.replace(/^cml:/, ''),
+        ms: Math.round(entry.duration * 10) / 10
+      });
+    });
+  if (!rows.length) {
+    return;
+  }
+  console.groupCollapsed(`[cml perf] ${window.location.pathname}${window.location.hash || ''}`);
+  console.table(rows);
+  console.groupEnd();
+}
+
+function schedulePerfReport() {
+  if (!perfReporter.enabled || perfReporter.reportTimer) {
+    return;
+  }
+  perfReporter.reportTimer = window.setTimeout(flushPerfReport, 80);
+}
+
+function markFirstUsableUi() {
+  if (!perfReporter.enabled || perfReporter.firstUsableMarked) {
+    return;
+  }
+  perfReporter.firstUsableMarked = true;
+  markPerf('first-usable-ui');
+  measurePerf('boot-to-first-usable-ui', 'app-init-start', 'first-usable-ui');
+}
+
+function scheduleDeferredStartupTask(task, { timeoutMs = 1200 } = {}) {
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(() => {
+      void task();
+    }, { timeout: timeoutMs });
+    return;
+  }
+  window.setTimeout(() => {
+    void task();
+  }, Math.min(timeoutMs, 180));
+}
+
+markPerf('app-script-start');
 
 function readSessionFlag(key) {
   try {
@@ -327,9 +439,12 @@ function clearLegacyAlbumState() {
   });
 }
 
+markPerf('storage-load-start');
 const legacyAlbumState = readLegacyAlbumState();
 const initialMindSettings = loadPersistedMindSettingsSeed();
 const initialThemePreference = loadThemePreference();
+markPerf('storage-load-end');
+measurePerf('storage-load', 'storage-load-start', 'storage-load-end');
 
 const state = {
   primaryFilter: 'Photos',
@@ -9583,6 +9698,7 @@ function getSavedFilmRecordsByTmdbId() {
 }
 
 async function loadMovieEntries({ forceRender = false } = {}) {
+  markPerf('films-entries-fetch-start');
   try {
     const payload = await fetchJson('/api/manage/movies?action=entries');
     applyMovieEntries(payload?.entries || []);
@@ -9596,6 +9712,9 @@ async function loadMovieEntries({ forceRender = false } = {}) {
     if (forceRender) {
       render();
     }
+  } finally {
+    markPerf('films-entries-fetch-end');
+    measurePerf('films-entries-fetch', 'films-entries-fetch-start', 'films-entries-fetch-end');
   }
 }
 
@@ -12279,6 +12398,10 @@ function render() {
   if (!refs.root) {
     return;
   }
+  const shouldMeasureRender = perfReporter.enabled && !perfReporter.firstRenderMeasured;
+  if (shouldMeasureRender) {
+    markPerf('first-render-start');
+  }
   sectionRangeCache.clear();
 
   if (state.needsLogin) {
@@ -12756,6 +12879,14 @@ function render() {
     window.requestAnimationFrame(() => scrollMindToBottom({ force: false }));
   }
   syncAudioProgressUi();
+  if (shouldMeasureRender) {
+    perfReporter.firstRenderMeasured = true;
+    markPerf('first-render-end');
+    measurePerf('first-render', 'first-render-start', 'first-render-end');
+    if (!perfReporter.firstUsableMarked) {
+      markFirstUsableUi();
+    }
+  }
 }
 
 function syncTopbarSelectionState() {
@@ -13212,6 +13343,7 @@ function renderPreviewTransientLayers({ animateDirection = 0 } = {}) {
 }
 
 async function performSyncLiveMedia({ forceRender = false } = {}) {
+  markPerf('library-sync-start');
   state.liveSyncAttempts += 1;
 
   const domItems = extractLiveMediaItems();
@@ -13299,6 +13431,8 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
       render();
     }
   }
+  markPerf('library-sync-end');
+  measurePerf('library-sync', 'library-sync-start', 'library-sync-end');
 }
 
 function syncLiveMedia(options = {}) {
@@ -13371,21 +13505,30 @@ function stopLiveObserver() {
 function mount() {
   ensureRoot();
   lockDocumentScroll();
+  markPerf('app-init-start');
   state.liveSyncAttempts = 0;
-  void loadPersistedAlbumState({ forceRender: true });
-  void loadPersistedPlaylistState({ forceRender: true });
-  void loadMovieEntries({ forceRender: true });
+  void loadPersistedAlbumState({ forceRender: false });
+  void loadPersistedPlaylistState({ forceRender: false });
+  void loadMovieEntries({ forceRender: false });
   if (state.primaryFilter === 'Mind') {
-    void loadMindState({ forceRender: true, mirrorAfterLoad: true });
+    void loadMindState({ forceRender: false, mirrorAfterLoad: true });
   }
-  syncLiveMedia({ forceRender: true });
-  void syncStorageSummary({ forceRender: true });
+  syncLiveMedia({ forceRender: false });
+  void syncStorageSummary({ forceRender: false });
   if (!state.adminUsername) {
     void fetchAdminIdentity();
   }
   render();
+  markPerf('app-init-end');
+  measurePerf('app-init', 'app-init-start', 'app-init-end');
+  markFirstUsableUi();
   startLiveObserver();
   consumePendingUploadRequest();
+  scheduleDeferredStartupTask(async () => {
+    if (state.primaryFilter === 'Films') {
+      await warmFilmSearch();
+    }
+  }, { timeoutMs: 900 });
 
   if (!mounted && refs.root) {
     refs.root.addEventListener('pointerdown', handlePointerDown, true);
@@ -16917,10 +17060,15 @@ function restoreNavigationFromHash() {
 }
 
 function boot() {
+  markPerf('dom-content-loaded');
+  measurePerf('script-to-dom-content-loaded', 'app-script-start', 'dom-content-loaded');
   window.__cmlOpenPreview = openPreviewFromEvent;
   commitThemeState(getThemeState(), { dispatch: false });
   patchHistory();
+  markPerf('route-restore-start');
   restoreNavigationFromHash();
+  markPerf('route-restore-end');
+  measurePerf('route-restore', 'route-restore-start', 'route-restore-end');
   syncMount();
   window.addEventListener('hashchange', () => {
     applyLocationRouteToMountedUi();

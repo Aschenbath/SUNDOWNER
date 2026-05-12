@@ -1,5 +1,5 @@
 ﻿import { shouldDisplayMediaItem } from './media-support.js';
-import { FilmsPage } from './films-components.js?v=66';
+import { FilmsPage } from './films-components.js?v=68';
 
 import { THEME_COLOR_OPTIONS, THEME_MODE_OPTIONS, formatThemeModeLabel } from '../theme-system.js?v=2';
 
@@ -358,6 +358,7 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
   const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
   const mediaUrl = escapeHtml((item.type === 'video' || item.type === 'audio') ? sourceUrl : imageUrl);
   const alt = escapeHtml(safeDisplayLabel(item));
+  const imageLoading = withControls ? 'eager' : 'lazy';
   const originalPhotoUrl = item.type === 'photo' && sourceUrl && sourceUrl !== imageUrl
     ? escapeHtml(sourceUrl)
     : '';
@@ -405,7 +406,7 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
       const mimeTag = String(item.mimeType || 'image').replace(/^image\//i, '').toUpperCase();
       const errorHandler = `this.style.display='none';this.parentElement.classList.add('is-heic-fallback');this.parentElement.dataset.mimeTag='${escapeHtml(mimeTag)}'`;
-      return `<img class="${className}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}"${w}${h}${previewActionAttr} loading="eager" decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
+      return `<img class="${className}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}"${w}${h}${previewActionAttr} loading="${imageLoading}" decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
     }
   }
   if (item.type === 'video' && item.thumbnailUrl === sourceUrl) {
@@ -427,9 +428,9 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
     ? item.blurThumbUrl : '';
   if (blurThumb) {
     const fullSrcAttr = ` data-full-src="${mediaUrl}"`;
-    return `<img class="${className} is-blur-placeholder" src="${escapeHtml(blurThumb)}" alt="${alt}"${w}${h}${fallbackAttr}${fullSrcAttr}${previewActionAttr} loading="eager" decoding="async"${errorAttr} />`;
+    return `<img class="${className} is-blur-placeholder" src="${escapeHtml(blurThumb)}" alt="${alt}"${w}${h}${fallbackAttr}${fullSrcAttr}${previewActionAttr} loading="${imageLoading}" decoding="async"${errorAttr} />`;
   }
-  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${fallbackAttr}${previewActionAttr} loading="eager" decoding="async"${errorAttr} />`;
+  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${fallbackAttr}${previewActionAttr} loading="${imageLoading}" decoding="async"${errorAttr} />`;
 }
 
 function formatItemCount(count) {

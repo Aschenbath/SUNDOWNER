@@ -1280,7 +1280,7 @@ export function FilmCard(record = {}) {
   return `
     <article class="cml-film-card" data-film-id="${escapeHtml(record.id || '')}" data-action="open-film-detail" tabindex="0" role="button" aria-label="Open ${escapeHtml(localTitle)} details">
       <div class="cml-film-card__poster-panel">
-        <img class="cml-film-card__poster" src="${escapeHtml(getRecordPosterUrl(record))}" alt="${escapeHtml(localTitle)}" loading="eager" decoding="async" />
+        <img class="cml-film-card__poster" src="${escapeHtml(getRecordPosterUrl(record))}" alt="${escapeHtml(localTitle)}" loading="lazy" decoding="async" />
       </div>
       <div class="cml-film-card__ticket-panel">
         <span class="cml-film-card__notch cml-film-card__notch--left" aria-hidden="true"></span>
@@ -1322,7 +1322,7 @@ export function FilmPosterCard(record = {}) {
     <article class="cml-film-poster-card" data-film-id="${escapeHtml(record.id || '')}" data-action="open-film-detail" tabindex="0" role="button" aria-label="Open ${escapeHtml(localTitle)} details">
       <div class="cml-film-poster-card__frame">
         ${posterUrl
-          ? `<img class="cml-film-poster-card__image" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(localTitle)} poster" loading="eager" decoding="async" />`
+          ? `<img class="cml-film-poster-card__image" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(localTitle)} poster" loading="lazy" decoding="async" />`
           : renderPosterFallback(localTitle)}
       </div>
     </article>
