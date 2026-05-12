@@ -775,6 +775,73 @@ describe('MovieRepository', () => {
     assert.equal(patched.entry.titleOverride, 'Local Title');
   });
 
+  it('clears metadata overrides when empty override fields are explicitly saved', async () => {
+    const db = new MemoryDB();
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail() {
+          return createMovie({
+            title: 'TMDb Title',
+            originalTitle: 'TMDb Original',
+            director: 'TMDb Director',
+            overview: 'TMDb overview',
+            releaseDate: '2026-01-01',
+            runtime: 100,
+            genres: ['Drama'],
+            country: 'France',
+            language: 'French',
+          });
+        },
+      },
+    });
+
+    await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      watchStatus: 'watched',
+      userRating: 4.6,
+      journal: 'Private note',
+      titleOverride: 'Local Title',
+      originalTitleOverride: 'Local Original',
+      directorOverride: 'Local Director',
+      releaseDateOverride: '2026-05-10',
+      runtimeOverride: 123,
+      genresOverride: ['Diary', 'War'],
+      countryOverride: 'Local Country',
+      languageOverride: 'Local Language',
+      overviewOverride: 'Local overview',
+    });
+
+    const cleared = await repository.saveOrUpdateUserEntry({
+      tmdbId: 42,
+      titleOverride: '',
+      originalTitleOverride: '',
+      directorOverride: '',
+      releaseDateOverride: '',
+      runtimeOverride: '',
+      genresOverride: '',
+      countryOverride: '',
+      languageOverride: '',
+      overviewOverride: '',
+    });
+
+    assert.equal(cleared.entry.watchStatus, 'watched');
+    assert.equal(cleared.entry.userRating, 4.6);
+    assert.equal(cleared.entry.journal, 'Private note');
+    assert.equal(cleared.entry.titleOverride, '');
+    assert.equal(cleared.entry.originalTitleOverride, '');
+    assert.equal(cleared.entry.directorOverride, '');
+    assert.equal(cleared.entry.releaseDateOverride, '');
+    assert.equal(cleared.entry.runtimeOverride, null);
+    assert.deepEqual(cleared.entry.genresOverride, []);
+    assert.equal(cleared.entry.countryOverride, '');
+    assert.equal(cleared.entry.languageOverride, '');
+    assert.equal(cleared.entry.overviewOverride, '');
+    assert.equal(cleared.movie.title, 'TMDb Title');
+    assert.equal(cleared.movie.director, 'TMDb Director');
+    assert.equal(cleared.movie.overview, 'TMDb overview');
+  });
+
   it('backfills missing directors while listing saved entries', async () => {
     const db = new MemoryDB();
     let detailCalls = 0;

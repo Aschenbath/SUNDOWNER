@@ -152,6 +152,34 @@ describe('media library download actions', () => {
     assert.match(html, />Watched saved<\/button>/);
   });
 
+  it('restores add actions for TMDb search results after a film is removed from saved state', () => {
+    const result = {
+      tmdbId: 27205,
+      title: 'Inception',
+      posterPath: '/poster.jpg',
+      releaseDate: '2010-07-16',
+      voteAverage: 8.4,
+    };
+    const savedHtml = FilmSearchResults({
+      query: 'Inception',
+      savedRecordsByTmdbId: { 27205: { id: 'tmdb-27205', tmdbId: 27205, status: 'wantToWatch' } },
+      results: [result],
+    });
+    const removedHtml = FilmSearchResults({
+      query: 'Inception',
+      savedRecordsByTmdbId: new Map(),
+      results: [result],
+    });
+
+    assert.match(savedHtml, /cml-film-search-result[^"]*is-saved/);
+    assert.match(savedHtml, /In Films - Want/);
+    assert.match(savedHtml, /data-watch-status="wantToWatch"[^>]*disabled>Want saved<\/button>/);
+    assert.doesNotMatch(removedHtml, /cml-film-search-result[^"]*is-saved/);
+    assert.doesNotMatch(removedHtml, /In Films -/);
+    assert.match(removedHtml, /data-watch-status="wantToWatch"[^>]*>Want<\/button>/);
+    assert.match(removedHtml, /data-watch-status="watched"[^>]*>Watched<\/button>/);
+  });
+
   it('wires Films TMDb search as live debounced input with stale-response guards', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const emptyHtml = FilmSearchResults({ query: 'No Match', results: [] });
