@@ -13671,6 +13671,12 @@ body.codex-media-library-active #app {
   gap: 14px;
   min-height: 188px;
   cursor: text;
+  caret-color: #f3d48a;
+  outline: 0;
+}
+
+#codex-media-library-root .cml-film-notes-editor__surface:focus {
+  outline: 0;
 }
 
 #codex-media-library-root .cml-film-notes-editor__line {
@@ -13682,6 +13688,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-notes-editor__line--source {
   position: relative;
+  margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
@@ -13719,19 +13726,36 @@ body.codex-media-library-active #app {
   outline: 0;
 }
 
-#codex-media-library-root .cml-film-notes-editor__line--heading {
+#codex-media-library-root .cml-film-notes-editor__line--source--heading-1,
+#codex-media-library-root .cml-film-notes-editor__line--source--heading-2,
+#codex-media-library-root .cml-film-notes-editor__line--source--heading-3 {
   color: #f1eee6;
   font-family: Georgia, "Times New Roman", ui-serif, serif;
-  font-size: clamp(21px, 2vw, 30px);
   font-weight: 650;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+}
+
+#codex-media-library-root .cml-film-notes-editor__line--source--heading-1 {
+  font-size: clamp(25px, 2.35vw, 36px);
+  line-height: 1.16;
+}
+
+#codex-media-library-root .cml-film-notes-editor__line--source--heading-2 {
+  font-size: clamp(21px, 2vw, 30px);
   line-height: 1.22;
 }
 
-#codex-media-library-root .cml-film-notes-editor__line--list {
+#codex-media-library-root .cml-film-notes-editor__line--source--heading-3 {
+  font-size: clamp(18px, 1.55vw, 23px);
+  line-height: 1.32;
+}
+
+#codex-media-library-root .cml-film-notes-editor__line--source--list {
   padding-left: 0;
 }
 
-#codex-media-library-root .cml-film-notes-editor__line--quote {
+#codex-media-library-root .cml-film-notes-editor__line--source--quote {
   padding-left: 0;
   border-left: 0;
   color: rgba(241, 238, 230, 0.72);
@@ -13744,7 +13768,7 @@ body.codex-media-library-active #app {
   min-height: 0;
 }
 
-#codex-media-library-root .cml-film-notes-editor__line--code,
+#codex-media-library-root .cml-film-notes-editor__line--source--code,
 #codex-media-library-root .cml-film-notes-editor__line--source-preview code {
   display: block;
   padding: 0;

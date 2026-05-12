@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=73';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=74';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -3031,7 +3031,7 @@ function handleCompositionStart(event) {
     state.filmLibrarySearchComposing = true;
     return;
   }
-  if (event.target instanceof HTMLElement && event.target.hasAttribute('data-film-notes-line')) {
+  if (getFilmNotesSourceLineFromEventTarget(event.target)) {
     state.filmNotesComposing = true;
     return;
   }
@@ -3053,9 +3053,10 @@ function handleCompositionEnd(event) {
     applyFilmLibrarySearchQuery(event.target.value);
     return;
   }
-  if (event.target instanceof HTMLElement && event.target.hasAttribute('data-film-notes-line')) {
+  const notesLine = getFilmNotesSourceLineFromEventTarget(event.target);
+  if (notesLine) {
     state.filmNotesComposing = false;
-    updateFilmNotesLineDraft(event.target.dataset.filmNotesLineIndex || 0, event.target.textContent || '');
+    updateFilmNotesLineDraft(notesLine.dataset.filmNotesLineIndex || 0, notesLine.textContent || '');
     return;
   }
   if (!(event.target instanceof HTMLElement) || event.target.dataset.mindInput !== 'message') {
@@ -10672,12 +10673,39 @@ function clearFilmSaveStatus() {
   setFilmSaveStatus('', 'saved', { duration: 0 });
 }
 
+function getFilmNotesSurfaceElement() {
+  const surface = refs.root?.querySelector('[data-film-notes-surface]');
+  return surface instanceof HTMLElement ? surface : null;
+}
+
+function getFilmNotesActiveSourceLineElement() {
+  const line = refs.root?.querySelector('[data-film-notes-source-line]');
+  return line instanceof HTMLElement ? line : null;
+}
+
+function getFilmNotesSourceLineFromEventTarget(target) {
+  if (!(target instanceof Element)) {
+    return null;
+  }
+  const directLine = target.closest('[data-film-notes-source-line]');
+  if (directLine instanceof HTMLElement) {
+    return directLine;
+  }
+  const surface = target.closest('[data-film-notes-surface]');
+  if (!(surface instanceof HTMLElement)) {
+    return null;
+  }
+  const activeLine = surface.querySelector('[data-film-notes-source-line]');
+  return activeLine instanceof HTMLElement ? activeLine : null;
+}
+
 function focusFilmNotesEditor() {
   window.requestAnimationFrame(() => {
-    const lineEditor = refs.root?.querySelector('[data-film-notes-line][contenteditable="true"]');
-    if (lineEditor instanceof HTMLElement) {
-      if (document.activeElement !== lineEditor) {
-        lineEditor.focus({ preventScroll: true });
+    const surface = getFilmNotesSurfaceElement();
+    const lineEditor = getFilmNotesActiveSourceLineElement();
+    if (surface && lineEditor) {
+      if (document.activeElement !== surface) {
+        surface.focus({ preventScroll: true });
       }
       if (filmNotesPendingCaretOffset !== null) {
         const offset = filmNotesPendingCaretOffset;
@@ -10767,7 +10795,7 @@ function updateFilmNotesLineDraft(index = 0, value = '') {
 }
 
 function syncActiveFilmNotesLineFromDom() {
-  const line = refs.root?.querySelector('[data-film-notes-line][contenteditable="true"]');
+  const line = getFilmNotesActiveSourceLineElement();
   if (line instanceof HTMLElement) {
     updateFilmNotesLineDraft(line.dataset.filmNotesLineIndex || state.filmNotesActiveLine || 0, line.textContent || '');
   }
@@ -16646,8 +16674,9 @@ function handleInput(event) {
       : readMindDraftFromEditor(input);
     return;
   }
-  if (input instanceof HTMLElement && input.hasAttribute('data-film-notes-line')) {
-    updateFilmNotesLineDraft(input.dataset.filmNotesLineIndex || 0, input.textContent || '');
+  const activeNotesLine = getFilmNotesSourceLineFromEventTarget(input);
+  if (activeNotesLine) {
+    updateFilmNotesLineDraft(activeNotesLine.dataset.filmNotesLineIndex || 0, activeNotesLine.textContent || '');
     return;
   }
   if (input instanceof HTMLInputElement && input.hasAttribute('data-audio-progress')) {
@@ -16802,8 +16831,8 @@ function handleInput(event) {
 }
 
 function handlePaste(event) {
-  const target = event.target;
-  if (!(target instanceof HTMLElement) || !target.hasAttribute('data-film-notes-line')) {
+  const target = getFilmNotesSourceLineFromEventTarget(event.target);
+  if (!(target instanceof HTMLElement)) {
     return;
   }
   const text = event.clipboardData?.getData('text/plain') || '';
@@ -16815,8 +16844,8 @@ function handlePaste(event) {
 }
 
 function handleBeforeInput(event) {
-  const target = event.target;
-  if (!(target instanceof HTMLElement) || !target.hasAttribute('data-film-notes-line')) {
+  const target = getFilmNotesSourceLineFromEventTarget(event.target);
+  if (!(target instanceof HTMLElement)) {
     return;
   }
   if (event.isComposing || state.filmNotesComposing) {
@@ -17023,13 +17052,14 @@ function handleKeyDown(event) {
   }
 
   if (state.filmDetailOpen) {
-    if (event.target instanceof HTMLElement && event.target.hasAttribute('data-film-notes-line')) {
-      if (event.key === 'ArrowUp' && moveFilmNotesActiveLineFromKeyboard(event.target, -1)) {
+    const activeNotesLine = getFilmNotesSourceLineFromEventTarget(event.target);
+    if (activeNotesLine) {
+      if (event.key === 'ArrowUp' && moveFilmNotesActiveLineFromKeyboard(activeNotesLine, -1)) {
         event.preventDefault();
         event.stopPropagation();
         return;
       }
-      if (event.key === 'ArrowDown' && moveFilmNotesActiveLineFromKeyboard(event.target, 1)) {
+      if (event.key === 'ArrowDown' && moveFilmNotesActiveLineFromKeyboard(activeNotesLine, 1)) {
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -17037,10 +17067,10 @@ function handleKeyDown(event) {
       if (event.key === 'Enter') {
         event.preventDefault();
         event.stopPropagation();
-        insertFilmNotesLineBreak(event.target);
+        insertFilmNotesLineBreak(activeNotesLine);
         return;
       }
-      if (event.key === 'Backspace' && removeFilmNotesLineBackward(event.target)) {
+      if (event.key === 'Backspace' && removeFilmNotesLineBackward(activeNotesLine)) {
         event.preventDefault();
         event.stopPropagation();
         return;

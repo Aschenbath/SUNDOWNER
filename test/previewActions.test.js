@@ -537,7 +537,9 @@ describe('media library download actions', () => {
     assert.match(editHtml, /data-film-notes-draft/);
     assert.match(editHtml, /cml-film-notes-editor/);
     assert.match(editHtml, /cml-film-notes-editor__surface/);
-    assert.match(editHtml, /data-film-notes-line-index="0"[\s\S]*contenteditable="true"[\s\S]*Draft \*\*note\*\*/);
+    assert.match(editHtml, /data-film-notes-surface[^>]*contenteditable="true"/);
+    assert.equal((editHtml.match(/contenteditable="true"/g) || []).length, 1);
+    assert.match(editHtml, /data-film-notes-line-index="0"[\s\S]*data-film-notes-source-line[\s\S]*Draft \*\*note\*\*/);
     assert.match(editHtml, /data-action="film-edit-notes-line"[\s\S]*<strong>line<\/strong>/);
     assert.match(editHtml, /Draft \*\*note\*\*/);
     assert.doesNotMatch(editHtml, /Autosave on blur/);
@@ -616,15 +618,15 @@ describe('media library download actions', () => {
 
     assert.equal((trailingHtml.match(/data-film-notes-line-index=/g) || []).length, 2);
     assert.match(trailingHtml, /data-film-notes-line-index="0"[\s\S]*>#<\/p>/);
-    assert.match(trailingHtml, /data-film-notes-line-index="1"[\s\S]*contenteditable="true"/);
+    assert.match(trailingHtml, /data-film-notes-line-index="1"[\s\S]*data-film-notes-source-line/);
     assert.doesNotMatch(trailingHtml, /Write a note\.\.\./);
     assert.match(switchedHtml, /data-film-notes-line-index="0"[\s\S]*<h3>Title<\/h3>/);
-    assert.match(switchedHtml, /data-film-notes-line-index="1"[\s\S]*contenteditable="true"[\s\S]*hello \*\*world\*\*/);
+    assert.match(switchedHtml, /data-film-notes-line-index="1"[\s\S]*data-film-notes-source-line[\s\S]*hello \*\*world\*\*/);
     assert.doesNotMatch(switchedHtml, /data-film-notes-line-index="1"[\s\S]*<strong>world<\/strong>[\s\S]*<\/div>/);
     assert.equal((blankLinesHtml.match(/data-film-notes-line-index=/g) || []).length, 4);
     assert.equal((blankLinesHtml.match(/cml-film-notes-editor__blank-line/g) || []).length, 1);
     assert.equal((doubleTrailingHtml.match(/data-film-notes-line-index=/g) || []).length, 3);
-    assert.match(doubleTrailingHtml, /data-film-notes-line-index="2"[\s\S]*contenteditable="true"/);
+    assert.match(doubleTrailingHtml, /data-film-notes-line-index="2"[\s\S]*data-film-notes-source-line/);
   });
 
   it('renders film note source mode in-place for the active line only', () => {
@@ -661,20 +663,26 @@ describe('media library download actions', () => {
       notesDraft: 'before\n```\n# not heading\n```',
       notesActiveLine: 2,
     });
-    const activeLineTag = secondHeadingActiveHtml.match(/<div(?=[^>]*data-film-notes-source-line)[^>]*>/)?.[0] || '';
+    const activeLineTag = secondHeadingActiveHtml.match(/<[^>\s]+(?=[^>]*data-film-notes-source-line)[^>]*>/)?.[0] || '';
+    const firstActiveLineTag = firstHeadingActiveHtml.match(/<[^>\s]+(?=[^>]*data-film-notes-source-line)[^>]*>/)?.[0] || '';
 
-    assert.match(secondHeadingActiveHtml, /cml-film-notes-editor__surface cml-film-detail__markdown" data-film-notes-surface role="textbox" aria-multiline="true"/);
+    assert.match(secondHeadingActiveHtml, /cml-film-notes-editor__surface cml-film-detail__markdown" data-film-notes-surface data-film-notes-draft role="textbox" aria-multiline="true"[^>]*contenteditable="true"/);
     assert.match(secondHeadingActiveHtml, /data-film-notes-line-index="0"[\s\S]*<h4>1<\/h4>/);
-    assert.match(secondHeadingActiveHtml, /data-film-notes-line-index="2"[\s\S]*contenteditable="true"[\s\S]*# \u4f60\u597d/);
+    assert.match(secondHeadingActiveHtml, /data-film-notes-line-index="2"[\s\S]*data-film-notes-source-line[\s\S]*# \u4f60\u597d/);
     assert.match(activeLineTag, /data-film-notes-source-line/);
+    assert.match(activeLineTag, /cml-film-notes-editor__line--source--heading-1/);
+    assert.match(activeLineTag, /^<h3\b/);
+    assert.doesNotMatch(activeLineTag, /contenteditable="true"/);
     assert.doesNotMatch(activeLineTag, /role="textbox"/);
     assert.doesNotMatch(secondHeadingActiveHtml, /data-film-notes-line-index="2"[\s\S]*<h3>\u4f60\u597d<\/h3>/);
     assert.equal((secondHeadingActiveHtml.match(/# \u4f60\u597d/g) || []).length, 1);
-    assert.match(firstHeadingActiveHtml, /data-film-notes-line-index="0"[\s\S]*contenteditable="true"[\s\S]*## 1/);
+    assert.match(firstHeadingActiveHtml, /data-film-notes-line-index="0"[\s\S]*data-film-notes-source-line[\s\S]*## 1/);
+    assert.match(firstActiveLineTag, /cml-film-notes-editor__line--source--heading-2/);
+    assert.match(firstActiveLineTag, /^<h4\b/);
     assert.match(firstHeadingActiveHtml, /data-film-notes-line-index="2"[\s\S]*<h3>\u4f60\u597d<\/h3>/);
     assert.doesNotMatch(firstHeadingActiveHtml, /data-film-notes-line-index="2"[\s\S]*# \u4f60\u597d[\s\S]*<\/div>/);
     assert.match(codeHtml, /data-film-notes-line-index="1"[\s\S]*<code>```<\/code>/);
-    assert.match(codeHtml, /data-film-notes-line-index="2"[\s\S]*contenteditable="true"[\s\S]*# not heading/);
+    assert.match(codeHtml, /data-film-notes-line-index="2"[\s\S]*data-film-notes-source-line[\s\S]*# not heading/);
     assert.doesNotMatch(codeHtml, /<h3>not heading<\/h3>/);
   });
 
@@ -702,9 +710,12 @@ describe('media library download actions', () => {
     assert.doesNotMatch(editFunction, /clearFilmNotesSyncError/);
     assert.match(appSource, /ArrowDown[\s\S]*moveFilmNotesActiveLineFromKeyboard/);
     assert.match(componentSource, /data-action="film-retry-notes"/);
-    assert.match(componentSource, /data-film-notes-surface role="textbox" aria-multiline="true"/);
+    assert.match(componentSource, /data-film-notes-surface data-film-notes-draft role="textbox" aria-multiline="true"[\s\S]*contenteditable="true"/);
+    assert.match(componentSource, /kind: `heading-\$\{level\}`/);
     assert.match(cssSource, /cml-film-notes-editor__line \{[\s\S]*border: 0;[\s\S]*border-radius: 0;[\s\S]*background: transparent;/);
     assert.match(cssSource, /cml-film-notes-editor__line--source:focus \{[\s\S]*background: transparent;[\s\S]*box-shadow: none;/);
+    assert.match(cssSource, /cml-film-notes-editor__line--source--heading-1/);
+    assert.match(cssSource, /cml-film-notes-editor__line--source--heading-2/);
   });
 
   it('renders film detail metadata overrides as an inline editor for saved films only', () => {
