@@ -167,3 +167,4 @@
 26-05-12 by codex: Tighten Films My Notes into an in-flow Obsidian-like editor where only the active line/source block shows Markdown source, inactive lines render in place without duplication, and note save failures stay local with Unsynced Retry.
 26-05-12 by codex: Correct Films My Notes visual model to one fixed editor canvas instead of per-line input boxes, keeping the active line as source text and inactive lines as rendered Markdown.
 26-05-12 by codex: Move Films My Notes editing ownership onto the single notes surface so active source lines no longer create their own contenteditable hosts, with Chrome smoke coverage for heading-line live preview.
+26-05-13 by claude: Fix Films My Notes raw-line identity so the active line itself is the editable host, blank spacers keep raw indexes, and rendered lines do not duplicate the active heading while source stays in-flow.

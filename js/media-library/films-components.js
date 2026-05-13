@@ -622,41 +622,49 @@ function getFilmNoteSourceBlockRange(lines = [], activeLineIndex = 0) {
 function getFilmNoteSourceDescriptor(source = '', { sourceBlock = false } = {}) {
   const line = String(source ?? '');
   if (sourceBlock || line.startsWith('```')) {
-    return { kind: 'code', tag: 'div' };
+    return { kind: 'code' };
   }
   const heading = line.match(/^(#{1,3})\s+/);
   if (heading) {
-    const level = heading[1].length;
-    return { kind: `heading-${level}`, tag: `h${level + 2}` };
+    return { kind: `heading-${heading[1].length}` };
   }
   if (!line) {
-    return { kind: 'blank', tag: 'div' };
+    return { kind: 'blank' };
   }
   if (/^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line)) {
-    return { kind: 'list', tag: 'div' };
+    return { kind: 'list' };
   }
   if (/^>\s?/.test(line)) {
-    return { kind: 'quote', tag: 'blockquote' };
+    return { kind: 'quote' };
   }
-  return { kind: 'paragraph', tag: 'p' };
+  return { kind: 'paragraph' };
 }
 
 function renderFilmNoteEditorLine(line = '', index = 0, activeLineIndex = 0, { sourcePreview = false, sourceBlock = false } = {}) {
   const lineIndex = Math.max(0, Number(index) || 0);
-  const active = lineIndex === Math.max(0, Number(activeLineIndex) || 0);
+  const normalizedActiveLineIndex = Math.max(0, Number(activeLineIndex) || 0);
+  const active = lineIndex === normalizedActiveLineIndex;
   const source = String(line ?? '');
+  const { kind: lineKind } = getFilmNoteSourceDescriptor(source, { sourceBlock });
+  const debugAttrs = `data-film-notes-line-index="${escapeHtml(lineIndex)}" data-film-notes-active-line-index="${escapeHtml(normalizedActiveLineIndex)}" data-film-notes-line-kind="${escapeHtml(lineKind)}" data-film-notes-raw-source="${escapeHtml(source)}"`;
   if (active) {
     const placeholder = lineIndex === 0 && !source ? 'Write a note...' : '';
-    const { kind: lineKind, tag } = getFilmNoteSourceDescriptor(source, { sourceBlock });
     return `
-      <${tag}
+      <div
         class="cml-film-notes-editor__line cml-film-notes-editor__line--source cml-film-notes-editor__line--source--${escapeHtml(lineKind)} is-active"
+        data-action="film-edit-notes-line"
         data-film-notes-line
-        data-film-notes-line-index="${escapeHtml(lineIndex)}"
         data-film-notes-source-line
+        data-film-notes-line-mode="source"
+        data-film-notes-node-type="div"
+        ${debugAttrs}
         ${placeholder ? `data-placeholder="${escapeHtml(placeholder)}"` : ''}
+        contenteditable="plaintext-only"
+        spellcheck="true"
+        role="textbox"
+        aria-multiline="false"
         aria-label="Edit note line ${escapeHtml(lineIndex + 1)}"
-      >${escapeHtml(source)}</${tag}>
+      >${escapeHtml(source)}</div>
     `;
   }
   if (sourcePreview) {
@@ -664,7 +672,10 @@ function renderFilmNoteEditorLine(line = '', index = 0, activeLineIndex = 0, { s
       <div
         class="cml-film-notes-editor__line cml-film-notes-editor__line--rendered cml-film-notes-editor__line--source-preview"
         data-action="film-edit-notes-line"
-        data-film-notes-line-index="${escapeHtml(lineIndex)}"
+        data-film-notes-line
+        data-film-notes-line-mode="rendered-source-preview"
+        data-film-notes-node-type="div"
+        ${debugAttrs}
         contenteditable="false"
       ><code>${source ? escapeHtml(source) : '&nbsp;'}</code></div>
     `;
@@ -676,7 +687,10 @@ function renderFilmNoteEditorLine(line = '', index = 0, activeLineIndex = 0, { s
     <div
       class="cml-film-notes-editor__line cml-film-notes-editor__line--rendered"
       data-action="film-edit-notes-line"
-      data-film-notes-line-index="${escapeHtml(lineIndex)}"
+      data-film-notes-line
+      data-film-notes-line-mode="rendered"
+      data-film-notes-node-type="div"
+      ${debugAttrs}
       contenteditable="false"
     >${rendered}</div>
   `;
@@ -715,7 +729,7 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
   const sourceBlockRange = getFilmNoteSourceBlockRange(lines, activeLineIndex);
   return `
     <section class="cml-film-detail__section cml-film-detail__section--notes cml-film-detail__section--notes-editing cml-film-notes-editor is-editing">
-      <div class="cml-film-notes-editor__surface cml-film-detail__markdown" data-film-notes-surface data-film-notes-draft role="textbox" aria-multiline="true" aria-label="Edit notes" contenteditable="true" spellcheck="true">
+      <div class="cml-film-notes-editor__surface cml-film-detail__markdown" data-film-notes-surface data-film-notes-draft role="group" aria-label="Edit notes">
         ${lines.map((line, index) => renderFilmNoteEditorLine(line, index, activeLineIndex, {
           sourcePreview: Boolean(sourceBlockRange && index >= sourceBlockRange.start && index <= sourceBlockRange.end && index !== activeLineIndex),
           sourceBlock: Boolean(sourceBlockRange && index >= sourceBlockRange.start && index <= sourceBlockRange.end)
