@@ -60,13 +60,13 @@ Retired into this file on 2026-05-13:
 - `index.html` currently loads:
   - `/js/entry-loader.js?v=4`
   - `/js/ui-overrides.js?v=10`
-  - `/js/media-library/app.js?v=278`
+  - `/js/media-library/app.js?v=279`
   - `/css/media-library.css?v=255`
 - `js/media-library/app.js` currently imports:
   - `./admin-runtime.js?v=2`
   - `./components.js?v=99`
   - `./films-data.js?v=7`
-  - `./films-components.js?v=76`
+  - `./films-components.js?v=77`
 - Query-bump rule: app/css/component source changes need matching cache bumps.
   Tests-only changes do not.
 - There are no tracked `.gz` assets at consolidation time, so the old
@@ -231,6 +231,7 @@ Known-good local test pattern:
 ###### Work Log
 
 - 15:20 | [films][detail-layout][cleanup] Removed the duplicate hero `My rating` block from Film Detail so first-screen composition matches the calmer detail layout: title, original title, metadata, and synopsis stay in the hero while the editable rating remains only in the `Personal` card. Removed the stale `components.js` import of old `films-components.js?v=68`. Cleaned root clutter by deleting ignored runtime logs, empty retired `docs` / `history.archive`, and the untracked one-off `scripts` smoke directory; tracked root runtime/config files stayed in place. Cache: `app.js?v=278`, `components.js?v=99`, `films-components.js?v=76`, `films-data.js?v=7`, `media-library.css?v=255`. Validation: syntax checks for `app.js`, `components.js`, and `films-components.js`; focused `previewActions.test.js` 104 passing; full Mocha 403 passing with Node 22; headless Chrome geometry confirmed `heroRatingCount=0` and Personal rating `4.0`.
+- 17:45 | [films][notes][live-preview] Re-anchored My Notes on a single editor surface after line-identity work had drifted back into per-line edit hosts: active heading lines stay source in place, rendered lines keep raw indexes and blank spacers, and Chrome smoke reconfirmed `1 / # 你好` vs `## 1 / 你好` with no duplicate heading copy. Cache: `app.js?v=279`, `components.js?v=99`, `films-components.js?v=77`, `films-data.js?v=7`, `media-library.css?v=255`. Validation: Node syntax checks for `app.js` and `films-components.js`; focused `previewActions.test.js` 105 passing with 1 pending legacy-encoding assertion; full Mocha 404 passing with 1 pending; headless Chrome DOM/screenshot smoke for both active heading cases.
 - 13:31 | [history][consolidation] Consolidated project memory into this single `history.md`, absorbing durable content from `COLLABORATION.md`, `Function_History.md`, `docs\SUNDOWNER_RUNTIME_TRUTH.md`, and `history.archive\2026-May-raw.md`. `AGENTS.md` remains the instruction file. Current runtime versions recorded as `app.js?v=277`, `components.js?v=98`, `films-components.js?v=75`, `films-data.js?v=7`, `media-library.css?v=255`. Validation: `git diff --check` clean except CRLF warning; active non-dependency markdown inventory is now `history.md` + `AGENTS.md`.
 - 2026-05-13 | [films][notes][identity] Corrected My Notes raw-line identity so the active line itself is the only editable host, rendered lines and blank spacers keep stable raw indexes, and heading source stays in-flow instead of feeling like a detached input card. Cache: `app.js?v=277`, `films-components.js?v=75`. Validation: Node syntax checks for `app.js` and `films-components.js`; `git diff --check`; focused film-notes regressions 4 passing; full Mocha 399 passing with Node 22. Local live-app manual QA remains blocked by Wrangler runtime crash on this machine. Commit: `f52a353`.
 
@@ -336,8 +337,9 @@ Known-good local test pattern:
 - read-protocol: start with `Get-Content history.md -Tail 14`; then read latest day if the task touches active work.
 - canonical-history: `history.md` is now the single project-memory file; retired duplicates are recoverable from git history, not active docs.
 - current-focus: Films detail UX polish and memory hygiene, surgical changes only.
+- latest-state: 2026-May-13 17:45; `app.js?v=279`, `components.js?v=99`, `films-components.js?v=77`, `films-data.js?v=7`, `media-library.css?v=255`.
 - latest-state: 2026-May-13 15:20; `app.js?v=278`, `components.js?v=99`, `films-components.js?v=76`, `films-data.js?v=7`, `media-library.css?v=255`.
-- latest-validation: latest Films validation was syntax checks for `app.js`, `components.js`, and `films-components.js`; focused `previewActions.test.js` 104 passing; full Mocha 403 passing with Node 22; headless Chrome geometry confirmed no hero rating and Personal rating intact.
+- latest-validation: latest Films validation was syntax checks for `app.js` and `films-components.js`; focused `previewActions.test.js` 105 passing with 1 pending legacy-encoding assertion; full Mocha 404 passing with 1 pending; headless Chrome smoke confirmed `## 1 / # 你好` switches with no duplicate rendered/source heading.
 - hot-path: Film Detail active patching should keep `[data-film-detail-page]` root/backdrop stable; cross-surface switches must commit pending notes/metadata/image edits before opening the next overlay.
 - current-boundaries: do not redesign global shell/theme/sidebar/topbar; do not touch unrelated media modules for Films polish; do not recreate parallel history markdown files.
 - open-loop: full authenticated live-app hand test is still not assumed; component-level browser smoke is documented for My Notes active heading cases.

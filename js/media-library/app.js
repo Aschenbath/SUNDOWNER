@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=76';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=77';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -10687,10 +10687,11 @@ function getFilmNotesSourceLineFromEventTarget(target) {
 
 function focusFilmNotesEditor() {
   window.requestAnimationFrame(() => {
+    const surface = getFilmNotesSurfaceElement();
     const lineEditor = getFilmNotesActiveSourceLineElement();
-    if (lineEditor) {
-      if (document.activeElement !== lineEditor) {
-        lineEditor.focus({ preventScroll: true });
+    if (surface && lineEditor) {
+      if (document.activeElement !== surface) {
+        surface.focus({ preventScroll: true });
       }
       if (filmNotesPendingCaretOffset !== null) {
         const offset = filmNotesPendingCaretOffset;
