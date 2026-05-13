@@ -12461,6 +12461,13 @@ body.codex-media-library-active #app {
   align-items: start;
 }
 
+#codex-media-library-root .cml-film-detail__diary-flow {
+  display: grid;
+  width: min(100%, 720px);
+  gap: clamp(22px, 2.4vw, 30px);
+  margin-top: 4px;
+}
+
 #codex-media-library-root .cml-film-detail__diary-rail,
 #codex-media-library-root .cml-film-detail__diary-main {
   display: grid;
@@ -12492,9 +12499,10 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-detail__watch-history {
-  max-width: none;
+  max-width: 860px;
   gap: 16px;
-  padding-top: 0;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 #codex-media-library-root .cml-film-detail__watch-history-head {
@@ -12531,14 +12539,24 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-detail__watch-inline {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 10px;
 }
 
 #codex-media-library-root .cml-film-detail__watch-inline strong {
   color: #f1eee6;
   font-size: 18px;
   line-height: 1.2;
+}
+
+#codex-media-library-root .cml-film-detail__watch-inline span {
+  color: rgba(241, 238, 230, 0.45);
+  font-size: 12px;
+  font-weight: 720;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-film-detail__watch-primary,
@@ -12772,6 +12790,19 @@ body.codex-media-library-active #app {
   gap: 16px;
   padding-top: 22px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#codex-media-library-root .cml-film-detail__my-film {
+  max-width: none;
+  gap: 14px;
+  padding-top: 0;
+}
+
+#codex-media-library-root .cml-film-detail__my-film-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
 }
 
 #codex-media-library-root .cml-film-detail__signals-card {
@@ -13924,20 +13955,34 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-detail__topline {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 12px;
 }
 
+#codex-media-library-root .cml-film-detail__topline-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
 #codex-media-library-root .cml-film-detail__manage {
-  min-height: 32px;
-  padding: 0 11px;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(241, 238, 230, 0.7);
-  font-size: 11px;
+  background: rgba(255, 255, 255, 0.028);
+  color: rgba(241, 238, 230, 0.58);
+  font-size: 15px;
   font-weight: 760;
+  line-height: 1;
   cursor: pointer;
+  letter-spacing: 0.08em;
 }
 
 #codex-media-library-root .cml-film-detail__manage:hover,
