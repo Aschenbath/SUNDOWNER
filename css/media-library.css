@@ -11997,8 +11997,8 @@ body.codex-media-library-active #app {
   color: rgba(241, 238, 230, 0.78);
   font-size: 11px;
   font-weight: 780;
-  opacity: 0;
-  transform: translateY(4px);
+  opacity: 0.88;
+  transform: translateY(0);
   backdrop-filter: blur(14px);
   cursor: pointer;
   transition: opacity 150ms ease, transform 150ms ease, border-color 150ms ease;
@@ -12061,8 +12061,8 @@ body.codex-media-library-active #app {
   color: rgba(241, 238, 230, 0.68);
   font-size: 11px;
   font-weight: 760;
-  opacity: 0;
-  transform: translateY(-4px);
+  opacity: 0.88;
+  transform: translateY(0);
   backdrop-filter: blur(14px);
   cursor: pointer;
   pointer-events: auto;
@@ -12530,6 +12530,17 @@ body.codex-media-library-active #app {
   gap: 9px;
 }
 
+#codex-media-library-root .cml-film-detail__watch-inline {
+  display: grid;
+  gap: 10px;
+}
+
+#codex-media-library-root .cml-film-detail__watch-inline strong {
+  color: #f1eee6;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
 #codex-media-library-root .cml-film-detail__watch-primary,
 #codex-media-library-root .cml-film-detail__watch-secondary {
   min-height: 34px;
@@ -12773,6 +12784,13 @@ body.codex-media-library-active #app {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
+#codex-media-library-root .cml-film-detail__signals-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
 #codex-media-library-root .cml-film-detail__signal-row {
   display: grid;
   grid-template-columns: minmax(96px, 132px) minmax(0, 1fr);
@@ -12861,10 +12879,22 @@ body.codex-media-library-active #app {
   color: #f3d48a;
 }
 
+#codex-media-library-root .cml-film-detail__private-signals {
+  padding-top: 18px;
+}
+
+#codex-media-library-root .cml-film-detail__private-signals .cml-film-rating-control {
+  grid-template-columns: auto auto minmax(0, auto);
+}
+
+#codex-media-library-root .cml-film-detail__private-signals .cml-film-rating-control__value {
+  font-size: 12px;
+}
+
 #codex-media-library-root .cml-film-detail__section--notes p {
-  color: rgba(241, 238, 230, 0.72);
-  font-family: Georgia, "Times New Roman", ui-serif, serif;
-  font-style: italic;
+  color: rgba(241, 238, 230, 0.78);
+  font-family: inherit;
+  font-style: normal;
 }
 
 #codex-media-library-root .cml-film-detail__markdown {
@@ -13896,6 +13926,25 @@ body.codex-media-library-active #app {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
+}
+
+#codex-media-library-root .cml-film-detail__manage {
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(241, 238, 230, 0.7);
+  font-size: 11px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-film-detail__manage:hover,
+#codex-media-library-root .cml-film-detail__manage:focus {
+  border-color: rgba(201, 169, 106, 0.2);
+  color: rgba(241, 238, 230, 0.94);
+  outline: 0;
 }
 
 #codex-media-library-root .cml-film-detail__section-head {

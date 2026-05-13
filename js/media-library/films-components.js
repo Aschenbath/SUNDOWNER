@@ -379,7 +379,6 @@ function renderFilmWatchHistory(record = {}) {
     .sort((left, right) => String(right.watchedAt || '').localeCompare(String(left.watchedAt || '')));
   const countLabel = events.length === 1 ? '1 watch' : `${events.length} watches`;
   const latestDate = events[0]?.watchedAt || '';
-  const firstDate = events[events.length - 1]?.watchedAt || '';
   const filmId = escapeHtml(record.id || '');
   const disabledAttr = record.isSaving ? 'disabled' : '';
   const syncLabel = record.filmSyncError
@@ -400,12 +399,32 @@ function renderFilmWatchHistory(record = {}) {
       </section>
     `;
   }
+  if (events.length === 1) {
+    const event = events[0];
+    return `
+      <section class="cml-film-detail__section cml-film-detail__watch-history" aria-label="Watch">
+        <div class="cml-film-detail__watch-history-head">
+          <div>
+            <h2>Watch</h2>
+          </div>
+        </div>
+        <div class="cml-film-detail__watch-inline">
+          <strong>Watched ${formatWatchedDateLong(event.watchedAt)}</strong>
+          <div class="cml-film-detail__watch-actions">
+            <button type="button" class="cml-film-detail__watch-primary" data-action="film-mark-rewatch" data-film-id="${filmId}" ${disabledAttr}>+ Rewatch</button>
+            <button type="button" class="cml-film-detail__watch-secondary" data-action="film-move-to-want" data-film-id="${filmId}" ${disabledAttr}>Move to Want</button>
+            ${syncLabel}
+          </div>
+        </div>
+      </section>
+    `;
+  }
   return `
-    <section class="cml-film-detail__section cml-film-detail__watch-history" aria-label="Watch">
+      <section class="cml-film-detail__section cml-film-detail__watch-history" aria-label="Watch">
       <div class="cml-film-detail__watch-history-head">
         <div>
           <h2>Watch</h2>
-          ${latestDate ? `<p>Watched &middot; Latest ${formatWatchedDateLong(latestDate)}${events.length > 1 && firstDate ? ` &middot; First ${formatWatchedDateLong(firstDate)}` : ''}</p>` : ''}
+          ${latestDate ? `<p>Latest ${formatWatchedDateLong(latestDate)}</p>` : ''}
         </div>
         ${events.length > 1 ? `<span>${escapeHtml(countLabel)}</span>` : ''}
       </div>
@@ -420,7 +439,6 @@ function renderFilmWatchHistory(record = {}) {
             <span class="cml-film-detail__watch-event-node" aria-hidden="true"></span>
             <div class="cml-film-detail__watch-event-card">
               <div class="cml-film-detail__watch-event-topline">
-                ${index === 0 ? '<span class="cml-film-detail__watch-event-tag">Latest</span>' : '<span></span>'}
                 <button
                   type="button"
                   class="cml-film-detail__watch-event-delete"
@@ -444,7 +462,6 @@ function renderFilmWatchHistory(record = {}) {
                   aria-label="Edit watch date ${escapeHtml(formatWatchedDateLong(event.watchedAt))}"
                 />
               </label>
-              ${events.length > 1 ? `<p>${index === 0 ? 'Latest watch' : 'Logged watch'}</p>` : ''}
               ${event.rating || event.note ? `
                 <div class="cml-film-detail__watch-event-private">
                   ${event.rating ? `<span>${escapeHtml(Number(event.rating).toFixed(1))} / 5</span>` : ''}
@@ -462,26 +479,22 @@ function renderFilmWatchHistory(record = {}) {
 function renderFilmPrivateSignals(record = {}, { userRating = '', disabledAttr = '' } = {}) {
   return `
     <section class="cml-film-detail__section cml-film-detail__private-signals" aria-label="Personal film notes">
-      <h2>Personal</h2>
-      <div class="cml-film-detail__signals-card">
-        <div class="cml-film-detail__signal-row cml-film-detail__signal-row--rating cml-film-detail__signal-row--solo">
-          <div class="cml-film-detail__signal-value cml-film-detail__signal-value--rating">
-            ${renderDetailRatingControl(record, userRating)}
-          </div>
+      <h2>Your take</h2>
+      <div class="cml-film-detail__signals-inline">
+        <div class="cml-film-detail__signal-value cml-film-detail__signal-value--rating">
+          ${renderDetailRatingControl(record, userRating)}
         </div>
-        <div class="cml-film-detail__signal-row cml-film-detail__signal-row--solo">
-          <div class="cml-film-detail__signal-favourite-wrap">
-            <button
-              type="button"
-              class="cml-film-detail__signal-favourite ${record.favorite ? 'is-active' : ''}"
-              data-action="film-toggle-favourite"
-              data-film-id="${escapeHtml(record.id || '')}"
-              aria-pressed="${record.favorite ? 'true' : 'false'}"
-              aria-label="${record.favorite ? 'Remove favourite' : 'Save to favourites'}"
-              ${disabledAttr}
-            ><span aria-hidden="true">&#9829;</span>${record.favorite ? 'Favourited' : 'Add favourite'}</button>
-            ${record.filmSyncError ? '<span class="cml-film-rating-control__status is-visible is-error">Unsynced</span>' : ''}
-          </div>
+        <div class="cml-film-detail__signal-favourite-wrap">
+          <button
+            type="button"
+            class="cml-film-detail__signal-favourite ${record.favorite ? 'is-active' : ''}"
+            data-action="film-toggle-favourite"
+            data-film-id="${escapeHtml(record.id || '')}"
+            aria-pressed="${record.favorite ? 'true' : 'false'}"
+            aria-label="${record.favorite ? 'Remove favourite' : 'Save to favourites'}"
+            ${disabledAttr}
+          ><span aria-hidden="true">&#9829;</span>${record.favorite ? 'Favourited' : 'Add favourite'}</button>
+          ${record.filmSyncError ? '<span class="cml-film-rating-control__status is-visible is-error">Unsynced</span>' : ''}
         </div>
       </div>
     </section>
@@ -693,6 +706,14 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
   const savedNote = getSavedFilmNote(record);
   const draft = notesEditing ? normalizeFilmNoteDraftForEdit(notesDraft) : savedNote;
   const syncStatus = renderFilmNotesSyncStatus(record, notesSyncError);
+  const notesHead = `
+    <div class="cml-film-detail__section-head">
+      <div>
+        <h2>Private notes</h2>
+      </div>
+      ${syncStatus}
+    </div>
+  `;
   if (!notesEditing) {
     const readableClass = editable ? ' cml-film-detail__section--notes-readable' : '';
     const editAttrs = editable
@@ -700,8 +721,8 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
       : '';
     return `
       <section class="cml-film-detail__section cml-film-detail__section--notes${readableClass}"${editAttrs}>
+        ${notesHead}
         <div class="cml-film-detail__markdown">${renderMarkdownBlocks(savedNote)}</div>
-        ${syncStatus}
       </section>
     `;
   }
@@ -710,13 +731,13 @@ function renderFilmNotesSection(record = {}, { notesEditing = false, notesDraft 
   const sourceBlockRange = getFilmNoteSourceBlockRange(lines, activeLineIndex);
   return `
     <section class="cml-film-detail__section cml-film-detail__section--notes cml-film-detail__section--notes-editing cml-film-notes-editor is-editing">
+      ${notesHead}
       <div class="cml-film-notes-editor__surface cml-film-detail__markdown" data-film-notes-surface data-film-notes-draft role="textbox" aria-multiline="true" aria-label="Edit notes" contenteditable="true" spellcheck="true">
         ${lines.map((line, index) => renderFilmNoteEditorLine(line, index, activeLineIndex, {
           sourcePreview: Boolean(sourceBlockRange && index >= sourceBlockRange.start && index <= sourceBlockRange.end && index !== activeLineIndex),
           sourceBlock: Boolean(sourceBlockRange && index >= sourceBlockRange.start && index <= sourceBlockRange.end)
         })).join('')}
       </div>
-      ${syncStatus}
     </section>
   `;
 }
@@ -1244,6 +1265,9 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const detailSaveStatus = saveStatus?.label && saveStatus.state === 'error'
     ? `<span class="cml-film-save-status is-visible is-${escapeHtml(saveStatus.state || 'saved')}" data-film-save-status="detail">${escapeHtml(saveStatus.label)}</span>`
     : '<span class="cml-film-save-status" data-film-save-status="detail"></span>';
+  const manageButton = canEditLocalMetadata
+    ? `<button type="button" class="cml-film-detail__manage" data-action="film-edit-metadata" data-film-id="${escapeHtml(displayRecord.id || '')}">Manage</button>`
+    : '';
   return `
     <section class="cml-film-detail-page" data-film-detail-page>
       <div class="cml-film-detail-page__backdrop" aria-hidden="true">
@@ -1253,6 +1277,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
       <div class="cml-film-detail-page__content">
         <div class="cml-film-detail__topline">
           <button type="button" class="cml-film-detail__back" data-action="close-film-detail">Back to Films</button>
+          ${manageButton}
           ${detailSaveStatus}
         </div>
         ${imageTools}

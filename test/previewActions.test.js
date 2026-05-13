@@ -349,15 +349,16 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /TMDb rating/);
     assert.match(html, /May 9, 2026/);
     assert.match(html, /<h2>Watch<\/h2>/);
-    assert.match(html, /Watched &middot; Latest May 9, 2026 &middot; First May 1, 2026/);
+    assert.match(html, /Latest May 9, 2026/);
     assert.match(html, /cml-film-detail__diary-grid/);
     assert.match(html, /cml-film-detail__lower[\s\S]*cml-film-detail__diary-grid/);
     assert.ok(html.indexOf('cml-film-detail__diary-grid') > html.indexOf('cml-film-detail__lower'));
     assert.ok(html.indexOf('cml-film-detail__diary-grid') > html.indexOf('cml-film-detail__hero'));
     assert.match(html, /cml-film-detail__watch-event-card/);
     assert.doesNotMatch(html, /Add notes or rating for this watch/);
-    assert.match(html, /Personal/);
-    assert.match(html, /cml-film-detail__signals-card/);
+    assert.match(html, /Your take/);
+    assert.match(html, /Private notes/);
+    assert.match(html, /cml-film-detail__signals-inline/);
     assert.doesNotMatch(html, /Personal rating/);
     assert.doesNotMatch(html, /Private signals|Status|Last watched|Watching|Paused|Dropped|Unset|Not rated|NR/);
     assert.match(html, /2 watches/);
@@ -381,6 +382,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-film-detail__more/);
     assert.doesNotMatch(html, /Customize/);
     assert.doesNotMatch(html, /Sync/);
+    assert.match(html, /cml-film-detail__topline[\s\S]*>Manage<\/button>/);
     assert.match(html, /cml-film-detail__image-tools/);
     assert.match(html, /cml-film-detail__image-hotspot/);
     assert.match(html, /data-action="film-change-poster"/);
@@ -425,7 +427,6 @@ describe('media library download actions', () => {
     assert.match(html, /Move to Want/);
     assert.match(html, /data-action="film-refresh-tmdb"/);
     assert.match(html, /Refresh details/);
-    assert.match(html, /Manage/);
     assert.match(html, /Remove from library/);
     assert.match(html, /data-action="film-remove-entry"/);
     assert.doesNotMatch(html, />[^<]*(TMDb|TMDB|credentials|override|Private signals|Status|Last watched|Not rated|NR|Unset|Locale|Danger zone|Refresh TMDb|Reset TMDb|Remove from Films|Backdrop frame)[^<]*</);
@@ -710,6 +711,31 @@ describe('media library download actions', () => {
     assert.match(html, /data-film-notes-line-mode="source"[\s\S]*data-film-notes-line-index="2"[\s\S]*data-film-notes-raw-source="# 你好"[\s\S]*># 你好<\/div>/);
     assert.doesNotMatch(html, /data-film-notes-line-index="2"[\s\S]*<h3>你好<\/h3>/);
     assert.match(html, /data-film-notes-line-index="2"[\s\S]*data-film-notes-line-mode="source"|data-film-notes-line-mode="source"[\s\S]*data-film-notes-line-index="2"/);
+  });
+
+  it('renders a compact watch summary for a single logged watch', () => {
+    const html = FilmDetailPage({
+      record: {
+        id: 'tmdb-88',
+        tmdbId: 88,
+        title: 'Single Watch',
+        status: 'watched',
+        watchedAt: '2026-05-09',
+        watchEvents: [
+          { id: 'watch-1', watchedAt: '2026-05-09' }
+        ]
+      }
+    });
+
+    assert.match(html, /<h2>Watch<\/h2>/);
+    assert.match(html, /cml-film-detail__watch-inline/);
+    assert.match(html, /Watched May 9, 2026/);
+    assert.match(html, /\+ Rewatch/);
+    assert.match(html, /Move to Want/);
+    assert.doesNotMatch(html, /cml-film-detail__watch-events/);
+    assert.doesNotMatch(html, /Latest watch/);
+    assert.match(html, /Private notes/);
+    assert.doesNotMatch(html, /1 watch/);
   });
 
   it('preserves raw line identity for heading and blank lines in film notes editor html', () => {
