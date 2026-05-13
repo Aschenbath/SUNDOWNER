@@ -331,9 +331,15 @@ describe('media library download actions', () => {
     assert.match(html, /Pierre Boutron/);
     assert.doesNotMatch(html, /cml-film-detail__chips/);
     assert.doesNotMatch(html, /Romance \/ Drama \/ War \/ TV Movie/);
+    const heroHtml = html.slice(
+      html.indexOf('cml-film-detail__hero'),
+      html.indexOf('cml-film-detail__lower')
+    );
+    assert.doesNotMatch(heroHtml, /cml-film-detail__rating/);
+    assert.doesNotMatch(heroHtml, /cml-film-detail__rating-line/);
     assert.match(html, /aria-label="5\.0 out of 5"/);
-    assert.match(html, /<strong data-film-rating-output>5\.0<\/strong>/);
-    assert.match(html, /My rating/);
+    assert.match(html, /data-film-rating-output>5\.0<\/span>/);
+    assert.doesNotMatch(html, /My rating/);
     assert.match(html, /cml-film-rating-control has-rating/);
     assert.doesNotMatch(html, /cml-film-detail__signal-icon/);
     assert.doesNotMatch(html, /cml-film-detail__rating-ticks/);
@@ -994,7 +1000,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(detailPatchFunction[0], /currentPage\.replaceWith\(nextPage\)/);
     assert.doesNotMatch(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__hero'\)/);
     assert.doesNotMatch(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__lower'\)/);
-    assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__rating'\)/);
+    assert.doesNotMatch(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__rating'\)/);
     assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__synopsis-inline'/);
     assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__image-tools'/);
     assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__diary-rail'\)/);

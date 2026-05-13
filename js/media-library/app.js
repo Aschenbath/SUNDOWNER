@@ -46,7 +46,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=98';
+} from './components.js?v=99';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=75';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=76';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -149,7 +149,6 @@ const FILM_BACKDROP_FRAME_FIELDS = [
 ];
 const FILM_ACTION_NAMES = new Set([
   'set-film-rating',
-  'film-focus-rating',
   'film-retry-rating',
   'film-mark-watched',
   'film-move-to-want',
@@ -10382,18 +10381,6 @@ function setFilmRatingFromControl(control, ratingValue) {
   saveFilmRatingForTarget(control.dataset.filmId || control.dataset.tmdbId, rating);
 }
 
-function focusFilmRatingControl(filmId = '') {
-  window.requestAnimationFrame(() => {
-    const controls = refs.root ? Array.from(refs.root.querySelectorAll('[data-film-rating-control]')) : [];
-    const control = filmId
-      ? controls.find((node) => node instanceof HTMLElement && node.dataset.filmId === filmId)
-      : controls[0];
-    if (control instanceof HTMLElement) {
-      control.focus({ preventScroll: true });
-    }
-  });
-}
-
 function handleFilmRatingPointerMove(event) {
   const control = event.target instanceof Element ? event.target.closest('[data-film-rating-control]') : null;
   if (!(control instanceof HTMLElement) || control.getAttribute('aria-disabled') === 'true') {
@@ -10600,7 +10587,6 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__topline');
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__poster-wrap');
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__title-block');
-  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__rating');
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__meta-row');
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__synopsis-inline', {
     parentSelector: '.cml-film-detail__body'
@@ -16068,9 +16054,6 @@ function handleAction(actionTarget, event = null) {
         state.filmViewMode = actionTarget.dataset.filmViewMode;
         render();
       }
-      return true;
-    case 'film-focus-rating':
-      focusFilmRatingControl(actionTarget.dataset.filmId || state.activeFilmId);
       return true;
     case 'film-retry-rating': {
       const record = findFilmRecordByTarget(actionTarget.dataset.filmId || state.activeFilmId);

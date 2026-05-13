@@ -60,13 +60,13 @@ Retired into this file on 2026-05-13:
 - `index.html` currently loads:
   - `/js/entry-loader.js?v=4`
   - `/js/ui-overrides.js?v=10`
-  - `/js/media-library/app.js?v=277`
+  - `/js/media-library/app.js?v=278`
   - `/css/media-library.css?v=255`
 - `js/media-library/app.js` currently imports:
   - `./admin-runtime.js?v=2`
-  - `./components.js?v=98`
+  - `./components.js?v=99`
   - `./films-data.js?v=7`
-  - `./films-components.js?v=75`
+  - `./films-components.js?v=76`
 - Query-bump rule: app/css/component source changes need matching cache bumps.
   Tests-only changes do not.
 - There are no tracked `.gz` assets at consolidation time, so the old
@@ -230,12 +230,14 @@ Known-good local test pattern:
 
 ###### Work Log
 
+- 15:20 | [films][detail-layout][cleanup] Removed the duplicate hero `My rating` block from Film Detail so first-screen composition matches the calmer detail layout: title, original title, metadata, and synopsis stay in the hero while the editable rating remains only in the `Personal` card. Removed the stale `components.js` import of old `films-components.js?v=68`. Cleaned root clutter by deleting ignored runtime logs, empty retired `docs` / `history.archive`, and the untracked one-off `scripts` smoke directory; tracked root runtime/config files stayed in place. Cache: `app.js?v=278`, `components.js?v=99`, `films-components.js?v=76`, `films-data.js?v=7`, `media-library.css?v=255`. Validation: syntax checks for `app.js`, `components.js`, and `films-components.js`; focused `previewActions.test.js` 104 passing; full Mocha 403 passing with Node 22; headless Chrome geometry confirmed `heroRatingCount=0` and Personal rating `4.0`.
 - 13:31 | [history][consolidation] Consolidated project memory into this single `history.md`, absorbing durable content from `COLLABORATION.md`, `Function_History.md`, `docs\SUNDOWNER_RUNTIME_TRUTH.md`, and `history.archive\2026-May-raw.md`. `AGENTS.md` remains the instruction file. Current runtime versions recorded as `app.js?v=277`, `components.js?v=98`, `films-components.js?v=75`, `films-data.js?v=7`, `media-library.css?v=255`. Validation: `git diff --check` clean except CRLF warning; active non-dependency markdown inventory is now `history.md` + `AGENTS.md`.
 - 2026-05-13 | [films][notes][identity] Corrected My Notes raw-line identity so the active line itself is the only editable host, rendered lines and blank spacers keep stable raw indexes, and heading source stays in-flow instead of feeling like a detached input card. Cache: `app.js?v=277`, `films-components.js?v=75`. Validation: Node syntax checks for `app.js` and `films-components.js`; `git diff --check`; focused film-notes regressions 4 passing; full Mocha 399 passing with Node 22. Local live-app manual QA remains blocked by Wrangler runtime crash on this machine. Commit: `f52a353`.
 
 ###### Decision Capsules
 
 - [single-history-entrypoint] Symptom: agents had to inspect several history-like markdown files and could over-read stale context. Cause: `COLLABORATION.md`, `Function_History.md`, runtime-truth docs, and raw archive tables all carried overlapping memory roles. Fix: consolidate durable facts, guardrails, timeline, runtime truth, and active tail state into `history.md`; use git history for exact old prose. Guard: do not recreate parallel history markdown files.
+- [film-detail-rating-placement] Symptom: hero `My rating` competed with the movie title and made the first screen feel busy. Cause: the same local rating appeared in both the hero and the Personal card. Fix: keep the rating control only in Personal, and keep the hero focused on film identity/metadata/synopsis. Guard: future rating UI changes should not re-add a hero rating block unless the detail layout is explicitly redesigned.
 
 ##### 12th
 
@@ -334,8 +336,8 @@ Known-good local test pattern:
 - read-protocol: start with `Get-Content history.md -Tail 14`; then read latest day if the task touches active work.
 - canonical-history: `history.md` is now the single project-memory file; retired duplicates are recoverable from git history, not active docs.
 - current-focus: Films detail UX polish and memory hygiene, surgical changes only.
-- latest-state: 2026-May-13 13:31; `app.js?v=277`, `components.js?v=98`, `films-components.js?v=75`, `films-data.js?v=7`, `media-library.css?v=255`.
-- latest-validation: latest Films code validation was syntax checks, focused film-notes regressions 4 passing, full Mocha 399 passing with Node 22; consolidation validation was `git diff --check` clean except CRLF warning and markdown inventory reduced to `history.md` + `AGENTS.md`.
+- latest-state: 2026-May-13 15:20; `app.js?v=278`, `components.js?v=99`, `films-components.js?v=76`, `films-data.js?v=7`, `media-library.css?v=255`.
+- latest-validation: latest Films validation was syntax checks for `app.js`, `components.js`, and `films-components.js`; focused `previewActions.test.js` 104 passing; full Mocha 403 passing with Node 22; headless Chrome geometry confirmed no hero rating and Personal rating intact.
 - hot-path: Film Detail active patching should keep `[data-film-detail-page]` root/backdrop stable; cross-surface switches must commit pending notes/metadata/image edits before opening the next overlay.
 - current-boundaries: do not redesign global shell/theme/sidebar/topbar; do not touch unrelated media modules for Films polish; do not recreate parallel history markdown files.
 - open-loop: full authenticated live-app hand test is still not assumed; component-level browser smoke is documented for My Notes active heading cases.

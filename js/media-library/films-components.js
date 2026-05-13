@@ -236,11 +236,6 @@ function formatTmdbRating10(value) {
     : '';
 }
 
-function getUserRatingLabel(value) {
-  const formatted = formatUserRating5(value);
-  return formatted ? formatted : '';
-}
-
 function getTmdbRatingLabel(value) {
   const formatted = formatTmdbRating10(value);
   return formatted ? `${formatted} / 10` : '';
@@ -272,18 +267,6 @@ function renderRatingStar(fill = 0) {
           <path d="M12 2.8l2.74 5.72 6.31.85-4.61 4.37 1.15 6.25L12 16.95 6.41 19.99l1.15-6.25-4.61-4.37 6.31-.85L12 2.8z"></path>
         </svg>
       </span>
-    </span>
-  `;
-}
-
-function renderRatingStars(value, { className = '' } = {}) {
-  const rating = normalizeUserRatingValue(value);
-  if (rating === null) {
-    return '';
-  }
-  return `
-    <span class="cml-film-detail__stars ${escapeHtml(className)}" aria-label="${escapeHtml(rating.toFixed(1))} out of 5">
-      ${[1, 2, 3, 4, 5].map((index) => renderRatingStar(getRatingStarFill(rating, index))).join('')}
     </span>
   `;
 }
@@ -1209,7 +1192,6 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const originalTitle = normalizeText(displayRecord.originalTitle || displayRecord.title || '');
   const runtime = formatRuntime(displayRecord.runtime);
   const userRating = formatUserRating5(displayRecord.userRating);
-  const myRatingLabel = getUserRatingLabel(displayRecord.userRating);
   const posterUrl = getRecordPosterUrl(displayRecord);
   const autoBackdropUrls = getRecordAutoBackdropUrls(displayRecord);
   const autoBackdropIndex = autoBackdropUrls.length
@@ -1288,19 +1270,9 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
               <h1 class="cml-film-detail__title ${canEditLocalMetadata ? 'is-editable' : ''}"${titleEditAttrs}>${escapeHtml(localTitle)}</h1>
               ${originalTitle && originalTitle !== localTitle ? `<p class="cml-film-detail__original ${canEditLocalMetadata ? 'is-editable' : ''}"${originalEditAttrs}>${escapeHtml(originalTitle)}</p>` : ''}
             </div>
-            <section class="cml-film-detail__rating" aria-label="My rating">
-              <span class="cml-film-detail__rating-label">My rating</span>
-              <div class="cml-film-detail__rating-line">
-                ${userRating
-                  ? `${renderRatingStars(userRating, { className: 'cml-film-detail__stars--hero' })}<strong data-film-rating-output>${escapeHtml(myRatingLabel)}</strong>`
-                  : isSavedEntry
-                  ? `<button type="button" class="cml-film-detail__rate-button" data-action="film-focus-rating" data-film-id="${escapeHtml(displayRecord.id || '')}">Rate</button>`
-                  : '<strong></strong>'}
-              </div>
-              ${isSavedEntry ? '' : renderDetailPreviewSaveHint()}
-            </section>
             ${metaColumns ? `<div class="cml-film-detail__meta-row">${metaColumns}</div>` : ''}
             ${detailSynopsis}
+            ${isSavedEntry ? '' : renderDetailPreviewSaveHint()}
             ${detailActions ? `<div class="cml-film-detail__actions">${detailActions}</div>` : ''}
           </div>
         </div>
