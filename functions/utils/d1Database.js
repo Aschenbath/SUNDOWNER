@@ -46,6 +46,18 @@ const SCHEMA_STATEMENTS = [
     'CREATE INDEX IF NOT EXISTS idx_index_operations_expires_at ON index_operations(expires_at)',
 ];
 
+const SCHEMA_REPAIR_COLUMNS = [
+    { table: 'index_operations', column: 'expires_at', sql: 'ALTER TABLE index_operations ADD COLUMN expires_at INTEGER' },
+    { table: 'index_operations', column: 'updated_at', sql: 'ALTER TABLE index_operations ADD COLUMN updated_at TEXT' },
+];
+
+function isIgnorableSchemaRepairError(error) {
+    const message = String(error?.message || '').toLowerCase();
+    return message.includes('duplicate column name')
+        || message.includes('already exists')
+        || message.includes('no such table');
+}
+
 function parseJson(value, fallback) {
     if (!value) {
         return fallback;
@@ -103,12 +115,44 @@ class D1Database {
         if (!this.schemaReady) {
             this.schemaReady = (async () => {
                 for (const sql of SCHEMA_STATEMENTS) {
+                    if (sql.includes('idx_index_operations_timestamp')) {
+                        await this.repairLegacySchema();
+                    }
                     await this.db.prepare(sql).run();
                 }
             })();
         }
 
         return this.schemaReady;
+    }
+
+    async repairLegacySchema() {
+        const cachedColumns = new Map();
+        for (const repair of SCHEMA_REPAIR_COLUMNS) {
+            let columns = cachedColumns.get(repair.table);
+            if (!columns) {
+                columns = await this.getTableColumns(repair.table);
+                cachedColumns.set(repair.table, columns);
+            }
+            if (columns.has(repair.column)) {
+                continue;
+            }
+
+            try {
+                await this.db.prepare(repair.sql).run();
+                columns.add(repair.column);
+            } catch (error) {
+                if (isIgnorableSchemaRepairError(error)) {
+                    continue;
+                }
+                throw error;
+            }
+        }
+    }
+
+    async getTableColumns(tableName) {
+        const response = await this.db.prepare(`PRAGMA table_info(${tableName})`).all();
+        return new Set((response.results || []).map((row) => row.name).filter(Boolean));
     }
 
     async putFile(fileId, value, options = {}) {

@@ -133,7 +133,10 @@ function isTelegramWebhookPath(pathname) {
 
 function isPublicPath(pathname) {
   // auth-session must be reachable before login; it does its own credential check
-  return pathname === '/api/manage/auth-session' || isTelegramWebhookPath(pathname)
+  return pathname === '/api/manage/auth-session'
+    || pathname === '/api/manage/me'
+    || pathname === '/api/manage/login'
+    || isTelegramWebhookPath(pathname)
 }
 
 async function authentication(context) {

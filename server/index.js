@@ -78,7 +78,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = resolve(__dirname, '..');
 const FUNCTIONS_DIR = resolve(ROOT_DIR, 'functions');
 const DATA_DIR = resolve(ROOT_DIR, 'data');
-const port = parseInt(process.env.PORT || '8080', 10);
+const port = parseInt(process.env.PORT || '8787', 10);
 
 // 确保数据目录存在
 mkdirSync(DATA_DIR, { recursive: true });
@@ -334,7 +334,7 @@ async function handleFunctionRequest(originalRequest, pathname) {
 const app = new Hono();
 
 // 判断是否是 function 路径
-const FUNCTION_PREFIXES = ['/api/', '/upload', '/file/', '/dav/', '/random'];
+const FUNCTION_PREFIXES = ['/api/', '/upload', '/file/', '/dav/', '/random', '/dashboard'];
 
 function isFunctionPath(pathname) {
     return FUNCTION_PREFIXES.some(prefix => pathname.startsWith(prefix));

@@ -226,6 +226,17 @@ Known-good local test pattern:
 
 #### May
 
+##### 14th
+
+###### Work Log
+
+- 02:30 | [auth][dashboard][local-port] Unified the visible admin login path around `/login -> /api/manage/auth-session -> admin_auth -> /dashboard`: root dashboard middleware redirects unauthenticated dashboard requests to `/login?next=...`, `/api/manage/me` is a public session probe that validates `admin_auth`, legacy `/api/manage/login` now redirects to `/login`, dashboard API 401s leave the old in-app login overlay path, and local SUNDOWNER dev/test defaults moved off port `8080` to `8787`. Local D1 schema repair now backfills legacy `index_operations.expires_at/updated_at` so old SQLite data does not masquerade as auth failure. Cache: `entry-loader.js?v=5`, `app.js?v=281`. Validation: focused auth/entry tests 28 passing; full Mocha 416 passing with 1 pending; headless Chrome trace on `localhost:8787` confirmed `/dashboard -> /login?next=%2Fdashboard -> POST /api/manage/auth-session -> admin_auth -> /dashboard` with no `/api/login`, no `/api/manage/login`, and no legacy login UI.
+
+###### Decision Capsules
+
+- [dashboard-single-login] Symptom: login could feel like two authentication systems because dashboard requests and login-page session checks still touched old manage-auth paths. Fix: gate `/dashboard` before the SPA loads, make `/api/manage/me` a public session-check endpoint, keep `/api/manage/auth-session` as the only login POST, and redirect dashboard 401s to `/login?next=...`. Guard: `dashboardAuth.test.js`, `loginApp.test.js`, `entryLoader.test.js`, and browser trace on `8787`.
+- [local-port-8080] Local port `8080` is not safe for SUNDOWNER dev on this machine because another local service may own it. Fix: SUNDOWNER local defaults now use `8787`; do not start or kill `8080` for SUNDOWNER validation.
+
 ##### 13th
 
 ###### Work Log
@@ -338,6 +349,8 @@ Known-good local test pattern:
 - read-protocol: start with `Get-Content history.md -Tail 14`; then read latest day if the task touches active work.
 - canonical-history: `history.md` is now the single project-memory file; retired duplicates are recoverable from git history, not active docs.
 - current-focus: Films detail UX polish and memory hygiene, surgical changes only.
+- latest-state: 2026-May-14 02:30; auth route cache `entry-loader.js?v=5`, `app.js?v=281`; SUNDOWNER local dev/test default port is `8787`, not `8080`.
+- latest-validation: 2026-May-14 02:30; focused auth/entry Mocha 28 passing; full Mocha 416 passing with 1 pending; headless Chrome auth trace on `localhost:8787` confirmed only `/api/manage/auth-session` login POST and no `/api/login` or `/api/manage/login`.
 - latest-state: 2026-May-13 19:58; `app.js?v=280`, `components.js?v=99`, `films-components.js?v=78`, `films-data.js?v=7`, `media-library.css?v=256`.
 - latest-validation: 2026-May-13 19:58; syntax checks for `app.js` and `films-components.js`; focused `previewActions.test.js` 106 passing with 1 pending legacy-encoding assertion; full Mocha 404 passing with 1 pending; headless Chrome screenshots confirmed unwatched and single-watch detail flows.
 - latest-state: 2026-May-13 17:45; `app.js?v=279`, `components.js?v=99`, `films-components.js?v=77`, `films-data.js?v=7`, `media-library.css?v=255`.

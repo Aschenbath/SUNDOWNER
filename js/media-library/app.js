@@ -2002,6 +2002,7 @@ function hitYearButton(scroller, clientY) {
 
 let storageSyncPromise = null;
 let pendingSearchApplyTimer = 0;
+let loginRedirectInFlight = false;
 
 function shouldMount(pathname = window.location.pathname, search = window.location.search) {
   if (window.sessionStorage.getItem('cmlSkipMount') === '1') {
@@ -3448,8 +3449,7 @@ async function apiFetch(url, options = {}) {
       }
     });
     if (response.status === 401) {
-      state.needsLogin = true;
-      render();
+      redirectToLogin();
       throw new Error('Unauthorized');
     }
     return response;
@@ -3463,6 +3463,15 @@ async function apiFetch(url, options = {}) {
       window.clearTimeout(timeoutId);
     }
   }
+}
+
+function redirectToLogin() {
+  if (loginRedirectInFlight) {
+    return;
+  }
+  loginRedirectInFlight = true;
+  const next = `${window.location.pathname || '/dashboard'}${window.location.search || ''}${window.location.hash || ''}`;
+  window.location.assign(`/login?next=${encodeURIComponent(next)}`);
 }
 
 async function fetchJson(url, options = {}) {
@@ -4217,7 +4226,7 @@ async function submitLogin() {
 
 async function performLogout() {
   try {
-    await fetch('/api/manage/logout', { method: 'GET', credentials: 'same-origin' });
+    await fetch('/api/manage/auth-session', { method: 'DELETE', credentials: 'same-origin' });
   } catch { /* ignore */ }
   writeSessionFlag(PRIVATE_ALBUM_SESSION_KEY, false);
   state.privateRouteUnlocked = false;
@@ -4235,7 +4244,7 @@ async function performLogout() {
   state.loginUsername = '';
   state.loginPassword = '';
   state.loginError = '';
-  render();
+  window.location.assign('/login');
 }
 
 async function performStorageSummarySync({ forceRender = false } = {}) {

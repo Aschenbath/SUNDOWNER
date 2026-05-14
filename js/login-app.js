@@ -30,7 +30,7 @@ function ensureLoginStyles(doc) {
 }
 
 export function createLoginMarkup(state) {
-  const buttonLabel = state.isLoading ? 'Logging in…' : 'Login';
+  const buttonLabel = state.isCheckingSession ? 'Checking session...' : state.isLoading ? 'Logging in...' : 'Login';
   const errorMarkup = state.error ? state.error : '';
   return `
     <main class="sla-login">
@@ -48,16 +48,41 @@ export function createLoginMarkup(state) {
             <input class="sla-login__input" data-login-field="password" name="password" type="password" autocomplete="current-password" value="${state.password}">
           </label>
           <p class="sla-login__error" data-login-error="1" aria-live="polite">${errorMarkup}</p>
-          <button class="sla-login__submit" data-login-submit="1" type="submit" ${state.isLoading ? 'disabled' : ''}>${buttonLabel}</button>
+          <button class="sla-login__submit" data-login-submit="1" type="submit" ${state.isLoading || state.isCheckingSession ? 'disabled' : ''}>${buttonLabel}</button>
         </form>
-        <p class="sla-login__hint">You’ll be redirected to /dashboard after a successful sign in.</p>
+        <p class="sla-login__hint">You will be redirected to your library after a successful sign in.</p>
       </section>
     </main>
   `.trim();
 }
 
+export function getSafeLoginRedirect(locationImpl = window.location) {
+  let params;
+  try {
+    params = new URLSearchParams(locationImpl.search || '');
+  } catch {
+    return '/dashboard';
+  }
+
+  const rawNext = params.get('next') || '';
+  if (!rawNext || rawNext.startsWith('//')) {
+    return '/dashboard';
+  }
+
+  try {
+    const origin = locationImpl.origin || 'http://localhost';
+    const target = new URL(rawNext, origin);
+    if (target.origin !== origin || !target.pathname.startsWith('/dashboard')) {
+      return '/dashboard';
+    }
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return '/dashboard';
+  }
+}
+
 export async function submitAdminLogin(state, deps) {
-  const { fetchImpl, redirectImpl } = deps;
+  const { fetchImpl, redirectImpl, getRedirectTarget = () => '/dashboard' } = deps;
   if (state.isLoading) {
     return { redirected: false };
   }
@@ -77,7 +102,7 @@ export async function submitAdminLogin(state, deps) {
     if (response.status === 401) {
       state.error = 'Invalid username or password';
     } else if (response.ok) {
-      redirectImpl('/dashboard');
+      redirectImpl(getRedirectTarget());
       return { redirected: true };
     } else {
       state.error = 'Login failed, please try again';
@@ -89,6 +114,27 @@ export async function submitAdminLogin(state, deps) {
   state.isLoading = false;
   deps.render();
   return { redirected: false };
+}
+
+export async function redirectIfAlreadySignedIn({ fetchImpl, redirectImpl, getRedirectTarget }) {
+  try {
+    const response = await fetchImpl('/api/manage/me', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const data = await response.json();
+    if (data?.username) {
+      redirectImpl(getRedirectTarget());
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 export function mountLoginApp({ document = window.document, fetchImpl = window.fetch.bind(window), locationImpl = window.location } = {}) {
@@ -104,7 +150,10 @@ export function mountLoginApp({ document = window.document, fetchImpl = window.f
     password: '',
     error: '',
     isLoading: false,
+    isCheckingSession: true,
   };
+
+  const getRedirectTarget = () => getSafeLoginRedirect(locationImpl);
 
   const render = () => {
     root.innerHTML = createLoginMarkup(state);
@@ -133,21 +182,30 @@ export function mountLoginApp({ document = window.document, fetchImpl = window.f
         await submitAdminLogin(state, {
           fetchImpl,
           redirectImpl: (href) => locationImpl.assign(href),
+          getRedirectTarget,
           render,
         });
       });
     }
 
-    if (!state.isLoading && submitButton) {
+    if (!state.isLoading && !state.isCheckingSession && submitButton) {
       submitButton.disabled = false;
     }
 
-    if (!state.username && usernameInput && typeof usernameInput.focus === 'function') {
+    if (!state.isCheckingSession && !state.username && usernameInput && typeof usernameInput.focus === 'function') {
       usernameInput.focus();
     }
   };
 
   render();
+  void redirectIfAlreadySignedIn({
+    fetchImpl,
+    redirectImpl: (href) => locationImpl.assign(href),
+    getRedirectTarget,
+  }).finally(() => {
+    state.isCheckingSession = false;
+    render();
+  });
   return { state, render };
 }
 

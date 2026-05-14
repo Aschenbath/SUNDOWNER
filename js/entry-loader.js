@@ -27,7 +27,7 @@
   }
 
   if (path === '/login') {
-    loadScript('/js/login-app.js?v=2', null, null, 'module');
+    loadScript('/js/login-app.js?v=3', null, null, 'module');
     return;
   }
 

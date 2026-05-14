@@ -80,12 +80,12 @@ function createFakeDom() {
   return { document, root, form, usernameInput, passwordInput, submitButton, listeners, styleNodes };
 }
 
-function loadLoginApp({ fetchImpl = async () => new Response('{}'), assignImpl = () => {} } = {}) {
+function loadLoginApp({ fetchImpl = async () => new Response('{}'), assignImpl = () => {}, search = '' } = {}) {
   const dom = createFakeDom();
-  const location = { assign: assignImpl };
+  const location = { assign: assignImpl, origin: 'http://localhost', search };
   const transformedSource = loginAppSource
     .replace(/^export\s+/gm, '')
-    .concat('\nthis.__loginAppExports = { createLoginMarkup, submitAdminLogin, mountLoginApp };');
+    .concat('\nthis.__loginAppExports = { createLoginMarkup, getSafeLoginRedirect, redirectIfAlreadySignedIn, submitAdminLogin, mountLoginApp };');
 
   const context = vm.createContext({
     window: { document: dom.document, fetch: fetchImpl, location },
@@ -96,6 +96,7 @@ function loadLoginApp({ fetchImpl = async () => new Response('{}'), assignImpl =
     Response,
     Headers,
     URL,
+    URLSearchParams,
     setTimeout,
     clearTimeout,
   });
@@ -151,11 +152,59 @@ describe('login app', () => {
     assert.equal(redirectedTo, '/dashboard');
   });
 
+  it('redirects to a safe next path on successful login', async () => {
+    const state = { username: 'admin', password: 'secret', error: '', isLoading: false };
+    let redirectedTo = '';
+    const { namespace } = loadLoginApp();
+
+    const result = await namespace.submitAdminLogin(state, {
+      fetchImpl: async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      redirectImpl: (href) => { redirectedTo = href; },
+      getRedirectTarget: () => '/dashboard#/films',
+      render: () => {},
+    });
+
+    assert.equal(result.redirected, true);
+    assert.equal(redirectedTo, '/dashboard#/films');
+  });
+
+  it('rejects unsafe login next URLs', () => {
+    const { namespace } = loadLoginApp();
+
+    assert.equal(namespace.getSafeLoginRedirect({ origin: 'http://localhost', search: '?next=%2Fdashboard%23%2Ffilms' }), '/dashboard#/films');
+    assert.equal(namespace.getSafeLoginRedirect({ origin: 'http://localhost', search: '?next=https%3A%2F%2Fevil.test%2Fdashboard' }), '/dashboard');
+    assert.equal(namespace.getSafeLoginRedirect({ origin: 'http://localhost', search: '?next=%2Fapi%2Fmanage%2Flogin' }), '/dashboard');
+    assert.equal(namespace.getSafeLoginRedirect({ origin: 'http://localhost', search: '?next=%2F%2Fevil.test%2Fdashboard' }), '/dashboard');
+  });
+
+  it('redirects away from /login when an admin session already exists', async () => {
+    let redirectedTo = '';
+    const { namespace } = loadLoginApp();
+
+    const redirected = await namespace.redirectIfAlreadySignedIn({
+      fetchImpl: async (url) => {
+        assert.equal(url, '/api/manage/me');
+        return new Response(JSON.stringify({ username: 'admin' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      },
+      redirectImpl: (href) => { redirectedTo = href; },
+      getRedirectTarget: () => '/dashboard',
+    });
+
+    assert.equal(redirected, true);
+    assert.equal(redirectedTo, '/dashboard');
+  });
+
   it('wires form submit so Enter-style form submission triggers login', async () => {
     let submitted = 0;
     let redirectedTo = '';
     const { namespace, dom } = loadLoginApp({
-      fetchImpl: async () => {
+      fetchImpl: async (url) => {
+        if (url === '/api/manage/me') {
+          return new Response(JSON.stringify({ username: null }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
         submitted += 1;
         return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       },
@@ -164,7 +213,10 @@ describe('login app', () => {
 
     namespace.mountLoginApp({
       document: dom.document,
-      fetchImpl: async () => {
+      fetchImpl: async (url) => {
+        if (url === '/api/manage/me') {
+          return new Response(JSON.stringify({ username: null }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
         submitted += 1;
         return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       },
