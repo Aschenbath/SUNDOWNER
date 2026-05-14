@@ -187,7 +187,7 @@ describe('media library download actions', () => {
     const loadingHtml = FilmSearchResults({ query: 'Pearl', loading: true, settling: true, resultKey: 3, results: [] });
     const clearingHtml = FilmSearchResults({ query: '', clearing: true, results: [{ tmdbId: 1, title: 'Old Result' }] });
 
-    assert.match(appSource, /const FILM_SEARCH_DEBOUNCE_MS = 180/);
+    assert.match(appSource, /const FILM_SEARCH_DEBOUNCE_MS = 280/);
     assert.match(appSource, /const FILM_SEARCH_MIN_LOADING_MS = 80/);
     assert.match(appSource, /const FILM_SEARCH_CLEAR_TRANSITION_MS = 180/);
     assert.match(appSource, /let filmSearchRequestId = 0/);
@@ -248,13 +248,13 @@ describe('media library download actions', () => {
     assert.match(appSource, /const watchedAt = watchStatus === 'watched' \? new Date\(\)\.toISOString\(\)\.slice\(0, 10\) : ''/);
     assert.match(appSource, /body\.watchedAt = watchedAt \|\| null/);
     assert.match(appSource, /shouldClearWatchEventsWhenMovingToWant\(existingEvents\) \? \[\] : existingEvents/);
-    assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false, silent = false, showSaving = !silent, savedLabel = 'Saved' \} = \{\}\)/);
+    assert.match(appSource, /async function saveFilmStatus\(tmdbId, watchStatus, \{ openAfterSave = false, silent = false, showSaving = !silent, savedLabel = 'Saved', perfToken = null \} = \{\}\)/);
     assert.match(appSource, /const filmAutoRefreshTmdbIds = new Set\(\)/);
     assert.match(appSource, /function scheduleFilmAutoRefresh\(filmId = ''\)/);
     assert.match(appSource, /refreshFilmFromTmdb\(film\.id, \{ quiet: true \}\)/);
     assert.match(appSource, /openAfterSave: state\.filmDetailOpen && Number\(getActiveFilmRecord\(\)\?\.tmdbId\) === Number\(actionTarget\.dataset\.tmdbId\)/);
     assert.match(appSource, /pushNavigationHash\(\{ mode: 'replace' \}\)/);
-    assert.match(appSource, /case 'save-film-status':\s+void \(async \(\) => \{\s+if \(await commitPendingFilmEditsBeforeAction\(\{ actionName, keepDetailOpen: true \}\)\) \{\s+saveFilmStatusForTarget\(\{/s);
+    assert.match(appSource, /case 'save-film-status':[\s\S]*const perfToken = startPerfAction\('search result add -> visual update'\);[\s\S]*if \(await commitPendingFilmEditsBeforeAction\(\{ actionName, keepDetailOpen: true \}\)\) \{[\s\S]*saveFilmStatusForTarget\(\{[\s\S]*perfToken/s);
     assert.match(appSource, /function saveFilmStatusForTarget\(\{/);
     assert.match(appSource, /filmLibrarySearchComposing: false/);
     assert.match(appSource, /state\.filmLibrarySearchComposing = true/);
@@ -271,7 +271,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(detailFunction, /upsertFilmRecord\(record/);
     assert.match(detailFunction, /filmDetailLoadingTmdbIds\.has\(normalizedId\)/);
     assert.match(detailFunction, /state\.filmTransientDetailRecord = createTransientFilmDetailRecord\(source, existing/);
-    assert.match(detailFunction, /pushNavigationHash\(\{ mode: 'push' \}\);\s+render\(\);\s+filmDetailLoadingTmdbIds\.add\(normalizedId\);/);
+    assert.match(detailFunction, /pushNavigationHash\(\{ mode: 'push' \}\);\s+pendingFilmDetailPaintPerfAction = perfToken;\s+render\(\);\s+filmDetailLoadingTmdbIds\.add\(normalizedId\);/);
     assert.match(detailFunction, /if \(!state\.filmDetailOpen \|\| Number\(activeRecord\?\.tmdbId\) !== normalizedId\)/);
     assert.match(appSource, /function deleteFilmEntry\(filmIdOrTmdbId/);
     assert.match(appSource, /function removeKnownAccidentalFilmEntries\(\)/);
@@ -2682,7 +2682,7 @@ describe('media library download actions', () => {
 
     assert.match(appSource, /function openAlbumDialog\(mode = 'create', \{ origin = '', preferPreviewRender = false \} = \{\}\)/);
     assert.doesNotMatch(appSource, /preferTransientRender/);
-    assert.match(appSource, /function animateContentViewTransition\(\)/);
+    assert.match(appSource, /function animateContentViewTransition\(variant = ''\)/);
     assert.match(appSource, /if \(actionTarget\.dataset\.secondary\) \{[\s\S]*state\.primaryFilter = 'Photos';/);
     assert.match(appSource, /function syncSelectionUi\(changedItemIds = \[\]\)/);
     assert.match(appSource, /if \(!syncSelectionUi\(\[itemId\]\)\) \{\s*render\(\);/);

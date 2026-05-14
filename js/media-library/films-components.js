@@ -1312,7 +1312,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   return `
     <section class="cml-film-detail-page" data-film-detail-page>
       <div class="cml-film-detail-page__backdrop" aria-hidden="true">
-        ${backdropUrl ? `<img class="cml-film-detail-page__backdrop-image" src="${escapeHtml(backdropUrl)}" alt="" loading="eager" decoding="async" data-film-backdrop-index="${escapeHtml(autoBackdropIndex)}" style="${backdropFrameStyle}" />` : ''}
+        ${backdropUrl ? `<img class="cml-film-detail-page__backdrop-image" src="${escapeHtml(backdropUrl)}" alt="" loading="eager" decoding="async" fetchpriority="high" data-film-backdrop-index="${escapeHtml(autoBackdropIndex)}" style="${backdropFrameStyle}" />` : ''}
       </div>
       <div class="cml-film-detail-page__scrim" aria-hidden="true"></div>
       <div class="cml-film-detail-page__content">
@@ -1325,7 +1325,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
         <div class="cml-film-detail__hero">
           <div class="cml-film-detail__poster-wrap">
             ${posterUrl
-              ? `<img class="cml-film-detail__poster" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(localTitle)} poster" loading="eager" decoding="async" />`
+              ? `<img class="cml-film-detail__poster" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(localTitle)} poster" loading="eager" decoding="async" fetchpriority="high" />`
               : renderPosterFallback(localTitle)}
             ${posterTool}
           </div>
@@ -1540,12 +1540,12 @@ export function FilmSearchResults({ results = [], loading = false, loadingMore =
       savedRating ? `My rating ${savedRating}` : (Array.isArray(movie.genres) ? movie.genres.slice(0, 2).join(' / ') : '')
     ].filter(Boolean).join(' - ');
     return `
-      <article class="cml-films-result cml-film-search-result ${isNew ? 'is-new' : ''} ${isSaving ? 'is-saving' : ''} ${savedRecord ? 'is-saved' : ''}" data-action="open-tmdb-film-detail" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}">
-        <div class="cml-films-result__poster-wrap">
-          ${movie.posterPath
-            ? `<img class="cml-films-result__poster" src="${escapeHtml(buildTmdbImageUrl(movie.posterPath, 'w342'))}" alt="${escapeHtml(movie.title || 'Movie poster')}" loading="lazy" decoding="async" />`
+    <article class="cml-films-result cml-film-search-result ${isNew ? 'is-new' : ''} ${isSaving ? 'is-saving' : ''} ${savedRecord ? 'is-saved' : ''}" data-action="open-tmdb-film-detail" data-tmdb-id="${escapeHtml(movie.tmdbId || '')}">
+      <div class="cml-films-result__poster-wrap">
+        ${movie.posterPath
+            ? `<img class="cml-films-result__poster" src="${escapeHtml(buildTmdbImageUrl(movie.posterPath, 'w342'))}" alt="${escapeHtml(movie.title || 'Movie poster')}" loading="${index < 2 ? 'eager' : 'lazy'}" decoding="async" />`
             : renderPosterFallback(movie.title)}
-        </div>
+      </div>
         <div class="cml-films-result__body">
           <div class="cml-films-result__source-row">
             <p class="cml-films-result__source">Search result</p>
