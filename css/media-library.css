@@ -12248,24 +12248,24 @@ body.codex-media-library-active #app {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   max-width: 100%;
 }
 
 #codex-media-library-root .cml-film-rating-control__stars {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 44px;
-  padding: 4px 5px;
+  gap: 2px;
+  min-height: 36px;
+  padding: 2px 3px;
   border-radius: 999px;
   cursor: pointer;
   transition: background 120ms ease, box-shadow 120ms ease;
 }
 
 #codex-media-library-root .cml-film-rating-control__stars .cml-film-star {
-  width: 30px;
-  height: 30px;
+  width: 25px;
+  height: 25px;
 }
 
 #codex-media-library-root .cml-film-rating-control__stars:hover,
@@ -12464,7 +12464,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-detail__diary-flow {
   display: grid;
   width: min(100%, 720px);
-  gap: clamp(22px, 2.4vw, 30px);
+  gap: clamp(18px, 2.1vw, 26px);
   margin-top: 4px;
 }
 
@@ -12481,20 +12481,19 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-detail__section--notes {
   contain: layout paint;
-  min-height: 188px;
-  padding-top: 26px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 144px;
+  padding-top: 16px;
 }
 
 #codex-media-library-root .cml-film-detail__section--notes-readable {
   cursor: text;
-  border-radius: 16px;
+  border-radius: 0;
   transition: none;
 }
 
 #codex-media-library-root .cml-film-detail__section--notes-readable:hover,
 #codex-media-library-root .cml-film-detail__section--notes-readable:focus {
-  background: rgba(255, 255, 255, 0.025);
+  background: transparent;
   outline: 0;
 }
 
@@ -12794,15 +12793,30 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-detail__my-film {
   max-width: none;
-  gap: 14px;
+  gap: 12px;
   padding-top: 0;
+}
+
+#codex-media-library-root .cml-film-detail__my-film-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+#codex-media-library-root .cml-film-detail__my-film-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 #codex-media-library-root .cml-film-detail__my-film-status {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 18px;
+  gap: 9px 12px;
+  min-width: 0;
 }
 
 #codex-media-library-root .cml-film-detail__signals-card {
@@ -12862,10 +12876,9 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-detail__signal-value--rating {
-  display: block;
-  justify-items: start;
+  display: inline-flex;
   align-items: center;
-  width: 100%;
+  width: auto;
 }
 
 #codex-media-library-root .cml-film-detail__signal-row--rating {
@@ -12874,7 +12887,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-detail__signal-value--rating .cml-film-rating-control {
-  width: 100%;
+  width: auto;
   margin-top: 2px;
   overflow: visible;
   opacity: 1;
@@ -13002,6 +13015,14 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-detail__notes-empty,
 #codex-media-library-root .cml-film-detail__empty-text {
   color: rgba(241, 238, 230, 0.46) !important;
+}
+
+#codex-media-library-root .cml-film-detail__notes-empty {
+  min-height: 42px;
+  padding: 10px 0 0;
+  border-top: 1px solid rgba(201, 169, 106, 0.2);
+  display: flex;
+  align-items: center;
 }
 
 #codex-media-library-root .cml-film-metadata-editor {
@@ -13718,11 +13739,10 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-notes-editor {
   max-width: none;
-  min-height: 188px;
+  min-height: 144px;
   gap: 0;
   overflow: visible;
-  padding-top: 26px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 16px;
   contain: layout paint;
 }
 
@@ -13730,7 +13750,7 @@ body.codex-media-library-active #app {
   display: grid;
   align-content: start;
   gap: 14px;
-  min-height: 188px;
+  min-height: 96px;
   cursor: text;
   caret-color: #f3d48a;
   outline: 0;
@@ -13765,8 +13785,16 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-film-notes-editor__line--source:empty::before {
   content: attr(data-placeholder);
-  color: rgba(241, 238, 230, 0.34);
+  color: rgba(241, 238, 230, 0.46);
   pointer-events: none;
+}
+
+#codex-media-library-root .cml-film-notes-editor__line--source--blank.is-active {
+  min-height: 42px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(201, 169, 106, 0.2);
+  display: flex;
+  align-items: center;
 }
 
 #codex-media-library-root .cml-film-notes-editor__line--source:focus {
