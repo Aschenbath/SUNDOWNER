@@ -395,11 +395,11 @@ function renderFilmMyFilmSection(record = {}, { userRating = '', disabledAttr = 
         </div>
         ${syncLabel}
       </div>
-      <div class="cml-film-detail__my-film-strip">
+      <div class="cml-film-detail__signals-inline">
         <div class="cml-film-detail__signal-value cml-film-detail__signal-value--rating">
           ${renderDetailRatingControl(record, userRating)}
         </div>
-        <div class="cml-film-detail__my-film-actions">
+        <div class="cml-film-detail__signal-favourite-wrap">
           <button
             type="button"
             class="cml-film-detail__signal-favourite ${record.favorite ? 'is-active' : ''}"
@@ -410,19 +410,19 @@ function renderFilmMyFilmSection(record = {}, { userRating = '', disabledAttr = 
             ${disabledAttr}
           ><span aria-hidden="true">&#9829;</span>${record.favorite ? 'Favourited' : 'Add favourite'}</button>
         </div>
-        <div class="cml-film-detail__my-film-status">
+      </div>
+      <div class="cml-film-detail__my-film-status">
+        ${events.length
+          ? `<div class="cml-film-detail__watch-inline">
+              <strong>${events.length > 1 ? `Latest ${formatWatchedDateLong(latestDate)}` : `Watched ${formatWatchedDateLong(latestDate)}`}</strong>
+              ${events.length > 1 ? `<span>${escapeHtml(countLabel)}</span>` : ''}
+            </div>`
+          : ''}
+        <div class="cml-film-detail__watch-actions">
           ${events.length
-            ? `<div class="cml-film-detail__watch-inline">
-                <strong>${events.length > 1 ? `Latest ${formatWatchedDateLong(latestDate)}` : `Watched ${formatWatchedDateLong(latestDate)}`}</strong>
-                ${events.length > 1 ? `<span>${escapeHtml(countLabel)}</span>` : ''}
-              </div>`
-            : ''}
-          <div class="cml-film-detail__watch-actions">
-            ${events.length
-              ? `<button type="button" class="cml-film-detail__watch-primary" data-action="film-mark-rewatch" data-film-id="${filmId}" ${disabledAttr}>+ Rewatch</button>
-                 <button type="button" class="cml-film-detail__watch-secondary" data-action="film-move-to-want" data-film-id="${filmId}" ${disabledAttr}>Move to Want</button>`
-              : `<button type="button" class="cml-film-detail__watch-primary" data-action="film-mark-watched" data-film-id="${filmId}" ${disabledAttr}>Mark watched</button>`}
-          </div>
+            ? `<button type="button" class="cml-film-detail__watch-primary" data-action="film-mark-rewatch" data-film-id="${filmId}" ${disabledAttr}>+ Rewatch</button>
+               <button type="button" class="cml-film-detail__watch-secondary" data-action="film-move-to-want" data-film-id="${filmId}" ${disabledAttr}>Move to Want</button>`
+            : `<button type="button" class="cml-film-detail__watch-primary" data-action="film-mark-watched" data-film-id="${filmId}" ${disabledAttr}>Mark watched</button>`}
         </div>
       </div>
     </section>

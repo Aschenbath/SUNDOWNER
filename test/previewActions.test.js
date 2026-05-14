@@ -361,7 +361,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /Add notes or rating for this watch/);
     assert.doesNotMatch(html, /Your take/);
     assert.match(html, /Private notes/);
-    assert.match(html, /cml-film-detail__my-film-strip/);
+    assert.match(html, /cml-film-detail__signals-inline/);
     assert.doesNotMatch(html, /Personal rating/);
     assert.doesNotMatch(html, /Private signals|Status|Last watched|Watching|Paused|Dropped|Unset|Not rated|NR/);
     assert.match(html, /2 watches/);
