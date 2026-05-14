@@ -12231,9 +12231,8 @@ body.codex-media-library-active #app {
   inset: 0;
   overflow: hidden;
   width: var(--film-star-fill, 0%);
-  color: #d4aa58;
-  filter: drop-shadow(0 5px 14px rgba(212, 170, 88, 0.18));
-  transition: width 120ms ease, color 120ms ease;
+  color: #d0ad68;
+  transition: width 90ms linear, color 100ms ease;
 }
 
 #codex-media-library-root .cml-films-library-search input::-webkit-search-decoration,
@@ -12260,12 +12259,12 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-film-rating-control__stars {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 44px;
-  padding: 4px 5px;
+  gap: 3px;
+  min-height: 40px;
+  padding: 2px 3px;
   border-radius: 999px;
   cursor: pointer;
-  transition: background 120ms ease, box-shadow 120ms ease;
+  transition: background 110ms ease, outline-color 110ms ease;
 }
 
 #codex-media-library-root .cml-film-rating-control__stars .cml-film-star {
@@ -12273,11 +12272,15 @@ body.codex-media-library-active #app {
   height: 30px;
 }
 
-#codex-media-library-root .cml-film-rating-control__stars:hover,
-#codex-media-library-root .cml-film-rating-control__stars:focus-visible {
-  background: rgba(255, 255, 255, 0.045);
-  box-shadow: 0 0 0 1px rgba(201, 169, 106, 0.12);
+#codex-media-library-root .cml-film-rating-control__stars:hover {
+  background: rgba(255, 255, 255, 0.028);
   outline: 0;
+}
+
+#codex-media-library-root .cml-film-rating-control__stars:focus-visible {
+  background: rgba(255, 255, 255, 0.028);
+  outline: 1px solid rgba(201, 169, 106, 0.14);
+  outline-offset: 2px;
 }
 
 #codex-media-library-root .cml-film-rating-control__value {
@@ -12570,8 +12573,9 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-film-detail__watch-date-input {
-  min-height: 32px;
   width: min(164px, 100%);
+  max-height: 0;
+  min-height: 0;
   padding: 0 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
@@ -12582,6 +12586,17 @@ body.codex-media-library-active #app {
   font-size: 12px;
   font-weight: 720;
   cursor: pointer;
+  opacity: 0;
+  outline: 0;
+  overflow: hidden;
+  transition: max-height 150ms ease, min-height 150ms ease, opacity 150ms ease;
+}
+
+#codex-media-library-root .cml-film-detail__watch-date-control:focus-within .cml-film-detail__watch-date-input,
+#codex-media-library-root .cml-film-detail__watch-date-input:focus {
+  max-height: 32px;
+  min-height: 32px;
+  opacity: 1;
 }
 
 #codex-media-library-root .cml-film-detail__watch-archive {

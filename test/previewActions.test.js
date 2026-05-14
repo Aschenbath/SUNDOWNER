@@ -714,6 +714,7 @@ describe('media library download actions', () => {
   });
 
   it('renders a compact watch summary for a single logged watch', () => {
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
     const html = FilmDetailPage({
       record: {
         id: 'tmdb-88',
@@ -734,12 +735,39 @@ describe('media library download actions', () => {
     assert.match(html, /data-film-watch-event-input/);
     assert.match(html, /data-film-watch-event-id="watch-1"/);
     assert.match(html, /value="2026-05-09"/);
+    assert.match(cssSource, /\.cml-film-detail__watch-date-input \{[\s\S]*max-height: 0;[\s\S]*opacity: 0;/);
+    assert.match(cssSource, /\.cml-film-detail__watch-date-control:focus-within \.cml-film-detail__watch-date-input,[\s\S]*max-height: 32px;[\s\S]*opacity: 1;/);
+    assert.doesNotMatch(cssSource, /\.cml-film-detail__watch-date-control:hover \.cml-film-detail__watch-date-input/);
     assert.match(html, /\+ Rewatch/);
     assert.match(html, /Move to Want/);
     assert.doesNotMatch(html, /cml-film-detail__watch-events/);
     assert.doesNotMatch(html, /Latest watch/);
     assert.match(html, /Private notes/);
     assert.doesNotMatch(html, /1 watch/);
+  });
+
+  it('keeps film rating pointer preview inside the visible star bounds', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+    const boundsFunction = appSource.match(/function getFilmRatingStarBounds[\s\S]*?function getFilmRatingFromPointer/)?.[0] || '';
+    const pointerFunction = appSource.match(/function getFilmRatingFromPointer[\s\S]*?function getFilmRatingStarFill/)?.[0] || '';
+    const actionCase = appSource.slice(
+      appSource.indexOf("case 'set-film-rating':"),
+      appSource.indexOf("case 'open-film-detail':")
+    );
+    const starFillCss = cssSource.match(/\.cml-film-star__fill \{[\s\S]*?\n\}/)?.[0] || '';
+    const ratingStarsCss = cssSource.match(/\.cml-film-rating-control__stars \{[\s\S]*?\n\}/)?.[0] || '';
+
+    assert.match(boundsFunction, /function getFilmRatingStarBounds\(control\)/);
+    assert.match(boundsFunction, /querySelectorAll\('\.cml-film-star'\)/);
+    assert.match(pointerFunction, /event\.clientX < bounds\.left \|\| event\.clientX > bounds\.right/);
+    assert.doesNotMatch(pointerFunction, /Math\.max\(0,\s*Math\.min\(1,/);
+    assert.match(actionCase, /hasPointerCoordinate && ratingFromPointer === null[\s\S]*clearFilmRatingControlPreview\(actionTarget\);[\s\S]*return true;/);
+    assert.match(actionCase, /const ratingSource = ratingFromPointer \?\? actionTarget\.dataset\.previewRating \?\? actionTarget\.dataset\.currentRating \?\? 0;/);
+    assert.doesNotMatch(actionCase, /normalizeFilmUserRating\(ratingFromPointer \|\| actionTarget\.dataset\.previewRating/s);
+    assert.match(starFillCss, /transition: width 90ms linear, color 100ms ease;/);
+    assert.doesNotMatch(starFillCss, /filter: drop-shadow/);
+    assert.doesNotMatch(ratingStarsCss, /box-shadow/);
   });
 
   it('renders moved-to-want films as Want even when previous watches are retained', () => {

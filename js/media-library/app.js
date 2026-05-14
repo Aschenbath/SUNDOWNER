@@ -10286,15 +10286,42 @@ function saveFilmRatingForTarget(target = '', userRating, options = {}) {
   });
 }
 
+let filmRatingPreviewControl = null;
+
+function getFilmRatingStarBounds(control) {
+  if (!(control instanceof HTMLElement)) {
+    return null;
+  }
+  const starRects = Array.from(control.querySelectorAll('.cml-film-star'))
+    .map((star) => star instanceof HTMLElement ? star.getBoundingClientRect() : null)
+    .filter((rect) => rect && rect.width > 0 && rect.height > 0);
+  if (!starRects.length) {
+    return null;
+  }
+  const left = Math.min(...starRects.map((rect) => rect.left));
+  const right = Math.max(...starRects.map((rect) => rect.right));
+  if (!(right > left)) {
+    return null;
+  }
+  return {
+    left,
+    right,
+    width: right - left
+  };
+}
+
 function getFilmRatingFromPointer(event, control) {
   if (!(control instanceof HTMLElement)) {
     return null;
   }
-  const rect = control.getBoundingClientRect();
-  if (!rect.width) {
+  const bounds = getFilmRatingStarBounds(control);
+  if (!bounds || typeof event?.clientX !== 'number') {
     return null;
   }
-  const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+  if (event.clientX < bounds.left || event.clientX > bounds.right) {
+    return null;
+  }
+  const ratio = (event.clientX - bounds.left) / bounds.width;
   return Math.max(0.5, Math.min(5, Math.ceil(ratio * 10) / 2));
 }
 
@@ -10372,6 +10399,7 @@ function setFilmRatingFromControl(control, ratingValue) {
   control.setAttribute('aria-valuenow', rating.toFixed(1));
   control.setAttribute('aria-valuetext', `${rating.toFixed(1)} out of 5`);
   control.style.removeProperty('--film-rating-preview');
+  control.removeAttribute('data-preview-rating');
   control.classList.add('has-rating');
   paintFilmRatingControl(control, rating);
   const shell = control.closest('[data-film-rating-shell]');
@@ -10393,16 +10421,27 @@ function setFilmRatingFromControl(control, ratingValue) {
 
 function handleFilmRatingPointerMove(event) {
   const control = event.target instanceof Element ? event.target.closest('[data-film-rating-control]') : null;
+  if (filmRatingPreviewControl && filmRatingPreviewControl !== control) {
+    clearFilmRatingControlPreview(filmRatingPreviewControl);
+    filmRatingPreviewControl = null;
+  }
   if (!(control instanceof HTMLElement) || control.getAttribute('aria-disabled') === 'true') {
     return;
   }
   const rating = getFilmRatingFromPointer(event, control);
+  if (rating === null) {
+    clearFilmRatingControlPreview(control);
+    filmRatingPreviewControl = null;
+    return;
+  }
+  filmRatingPreviewControl = control;
   updateFilmRatingControlPreview(control, rating);
 }
 
 function handleFilmRatingPointerLeave(event) {
   const control = event.target instanceof Element ? event.target.closest('[data-film-rating-control]') : null;
-  clearFilmRatingControlPreview(control);
+  clearFilmRatingControlPreview(control || filmRatingPreviewControl);
+  filmRatingPreviewControl = null;
 }
 
 async function saveFilmWatchedDate(tmdbId, watchedAt, { silent = true } = {}) {
@@ -16074,10 +16113,16 @@ function handleAction(actionTarget, event = null) {
       return true;
     }
     case 'set-film-rating': {
-      const ratingFromPointer = event && typeof event.clientX === 'number'
+      const hasPointerCoordinate = event && typeof event.clientX === 'number' && event.detail !== 0;
+      const ratingFromPointer = hasPointerCoordinate
         ? getFilmRatingFromPointer(event, actionTarget)
         : null;
-      const rating = normalizeFilmUserRating(ratingFromPointer || actionTarget.dataset.previewRating || actionTarget.dataset.currentRating || 0);
+      if (hasPointerCoordinate && ratingFromPointer === null) {
+        clearFilmRatingControlPreview(actionTarget);
+        return true;
+      }
+      const ratingSource = ratingFromPointer ?? actionTarget.dataset.previewRating ?? actionTarget.dataset.currentRating ?? 0;
+      const rating = normalizeFilmUserRating(ratingSource);
       if (rating !== null) {
         setFilmRatingFromControl(actionTarget, rating);
       }
