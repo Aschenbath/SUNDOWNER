@@ -729,13 +729,42 @@ describe('media library download actions', () => {
 
     assert.match(html, /<h2>Watch<\/h2>/);
     assert.match(html, /cml-film-detail__watch-inline/);
-    assert.match(html, /Watched May 9, 2026/);
+    assert.match(html, /Watched <strong data-film-watch-date-output>May 9, 2026<\/strong>/);
+    assert.match(html, /cml-film-detail__watch-date-control/);
+    assert.match(html, /data-film-watch-event-input/);
+    assert.match(html, /data-film-watch-event-id="watch-1"/);
+    assert.match(html, /value="2026-05-09"/);
     assert.match(html, /\+ Rewatch/);
     assert.match(html, /Move to Want/);
     assert.doesNotMatch(html, /cml-film-detail__watch-events/);
     assert.doesNotMatch(html, /Latest watch/);
     assert.match(html, /Private notes/);
     assert.doesNotMatch(html, /1 watch/);
+  });
+
+  it('renders moved-to-want films as Want even when previous watches are retained', () => {
+    const html = FilmDetailPage({
+      record: {
+        id: 'tmdb-89',
+        tmdbId: 89,
+        title: 'Moved Back',
+        watchStatus: 'wantToWatch',
+        status: 'watchlist',
+        watchedAt: '',
+        watchEvents: [
+          { id: 'watch-a', watchedAt: '2026-05-09', note: 'kept history' },
+          { id: 'watch-b', watchedAt: '2026-05-01' }
+        ]
+      }
+    });
+
+    assert.match(html, /<h2>Watch<\/h2>/);
+    assert.match(html, /Mark watched/);
+    assert.match(html, /Previous watches kept/);
+    assert.match(html, /Latest May 9, 2026/);
+    assert.doesNotMatch(html, /\+ Rewatch/);
+    assert.doesNotMatch(html, /Move to Want/);
+    assert.doesNotMatch(html, /cml-film-detail__watch-events/);
   });
 
   it('preserves raw line identity for heading and blank lines in film notes editor html', () => {
@@ -1059,6 +1088,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /case 'film-move-to-want':/);
     assert.match(appSource, /function markFilmWatched/);
     assert.match(appSource, /function moveFilmToWant/);
+    assert.match(appSource, /watchStatus,/);
     assert.match(appSource, /function shouldClearWatchEventsWhenMovingToWant/);
     assert.match(appSource, /case 'film-delete-watch-event':/);
     assert.match(appSource, /case 'film-undo-watch-event-delete':/);

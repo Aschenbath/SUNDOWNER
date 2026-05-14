@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=79';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=80';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -8838,6 +8838,7 @@ function normalizeFilmRecord(movie = {}, entry = null, existingRecord = null) {
     originalTitle,
     releaseDate,
     year: releaseYear,
+    watchStatus,
     status,
     favorite: Boolean(entry?.isFavorite ?? movie.favorite ?? existingRecord?.favorite),
     userRating: Number.isFinite(userRating) ? userRating : null,

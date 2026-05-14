@@ -360,6 +360,35 @@ function renderDetailPreviewSaveHint() {
   `;
 }
 
+function isFilmCurrentlyWatched(record = {}) {
+  return normalizeText(record.watchStatus || record.status) === 'watched'
+    || normalizeText(record.status) === 'watched'
+    || Boolean(normalizeText(record.watchedAt));
+}
+
+function renderSingleWatchDateControl(record = {}, event = {}, { disabledAttr = '' } = {}) {
+  const filmId = escapeHtml(record.id || '');
+  const watchedAt = normalizeText(event.watchedAt || record.watchedAt || '');
+  const eventId = escapeHtml(event.id || '');
+  const label = formatWatchedDateLong(watchedAt);
+  return `
+    <label class="cml-film-detail__watch-date-control" aria-label="Edit watched date ${label}">
+      <span>Watched <strong data-film-watch-date-output>${label}</strong></span>
+      <input
+        type="date"
+        class="cml-film-detail__watch-date-input"
+        data-film-watch-event-input
+        data-film-id="${filmId}"
+        data-film-watch-event-id="${eventId}"
+        data-film-watch-event="${escapeHtml(watchedAt)}"
+        value="${escapeHtml(watchedAt)}"
+        aria-label="Edit watched date ${label}"
+        ${disabledAttr}
+      />
+    </label>
+  `;
+}
+
 function renderFilmWatchHistory(record = {}) {
   const events = (Array.isArray(record.watchEvents) ? record.watchEvents : [])
     .map((event, index) => {
@@ -384,12 +413,17 @@ function renderFilmWatchHistory(record = {}) {
   const syncLabel = record.filmSyncError
     ? '<span class="cml-film-rating-control__status is-visible is-error">Unsynced</span>'
     : '';
-  if (!events.length) {
+  const currentlyWatched = isFilmCurrentlyWatched(record);
+  if (!currentlyWatched) {
+    const retainedHistory = events.length
+      ? `<p class="cml-film-detail__watch-archive">Previous watches kept &middot; Latest ${formatWatchedDateLong(latestDate)}</p>`
+      : '';
     return `
       <section class="cml-film-detail__section cml-film-detail__watch-history" aria-label="Watch">
         <div class="cml-film-detail__watch-history-head">
           <div>
             <h2>Watch</h2>
+            ${retainedHistory}
           </div>
         </div>
         <div class="cml-film-detail__watch-actions">
@@ -409,7 +443,7 @@ function renderFilmWatchHistory(record = {}) {
           </div>
         </div>
         <div class="cml-film-detail__watch-inline">
-          <strong>Watched ${formatWatchedDateLong(event.watchedAt)}</strong>
+          ${renderSingleWatchDateControl(record, event, { disabledAttr })}
           <div class="cml-film-detail__watch-actions">
             <button type="button" class="cml-film-detail__watch-primary" data-action="film-mark-rewatch" data-film-id="${filmId}" ${disabledAttr}>+ Rewatch</button>
             <button type="button" class="cml-film-detail__watch-secondary" data-action="film-move-to-want" data-film-id="${filmId}" ${disabledAttr}>Move to Want</button>

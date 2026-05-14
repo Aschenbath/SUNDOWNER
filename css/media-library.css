@@ -12546,6 +12546,51 @@ body.codex-media-library-active #app {
   line-height: 1.2;
 }
 
+#codex-media-library-root .cml-film-detail__watch-date-control {
+  position: relative;
+  display: inline-grid;
+  justify-items: start;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-film-detail__watch-date-control span {
+  color: rgba(241, 238, 230, 0.7);
+  font-size: 13px;
+  font-weight: 720;
+  line-height: 1.2;
+}
+
+#codex-media-library-root .cml-film-detail__watch-date-control strong {
+  color: #f1eee6;
+  font-size: 18px;
+  font-weight: 820;
+}
+
+#codex-media-library-root .cml-film-detail__watch-date-input {
+  min-height: 32px;
+  width: min(164px, 100%);
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(241, 238, 230, 0.82);
+  color-scheme: dark;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-film-detail__watch-archive {
+  margin-top: 5px;
+  color: rgba(241, 238, 230, 0.46);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 #codex-media-library-root .cml-film-detail__watch-primary,
 #codex-media-library-root .cml-film-detail__watch-secondary {
   min-height: 34px;
