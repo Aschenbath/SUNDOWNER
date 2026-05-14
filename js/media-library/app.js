@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=79';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=78';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -10591,14 +10591,15 @@ function patchActiveFilmDetailView({ allowRenderFallback = false } = {}) {
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__synopsis-inline', {
     parentSelector: '.cml-film-detail__body'
   });
-  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__my-film', {
-    parentSelector: '.cml-film-detail__body .cml-film-detail__diary-flow'
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__image-tools', {
+    parentSelector: '.cml-film-detail-page__content'
+  });
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__diary-rail');
+  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__diary-main > .cml-film-detail__section:not(.cml-film-detail__section--notes)', {
+    parentSelector: '.cml-film-detail__diary-main'
   });
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__section--notes', {
-    parentSelector: '.cml-film-detail__body .cml-film-detail__diary-flow'
-  });
-  patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__watch-history', {
-    parentSelector: '.cml-film-detail__lower'
+    parentSelector: '.cml-film-detail__diary-main'
   });
   patchFilmDetailChild(currentPage, nextPage, '.cml-film-detail__overlay-layer', {
     parentSelector: '.cml-film-detail-page__content'

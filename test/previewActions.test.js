@@ -333,7 +333,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /Romance \/ Drama \/ War \/ TV Movie/);
     const heroHtml = html.slice(
       html.indexOf('cml-film-detail__hero'),
-      html.indexOf('cml-film-detail__diary-flow')
+      html.indexOf('cml-film-detail__lower')
     );
     assert.doesNotMatch(heroHtml, /cml-film-detail__rating/);
     assert.doesNotMatch(heroHtml, /cml-film-detail__rating-line/);
@@ -348,18 +348,15 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /TMDb 7\.5/);
     assert.doesNotMatch(html, /TMDb rating/);
     assert.match(html, /May 9, 2026/);
-    assert.match(html, /<h2>My film<\/h2>/);
+    assert.match(html, /<h2>Watch<\/h2>/);
     assert.match(html, /Latest May 9, 2026/);
-    assert.match(html, /<h2>Watch history<\/h2>/);
-    assert.match(html, /cml-film-detail__diary-flow/);
-    assert.ok(html.indexOf('cml-film-detail__diary-flow') > html.indexOf('cml-film-detail__synopsis-inline'));
-    assert.ok(html.indexOf('cml-film-detail__diary-flow') < html.indexOf('cml-film-detail__lower'));
-    assert.ok(html.indexOf('cml-film-detail__my-film') < html.indexOf('cml-film-detail__lower'));
-    assert.ok(html.indexOf('cml-film-detail__my-film') < html.indexOf('cml-film-detail__section--notes'));
-    assert.ok(html.indexOf('cml-film-detail__section--notes') < html.indexOf('cml-film-detail__watch-history'));
+    assert.match(html, /cml-film-detail__diary-grid/);
+    assert.match(html, /cml-film-detail__lower[\s\S]*cml-film-detail__diary-grid/);
+    assert.ok(html.indexOf('cml-film-detail__diary-grid') > html.indexOf('cml-film-detail__lower'));
+    assert.ok(html.indexOf('cml-film-detail__diary-grid') > html.indexOf('cml-film-detail__hero'));
     assert.match(html, /cml-film-detail__watch-event-card/);
     assert.doesNotMatch(html, /Add notes or rating for this watch/);
-    assert.doesNotMatch(html, /Your take/);
+    assert.match(html, /Your take/);
     assert.match(html, /Private notes/);
     assert.match(html, /cml-film-detail__signals-inline/);
     assert.doesNotMatch(html, /Personal rating/);
@@ -385,12 +382,11 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-film-detail__more/);
     assert.doesNotMatch(html, /Customize/);
     assert.doesNotMatch(html, /Sync/);
-    assert.match(html, /cml-film-detail__topline[\s\S]*aria-label="Manage film"[\s\S]*>\.\.\.<\/button>/);
-    const firstScreenHtml = html.slice(0, html.indexOf('data-film-detail-overlays'));
-    assert.doesNotMatch(firstScreenHtml, /cml-film-detail__image-tools/);
-    assert.doesNotMatch(firstScreenHtml, /cml-film-detail__image-hotspot/);
-    assert.doesNotMatch(firstScreenHtml, /data-action="film-change-poster"/);
-    assert.doesNotMatch(firstScreenHtml, /data-action="film-change-backdrop"/);
+    assert.match(html, /cml-film-detail__topline[\s\S]*>Manage<\/button>/);
+    assert.match(html, /cml-film-detail__image-tools/);
+    assert.match(html, /cml-film-detail__image-hotspot/);
+    assert.match(html, /data-action="film-change-poster"/);
+    assert.match(html, /data-action="film-change-backdrop"/);
     assert.doesNotMatch(html, />Details<\/button>/);
     assert.doesNotMatch(html, />Refresh<\/button>/);
     assert.doesNotMatch(html, /cml-film-detail__image-hotspot[^>]*>Remove<\/button>/);
@@ -731,12 +727,11 @@ describe('media library download actions', () => {
       }
     });
 
-    assert.match(html, /<h2>My film<\/h2>/);
+    assert.match(html, /<h2>Watch<\/h2>/);
     assert.match(html, /cml-film-detail__watch-inline/);
     assert.match(html, /Watched May 9, 2026/);
     assert.match(html, /\+ Rewatch/);
     assert.match(html, /Move to Want/);
-    assert.doesNotMatch(html, /<h2>Watch history<\/h2>/);
     assert.doesNotMatch(html, /cml-film-detail__watch-events/);
     assert.doesNotMatch(html, /Latest watch/);
     assert.match(html, /Private notes/);
@@ -1073,10 +1068,9 @@ describe('media library download actions', () => {
     assert.doesNotMatch(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__lower'\)/);
     assert.doesNotMatch(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__rating'\)/);
     assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__synopsis-inline'/);
-    assert.match(detailPatchFunction[0], /parentSelector: '\.cml-film-detail__body \.cml-film-detail__diary-flow'/);
-    assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__my-film'/);
+    assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__image-tools'/);
+    assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__diary-rail'\)/);
     assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__section--notes'/);
-    assert.match(detailPatchFunction[0], /patchFilmDetailChild\(currentPage, nextPage, '\.cml-film-detail__watch-history'/);
     assert.match(appSource, /function renderFilmMutationState/);
     assert.match(appSource, /patchDetail = true/);
     assert.match(appSource, /renderFilmMutationState\(\);/);
