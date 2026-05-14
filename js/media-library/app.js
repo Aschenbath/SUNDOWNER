@@ -10476,6 +10476,12 @@ function toggleFilmWatchDateEditor(toggle) {
   if (!shouldOpen) {
     const input = control.querySelector('[data-film-watch-event-input]');
     if (input instanceof HTMLInputElement) {
+      const previousDate = input.dataset.filmWatchEvent || '';
+      const watchEventId = input.dataset.filmWatchEventId || '';
+      if (input.value && input.value !== previousDate) {
+        editFilmWatchEvent(input.dataset.filmId || state.activeFilmId, watchEventId, previousDate, input.value);
+        input.dataset.filmWatchEvent = input.value;
+      }
       input.blur();
     }
     return;
@@ -16965,12 +16971,7 @@ function handleChange(event) {
     return;
   }
   if (target.hasAttribute('data-film-watch-event-input')) {
-    const previousDate = target.dataset.filmWatchEvent || '';
-    const watchEventId = target.dataset.filmWatchEventId || '';
-    if (target.value && target.value !== previousDate) {
-      editFilmWatchEvent(target.dataset.filmId || state.activeFilmId, watchEventId, previousDate, target.value);
-      target.dataset.filmWatchEvent = target.value;
-    }
+    target.dataset.filmWatchEventDraft = target.value;
   }
   if (target.hasAttribute('data-film-backdrop-frame-field')) {
     flushFilmBackdropFrameStyle();
@@ -17029,17 +17030,6 @@ function handleFocusOut(event) {
     return;
   }
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-watch-event-input')) {
-    const previousDate = event.target.dataset.filmWatchEvent || '';
-    const watchEventId = event.target.dataset.filmWatchEventId || '';
-    if (event.target.value && event.target.value !== previousDate) {
-      editFilmWatchEvent(event.target.dataset.filmId || state.activeFilmId, watchEventId, previousDate, event.target.value);
-      event.target.dataset.filmWatchEvent = event.target.value;
-    }
-    window.setTimeout(() => {
-      if (document.activeElement !== event.target) {
-        closeFilmWatchDateEditors(event.target.closest('[data-film-detail-page]') || refs.root);
-      }
-    }, 0);
     return;
   }
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-image-picker-url')) {
@@ -17454,6 +17444,13 @@ function handleKeyDown(event) {
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-watch-event-input')) {
     if (event.key === 'Enter') {
       event.preventDefault();
+      const control = event.target.closest('.cml-film-detail__watch-date-control');
+      const toggle = control?.querySelector('[data-action="film-toggle-watch-date-editor"]');
+      if (toggle instanceof HTMLElement) {
+        toggleFilmWatchDateEditor(toggle);
+        toggle.focus();
+        return;
+      }
       event.target.blur();
     }
     return;

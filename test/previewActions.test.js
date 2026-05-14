@@ -1122,6 +1122,10 @@ describe('media library download actions', () => {
     assert.match(appSource, /'film-toggle-watch-date-editor'/);
     assert.match(appSource, /case 'film-toggle-watch-date-editor':/);
     assert.match(appSource, /function toggleFilmWatchDateEditor\(toggle\)/);
+    assert.doesNotMatch(appSource, /focusStayedInsideDateControl/);
+    assert.doesNotMatch(appSource, /data-film-watch-event-input[\s\S]{0,700}closeFilmWatchDateEditors\(event\.target\.closest/);
+    assert.doesNotMatch(appSource, /function handleChange[\s\S]*?data-film-watch-event-input[\s\S]*?editFilmWatchEvent/);
+    assert.doesNotMatch(appSource, /function handleFocusOut[\s\S]*?data-film-watch-event-input[\s\S]*?editFilmWatchEvent/);
     assert.match(appSource, /watchStatus,/);
     assert.match(appSource, /function shouldClearWatchEventsWhenMovingToWant/);
     assert.match(appSource, /case 'film-delete-watch-event':/);
