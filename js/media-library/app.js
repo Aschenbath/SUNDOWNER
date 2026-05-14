@@ -240,6 +240,7 @@ const perfReporter = {
   firstUsableMarked: false,
   renderCount: 0,
   networkWaitMs: 0,
+  lastRenderKind: '',
   nextActionId: 1,
   activeActions: new Map(),
   actionRows: []
@@ -285,6 +286,8 @@ function countPerfRender(kind = 'render') {
     return;
   }
   perfReporter.renderCount += 1;
+  perfReporter.lastRenderKind = normalizeText(kind) || 'render';
+  notePerfRender(kind);
   markPerf(`${kind}-${perfReporter.renderCount}`);
 }
 
@@ -302,7 +305,11 @@ function startPerfAction(action = '') {
     startRenderCount: perfReporter.renderCount,
     startNetworkWaitMs: perfReporter.networkWaitMs,
     startMark: `${markBase}-start`,
-    endMark: `${markBase}-end`
+    endMark: `${markBase}-end`,
+    sawFullRender: false,
+    sawAnyRender: false,
+    lastRenderKind: '',
+    forcedNetworkWait: false
   };
   perfReporter.activeActions.set(id, token);
   markPerf(token.startMark);
@@ -319,11 +326,16 @@ function finishPerfAction(token, { networkWaitMs = null } = {}) {
   const measuredNetworkWait = networkWaitMs === null || networkWaitMs === undefined
     ? perfReporter.networkWaitMs - token.startNetworkWaitMs
     : networkWaitMs;
+  const roundedNetworkWait = roundPerfValue(measuredNetworkWait);
   perfReporter.actionRows.push({
     action: token.action,
     duration: roundPerfValue(performance.now() - token.startedAt),
     'render count': Math.max(0, perfReporter.renderCount - token.startRenderCount),
-    'network wait': roundPerfValue(measuredNetworkWait)
+    'network wait': roundedNetworkWait,
+    'network awaited': token.forcedNetworkWait || roundedNetworkWait > 0 ? 'yes' : 'no',
+    'full render': token.sawFullRender ? 'yes' : 'no',
+    'render path': token.lastRenderKind || perfReporter.lastRenderKind || '',
+    'rendered': token.sawAnyRender ? 'yes' : 'no'
   });
   if (perfReporter.actionRows.length > 80) {
     perfReporter.actionRows.splice(0, perfReporter.actionRows.length - 80);
@@ -338,9 +350,49 @@ function finishPerfActionAfterPaint(token, options = {}) {
   window.requestAnimationFrame(() => finishPerfAction(token, options));
 }
 
+function notePerfRender(kind = 'render') {
+  if (!perfReporter.enabled) {
+    return;
+  }
+  const normalizedKind = normalizeText(kind) || 'render';
+  perfReporter.activeActions.forEach((token) => {
+    token.sawAnyRender = true;
+    token.lastRenderKind = normalizedKind;
+    if (normalizedKind === 'full-render') {
+      token.sawFullRender = true;
+    }
+  });
+}
+
+function markPerfNetworkAwait(token, awaited = true) {
+  if (!perfReporter.enabled || !token) {
+    return;
+  }
+  token.forcedNetworkWait = Boolean(awaited);
+}
+
 function getPerfMetricValue(entry, key) {
   const value = Number(entry?.[key]);
   return Number.isFinite(value) ? Math.round(value * 10) / 10 : null;
+}
+
+function updatePerfDebugDom(rows = []) {
+  if (!perfReporter.enabled || typeof document === 'undefined') {
+    return;
+  }
+  const host = document.body || document.documentElement;
+  if (!(host instanceof HTMLElement)) {
+    return;
+  }
+  let node = document.getElementById('cml-perf-report');
+  if (!(node instanceof HTMLPreElement)) {
+    node = document.createElement('pre');
+    node.id = 'cml-perf-report';
+    node.hidden = true;
+    node.setAttribute('data-cml-perf-report', 'true');
+    host.appendChild(node);
+  }
+  node.textContent = JSON.stringify(rows, null, 2);
 }
 
 function flushPerfReport() {
@@ -380,6 +432,7 @@ function flushPerfReport() {
   if (!rows.length) {
     return;
   }
+  updatePerfDebugDom(rows);
   console.groupCollapsed(`[cml perf] ${window.location.pathname}${window.location.hash || ''}`);
   console.table(rows);
   console.groupEnd();
@@ -9848,7 +9901,7 @@ function clearAutoFilmTmdbSearch() {
 
 function applyFilmLibrarySearchQuery(query = '') {
   const inputQuery = String(query ?? '');
-  const token = startPerfAction('search input -> results visible');
+  const token = startPerfAction('search input -> visible result update');
   state.filmLibraryQuery = inputQuery;
   if (shouldFallbackFilmLibrarySearchToTmdb(inputQuery)) {
     scheduleFilmSearch(inputQuery, { auto: true });
@@ -10311,7 +10364,7 @@ function delay(ms) {
 function scheduleFilmSearch(query, { auto = false } = {}) {
   const inputQuery = String(query ?? '');
   const normalizedQuery = normalizeText(inputQuery);
-  const token = startPerfAction('search input -> results visible');
+  const token = startPerfAction('search input -> visible result update');
   if (pendingFilmSearchPerfAction) {
     finishPerfAction(pendingFilmSearchPerfAction);
   }
@@ -10871,12 +10924,14 @@ function closeFilmWatchDateEditors(scope = refs.root) {
   });
 }
 
-function toggleFilmWatchDateEditor(toggle) {
+function toggleFilmWatchDateEditor(toggle, { perfToken = null } = {}) {
   if (!(toggle instanceof HTMLElement)) {
+    finishPerfAction(perfToken);
     return;
   }
   const control = toggle.closest('.cml-film-detail__watch-date-control');
   if (!(control instanceof HTMLElement)) {
+    finishPerfAction(perfToken);
     return;
   }
   const shouldOpen = !control.classList.contains('is-open');
@@ -10894,6 +10949,7 @@ function toggleFilmWatchDateEditor(toggle) {
       }
       input.blur();
     }
+    finishPerfActionAfterPaint(perfToken);
     return;
   }
   window.requestAnimationFrame(() => {
@@ -10901,6 +10957,7 @@ function toggleFilmWatchDateEditor(toggle) {
     if (input instanceof HTMLInputElement) {
       input.focus();
     }
+    finishPerfAction(perfToken);
   });
 }
 
@@ -11959,6 +12016,7 @@ function closeFilmImagePicker({ shouldRender = true, animate = shouldRender } = 
 function saveFilmWatchedDateForTarget(target = '', watchedAt, options = {}) {
   const record = findFilmRecordByTarget(target);
   if (!record) {
+    finishPerfAction(options.perfToken);
     return;
   }
   const normalizedDate = normalizeText(watchedAt).slice(0, 10);
@@ -11968,7 +12026,13 @@ function saveFilmWatchedDateForTarget(target = '', watchedAt, options = {}) {
       : normalizeWatchStatusForPayload(record.status || 'watched'),
     watchedAt: normalizedDate,
     watchEvents: replacePrimaryFilmWatchEvent(record.watchEvents || [], record.watchedAt || '', normalizedDate)
-  }, { successMessage: '', keepDetailOpen: true, savedLabel: 'Date saved', showErrorToast: options.silent === false });
+  }, {
+    successMessage: '',
+    keepDetailOpen: true,
+    savedLabel: 'Date saved',
+    showErrorToast: options.silent === false,
+    perfToken: options.perfToken || null
+  });
 }
 
 function loadMoreFilmSearchResults() {
@@ -11980,6 +12044,11 @@ function loadMoreFilmSearchResults() {
   if (state.filmSearchTotalPages > 0 && nextPage > state.filmSearchTotalPages) {
     return;
   }
+  const token = startPerfAction('search load more -> visible result update');
+  if (pendingFilmSearchPerfAction) {
+    finishPerfAction(pendingFilmSearchPerfAction);
+  }
+  pendingFilmSearchPerfAction = token;
   void searchFilms({ query: state.filmSearchQuery, page: nextPage, append: true });
 }
 
@@ -16684,7 +16753,9 @@ function handleAction(actionTarget, event = null) {
       }
       return true;
     case 'film-toggle-watch-date-editor':
-      toggleFilmWatchDateEditor(actionTarget);
+      toggleFilmWatchDateEditor(actionTarget, {
+        perfToken: startPerfAction('watched date click -> date input visible')
+      });
       return true;
     case 'film-retry-rating': {
       const record = findFilmRecordByTarget(actionTarget.dataset.filmId || state.activeFilmId);
@@ -17316,6 +17387,10 @@ function handleInput(event) {
   }
   const activeNotesLine = getFilmNotesSourceLineFromEventTarget(input);
   if (activeNotesLine) {
+    if (filmNotesStableRaf) {
+      window.cancelAnimationFrame(filmNotesStableRaf);
+      filmNotesStableRaf = 0;
+    }
     const perfToken = startPerfAction('notes input -> DOM stable');
     updateFilmNotesLineDraft(activeNotesLine.dataset.filmNotesLineIndex || 0, activeNotesLine.textContent || '');
     filmNotesStableRaf = window.requestAnimationFrame(() => {
@@ -18000,7 +18075,9 @@ function handleKeyDown(event) {
       const control = event.target.closest('.cml-film-detail__watch-date-control');
       const toggle = control?.querySelector('[data-action="film-toggle-watch-date-editor"]');
       if (toggle instanceof HTMLElement) {
-        toggleFilmWatchDateEditor(toggle);
+        toggleFilmWatchDateEditor(toggle, {
+          perfToken: startPerfAction('watched date Enter -> compact summary visible')
+        });
         toggle.focus();
         return;
       }
