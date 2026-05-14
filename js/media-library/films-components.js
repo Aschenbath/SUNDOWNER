@@ -372,8 +372,15 @@ function renderSingleWatchDateControl(record = {}, event = {}, { disabledAttr = 
   const eventId = escapeHtml(event.id || '');
   const label = formatWatchedDateLong(watchedAt);
   return `
-    <label class="cml-film-detail__watch-date-control" aria-label="Edit watched date ${label}">
-      <span>Watched <strong data-film-watch-date-output>${label}</strong></span>
+    <div class="cml-film-detail__watch-date-control">
+      <button
+        type="button"
+        class="cml-film-detail__watch-date-toggle"
+        data-action="film-toggle-watch-date-editor"
+        aria-expanded="false"
+        aria-label="Edit watched date ${label}"
+        ${disabledAttr}
+      >Watched <strong data-film-watch-date-output>${label}</strong></button>
       <input
         type="date"
         class="cml-film-detail__watch-date-input"
@@ -385,7 +392,7 @@ function renderSingleWatchDateControl(record = {}, event = {}, { disabledAttr = 
         aria-label="Edit watched date ${label}"
         ${disabledAttr}
       />
-    </label>
+    </div>
   `;
 }
 

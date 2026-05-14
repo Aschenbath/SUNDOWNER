@@ -12559,14 +12559,27 @@ body.codex-media-library-active #app {
   cursor: pointer;
 }
 
-#codex-media-library-root .cml-film-detail__watch-date-control span {
+#codex-media-library-root .cml-film-detail__watch-date-toggle {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: rgba(241, 238, 230, 0.7);
   font-size: 13px;
   font-weight: 720;
   line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
 }
 
-#codex-media-library-root .cml-film-detail__watch-date-control strong {
+#codex-media-library-root .cml-film-detail__watch-date-toggle:focus-visible {
+  outline: 1px solid rgba(201, 169, 106, 0.22);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+#codex-media-library-root .cml-film-detail__watch-date-toggle strong {
   color: #f1eee6;
   font-size: 18px;
   font-weight: 820;
@@ -12592,7 +12605,7 @@ body.codex-media-library-active #app {
   transition: max-height 150ms ease, min-height 150ms ease, opacity 150ms ease;
 }
 
-#codex-media-library-root .cml-film-detail__watch-date-control:focus-within .cml-film-detail__watch-date-input,
+#codex-media-library-root .cml-film-detail__watch-date-control.is-open .cml-film-detail__watch-date-input,
 #codex-media-library-root .cml-film-detail__watch-date-input:focus {
   max-height: 32px;
   min-height: 32px;

@@ -160,6 +160,7 @@ const FILM_ACTION_NAMES = new Set([
   'save-film-watched-date',
   'close-film-detail',
   'set-film-view-mode',
+  'film-toggle-watch-date-editor',
   'add-manual-film',
   'load-more-film-search-results',
   'clear-film-library-search',
@@ -10444,6 +10445,49 @@ function handleFilmRatingPointerLeave(event) {
   filmRatingPreviewControl = null;
 }
 
+function closeFilmWatchDateEditors(scope = refs.root) {
+  if (!scope || typeof scope.querySelectorAll !== 'function') {
+    return;
+  }
+  scope.querySelectorAll('.cml-film-detail__watch-date-control.is-open').forEach((control) => {
+    if (!(control instanceof HTMLElement)) {
+      return;
+    }
+    control.classList.remove('is-open');
+    const toggle = control.querySelector('[data-action="film-toggle-watch-date-editor"]');
+    if (toggle instanceof HTMLElement) {
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+
+function toggleFilmWatchDateEditor(toggle) {
+  if (!(toggle instanceof HTMLElement)) {
+    return;
+  }
+  const control = toggle.closest('.cml-film-detail__watch-date-control');
+  if (!(control instanceof HTMLElement)) {
+    return;
+  }
+  const shouldOpen = !control.classList.contains('is-open');
+  closeFilmWatchDateEditors(control.closest('[data-film-detail-page]') || refs.root);
+  control.classList.toggle('is-open', shouldOpen);
+  toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+  if (!shouldOpen) {
+    const input = control.querySelector('[data-film-watch-event-input]');
+    if (input instanceof HTMLInputElement) {
+      input.blur();
+    }
+    return;
+  }
+  window.requestAnimationFrame(() => {
+    const input = control.querySelector('[data-film-watch-event-input]');
+    if (input instanceof HTMLInputElement) {
+      input.focus();
+    }
+  });
+}
+
 async function saveFilmWatchedDate(tmdbId, watchedAt, { silent = true } = {}) {
   const normalizedId = Number(tmdbId);
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
@@ -16105,6 +16149,9 @@ function handleAction(actionTarget, event = null) {
         render();
       }
       return true;
+    case 'film-toggle-watch-date-editor':
+      toggleFilmWatchDateEditor(actionTarget);
+      return true;
     case 'film-retry-rating': {
       const record = findFilmRecordByTarget(actionTarget.dataset.filmId || state.activeFilmId);
       if (record) {
@@ -16988,6 +17035,11 @@ function handleFocusOut(event) {
       editFilmWatchEvent(event.target.dataset.filmId || state.activeFilmId, watchEventId, previousDate, event.target.value);
       event.target.dataset.filmWatchEvent = event.target.value;
     }
+    window.setTimeout(() => {
+      if (document.activeElement !== event.target) {
+        closeFilmWatchDateEditors(event.target.closest('[data-film-detail-page]') || refs.root);
+      }
+    }, 0);
     return;
   }
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-image-picker-url')) {

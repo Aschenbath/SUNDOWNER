@@ -732,11 +732,14 @@ describe('media library download actions', () => {
     assert.match(html, /cml-film-detail__watch-inline/);
     assert.match(html, /Watched <strong data-film-watch-date-output>May 9, 2026<\/strong>/);
     assert.match(html, /cml-film-detail__watch-date-control/);
+    assert.match(html, /data-action="film-toggle-watch-date-editor"/);
+    assert.match(html, /aria-expanded="false"/);
     assert.match(html, /data-film-watch-event-input/);
     assert.match(html, /data-film-watch-event-id="watch-1"/);
     assert.match(html, /value="2026-05-09"/);
     assert.match(cssSource, /\.cml-film-detail__watch-date-input \{[\s\S]*max-height: 0;[\s\S]*opacity: 0;/);
-    assert.match(cssSource, /\.cml-film-detail__watch-date-control:focus-within \.cml-film-detail__watch-date-input,[\s\S]*max-height: 32px;[\s\S]*opacity: 1;/);
+    assert.match(cssSource, /\.cml-film-detail__watch-date-control\.is-open \.cml-film-detail__watch-date-input,[\s\S]*max-height: 32px;[\s\S]*opacity: 1;/);
+    assert.doesNotMatch(cssSource, /\.cml-film-detail__watch-date-control:focus-within \.cml-film-detail__watch-date-input/);
     assert.doesNotMatch(cssSource, /\.cml-film-detail__watch-date-control:hover \.cml-film-detail__watch-date-input/);
     assert.match(html, /\+ Rewatch/);
     assert.match(html, /Move to Want/);
@@ -1116,6 +1119,9 @@ describe('media library download actions', () => {
     assert.match(appSource, /case 'film-move-to-want':/);
     assert.match(appSource, /function markFilmWatched/);
     assert.match(appSource, /function moveFilmToWant/);
+    assert.match(appSource, /'film-toggle-watch-date-editor'/);
+    assert.match(appSource, /case 'film-toggle-watch-date-editor':/);
+    assert.match(appSource, /function toggleFilmWatchDateEditor\(toggle\)/);
     assert.match(appSource, /watchStatus,/);
     assert.match(appSource, /function shouldClearWatchEventsWhenMovingToWant/);
     assert.match(appSource, /case 'film-delete-watch-event':/);
