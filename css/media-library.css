@@ -11997,17 +11997,20 @@ body.codex-media-library-active #app {
   color: rgba(241, 238, 230, 0.78);
   font-size: 11px;
   font-weight: 780;
-  opacity: 0.88;
-  transform: translateY(0);
+  opacity: 0;
+  transform: translateY(6px);
   backdrop-filter: blur(14px);
   cursor: pointer;
+  pointer-events: none;
   transition: opacity 150ms ease, transform 150ms ease, border-color 150ms ease;
 }
 
 #codex-media-library-root .cml-film-detail__poster-wrap:hover .cml-film-detail__poster-tool,
-#codex-media-library-root .cml-film-detail__poster-wrap:focus-within .cml-film-detail__poster-tool {
+#codex-media-library-root .cml-film-detail__poster-wrap:focus-within .cml-film-detail__poster-tool,
+#codex-media-library-root .cml-film-detail__poster-tool:focus {
   opacity: 0.92;
   transform: translateY(0);
+  pointer-events: auto;
 }
 
 #codex-media-library-root .cml-film-detail__poster-tool:hover,
@@ -12046,7 +12049,7 @@ body.codex-media-library-active #app {
   justify-content: flex-end;
   width: 96px;
   height: 80px;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 #codex-media-library-root .cml-film-detail__image-hotspot {
@@ -12061,20 +12064,22 @@ body.codex-media-library-active #app {
   color: rgba(241, 238, 230, 0.68);
   font-size: 11px;
   font-weight: 760;
-  opacity: 0.88;
-  transform: translateY(0);
+  opacity: 0;
+  transform: translateY(-4px);
   backdrop-filter: blur(14px);
   cursor: pointer;
-  pointer-events: auto;
+  pointer-events: none;
   transition: opacity 150ms ease, transform 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 #codex-media-library-root .cml-film-detail__image-tools:hover .cml-film-detail__image-hotspot,
 #codex-media-library-root .cml-film-detail__image-tools:focus-within .cml-film-detail__image-hotspot,
 #codex-media-library-root .cml-film-detail__hero:hover .cml-film-detail__image-hotspot,
-#codex-media-library-root .cml-film-detail__hero:focus-within .cml-film-detail__image-hotspot {
+#codex-media-library-root .cml-film-detail__hero:focus-within .cml-film-detail__image-hotspot,
+#codex-media-library-root .cml-film-detail__image-hotspot:focus {
   opacity: 0.92;
   transform: translateY(0);
+  pointer-events: auto;
 }
 
 #codex-media-library-root .cml-film-detail__image-hotspot:hover,
@@ -13938,6 +13943,18 @@ body.codex-media-library-active #app {
   font-size: 11px;
   font-weight: 760;
   cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity 150ms ease, transform 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+#codex-media-library-root .cml-film-detail__topline:hover .cml-film-detail__manage,
+#codex-media-library-root .cml-film-detail__topline:focus-within .cml-film-detail__manage,
+#codex-media-library-root .cml-film-detail__manage:focus {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 #codex-media-library-root .cml-film-detail__manage:hover,
@@ -14263,8 +14280,8 @@ body.codex-media-library-active #app {
   }
 
   #codex-media-library-root .cml-film-detail__image-hotspot {
-    opacity: 0.85;
-    transform: none;
+    opacity: 0;
+    transform: translateY(-4px);
   }
 
   #codex-media-library-root .cml-film-detail__overlay-layer .cml-film-metadata-editor--popover,

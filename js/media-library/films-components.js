@@ -1237,7 +1237,7 @@ export function FilmDetailPage({ record = null, notesEditing = false, notesDraft
   const controlRecord = localActionDisabled
     ? { ...displayRecord, isSaving: true }
     : displayRecord;
-  const metadataEditor = isSavedEntry && metadataEditing
+  const metadataEditor = isSavedEntry && metadataEditing && metadataFocusField !== 'overviewOverride'
     ? renderFilmMetadataEditor(displayRecord, metadataDraft || {}, { focusField: metadataFocusField })
     : '';
   const synopsisMetadataEditor = canEditLocalMetadata && metadataEditing && metadataFocusField === 'overviewOverride'

@@ -901,11 +901,27 @@ describe('media library download actions', () => {
     });
 
     assert.match(synopsisHtml, /cml-film-detail__synopsis-inline is-editing[\s\S]*cml-film-detail__synopsis-editor[\s\S]*cml-film-detail__synopsis-textarea[\s\S]*data-film-metadata-field="overviewOverride"/);
+    assert.equal((synopsisHtml.match(/data-film-metadata-field="overviewOverride"/g) || []).length, 1);
     assert.doesNotMatch(synopsisHtml, /<h2>Synopsis<\/h2>/);
     assert.doesNotMatch(synopsisHtml, /Click outside to save\./);
     assert.ok(synopsisHtml.indexOf('cml-film-detail__meta-row') < synopsisHtml.indexOf('data-film-metadata-field="overviewOverride"'));
     assert.ok(synopsisHtml.indexOf('data-film-metadata-field="overviewOverride"') < synopsisHtml.indexOf('cml-film-detail__lower'));
     assert.doesNotMatch(synopsisHtml, /data-film-metadata-field="directorOverride"/);
+    assert.doesNotMatch(synopsisHtml, /cml-film-metadata-editor--popover[\s\S]*data-film-metadata-field="overviewOverride"/);
+  });
+
+  it('keeps film detail manage and image edit actions hidden until nearby hover or focus', () => {
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(cssSource, /\.cml-film-detail__poster-tool \{[\s\S]*opacity: 0;[\s\S]*pointer-events: none;/);
+    assert.match(cssSource, /\.cml-film-detail__poster-wrap:hover \.cml-film-detail__poster-tool,[\s\S]*\.cml-film-detail__poster-tool:focus \{[\s\S]*opacity: 0\.92;[\s\S]*pointer-events: auto;/);
+    assert.match(cssSource, /\.cml-film-detail__image-hotspot \{[\s\S]*opacity: 0;[\s\S]*pointer-events: none;/);
+    assert.match(cssSource, /\.cml-film-detail__image-tools:hover \.cml-film-detail__image-hotspot,[\s\S]*\.cml-film-detail__image-hotspot:focus \{[\s\S]*opacity: 0\.92;[\s\S]*pointer-events: auto;/);
+    assert.match(cssSource, /\.cml-film-detail__manage \{[\s\S]*opacity: 0;[\s\S]*pointer-events: none;/);
+    assert.match(cssSource, /\.cml-film-detail__topline:hover \.cml-film-detail__manage,[\s\S]*\.cml-film-detail__manage:focus \{[\s\S]*opacity: 1;[\s\S]*pointer-events: auto;/);
+    assert.doesNotMatch(cssSource, /\.cml-film-detail__image-hotspot \{[\s\S]*opacity: 0\.85;/);
+    assert.match(appSource, /closest\('\.cml-film-detail__synopsis-editor'\)/);
   });
 
   it('renders TMDb image choices as path overrides and custom URLs separately', () => {

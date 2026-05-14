@@ -70,7 +70,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=78';
+import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=79';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -16278,7 +16278,8 @@ function handleClick(event) {
       ? Array.from(refs.root.querySelectorAll('.cml-film-metadata-editor'))
       : [];
     const clickedInsideMetadataEditor = event.target instanceof Element
-      && metadataEditors.some((node) => node instanceof HTMLElement && node.contains(event.target));
+      && (metadataEditors.some((node) => node instanceof HTMLElement && node.contains(event.target))
+        || Boolean(event.target.closest('.cml-film-detail__synopsis-editor')));
     const clickedMetadataEditAction = actionTarget instanceof HTMLElement
       && actionTarget.dataset.action === 'film-edit-metadata';
     if (!clickedInsideMetadataEditor && !clickedMetadataEditAction && pointerStartEditSurface !== 'metadata') {
@@ -16612,7 +16613,7 @@ function handlePointerDown(event) {
     filmPointerStartEditSurface = 'notes';
     return;
   }
-  if (state.filmMetadataEditing && event.target.closest('.cml-film-metadata-editor')) {
+  if (state.filmMetadataEditing && (event.target.closest('.cml-film-metadata-editor') || event.target.closest('.cml-film-detail__synopsis-editor'))) {
     filmPointerStartEditSurface = 'metadata';
     return;
   }
