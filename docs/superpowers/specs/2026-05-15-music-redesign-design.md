@@ -3,11 +3,11 @@
 Date: 2026-05-15
 Project: SUNDOWNER
 Scope: Desktop Music page redesign only
-Status: Draft approved for planning
+Status: Approved for planning rewrite
 
 ## Goal
 
-Redesign the Music page so it reads as a modern music player first and a private audio library second. The current page feels too close to an admin or media-management layout. The redesign should move it toward an Apple Music inspired dark editorial experience without changing the global shell.
+Redesign the Music page so it feels like a natural native desktop music view instead of a visibly designed showcase page. The previous redesign overshot into an over-styled, self-conscious player layout. The replacement direction should feel calm, native, restrained, and quietly premium.
 
 ## Constraints
 
@@ -16,259 +16,309 @@ Redesign the Music page so it reads as a modern music player first and a private
 - Do not change route structure or core playback logic.
 - Do not spill the redesign into Films, Photos, Documents, or other surfaces.
 - Keep the page functional when the library is sparse, including 0-2 tracks.
-- Keep existing private-library capabilities available, but visually subordinate them to playback.
+- Keep existing private-library capabilities available.
+- Avoid visual treatments that read as polished-for-effect, dramatic, or self-consciously premium.
 
 ## Product Positioning
 
-This is not a pure streaming product. It is a private media-library product with music playback. The page therefore needs to balance two identities:
+This page belongs to a private media-library product, not a pure streaming product. It still needs to feel like a desktop music surface, but the right tone is closer to a native system music view than to a stylized entertainment landing page.
 
-1. It should feel like a real desktop music player when opened.
-2. It should still support library browsing, queue control, playlist entry points, and lightweight metadata management.
+The page should therefore:
 
-The redesign should prioritize listening flow over management chrome.
+1. Read as a calm music player when opened.
+2. Preserve library browsing and lightweight management.
+3. Avoid obvious "design performance" in service of looking expensive.
+
+## Direction Reset
+
+The previous direction failed because the page looked too visibly designed:
+- the hero was too performative
+- the queue and playlist areas competed for attention
+- the page felt polished in a way that read as fake rather than natural
+
+This redesign must explicitly move away from that.
 
 ## Design Direction
 
-Primary direction: Apple Music inspired dark editorial.
+Primary direction: Quiet Native Music.
+
+Reference qualities:
+- macOS native tool feeling
+- restrained desktop music app hierarchy
+- subtle premium quality through typography and spacing
+- low-noise surfaces
+- low-drama interaction states
 
 Keywords:
-- deep charcoal
-- soft glass
-- album-first
-- quiet luxury
-- high contrast, low noise
+- native
+- quiet
+- restrained
+- graphite
+- cool neutral
+- system-like
+- list-first discipline
+- small artwork, not hero artwork
 
 Avoid:
-- cyber / neon visual language
-- audiophile instrument-panel UI
-- dashboard stats-first structure
-- filter-pill-heavy playlist treatment
-- spreadsheet-like music table styling
+- large banner hero composition
+- expressive glow or tint-heavy surfaces
+- oversized artwork as the page center
+- loud playlist cards
+- anything that looks like a portfolio-grade redesign pass
+- obvious attempts at looking luxurious
 
 ## Information Architecture
 
-The Music page should be organized into four vertical layers.
+The page should be organized into three levels instead of the prior stage-like structure.
 
-### 1. Hero Now Playing
+### 1. Top Now Playing Strip
 
-The top of the page should become a playback stage instead of a generic summary block.
+The top anchor should be a horizontal now playing strip, not a dramatic hero.
 
 Contents:
-- large artwork anchor
-- current track title
-- artist and album metadata
-- progress bar
-- primary transport controls
-- lightweight context text that anchors playback inside the private library
+- small to medium artwork
+- track title
+- artist and album
+- compact progress treatment
+- compact transport controls
+- lightweight utility controls only if they do not dominate the strip
 
 Purpose:
-- establish immediate player identity
-- make the current track the first thing the eye lands on
-- provide the strongest play/pause affordance on the page
+- establish the page as a music surface immediately
+- make playback primary without turning the top of the page into a showcase block
+- feel like a desktop app header module rather than a hero section
 
-### 2. Up Next Queue Rail
+### 2. Main Track List
 
-The queue should move into a distinct right-side rail adjacent to the hero.
-
-Contents:
-- current track card
-- 3-6 upcoming tracks
-- jump-to-track affordance
-- remove-from-queue affordance
-
-Purpose:
-- preserve continuous playback context
-- make queue behavior feel like player state, not a utility sidebar
-
-### 3. Playlists Shelf
-
-Playlists should become a shelf of small collection cards rather than pills.
+The main content area should be track-list dominant.
 
 Contents:
-- stable `All tracks` anchor card
-- one card per playlist
-- one `Create playlist` card of equal hierarchy
-
-Each card should show:
-- playlist name
-- track count
-- optional lightweight mood or collection subtitle
-- optional artwork or artwork-like placeholder treatment
-
-Purpose:
-- make playlists feel like part of the music product, not like filters
-- preserve navigation and creation actions while improving tone
-
-### 4. Track List
-
-The lower section should remain a full track list, but its treatment should move closer to a player library.
-
-Contents:
-- index / play-state cell
-- title + subtitle block
+- play/index cell
+- title and subtitle block
 - artist
 - album
 - duration or added information
-- quiet row actions
+- subdued row actions
 
 Purpose:
-- keep browsing and management possible
-- visually demote grid/admin energy
-- keep current-track state readable at a glance
+- make the page feel grounded and native
+- keep the music library as the main visual structure
+- preserve functionality without the page drifting into admin-table harshness
+
+### 3. Auxiliary Right Column
+
+The right column should remain, but only as supporting context.
+
+Sections:
+- Up Next queue
+- Playlists
+
+Purpose:
+- preserve playback continuity and organization
+- avoid competing with the main list
+- read like a side utility column, not a second visual centerpiece
+
+## Visual Hierarchy
+
+### Primary emphasis
+
+1. current track title in the top strip
+2. current playback row in the list
+3. overall list readability
+
+### Secondary emphasis
+
+1. queue state
+2. playlist entry points
+3. supporting metadata
+
+### De-emphasized elements
+
+1. management actions
+2. decorative container treatments
+3. visual separation that exists only to look designed
 
 ## Visual Language
 
-### Background and Surfaces
+### Background and Surface Model
 
-Use a deep dark base, but not pure black. Surfaces should separate using:
-- tonal elevation
-- light edge definition
-- restrained shadow depth
-- mild blur/glass cues where appropriate
+Use a stable dark graphite base with restrained elevation.
 
-Panels should feel layered and expensive, not dense or noisy.
+Requirements:
+- fewer card islands than the previous version
+- weaker borders and lower-contrast separations
+- reliance on spacing, typography, and density instead of effects
+- shadows only where they help separation, not where they announce design intent
+
+The page should feel composed, not staged.
 
 ### Artwork Treatment
 
-Artwork should become the strongest visual anchor on the page.
+Artwork remains important, but it must stop acting like the page's dramatic centerpiece.
 
 Requirements:
-- hero artwork larger and more prominent than any current element
-- queue current-track artwork slightly stronger than upcoming items
-- playlist cards should use artwork or a musically convincing placeholder
-- artwork transitions should preserve calm, not flash
+- small or medium artwork in the now playing strip
+- queue or playlist artwork only if it supports recognition without increasing visual noise
+- placeholders should look like native UI, not decorative mock assets
+- transitions should stay subtle and practical
 
 ### Typography
 
-Typography should emphasize playback hierarchy.
+Typography is the main source of quality in this direction.
 
 Requirements:
-- page or hero title large, tight, and editorial
-- current track title visually dominant
-- artist and album as lighter secondary information
-- metadata and helper copy reduced in prominence
-- durations and counters visually tidy and tabular where possible
+- track title strong, but not oversized
+- supporting text visibly subordinate
+- labels and counters compact and disciplined
+- line lengths controlled
+- row typography should feel more like a desktop app list than like a card UI
 
 ### Color
 
-Use color sparingly.
+Color should do less.
 
 Requirements:
-- neutral deep background family
-- soft cool-white foreground hierarchy
-- one restrained accent for active playback, selection, and primary control emphasis
-- active states should rely more on tint and brightness than on loud hue changes
+- cool neutral foreground hierarchy
+- restrained accent only for active playback or selected state
+- active state should rely on clarity, not visual drama
+- reduce heavy tint fills and decorative gradients
+
+## Layout Guidance
+
+### Now Playing Strip
+
+The strip should be horizontally compact.
+
+Suggested layout:
+- artwork on the left
+- playback text in the center-left
+- compact controls in the center-right
+- optional queue/mode/volume utilities at the right edge if they remain visually quiet
+
+This strip should feel like the natural top module of a desktop player, not a feature banner.
+
+### Main List
+
+The list should feel like the center of gravity.
+
+Requirements:
+- enough row height to breathe
+- enough density to feel useful
+- current row must be obvious, but elegantly so
+- actions should not constantly compete with row text
+- title block should dominate row hierarchy
+
+### Right Column
+
+The right column should be visibly secondary.
+
+Requirements:
+- narrower than the previous redesign's queue emphasis
+- low visual noise
+- queue and playlist sections visually related, not separately dramatized
+- supporting role in the overall composition
 
 ## Component Guidance
 
-### Hero Player
-
-Structure:
-- artwork left
-- text and progress center
-- supporting utility controls right
+### Now Playing Strip
 
 Behavior:
-- play/pause button is the single strongest CTA on the page
-- transport controls visually subordinate to play/pause
-- utility controls such as mode or volume stay visible but quiet
-- title and art should crossfade when tracks switch
+- should always feel present, even when no track is playing
+- should not collapse into a generic empty rectangle
+- should support quick playback context rather than immersive storytelling
 
-### Queue Items
-
-Behavior:
-- current item clearly differentiated from the rest
-- hover reveals intent without adding clutter at rest
-- remove action visually quiet until needed
-- transitions should feel like queue flow, not list rerendering
-
-### Playlist Cards
+### Queue
 
 Behavior:
-- equal hierarchy between existing playlists and create entry
-- larger click targets than the current pill model
-- card treatment should feel like music collections, not filter chips
+- current item easy to identify
+- upcoming items simple and scannable
+- remove/jump affordances available but quiet
+- does not visually overpower the page
+
+### Playlists
+
+Behavior:
+- closer to native collection entries than expressive cards
+- enough structure to distinguish them from text links
+- not so much structure that they become decorative showcases
 
 ### Track Rows
 
 Behavior:
-- title column dominates
-- current row gets refined playback highlight treatment
-- row actions fade in on hover or focus
-- metadata editing stays possible but visually quiet
+- current track row gets the cleanest state signal on the page after the top strip
+- row actions only become strong when needed
+- metadata editing remains available but stays visually recessed
 
 ## Empty and Sparse States
 
-The page must look deliberate even with few tracks.
+The sparse-library case matters more in this direction because the design cannot rely on dramatic structure to fill space.
 
 ### Zero-track state
 
 Requirements:
-- hero scaffold still looks like a player frame
-- queue rail has an elegant empty treatment
-- playlist shelf still establishes structure
-- lower list area uses a refined empty message instead of a dead blank panel
+- now playing strip still looks complete
+- list empty state feels native and calm
+- auxiliary column remains useful but understated
+- no huge empty theatrical surfaces
 
-### Sparse library state
+### Sparse state
 
 Requirements:
-- design should not depend on having many playlist cards or long queue stacks
-- spacing and composition must remain balanced with 1-2 tracks
-- placeholders should feel productized, not debug-like
+- 1-2 tracks should still look intentional
+- no oversized visual containers that become awkward when content is scarce
+- spacing should feel quiet, not hollow
 
 ## Motion and Interaction
 
-Motion should be restrained and meaningful.
+Motion should be nearly invisible.
 
-Allowed motion zones:
-- play/pause and transport feedback
-- queue current-item state changes
-- hero text/artwork transitions
-- card and row hover/pressed states
+Use motion only for:
+- hover and pressed state clarity
+- compact playback state changes
+- subtle content replacement in the now playing strip
 
-Recommended timing:
-- hover: 120-160ms
-- press: 80-120ms
-- art/text swap: 160-220ms
-- queue/row state change: 140-180ms
+Timing guidance:
+- hover: 120-150ms
+- press: 80-110ms
+- content replacement: 140-180ms
 
 Avoid:
-- big panel choreography
-- flashy glow pulses
-- long easing curves
-- anything that makes the page feel like a demo instead of a product
+- animated panel choreography
+- expressive transitions
+- noticeable hero-style crossfades
+- anything that calls attention to itself as animation
 
-Reduced motion must remain respected.
+Reduced motion must be respected.
 
 ## Search Positioning
 
-Because the shell search remains in place, Music should not introduce another competing heavy search band.
+The shell-level search remains the main search surface.
 
-Guidance:
-- internal list filtering can remain lightweight
-- treat it as a support tool for the track list
-- do not let search compete with the hero playback zone
+Guidance for Music:
+- if an internal list filter exists, it should be extremely quiet
+- it must not compete with the top strip
+- it should read as a practical list control, not a featured UI element
 
 ## Interaction Priority
 
-Priority order for the page:
+Priority order:
 
-1. Play / Pause
-2. Select track / Next / Previous / Queue jump / Open playlist
-3. Rename metadata / Remove from playlist / Create playlist
+1. play / pause
+2. choosing and resuming tracks
+3. queue awareness
+4. playlist switching
+5. metadata and management actions
 
-Design implication:
-- management actions must not compete with listening actions
-- playback affordances need the strongest visual and spatial priority
+This means the page should feel like a listening tool first, while still being a private library underneath.
 
 ## Accessibility
 
 Requirements:
-- all major controls retain visible labels or aria-labels
-- current track state must not rely on color only
-- queue and row focus states must remain visible
-- contrast must stay strong in dark mode
-- hover-only affordances must still be keyboard reachable
+- maintain readable contrast in dark mode
+- current playback state must not rely on color only
+- focus states remain visible but quiet
+- all icon-only controls need labels
+- hover-only affordances must remain keyboard reachable
 
 ## Implementation Boundaries
 
@@ -276,42 +326,42 @@ Requirements:
 
 - `js/media-library/components.js`
 - `css/media-library.css`
-- `js/media-library/app.js` only if lightweight view wiring is required
-- cache version in `index.html`
+- `js/media-library/app.js` only if minimal Music wiring is required
+- `index.html` cache versions
 
 ### Files not intended to change
 
 - global shell structure
 - non-Music modules
-- playback engine behavior
 - route model
+- playback engine logic
 
 ## Delivery Strategy
 
 Recommended implementation order:
 
-1. Rebuild hero + queue + playlist shelf structure
-2. Rework the track list visual hierarchy
-3. Refine player-control visuals and row/card states
-4. Finish sparse/empty states and responsive cleanup
+1. remove the over-designed hero structure and replace it with a restrained now playing strip
+2. make the main track list the dominant content area again
+3. reduce the right column so queue and playlists become supporting context
+4. refine sparse and empty states so the quieter layout still feels complete
 
 ## Testing Expectations
 
 Before claiming completion, implementation should verify:
-- desktop Music page visual hierarchy matches the redesign intent
-- sparse library state still looks intentional
-- current playback state is obvious in hero, queue, and list row
-- keyboard and hover states remain accessible
-- the redesign does not disturb the global shell
+- the top strip feels native and compact rather than theatrical
+- the main list is clearly the primary content area
+- the right column is secondary in visual weight
+- sparse and empty cases remain intentional
+- global shell remains unchanged
 
 ## Out of Scope
 
-- redesigning Photos / Films / Documents
-- altering the global header or sidebar
-- adding new playback features
-- changing route semantics
-- redesigning mobile-first navigation in this pass
+- redesigning other media surfaces
+- changing shell navigation
+- altering playback logic
+- adding new player features
+- mobile-first redesign in this pass
 
 ## Recommendation
 
-Proceed with implementation using the approved Apple Music inspired dark editorial direction, preserving SUNDOWNER's private-library role while making playback the primary story of the page.
+Proceed by explicitly undoing the previous over-styled structure and rebuilding the Music page around a quiet native desktop music model: restrained now playing strip, strong list center, supporting right column, and almost no visual self-consciousness.
