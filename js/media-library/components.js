@@ -1564,24 +1564,18 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
   return `
     <section class="cml-music-library" id="cml-music-library" aria-label="Music library">
       <div class="cml-music-library__main">
-        <section class="cml-music-playlist cml-music-playlist__ledger">
+        <section class="cml-music-playlist cml-music-playlist__list-shell">
           <div class="cml-music-playlist__head ${activePlaylistName ? '' : 'is-root'}">
             <div class="cml-music-playlist__head-copy">
-              <p class="cml-music-playlist__eyebrow">${activePlaylistName ? 'Playlist collection' : 'Library collection'}</p>
-              <h3 class="cml-music-playlist__title">${escapeHtml(activePlaylistName || 'Track ledger')}</h3>
-              <p class="cml-music-playlist__description">${escapeHtml(activePlaylistName ? 'Saved order with direct queue access and lightweight playlist actions.' : 'Browse your tracks in a calmer player-first library view.')}</p>
+              <p class="cml-music-playlist__eyebrow">${activePlaylistName ? 'Playlist' : 'Library'}</p>
+              <h3 class="cml-music-playlist__title">${escapeHtml(activePlaylistName || 'Tracks')}</h3>
+              <p class="cml-music-playlist__description">${escapeHtml(activePlaylistName ? `${formatItemCount(items.length)} saved inside this playlist.` : `${formatItemCount(items.length)} tracks in your private library.`)}</p>
             </div>
             <div class="cml-music-playlist__head-actions">
-              <span class="cml-music-playlist__count">${formatItemCount(items.length)}</span>
-              <span class="cml-music-playlist__hint">${activePlaylistName ? 'Queue follows this playlist order.' : 'Current playback stays synchronized with the visible track order.'}</span>
+              <span class="cml-music-playlist__count">${queueSource.length === 1 ? '1 in queue' : `${queueSource.length} in queue`}</span>
             </div>
           </div>
-          <div class="cml-music-playlist__rail">
-            <span class="cml-music-playlist__rail-chip">${queueSource.length === 1 ? '1 track in flow' : `${queueSource.length} tracks in flow`}</span>
-            <span class="cml-music-playlist__rail-chip">${escapeHtml(activePlaylistName ? 'Playlist order pinned' : 'Library order live')}</span>
-            <span class="cml-music-playlist__rail-copy">${escapeHtml(activePlaylistName ? 'Jump between this saved sequence and the full library without losing playback context.' : 'The list stays editable, but listening flow stays visually in front.')}</span>
-          </div>
-          <div class="cml-music-playlist__table" role="table" aria-label="Playlist table">
+          <div class="cml-music-playlist__table" role="table" aria-label="Track list">
             <div class="cml-music-playlist__header" role="row">
               <span aria-hidden="true"></span>
               <span role="columnheader">Track</span>
@@ -1625,11 +1619,10 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
         <section class="cml-music-queue" aria-label="Music queue">
           <div class="cml-music-queue__head">
             <div class="cml-music-queue__head-copy">
-              <p class="cml-music-queue__eyebrow">Playback rail</p>
+              <p class="cml-music-queue__eyebrow">Up next</p>
               <h4 class="cml-music-queue__title">Up Next</h4>
-              <p class="cml-music-queue__description">Keep the current track and your next selections in view.</p>
+              <p class="cml-music-queue__description">Queue and playlists stay visible here without competing with the library.</p>
             </div>
-            <span class="cml-music-queue__count">${queueItems.length === 1 ? '1 track' : `${queueItems.length} tracks`}</span>
           </div>
           <div class="cml-music-queue__list">${queueHtml}</div>
         </section>
