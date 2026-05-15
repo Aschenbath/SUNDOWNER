@@ -2210,6 +2210,18 @@ describe('media library download actions', () => {
     assert.match(html, /Darcy’s Letter/);
   });
 
+  it('defines the redesigned music hero, playlist cards, and queue rail selectors', () => {
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+
+    assert.match(cssSource, /cml-music-summary__hero/);
+    assert.match(cssSource, /cml-music-summary__now-playing/);
+    assert.match(cssSource, /cml-music-summary__cover/);
+    assert.match(cssSource, /cml-music-summary__transport-button--primary/);
+    assert.match(cssSource, /cml-music-summary__queue-rail/);
+    assert.match(cssSource, /cml-music-playlist-card/);
+    assert.match(cssSource, /cml-music-playlist__ledger/);
+  });
+
   it('renders a desktop sidebar audio dock for non-music routes', () => {
     const dockHtml = SidebarAudioPlayer({
       currentItem: {
