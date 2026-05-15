@@ -2219,6 +2219,18 @@ describe('media library download actions', () => {
     assert.match(cssSource, /cml-music-playlist__table/);
   });
 
+  it('keeps the main dashboard content as the internal scroll container', () => {
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+    const contentShellRule = cssSource.match(/#codex-media-library-root \.cml-main-content-shell \{[\s\S]*?\n\}/)?.[0] || '';
+    const mainContentRule = [...cssSource.matchAll(/#codex-media-library-root \.cml-main-content \{[\s\S]*?\n\}/g)]
+      .map((match) => match[0])
+      .find((rule) => rule.includes('overflow: auto;')) || '';
+
+    assert.match(contentShellRule, /grid-template-rows: minmax\(0, 1fr\);/);
+    assert.match(mainContentRule, /min-height: 0;/);
+    assert.match(mainContentRule, /overflow: auto;/);
+  });
+
   it('renders a desktop sidebar audio dock for non-music routes', () => {
     const dockHtml = SidebarAudioPlayer({
       currentItem: {

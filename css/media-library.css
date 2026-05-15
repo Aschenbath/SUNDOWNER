@@ -1722,6 +1722,7 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-main-content-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 62px;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   margin: 8px 18px 16px 10px;
   border-radius: 28px;
@@ -1738,6 +1739,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-main-content {
   min-width: 0;
+  min-height: 0;
   overflow: auto;
   overscroll-behavior-y: contain;
   overscroll-behavior-x: none;
