@@ -2050,6 +2050,42 @@ describe('media library download actions', () => {
     assert.doesNotMatch(gridHtml, /Open deleted photos and videos/);
   });
 
+  it('renders the redesigned music summary as a player-first hero with queue and playlist shelf support', () => {
+    const html = MusicSummary({
+      totalCount: 12,
+      isMobile: false,
+      currentItem: {
+        id: 'audio-1',
+        audioTitle: 'Darcy’s Letter',
+        audioArtist: 'Dario Marianelli',
+        audioAlbum: 'Pride & Prejudice',
+        audioDuration: 274,
+        thumbnailUrl: 'https://example.com/cover.jpg'
+      },
+      queueItems: [
+        { id: 'audio-1', audioTitle: 'Darcy’s Letter', audioArtist: 'Dario Marianelli', audioAlbum: 'Pride & Prejudice', audioDuration: 274 },
+        { id: 'audio-2', audioTitle: 'The Secret Life of Daydreams', audioArtist: 'Tom Misch', audioAlbum: 'Beat Tape 2', audioDuration: 231 }
+      ],
+      isPlaying: true,
+      mode: 'sequence',
+      playlists: [
+        { name: 'Night Drive', itemCount: 5 },
+        { name: 'Soft Focus', itemCount: 7 }
+      ],
+      activePlaylistName: ''
+    });
+
+    assert.match(html, /cml-music-summary__hero/);
+    assert.match(html, /cml-music-summary__now-playing/);
+    assert.match(html, /cml-music-summary__transport/);
+    assert.match(html, /cml-music-summary__progress/);
+    assert.match(html, /cml-music-summary__queue-rail/);
+    assert.match(html, /cml-music-summary__playlist-shelf/);
+    assert.match(html, /All tracks/);
+    assert.match(html, /Night Drive/);
+    assert.match(html, /Soft Focus/);
+  });
+
   it('renders a dedicated music list and player queue for audio items', () => {
     const items = [
       {
@@ -2130,9 +2166,11 @@ describe('media library download actions', () => {
     });
 
     assert.match(summaryHtml, /cml-music-summary/);
-    assert.match(summaryHtml, /<p class="cml-music-summary__eyebrow">Music<\/p>/);
-    assert.match(summaryHtml, /Music Library/);
+    assert.match(summaryHtml, /<p class="cml-music-summary__eyebrow">Archive<\/p>/);
+    assert.match(summaryHtml, /<h2 class="cml-view-summary__title">Music<\/h2>/);
     assert.match(summaryHtml, /0 items available in your private cloud library\./);
+    assert.match(summaryHtml, /Start the next listening flow/);
+    assert.match(summaryHtml, /Play a track to build your queue\./);
     assert.match(html, /Select a track/);
   });
 
