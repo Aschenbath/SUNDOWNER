@@ -2050,7 +2050,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(gridHtml, /Open deleted photos and videos/);
   });
 
-  it('renders the redesigned music summary as a player-first hero with queue and playlist shelf support', () => {
+  it('renders the redesigned music summary as a compact native now-playing strip with secondary queue and playlist context', () => {
     const html = MusicSummary({
       totalCount: 12,
       isMobile: false,
@@ -2064,7 +2064,7 @@ describe('media library download actions', () => {
       },
       queueItems: [
         { id: 'audio-1', audioTitle: 'Darcy’s Letter', audioArtist: 'Dario Marianelli', audioAlbum: 'Pride & Prejudice', audioDuration: 274 },
-        { id: 'audio-2', audioTitle: 'The Secret Life of Daydreams', audioArtist: 'Tom Misch', audioAlbum: 'Beat Tape 2', audioDuration: 231 }
+        { id: 'audio-2', audioTitle: 'Arrival of the Birds', audioArtist: 'The Cinematic Orchestra', audioAlbum: 'The Crimson Wing', audioDuration: 231 }
       ],
       isPlaying: true,
       mode: 'sequence',
@@ -2075,18 +2075,18 @@ describe('media library download actions', () => {
       activePlaylistName: ''
     });
 
-    assert.match(html, /cml-music-summary__hero/);
-    assert.match(html, /cml-music-summary__now-playing/);
+    assert.match(html, /cml-music-summary__strip/);
+    assert.match(html, /cml-music-summary__now-playing-strip/);
     assert.match(html, /cml-music-summary__transport/);
     assert.match(html, /cml-music-summary__progress/);
-    assert.match(html, /cml-music-summary__queue-rail/);
-    assert.match(html, /cml-music-summary__playlist-shelf/);
+    assert.match(html, /cml-music-summary__side-column/);
+    assert.match(html, /cml-music-summary__playlists/);
     assert.match(html, /All tracks/);
     assert.match(html, /Night Drive/);
     assert.match(html, /Soft Focus/);
   });
 
-  it('renders the redesigned music library layout with a player-first ledger and sidebar queue', () => {
+  it('renders the redesigned music library layout as a list-first main area with secondary right context', () => {
     const items = [
       {
         id: 'audio-1',
@@ -2135,17 +2135,11 @@ describe('media library download actions', () => {
 
     assert.match(listHtml, /cml-music-library__main/);
     assert.match(listHtml, /cml-music-library__aside/);
-    assert.match(listHtml, /cml-music-playlist__ledger/);
+    assert.match(listHtml, /cml-music-playlist__list-shell/);
     assert.match(listHtml, /cml-music-playlist__table/);
-    assert.match(listHtml, /cml-music-list/);
-    assert.match(listHtml, /data-action="play-audio-item"/);
-    assert.match(listHtml, /Darcy’s Letter/);
-    assert.match(listHtml, /Dario Marianelli/);
     assert.match(listHtml, /cml-music-queue/);
-    assert.match(listHtml, /cml-music-playlist__eyebrow">Library collection/);
+    assert.match(listHtml, /cml-music-playlist__eyebrow">Library/);
     assert.match(listHtml, /cml-music-queue__title">Up Next/);
-    assert.match(listHtml, /class="cml-music-queue__play"/);
-    assert.match(listHtml, /data-action="audio-remove-queue-item"/);
     assert.match(panelHtml, /Audio player/);
     assert.match(panelHtml, /Queue/);
     assert.match(panelHtml, /data-action="audio-toggle-play"/);
@@ -2182,11 +2176,11 @@ describe('media library download actions', () => {
     });
 
     assert.match(summaryHtml, /cml-music-summary/);
-    assert.match(summaryHtml, /<p class="cml-music-summary__eyebrow">Archive<\/p>/);
-    assert.match(summaryHtml, /<h2 class="cml-view-summary__title">Music<\/h2>/);
+    assert.match(summaryHtml, /<p class="cml-music-summary__eyebrow">Music<\/p>/);
+    assert.match(summaryHtml, /<h2 class="cml-view-summary__title">Library<\/h2>/);
     assert.match(summaryHtml, /0 items available in your private cloud library\./);
-    assert.match(summaryHtml, /Start the next listening flow/);
-    assert.match(summaryHtml, /Play a track to build your queue\./);
+    assert.match(summaryHtml, /Nothing playing/);
+    assert.match(summaryHtml, /Queue stays here once playback starts\./);
     assert.match(html, /Select a track/);
   });
 
@@ -2210,16 +2204,15 @@ describe('media library download actions', () => {
     assert.match(html, /Darcy’s Letter/);
   });
 
-  it('defines the redesigned music hero, playlist cards, and queue rail selectors', () => {
+  it('defines the quiet native music strip, list shell, and subdued playlist entry selectors', () => {
     const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
 
-    assert.match(cssSource, /cml-music-summary__hero/);
-    assert.match(cssSource, /cml-music-summary__now-playing/);
-    assert.match(cssSource, /cml-music-summary__cover/);
-    assert.match(cssSource, /cml-music-summary__transport-button--primary/);
-    assert.match(cssSource, /cml-music-summary__queue-rail/);
-    assert.match(cssSource, /cml-music-playlist-card/);
-    assert.match(cssSource, /cml-music-playlist__ledger/);
+    assert.match(cssSource, /cml-music-summary__strip/);
+    assert.match(cssSource, /cml-music-summary__now-playing-strip/);
+    assert.match(cssSource, /cml-music-summary__side-column/);
+    assert.match(cssSource, /cml-music-playlist-entry/);
+    assert.match(cssSource, /cml-music-playlist__list-shell/);
+    assert.match(cssSource, /cml-music-queue__eyebrow/);
   });
 
   it('renders a desktop sidebar audio dock for non-music routes', () => {
