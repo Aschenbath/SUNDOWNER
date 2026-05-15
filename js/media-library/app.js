@@ -13891,28 +13891,20 @@ function render() {
                     playlists: viewModel.musicPlaylists,
                     activePlaylistName: viewModel.activePlaylistName
                   })}
-                  ${viewModel.musicItems.length
-                    ? MusicListView({
-                        items: viewModel.musicItems,
-                        state,
-                        audioState: {
-                          currentId: state.audioCurrentId,
-                          isPlaying: state.audioPlaying
-                        },
-                        currentItem: viewModel.currentAudioItem,
-                        currentTime: state.audioCurrentTime,
-                        duration: state.audioDuration,
-                        queueItems: viewModel.audioQueueItems,
-                        playlists: viewModel.musicPlaylists,
-                        activePlaylistName: viewModel.activePlaylistName
-                      })
-                    : EmptyState({
-                        query: parsedSearch.textQuery,
-                        isLoading: state.isLibraryLoading,
-                        mode: 'music',
-                        actionLabel: 'Create playlist',
-                        actionAction: 'open-create-playlist'
-                      })}`
+                  ${MusicListView({
+                    items: viewModel.musicItems,
+                    state,
+                    audioState: {
+                      currentId: state.audioCurrentId,
+                      isPlaying: state.audioPlaying
+                    },
+                    currentItem: viewModel.currentAudioItem,
+                    currentTime: state.audioCurrentTime,
+                    duration: state.audioDuration,
+                    queueItems: viewModel.audioQueueItems,
+                    playlists: viewModel.musicPlaylists,
+                    activePlaylistName: viewModel.activePlaylistName
+                  })}`
                 : !viewModel.isGlobalSearchView && state.secondaryFilter === 'Documents'
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : state.privateViewOpen && !state.privateRouteUnlocked
