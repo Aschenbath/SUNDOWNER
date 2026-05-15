@@ -2050,7 +2050,7 @@ describe('media library download actions', () => {
     assert.doesNotMatch(gridHtml, /Open deleted photos and videos/);
   });
 
-  it('renders the redesigned music summary as a compact native now-playing strip with secondary queue and playlist context', () => {
+  it('renders the redesigned music summary as an immersive dashboard hero with queue and playlist context', () => {
     const html = MusicSummary({
       totalCount: 12,
       isMobile: false,
@@ -2075,12 +2075,14 @@ describe('media library download actions', () => {
       activePlaylistName: ''
     });
 
-    assert.match(html, /cml-music-summary__strip/);
-    assert.match(html, /cml-music-summary__now-playing-strip/);
-    assert.match(html, /cml-music-summary__transport/);
-    assert.match(html, /cml-music-summary__progress/);
-    assert.match(html, /cml-music-summary__side-column/);
-    assert.match(html, /cml-music-summary__playlists/);
+    assert.match(html, /cml-music-summary__hero/);
+    assert.match(html, /cml-music-summary__hero-main/);
+    assert.match(html, /cml-music-summary__art/);
+    assert.match(html, /cml-music-summary__controls/);
+    assert.match(html, /cml-music-summary__context/);
+    assert.match(html, /cml-music-summary__playlist-card/);
+    assert.match(html, /data-action="audio-toggle-play"/);
+    assert.match(html, /data-action="open-music-playlist"/);
     assert.match(html, /All tracks/);
     assert.match(html, /Night Drive/);
     assert.match(html, /Soft Focus/);
@@ -2138,8 +2140,10 @@ describe('media library download actions', () => {
     assert.match(listHtml, /cml-music-playlist__list-shell/);
     assert.match(listHtml, /cml-music-playlist__table/);
     assert.match(listHtml, /cml-music-queue/);
-    assert.match(listHtml, /cml-music-playlist__eyebrow">Library/);
-    assert.match(listHtml, /cml-music-queue__title">Up Next/);
+    assert.match(listHtml, /cml-music-library__metric/);
+    assert.match(listHtml, /data-action="rename-audio-artist"/);
+    assert.match(listHtml, /data-action="rename-audio-album"/);
+    assert.match(listHtml, /data-action="add-audio-to-playlist"/);
     assert.match(panelHtml, /Audio player/);
     assert.match(panelHtml, /Queue/);
     assert.match(panelHtml, /data-action="audio-toggle-play"/);
@@ -2176,11 +2180,11 @@ describe('media library download actions', () => {
     });
 
     assert.match(summaryHtml, /cml-music-summary/);
-    assert.match(summaryHtml, /<p class="cml-music-summary__eyebrow">Music<\/p>/);
+    assert.match(summaryHtml, /<p class="cml-music-summary__eyebrow">Private music<\/p>/);
     assert.match(summaryHtml, /<h2 class="cml-view-summary__title">Library<\/h2>/);
     assert.match(summaryHtml, /0 items available in your private cloud library\./);
     assert.match(summaryHtml, /Nothing playing/);
-    assert.match(summaryHtml, /Queue stays here once playback starts\./);
+    assert.match(summaryHtml, /Your queue will appear here once playback starts\./);
     assert.match(html, /Select a track/);
   });
 
@@ -2204,15 +2208,15 @@ describe('media library download actions', () => {
     assert.match(html, /Darcy’s Letter/);
   });
 
-  it('defines the quiet native music strip, list shell, and subdued playlist entry selectors', () => {
+  it('defines the immersive music hero, context, metrics, and table selectors', () => {
     const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
 
-    assert.match(cssSource, /cml-music-summary__strip/);
-    assert.match(cssSource, /cml-music-summary__now-playing-strip/);
-    assert.match(cssSource, /cml-music-summary__side-column/);
-    assert.match(cssSource, /cml-music-playlist-entry/);
-    assert.match(cssSource, /cml-music-playlist__list-shell/);
-    assert.match(cssSource, /cml-music-queue__eyebrow/);
+    assert.match(cssSource, /cml-music-summary__hero/);
+    assert.match(cssSource, /cml-music-summary__hero-main/);
+    assert.match(cssSource, /cml-music-summary__context/);
+    assert.match(cssSource, /cml-music-summary__playlist-card/);
+    assert.match(cssSource, /cml-music-library__metric/);
+    assert.match(cssSource, /cml-music-playlist__table/);
   });
 
   it('renders a desktop sidebar audio dock for non-music routes', () => {
