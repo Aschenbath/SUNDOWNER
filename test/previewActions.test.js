@@ -2086,31 +2086,42 @@ describe('media library download actions', () => {
     assert.match(html, /Soft Focus/);
   });
 
-  it('renders a dedicated music list and player queue for audio items', () => {
+  it('renders the redesigned music library layout with a player-first ledger and sidebar queue', () => {
     const items = [
       {
         id: 'audio-1',
         type: 'audio',
-        label: 'track-01.mp3',
+        label: 'darcy-letter.mp3',
         audioTitle: 'Darcy’s Letter',
         audioArtist: 'Dario Marianelli',
         audioAlbum: 'Pride & Prejudice',
-        audioDuration: 236
+        audioDuration: 274,
+        sizeMb: 6.2,
+        takenAt: '2026-05-14T10:00:00.000Z'
       },
       {
         id: 'audio-2',
         type: 'audio',
-        label: 'track-02.mp3',
-        audioTitle: 'Leaving Netherfield',
-        audioArtist: 'Dario Marianelli',
-        audioAlbum: 'Pride & Prejudice',
-        audioDuration: 184
+        label: 'arrival.mp3',
+        audioTitle: 'Arrival of the Birds',
+        audioArtist: 'The Cinematic Orchestra',
+        audioAlbum: 'The Crimson Wing',
+        audioDuration: 342,
+        sizeMb: 7.8,
+        takenAt: '2026-05-13T08:00:00.000Z'
       }
     ];
     const listHtml = MusicListView({
       items,
-      state: {},
-      audioState: { currentId: 'audio-1', isPlaying: true }
+      state: { layoutWidth: 1440 },
+      audioState: { currentId: 'audio-1', isPlaying: true },
+      currentItem: { id: 'audio-1', audioTitle: 'Darcy’s Letter', audioArtist: 'Dario Marianelli', audioAlbum: 'Pride & Prejudice' },
+      queueItems: [
+        { id: 'audio-1', audioTitle: 'Darcy’s Letter', audioArtist: 'Dario Marianelli', audioAlbum: 'Pride & Prejudice' },
+        { id: 'audio-2', audioTitle: 'Arrival of the Birds', audioArtist: 'The Cinematic Orchestra', audioAlbum: 'The Crimson Wing' }
+      ],
+      playlists: [{ name: 'Night Drive', itemCount: 2 }],
+      activePlaylistName: ''
     });
     const panelHtml = AudioPlayerPanel({
       currentItem: items[0],
@@ -2122,12 +2133,17 @@ describe('media library download actions', () => {
       volume: 0.5
     });
 
+    assert.match(listHtml, /cml-music-library__main/);
+    assert.match(listHtml, /cml-music-library__aside/);
+    assert.match(listHtml, /cml-music-playlist__ledger/);
+    assert.match(listHtml, /cml-music-playlist__table/);
     assert.match(listHtml, /cml-music-list/);
     assert.match(listHtml, /data-action="play-audio-item"/);
     assert.match(listHtml, /Darcy’s Letter/);
     assert.match(listHtml, /Dario Marianelli/);
     assert.match(listHtml, /cml-music-queue/);
-    assert.match(listHtml, /Queue follows the visible track order\./);
+    assert.match(listHtml, /cml-music-playlist__eyebrow">Library collection/);
+    assert.match(listHtml, /cml-music-queue__title">Up Next/);
     assert.match(listHtml, /class="cml-music-queue__play"/);
     assert.match(listHtml, /data-action="audio-remove-queue-item"/);
     assert.match(panelHtml, /Audio player/);
