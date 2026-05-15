@@ -1445,47 +1445,48 @@ function renderQueueRows(queueItems = [], currentId = '', isPlaying = false) {
 
 
 function renderMusicPlaylistPills({ playlists = [], activePlaylistName = '' } = {}) {
-  const libraryPill = activePlaylistName
+  const libraryCard = activePlaylistName
     ? `
-      <button type="button" class="cml-music-playlists__pill" data-action="close-music-playlist">
-        <span class="cml-music-playlists__pill-icon">${icon('music')}</span>
-        <span class="cml-music-playlists__pill-copy">
+      <button type="button" class="cml-music-playlist-card" data-action="close-music-playlist">
+        <span class="cml-music-playlist-card__art is-library">${icon('music')}</span>
+        <span class="cml-music-playlist-card__copy">
           <strong>All tracks</strong>
           <span>Return to the full library</span>
         </span>
       </button>
     `
     : `
-      <div class="cml-music-playlists__pill cml-music-playlists__pill--static is-active" aria-current="true">
-        <span class="cml-music-playlists__pill-icon">${icon('music')}</span>
-        <span class="cml-music-playlists__pill-copy">
+      <div class="cml-music-playlist-card is-active" aria-current="true">
+        <span class="cml-music-playlist-card__art is-library">${icon('music')}</span>
+        <span class="cml-music-playlist-card__copy">
           <strong>All tracks</strong>
           <span>Full local library</span>
         </span>
       </div>
     `;
+
   return `
-    <div class="cml-music-playlists" aria-label="Music playlists">
-      ${libraryPill}
+    <div class="cml-music-summary__playlist-shelf" aria-label="Music playlists">
+      ${libraryCard}
       ${playlists.map((playlist) => `
         <button
           type="button"
-          class="cml-music-playlists__pill ${normalizeText(playlist.name).toLowerCase() === normalizeText(activePlaylistName).toLowerCase() ? 'is-active' : ''}"
+          class="cml-music-playlist-card ${normalizeText(playlist.name).toLowerCase() === normalizeText(activePlaylistName).toLowerCase() ? 'is-active' : ''}"
           data-action="open-music-playlist"
           data-playlist-name="${escapeHtml(playlist.name)}"
         >
-          <span class="cml-music-playlists__pill-icon">${icon('collections')}</span>
-          <span class="cml-music-playlists__pill-copy">
+          <span class="cml-music-playlist-card__art">${icon('collections')}</span>
+          <span class="cml-music-playlist-card__copy">
             <strong>${escapeHtml(playlist.name)}</strong>
             <span>${playlist.itemCount === 1 ? '1 track' : `${playlist.itemCount} tracks`}</span>
           </span>
-          <span class="cml-music-playlists__count">${playlist.itemCount}</span>
+          <span class="cml-music-playlist-card__count">${playlist.itemCount}</span>
         </button>
       `).join('')}
-      <button type="button" class="cml-music-playlists__pill cml-music-playlists__pill--create" data-action="open-create-playlist">
-        <span class="cml-music-playlists__pill-icon">${icon('plus')}</span>
-        <span class="cml-music-playlists__pill-copy">
-          <strong>Create</strong>
+      <button type="button" class="cml-music-playlist-card cml-music-playlist-card--create" data-action="open-create-playlist">
+        <span class="cml-music-playlist-card__art">${icon('plus')}</span>
+        <span class="cml-music-playlist-card__copy">
+          <strong>Create playlist</strong>
           <span>Save a listening flow</span>
         </span>
       </button>
@@ -1496,109 +1497,79 @@ function renderMusicPlaylistPills({ playlists = [], activePlaylistName = '' } = 
 export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = null, queueItems = [], isPlaying = false, mode = 'sequence', playlists = [], activePlaylistName = '' }) {
   const countLabel = formatItemCount(totalCount);
   const modeLabel = mode === 'repeat-one' ? 'Repeat one' : (mode === 'shuffle' ? 'Shuffle' : 'Sequence');
-  const title = activePlaylistName ? escapeHtml(activePlaylistName) : 'Music Library';
-  const subtitle = currentItem
-    ? `Now ${isPlaying ? 'playing' : 'paused'}: ${currentItem.audioTitle || 'Track'}`
-    : (activePlaylistName
-      ? `${countLabel} saved inside this playlist.`
-      : (totalCount === 1 ? '1 local track ready to play.' : `${countLabel} available in your private cloud library.`));
-  const queueSummary = queueItems.length === 1 ? '1 queued' : `${queueItems.length} queued`;
-  const hasPlaylists = playlists.length > 0;
   const focusItem = currentItem || queueItems[0] || null;
-  const focusCoverUrl = String(focusItem?.thumbnailUrl || focusItem?.posterUrl || '').trim();
-  const focusSubtitle = focusItem
-    ? (formatAudioSubtitle(focusItem) || 'Unknown artist · Unknown album')
-    : (activePlaylistName
-      ? 'Keep this saved order close and jump back into the full library any time.'
-      : 'Pick a track, press play, and save the sequences you want to keep around.');
-  const focusStatus = currentItem
-    ? (isPlaying ? 'Now playing' : 'Ready to resume')
-    : (queueItems.length ? 'Up next ready' : (totalCount ? 'Library standby' : 'Waiting for tracks'));
-  const focusTitle = focusItem
-    ? getAudioDisplayTitle(focusItem)
-    : (activePlaylistName ? `${countLabel} in saved order` : 'Start the next listening flow');
-  const focusMeta = [
-    focusStatus,
-    focusItem ? formatAudioDuration(Number(focusItem.audioDuration) || 0) : countLabel,
-    focusItem ? formatMusicAddedLabel(focusItem) : (activePlaylistName ? 'Playlist view' : 'Private cloud library')
-  ].filter(Boolean);
-  const canStartPlayback = Boolean(totalCount || queueItems.length || currentItem);
+  const title = activePlaylistName ? escapeHtml(activePlaylistName) : 'Music';
+  const coverUrl = String(focusItem?.thumbnailUrl || focusItem?.posterUrl || '').trim();
+  const queuePreview = queueItems.slice(0, 4);
+
   return `
     <section class="cml-view-summary cml-view-summary--music cml-music-summary">
       <div class="cml-music-summary__head">
         <div class="cml-music-summary__titles">
-          <p class="cml-music-summary__eyebrow">${activePlaylistName ? 'Playlist' : 'Music'}</p>
+          <p class="cml-music-summary__eyebrow">${activePlaylistName ? 'Playlist' : 'Archive'}</p>
           <div class="cml-music-summary__title-row">
-            ${activePlaylistName ? `
-              <button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-music-playlist" aria-label="Back to all tracks">
-                ${icon('previous')}
-              </button>
-            ` : ''}
+            ${activePlaylistName ? `<button type="button" class="cml-topbar__secondary-button cml-view-summary__back" data-action="close-music-playlist" aria-label="Back to all tracks">${icon('previous')}</button>` : ''}
             <div class="cml-music-summary__title-copy">
               <h2 class="cml-view-summary__title">${title}</h2>
-              <p class="cml-view-summary__copy cml-view-summary__copy--albums">${escapeHtml(subtitle)}</p>
+              <p class="cml-view-summary__copy cml-view-summary__copy--albums">${escapeHtml(activePlaylistName ? `${countLabel} saved inside this playlist.` : `${countLabel} available in your private cloud library.`)}</p>
             </div>
           </div>
         </div>
         <div class="cml-music-summary__meta">
-          <span class="cml-music-summary__chip">
-            <strong>${countLabel}</strong>
-            <span>${activePlaylistName ? 'playlist tracks' : 'library tracks'}</span>
-          </span>
-          <span class="cml-music-summary__chip">
-            <strong>${queueItems.length}</strong>
-            <span>${queueSummary}</span>
-          </span>
-          <span class="cml-music-summary__chip">
-            <strong>${escapeHtml(modeLabel)}</strong>
-            <span>Playback mode</span>
-          </span>
-          ${!activePlaylistName && hasPlaylists ? `
-            <span class="cml-music-summary__chip">
-              <strong>${playlists.length}</strong>
-              <span>${playlists.length === 1 ? 'playlist' : 'playlists'}</span>
-            </span>
-          ` : ''}
-          <div class="cml-music-summary__actions">
-            ${activePlaylistName ? `
-              <button type="button" class="cml-music-summary__action" data-action="open-rename-playlist">Rename</button>
-              <button type="button" class="cml-music-summary__action is-danger" data-action="delete-playlist">Delete</button>
-            ` : `${!isMobile ? '<span class="cml-music-summary__hint">Search, sort, and keep playback in flow.</span>' : ''}`}
-          </div>
+          <span class="cml-music-summary__chip"><strong>${countLabel}</strong><span>${activePlaylistName ? 'playlist tracks' : 'library tracks'}</span></span>
+          <span class="cml-music-summary__chip"><strong>${queueItems.length}</strong><span>${queueItems.length === 1 ? '1 queued' : `${queueItems.length} queued`}</span></span>
+          <span class="cml-music-summary__chip"><strong>${escapeHtml(modeLabel)}</strong><span>Playback mode</span></span>
         </div>
       </div>
-      <div class="cml-music-summary__toolbar">
-        <section class="cml-music-summary__focus" aria-label="Playback spotlight">
-          <div class="cml-music-summary__focus-art ${focusCoverUrl ? '' : 'is-fallback'}">
-            ${focusCoverUrl
-              ? `<img src="${escapeHtml(focusCoverUrl)}" alt="${focusTitle}" class="cml-music-summary__focus-art-image">`
-              : `<span class="cml-music-summary__focus-art-icon">${icon('music')}</span>`}
+
+      <div class="cml-music-summary__hero">
+        <section class="cml-music-summary__now-playing" aria-label="Now playing hero">
+          <div class="cml-music-summary__cover ${coverUrl ? '' : 'is-fallback'}">
+            ${coverUrl ? `<img src="${escapeHtml(coverUrl)}" alt="${focusItem ? getAudioDisplayTitle(focusItem) : 'Music'}" class="cml-music-summary__cover-image">` : `<span class="cml-music-summary__cover-icon">${icon('music')}</span>`}
           </div>
-          <div class="cml-music-summary__focus-copy">
-            <span class="cml-music-summary__focus-kicker">${focusStatus}</span>
-            <strong class="cml-music-summary__focus-title">${focusTitle}</strong>
-            <p class="cml-music-summary__focus-subtitle">${escapeHtml(focusSubtitle)}</p>
-            <div class="cml-music-summary__focus-meta">
-              ${focusMeta.map((entry) => `<span class="cml-music-summary__focus-chip">${escapeHtml(entry)}</span>`).join('')}
+          <div class="cml-music-summary__hero-copy">
+            <span class="cml-music-summary__kicker">${currentItem ? (isPlaying ? 'Now playing' : 'Ready to resume') : 'Library standby'}</span>
+            <strong class="cml-music-summary__hero-title">${focusItem ? getAudioDisplayTitle(focusItem) : 'Start the next listening flow'}</strong>
+            <p class="cml-music-summary__hero-subtitle">${escapeHtml(focusItem ? (formatAudioSubtitle(focusItem) || 'Unknown artist · Unknown album') : 'Pick a track, press play, and keep your queue in view.')}</p>
+            <div class="cml-music-summary__hero-meta">
+              <span class="cml-music-summary__hero-chip">${focusItem ? formatAudioDuration(Number(focusItem.audioDuration) || 0) : countLabel}</span>
+              <span class="cml-music-summary__hero-chip">${activePlaylistName ? 'Playlist view' : 'Private cloud library'}</span>
             </div>
           </div>
-          <div class="cml-music-summary__focus-actions">
-            <button type="button" class="cml-music-summary__action cml-music-summary__action--primary" data-action="audio-toggle-play" ${canStartPlayback ? '' : 'disabled'}>${currentItem ? (isPlaying ? 'Pause' : 'Play') : 'Start playback'}</button>
-            ${activePlaylistName
-              ? '<button type="button" class="cml-music-summary__action" data-action="close-music-playlist">All tracks</button>'
-              : '<button type="button" class="cml-music-summary__action" data-action="open-create-playlist">New playlist</button>'}
+          <div class="cml-music-summary__transport">
+            <button type="button" class="cml-music-summary__transport-button" data-action="audio-set-mode" data-mode="shuffle" aria-label="Shuffle">${icon('shuffle')}</button>
+            <button type="button" class="cml-music-summary__transport-button" data-action="audio-prev" aria-label="Previous">${icon('previous')}</button>
+            <button type="button" class="cml-music-summary__transport-button cml-music-summary__transport-button--primary" data-action="audio-toggle-play" ${focusItem ? '' : 'disabled'}>${currentItem && isPlaying ? icon('pause') : icon('play')}</button>
+            <button type="button" class="cml-music-summary__transport-button" data-action="audio-next" aria-label="Next">${icon('next')}</button>
+            <button type="button" class="cml-music-summary__transport-button" data-action="audio-set-mode" data-mode="repeat-one" aria-label="Repeat current track">${icon('repeat')}</button>
+          </div>
+          <div class="cml-music-summary__progress">
+            <span class="cml-music-summary__progress-copy">Playback in focus</span>
+            <div class="cml-music-summary__progress-bar" aria-hidden="true"><span style="width:${focusItem && currentItem ? '38%' : '0%'}"></span></div>
           </div>
         </section>
-        <div class="cml-music-summary__toolbar-meta">
-          <div class="cml-music-summary__toolbar-copy">
-            <p class="cml-music-summary__toolbar-label">${activePlaylistName ? 'Saved flows' : 'Playlist lane'}</p>
-            <p class="cml-music-summary__toolbar-description">${activePlaylistName ? 'Switch back to the library or jump into another saved listening order.' : 'Keep moods, mixes, and temporary sequences visible without losing the main library.'}</p>
+
+        <aside class="cml-music-summary__queue-rail" aria-label="Up next rail">
+          <div class="cml-music-summary__queue-head">
+            <div>
+              <p class="cml-music-summary__toolbar-label">Up next</p>
+              <strong class="cml-music-summary__queue-title">Queue</strong>
+            </div>
+            <span class="cml-music-summary__queue-count">${queueItems.length === 1 ? '1 track' : `${queueItems.length} tracks`}</span>
           </div>
-          <div class="cml-music-summary__playlists">
-            ${renderMusicPlaylistPills({ playlists, activePlaylistName })}
-          </div>
-        </div>
+          ${queuePreview.length ? queuePreview.map((item, index) => `
+            <button type="button" class="cml-music-summary__queue-item ${currentItem && normalizeText(currentItem.id) === normalizeText(item.id) ? 'is-current' : ''}" data-action="play-audio-item" data-id="${escapeHtml(item.id)}">
+              <span class="cml-music-summary__queue-index">${currentItem && normalizeText(currentItem.id) === normalizeText(item.id) && isPlaying ? icon('pause') : escapeHtml(String(index + 1))}</span>
+              <span class="cml-music-summary__queue-copy">
+                <strong>${getAudioDisplayTitle(item)}</strong>
+                <span>${formatAudioSubtitle(item) || 'Unknown artist · Unknown album'}</span>
+              </span>
+            </button>
+          `).join('') : `<div class="cml-music-summary__queue-empty">Play a track to build your queue.</div>`}
+        </aside>
       </div>
+
+      ${renderMusicPlaylistPills({ playlists, activePlaylistName })}
     </section>
   `;
 }
@@ -1609,104 +1580,76 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
   }
   const currentId = String(audioState.currentId || '');
   const isPlaying = Boolean(audioState.isPlaying);
-  const singleItem = items.length === 1 ? items[0] : null;
-  const singleFileName = escapeHtml(singleItem?.label || singleItem?.sourceId || 'Unknown file');
-  const singleAddedAt = escapeHtml(formatMusicAddedLabel(singleItem || {}));
-  const singleDuration = formatAudioDuration(Number(singleItem?.audioDuration) || 0);
-  const singleSizeLabel = Number(singleItem?.sizeMb) > 0
-    ? formatStorageAmountFromMb(singleItem.sizeMb)
-    : 'Unknown size';
-  const showPlaylistHeader = Boolean(activePlaylistName);
   const queueSource = queueItems.length ? queueItems : items;
   const queueHtml = renderQueueRows(queueSource, currentId, isPlaying);
-  const queueCountLabel = queueSource.length === 1 ? '1 track' : `${queueSource.length} tracks`;
+
   return `
     <section class="cml-music-library" id="cml-music-library" aria-label="Music library">
       <div class="cml-music-library__main">
-        <section class="cml-music-playlist">
-          <div class="cml-music-playlist__head ${showPlaylistHeader ? '' : 'is-root'}">
+        <section class="cml-music-playlist cml-music-playlist__ledger">
+          <div class="cml-music-playlist__head ${activePlaylistName ? '' : 'is-root'}">
             <div class="cml-music-playlist__head-copy">
-              <p class="cml-music-playlist__eyebrow">${showPlaylistHeader ? 'Playlist collection' : 'Library collection'}</p>
+              <p class="cml-music-playlist__eyebrow">${activePlaylistName ? 'Playlist collection' : 'Library collection'}</p>
               <h3 class="cml-music-playlist__title">${escapeHtml(activePlaylistName || 'Track ledger')}</h3>
-              <p class="cml-music-playlist__description">${escapeHtml(activePlaylistName ? 'Saved order with direct queue access and playlist-level actions.' : 'Browse your uploaded tracks, edit metadata, and send anything into playlists.')}</p>
+              <p class="cml-music-playlist__description">${escapeHtml(activePlaylistName ? 'Saved order with direct queue access and lightweight playlist actions.' : 'Browse your tracks in a calmer player-first library view.')}</p>
             </div>
             <div class="cml-music-playlist__head-actions">
               <span class="cml-music-playlist__count">${formatItemCount(items.length)}</span>
-              <span class="cml-music-playlist__hint">${activePlaylistName ? 'Queue follows this playlist order.' : 'Queue follows the visible track order.'}</span>
-              ${!activePlaylistName ? '<button type="button" class="cml-music-playlist__action" data-action="open-create-playlist">New playlist</button>' : ''}
+              <span class="cml-music-playlist__hint">${activePlaylistName ? 'Queue follows this playlist order.' : 'Current playback stays synchronized with the visible track order.'}</span>
             </div>
           </div>
           <div class="cml-music-playlist__rail">
-            <span class="cml-music-playlist__rail-chip">${queueCountLabel} in flow</span>
+            <span class="cml-music-playlist__rail-chip">${queueSource.length === 1 ? '1 track in flow' : `${queueSource.length} tracks in flow`}</span>
             <span class="cml-music-playlist__rail-chip">${escapeHtml(activePlaylistName ? 'Playlist order pinned' : 'Library order live')}</span>
-            <span class="cml-music-playlist__rail-copy">${escapeHtml(activePlaylistName ? 'Edit this saved sequence or jump back into the full library.' : 'The table stays editable, and the right rail keeps playback context visible.')}</span>
+            <span class="cml-music-playlist__rail-copy">${escapeHtml(activePlaylistName ? 'Jump between this saved sequence and the full library without losing playback context.' : 'The list stays editable, but listening flow stays visually in front.')}</span>
           </div>
           <div class="cml-music-playlist__table" role="table" aria-label="Playlist table">
             <div class="cml-music-playlist__header" role="row">
               <span aria-hidden="true"></span>
-              <span role="columnheader">Title</span>
+              <span role="columnheader">Track</span>
               <span role="columnheader">Artist</span>
               <span role="columnheader">Album</span>
               <span role="columnheader">Added</span>
               <span role="columnheader">Actions</span>
             </div>
             <div class="cml-music-list">
-      ${items.map((item, index) => {
-        const isCurrent = currentId === String(item.id || '');
-        const title = getAudioDisplayTitle(item);
-        const hasArtist = Boolean(String(item.audioArtist || '').trim());
-        const hasAlbum = Boolean(String(item.audioAlbum || '').trim());
-        const artist = escapeHtml(item.audioArtist || 'Unknown artist');
-        const album = escapeHtml(item.audioAlbum || 'Unknown album');
-        const secondaryMeta = formatAudioSubtitle(item);
-        const playAction = isCurrent ? 'audio-toggle-play' : 'play-audio-item';
-        return `
-          <div class="cml-music-row ${isCurrent ? 'is-current' : ''}" data-audio-row="${escapeHtml(item.id)}" role="row">
-            <button
-              type="button"
-              class="cml-music-row__index"
-              data-action="${playAction}"
-              ${playAction === 'play-audio-item' ? `data-id="${escapeHtml(item.id)}"` : ''}
-              aria-label="${isCurrent && isPlaying ? 'Pause track' : 'Play track'}"
-            >${isCurrent ? (isPlaying ? icon('pause') : icon('play')) : escapeHtml(String(index + 1))}</button>
-            <span class="cml-music-row__meta">
-              <strong class="cml-music-row__title">${title}</strong>
-              ${secondaryMeta ? `<span class="cml-music-row__subtitle">${secondaryMeta}</span>` : '<span class="cml-music-row__subtitle cml-music-row__subtitle--placeholder">Unknown artist · Unknown album</span>'}
-            </span>
-            <button type="button" class="cml-music-row__artist cml-music-row__editable ${hasArtist ? '' : 'is-placeholder'}" data-action="rename-audio-artist" data-id="${escapeHtml(item.id)}" aria-label="Edit artist">${artist}</button>
-            <button type="button" class="cml-music-row__album cml-music-row__editable ${hasAlbum ? '' : 'is-placeholder'}" data-action="rename-audio-album" data-id="${escapeHtml(item.id)}" aria-label="Edit album">${album}</button>
-            <span class="cml-music-row__added">${formatMusicAddedLabel(item)}</span>
-            <span class="cml-music-row__actions">
-              <button type="button" class="cml-music-row__icon-btn" data-action="rename-audio-item" data-id="${escapeHtml(item.id)}" aria-label="Rename track">${icon('edit')}</button>
-              ${activePlaylistName
-                ? `<button type="button" class="cml-music-row__icon-btn" data-action="remove-audio-from-playlist" data-id="${escapeHtml(item.id)}" aria-label="Remove from playlist">${icon('close')}</button>`
-                : (playlists.length
-                  ? `<button type="button" class="cml-music-row__icon-btn" data-action="add-audio-to-playlist" data-id="${escapeHtml(item.id)}" aria-label="Add to playlist">${icon('plus')}</button>`
-                  : '')}
-            </span>
-          </div>
-        `;
-      }).join('')}</div>
-          </div>
-          ${singleItem ? `
-            <div class="cml-music-single-file" aria-label="Single file details">
-              <div class="cml-music-single-file__head">File details</div>
-              <dl class="cml-music-single-file__grid">
-                <dt>File</dt><dd>${singleFileName}</dd>
-                <dt>Duration</dt><dd>${singleDuration}</dd>
-                <dt>Added</dt><dd>${singleAddedAt}</dd>
-                <dt>Size</dt><dd>${singleSizeLabel}</dd>
-              </dl>
+              ${items.map((item, index) => {
+                const isCurrent = currentId === String(item.id || '');
+                const title = getAudioDisplayTitle(item);
+                const secondaryMeta = formatAudioSubtitle(item);
+                const artist = escapeHtml(item.audioArtist || 'Unknown artist');
+                const album = escapeHtml(item.audioAlbum || 'Unknown album');
+                const playAction = isCurrent ? 'audio-toggle-play' : 'play-audio-item';
+                return `
+                  <div class="cml-music-row ${isCurrent ? 'is-current' : ''}" data-audio-row="${escapeHtml(item.id)}" role="row">
+                    <button type="button" class="cml-music-row__index" data-action="${playAction}" ${playAction === 'play-audio-item' ? `data-id="${escapeHtml(item.id)}"` : ''} aria-label="${isCurrent && isPlaying ? 'Pause track' : 'Play track'}">${isCurrent ? (isPlaying ? icon('pause') : icon('play')) : escapeHtml(String(index + 1))}</button>
+                    <span class="cml-music-row__meta">
+                      <strong class="cml-music-row__title">${title}</strong>
+                      ${secondaryMeta ? `<span class="cml-music-row__subtitle">${secondaryMeta}</span>` : '<span class="cml-music-row__subtitle cml-music-row__subtitle--placeholder">Unknown artist · Unknown album</span>'}
+                    </span>
+                    <button type="button" class="cml-music-row__artist cml-music-row__editable ${artist === 'Unknown artist' ? 'is-placeholder' : ''}" data-action="rename-audio-artist" data-id="${escapeHtml(item.id)}" aria-label="Edit artist">${artist}</button>
+                    <button type="button" class="cml-music-row__album cml-music-row__editable ${album === 'Unknown album' ? 'is-placeholder' : ''}" data-action="rename-audio-album" data-id="${escapeHtml(item.id)}" aria-label="Edit album">${album}</button>
+                    <span class="cml-music-row__added">${formatMusicAddedLabel(item)}</span>
+                    <span class="cml-music-row__actions">
+                      <button type="button" class="cml-music-row__icon-btn" data-action="rename-audio-item" data-id="${escapeHtml(item.id)}" aria-label="Rename track">${icon('edit')}</button>
+                      ${activePlaylistName
+                        ? `<button type="button" class="cml-music-row__icon-btn" data-action="remove-audio-from-playlist" data-id="${escapeHtml(item.id)}" aria-label="Remove from playlist">${icon('close')}</button>`
+                        : (playlists.length ? `<button type="button" class="cml-music-row__icon-btn" data-action="add-audio-to-playlist" data-id="${escapeHtml(item.id)}" aria-label="Add to playlist">${icon('plus')}</button>` : '')}
+                    </span>
+                  </div>
+                `;
+              }).join('')}
             </div>
-          ` : ''}
+          </div>
         </section>
       </div>
       <aside class="cml-music-library__aside">
         <section class="cml-music-queue" aria-label="Music queue">
           <div class="cml-music-queue__head">
             <div class="cml-music-queue__head-copy">
-              <h4 class="cml-music-queue__title">Queue</h4>
-              <p class="cml-music-queue__description">Keep the current track and your up-next order in view.</p>
+              <p class="cml-music-queue__eyebrow">Playback rail</p>
+              <h4 class="cml-music-queue__title">Up Next</h4>
+              <p class="cml-music-queue__description">Keep the current track and your next selections in view.</p>
             </div>
             <span class="cml-music-queue__count">${queueItems.length === 1 ? '1 track' : `${queueItems.length} tracks`}</span>
           </div>

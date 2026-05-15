@@ -2050,31 +2050,78 @@ describe('media library download actions', () => {
     assert.doesNotMatch(gridHtml, /Open deleted photos and videos/);
   });
 
-  it('renders a dedicated music list and player queue for audio items', () => {
+  it('renders the redesigned music summary as a player-first hero with queue and playlist shelf support', () => {
+    const html = MusicSummary({
+      totalCount: 12,
+      isMobile: false,
+      currentItem: {
+        id: 'audio-1',
+        audioTitle: 'Darcy’s Letter',
+        audioArtist: 'Dario Marianelli',
+        audioAlbum: 'Pride & Prejudice',
+        audioDuration: 274,
+        thumbnailUrl: 'https://example.com/cover.jpg'
+      },
+      queueItems: [
+        { id: 'audio-1', audioTitle: 'Darcy’s Letter', audioArtist: 'Dario Marianelli', audioAlbum: 'Pride & Prejudice', audioDuration: 274 },
+        { id: 'audio-2', audioTitle: 'The Secret Life of Daydreams', audioArtist: 'Tom Misch', audioAlbum: 'Beat Tape 2', audioDuration: 231 }
+      ],
+      isPlaying: true,
+      mode: 'sequence',
+      playlists: [
+        { name: 'Night Drive', itemCount: 5 },
+        { name: 'Soft Focus', itemCount: 7 }
+      ],
+      activePlaylistName: ''
+    });
+
+    assert.match(html, /cml-music-summary__hero/);
+    assert.match(html, /cml-music-summary__now-playing/);
+    assert.match(html, /cml-music-summary__transport/);
+    assert.match(html, /cml-music-summary__progress/);
+    assert.match(html, /cml-music-summary__queue-rail/);
+    assert.match(html, /cml-music-summary__playlist-shelf/);
+    assert.match(html, /All tracks/);
+    assert.match(html, /Night Drive/);
+    assert.match(html, /Soft Focus/);
+  });
+
+  it('renders the redesigned music library layout with a player-first ledger and sidebar queue', () => {
     const items = [
       {
         id: 'audio-1',
         type: 'audio',
-        label: 'track-01.mp3',
+        label: 'darcy-letter.mp3',
         audioTitle: 'Darcy’s Letter',
         audioArtist: 'Dario Marianelli',
         audioAlbum: 'Pride & Prejudice',
-        audioDuration: 236
+        audioDuration: 274,
+        sizeMb: 6.2,
+        takenAt: '2026-05-14T10:00:00.000Z'
       },
       {
         id: 'audio-2',
         type: 'audio',
-        label: 'track-02.mp3',
-        audioTitle: 'Leaving Netherfield',
-        audioArtist: 'Dario Marianelli',
-        audioAlbum: 'Pride & Prejudice',
-        audioDuration: 184
+        label: 'arrival.mp3',
+        audioTitle: 'Arrival of the Birds',
+        audioArtist: 'The Cinematic Orchestra',
+        audioAlbum: 'The Crimson Wing',
+        audioDuration: 342,
+        sizeMb: 7.8,
+        takenAt: '2026-05-13T08:00:00.000Z'
       }
     ];
     const listHtml = MusicListView({
       items,
-      state: {},
-      audioState: { currentId: 'audio-1', isPlaying: true }
+      state: { layoutWidth: 1440 },
+      audioState: { currentId: 'audio-1', isPlaying: true },
+      currentItem: { id: 'audio-1', audioTitle: 'Darcy’s Letter', audioArtist: 'Dario Marianelli', audioAlbum: 'Pride & Prejudice' },
+      queueItems: [
+        { id: 'audio-1', audioTitle: 'Darcy’s Letter', audioArtist: 'Dario Marianelli', audioAlbum: 'Pride & Prejudice' },
+        { id: 'audio-2', audioTitle: 'Arrival of the Birds', audioArtist: 'The Cinematic Orchestra', audioAlbum: 'The Crimson Wing' }
+      ],
+      playlists: [{ name: 'Night Drive', itemCount: 2 }],
+      activePlaylistName: ''
     });
     const panelHtml = AudioPlayerPanel({
       currentItem: items[0],
@@ -2086,12 +2133,17 @@ describe('media library download actions', () => {
       volume: 0.5
     });
 
+    assert.match(listHtml, /cml-music-library__main/);
+    assert.match(listHtml, /cml-music-library__aside/);
+    assert.match(listHtml, /cml-music-playlist__ledger/);
+    assert.match(listHtml, /cml-music-playlist__table/);
     assert.match(listHtml, /cml-music-list/);
     assert.match(listHtml, /data-action="play-audio-item"/);
     assert.match(listHtml, /Darcy’s Letter/);
     assert.match(listHtml, /Dario Marianelli/);
     assert.match(listHtml, /cml-music-queue/);
-    assert.match(listHtml, /Queue follows the visible track order\./);
+    assert.match(listHtml, /cml-music-playlist__eyebrow">Library collection/);
+    assert.match(listHtml, /cml-music-queue__title">Up Next/);
     assert.match(listHtml, /class="cml-music-queue__play"/);
     assert.match(listHtml, /data-action="audio-remove-queue-item"/);
     assert.match(panelHtml, /Audio player/);
@@ -2130,9 +2182,11 @@ describe('media library download actions', () => {
     });
 
     assert.match(summaryHtml, /cml-music-summary/);
-    assert.match(summaryHtml, /<p class="cml-music-summary__eyebrow">Music<\/p>/);
-    assert.match(summaryHtml, /Music Library/);
+    assert.match(summaryHtml, /<p class="cml-music-summary__eyebrow">Archive<\/p>/);
+    assert.match(summaryHtml, /<h2 class="cml-view-summary__title">Music<\/h2>/);
     assert.match(summaryHtml, /0 items available in your private cloud library\./);
+    assert.match(summaryHtml, /Start the next listening flow/);
+    assert.match(summaryHtml, /Play a track to build your queue\./);
     assert.match(html, /Select a track/);
   });
 
@@ -2154,6 +2208,18 @@ describe('media library download actions', () => {
     assert.match(html, /data-action="audio-prev"/);
     assert.match(html, /data-action="audio-next"/);
     assert.match(html, /Darcy’s Letter/);
+  });
+
+  it('defines the redesigned music hero, playlist cards, and queue rail selectors', () => {
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+
+    assert.match(cssSource, /cml-music-summary__hero/);
+    assert.match(cssSource, /cml-music-summary__now-playing/);
+    assert.match(cssSource, /cml-music-summary__cover/);
+    assert.match(cssSource, /cml-music-summary__transport-button--primary/);
+    assert.match(cssSource, /cml-music-summary__queue-rail/);
+    assert.match(cssSource, /cml-music-playlist-card/);
+    assert.match(cssSource, /cml-music-playlist__ledger/);
   });
 
   it('renders a desktop sidebar audio dock for non-music routes', () => {
