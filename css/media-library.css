@@ -10568,10 +10568,10 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-main-content__inner.is-music-view .cml-music-summary__strip-main {
   display: grid;
   grid-template-rows: auto 1fr;
-  gap: 28px;
+  gap: 38px;
   min-width: 0;
   min-height: 190px;
-  padding: 20px 248px 20px 20px;
+  padding: 20px 260px 18px 20px;
 }
 
 #codex-media-library-root .cml-main-content__inner.is-music-view .cml-music-summary__strip-copy {
@@ -10594,7 +10594,7 @@ body.codex-media-library-active #app {
   bottom: 16px;
   display: grid;
   grid-template-rows: auto auto;
-  gap: 10px;
+  gap: 16px;
   justify-items: end;
   width: 206px;
   min-width: 0;
@@ -10604,7 +10604,7 @@ body.codex-media-library-active #app {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 16px;
+  gap: 18px;
   min-width: 0;
 }
 
@@ -10677,7 +10677,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-main-content__inner.is-music-view .cml-music-summary__progress {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   justify-items: end;
 }
@@ -10710,7 +10710,7 @@ body.codex-media-library-active #app {
   flex-wrap: wrap;
   justify-content: flex-start;
   align-self: start;
-  margin-top: 10px;
+  margin-top: 0;
   margin-left: 228px;
 }
 
