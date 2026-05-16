@@ -3003,7 +3003,9 @@ describe('media library download actions', () => {
 
     assert.match(componentsSource, /function BinMediaTile\(\{ item, selected, layout \}\) \{/);
     assert.match(componentsSource, /data-action="open-preview"/);
-    assert.match(appSource, /function getPreviewItems\(items = getAccessibleItems\(\)\) \{\s*return state\.primaryFilter === 'Bin' \? state\.binItems : getFilteredItems\(items\);/);
+    assert.match(appSource, /function getPreviewItems\(items = getAccessibleItems\(\)\) \{/);
+    assert.match(appSource, /state\.primaryFilter === 'Bin'[\s\S]*return state\.binItems;/);
+    assert.match(appSource, /state\.primaryFilter === 'Moments'[\s\S]*return getMomentAttachmentItems\(\);/);
     assert.match(appSource, /isBinView: state\.primaryFilter === 'Bin'/);
     assert.match(appSource, /function movePreview\(direction\) \{\s*const items = getPreviewItems\(\);/);
   });
