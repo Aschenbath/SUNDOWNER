@@ -4900,6 +4900,62 @@ function openMomentDraftPicker() {
   }
 }
 
+function getMomentPickerItems() {
+  return getAccessibleItems(getAllItems())
+    .filter((item) => item?.type === 'photo' && item?.id && item?.thumbnailUrl)
+    .slice(0, 120);
+}
+
+function toggleMomentPickerPhoto(itemId) {
+  const normalizedId = normalizeText(itemId);
+  if (!normalizedId) {
+    return;
+  }
+  const next = new Set(state.momentsPickerSelection);
+  if (next.has(normalizedId)) {
+    next.delete(normalizedId);
+  } else {
+    const remainingSlots = Math.max(0, MAX_MOMENT_DRAFT_FILES - state.momentsDraftAttachments.length);
+    if (remainingSlots <= 0 || next.size >= remainingSlots) {
+      showToast('A Moment can include at most 9 photos');
+      return;
+    }
+    next.add(normalizedId);
+  }
+  state.momentsPickerSelection = next;
+  render();
+}
+
+function applyMomentPickerSelection() {
+  const selectedIds = [...state.momentsPickerSelection];
+  if (!selectedIds.length) {
+    state.momentsPickerOpen = false;
+    render();
+    return;
+  }
+  const selectedItems = getMomentPickerItems().filter((item) => selectedIds.includes(item.id));
+  const existingIds = new Set(state.momentsDraftAttachments.map((item) => item.fileId).filter(Boolean));
+  const additions = normalizeMomentDraftAttachments(selectedItems
+    .filter((item) => !existingIds.has(item.id))
+    .map((item) => ({
+      source: 'existing',
+      fileId: item.id,
+      name: item.label || item.fileName || 'Moment photo',
+      previewUrl: item.thumbnailUrl || item.sourceUrl || '',
+      metadata: {
+        FileName: item.fileName || item.label || 'Moment photo',
+        FileType: item.mimeType || 'image/jpeg',
+        Width: item.width,
+        Height: item.height,
+      },
+    })));
+  state.momentsDraftAttachments = [...state.momentsDraftAttachments, ...additions];
+  state.momentsPickerOpen = false;
+  state.momentsPickerSelection = new Set();
+  state.momentsError = '';
+  render();
+}
+
 function removeMomentDraftFile(index) {
   const numericIndex = Number(index);
   if (!Number.isInteger(numericIndex) || numericIndex < 0 || numericIndex >= state.momentsDraftAttachments.length) {
@@ -14283,7 +14339,7 @@ function render() {
                     draftAttachments: state.momentsDraftAttachments,
                     isEditing: Boolean(state.momentsEditingPostId),
                     pickerOpen: state.momentsPickerOpen,
-                    pickerItems: [],
+                    pickerItems: getMomentPickerItems(),
                     pickerSelectedIds: [...state.momentsPickerSelection],
                     selectedDate: state.momentsSelectedDate,
                     calendarMonth: state.momentsCalendarMonth,
@@ -16157,8 +16213,37 @@ function handleAction(actionTarget, event = null) {
     case 'choose-moment-photos':
       openMomentDraftPicker();
       return true;
+    case 'open-moments-photo-picker':
+      state.momentsPickerOpen = true;
+      state.momentsPickerSelection = new Set();
+      render();
+      return true;
+    case 'close-moments-photo-picker':
+      state.momentsPickerOpen = false;
+      state.momentsPickerSelection = new Set();
+      render();
+      return true;
+    case 'toggle-moments-picker-photo':
+      toggleMomentPickerPhoto(actionTarget.dataset.id);
+      return true;
+    case 'apply-moments-photo-picker':
+      applyMomentPickerSelection();
+      return true;
     case 'remove-moment-draft-file':
       removeMomentDraftFile(actionTarget.dataset.index);
+      return true;
+    case 'edit-moment': {
+      const post = getMomentPostById(actionTarget.dataset.id);
+      if (post) {
+        startEditingMoment(post);
+      }
+      return true;
+    }
+    case 'cancel-moment-edit':
+      clearMomentDraft({ shouldRender: true });
+      return true;
+    case 'save-moment':
+      void publishMoment();
       return true;
     case 'publish-moment':
       void publishMoment();

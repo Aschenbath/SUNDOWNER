@@ -3010,6 +3010,14 @@ describe('media library download actions', () => {
     assert.match(appSource, /function movePreview\(direction\) \{\s*const items = getPreviewItems\(\);/);
   });
 
+  it('keeps Moments preview resolution working for referenced existing Photos items', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    assert.match(appSource, /buildMomentMutationPayload/);
+    assert.match(appSource, /existingFileIds\[\]/);
+    assert.match(appSource, /applyMomentPickerSelection/);
+    assert.match(appSource, /source: 'existing'/);
+  });
+
   it('consumes explicit preview source hints for non-tile preview triggers', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const openPreviewStart = appSource.indexOf('function openPreview(');

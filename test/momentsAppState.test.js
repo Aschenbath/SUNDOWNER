@@ -3,7 +3,9 @@ import fs from 'node:fs';
 
 import {
   buildMomentAttachmentItem,
+  buildMomentMutationPayload,
   deriveMomentCalendarMonth,
+  normalizeMomentDraftAttachments,
   normalizeMomentPosts,
 } from '../js/media-library/moments-state.js';
 
@@ -58,6 +60,32 @@ describe('Moments app helpers', () => {
     assert.equal(item.label, 'Photo');
     assert.equal(item.width, 100);
     assert.equal(item.height, 50);
+  });
+
+  it('normalizes mixed draft attachments from upload and existing sources', () => {
+    const draft = normalizeMomentDraftAttachments([
+      { source: 'existing', fileId: 'Photos/2026-05-16/a.jpg', metadata: { FileName: 'a.jpg', FileType: 'image/jpeg' } },
+      { source: 'upload', name: 'b.jpg', previewUrl: 'blob:preview-b' },
+    ]);
+
+    assert.equal(draft.length, 2);
+    assert.equal(draft[0].source, 'existing');
+    assert.equal(draft[0].fileId, 'Photos/2026-05-16/a.jpg');
+    assert.equal(draft[1].source, 'upload');
+    assert.equal(draft[1].previewUrl, 'blob:preview-b');
+  });
+
+  it('builds edit payloads from current draft attachment state', () => {
+    const payload = buildMomentMutationPayload({
+      body: 'edited',
+      attachments: [
+        { source: 'existing', fileId: 'Photos/2026-05-16/a.jpg' },
+        { source: 'upload', file: { name: 'b.jpg' } },
+      ],
+    });
+
+    assert.deepEqual(payload.existingFileIds, ['Photos/2026-05-16/a.jpg']);
+    assert.equal(payload.uploadFiles.length, 1);
   });
 
   it('wires the Moments route, actions, loading, and preview item source in app.js', () => {

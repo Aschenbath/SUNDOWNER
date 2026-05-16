@@ -46,6 +46,35 @@ function toFiniteNumber(value) {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : undefined;
 }
 
+export function normalizeMomentDraftAttachments(items = []) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items.map((item, index) => ({
+    source: item?.source === 'existing' ? 'existing' : 'upload',
+    draftId: normalizeText(item?.draftId || item?.fileId || item?.name || `draft-${index}`),
+    fileId: normalizeText(item?.fileId),
+    name: normalizeText(item?.name || item?.metadata?.FileName || item?.fileId?.split('/').pop() || 'Moment photo'),
+    previewUrl: normalizeText(item?.previewUrl || item?.sourceUrl || item?.thumbnailUrl),
+    metadata: item?.metadata && typeof item.metadata === 'object' ? item.metadata : {},
+    file: item?.file ?? null,
+  }));
+}
+
+export function buildMomentMutationPayload({ body = '', attachments = [] } = {}) {
+  const normalized = normalizeMomentDraftAttachments(attachments);
+  return {
+    body: normalizeText(body),
+    existingFileIds: normalized
+      .filter((item) => item.source === 'existing' && item.fileId)
+      .map((item) => item.fileId),
+    uploadFiles: normalized
+      .filter((item) => item.source === 'upload' && item.file)
+      .map((item) => item.file),
+  };
+}
+
 export function deriveMomentCalendarMonth(selectedDate = '') {
   const normalizedDate = normalizeMomentDate(selectedDate);
   return normalizedDate ? normalizedDate.slice(0, 7) : new Date().toISOString().slice(0, 7);
