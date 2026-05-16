@@ -1,6 +1,8 @@
 import { fetchSecurityConfig, fetchUploadConfig } from '../../utils/sysConfig.js';
 import { MomentsStore } from '../../utils/momentsStore.js';
+import { userAuthCheck } from '../../utils/userAuth.js';
 import { processFileUpload } from '../../upload/index.js';
+import { getUploadIp, isBlockedUploadIp } from '../../upload/uploadTools.js';
 
 const MAX_BODY_LENGTH = 2000;
 const MAX_PHOTOS = 9;
@@ -37,6 +39,67 @@ function extractFileIdFromSrc(src = '') {
   return normalized.replace(/^\/+file\//, '');
 }
 
+function buildUploadHeaders(request) {
+  const headers = new Headers();
+  const safeHeaderNames = [
+    'Authorization',
+    'authCode',
+    'X-Telegram-Bot-Api-Secret-Token',
+    'cf-connecting-ip',
+    'x-real-ip',
+    'x-forwarded-for',
+    'x-client-ip',
+    'x-host',
+    'x-originating-ip',
+    'x-cluster-client-ip',
+    'forwarded-for',
+    'forwarded',
+    'via',
+    'requester',
+    'true-client-ip',
+    'client-ip',
+    'x-remote-ip',
+    'fastly-client-ip',
+    'akamai-origin-hop',
+    'x-remote-addr',
+    'x-remote-host',
+    'x-client-ips',
+  ];
+
+  for (const name of safeHeaderNames) {
+    const value = request.headers.get(name);
+    if (value) {
+      headers.set(name, value);
+    }
+  }
+
+  return headers;
+}
+
+async function assertUploadAllowed(context, uploadUrl, uploadRequest) {
+  const authorized = await userAuthCheck(
+    context.env,
+    uploadUrl,
+    uploadRequest,
+    'upload',
+    { allowCookieAuthCode: false },
+  );
+  if (!authorized) {
+    const error = new Error('Unauthorized');
+    error.status = 401;
+    error.expose = true;
+    throw error;
+  }
+
+  const uploadIp = getUploadIp(uploadRequest);
+  if (await isBlockedUploadIp(context.env, uploadIp)) {
+    const error = new Error('Upload IP is blocked');
+    error.status = 403;
+    error.expose = true;
+    throw error;
+  }
+}
+
 async function defaultUploadFile({ context, file, uploadFolder }) {
   const form = new FormData();
   form.set('file', file);
@@ -49,9 +112,11 @@ async function defaultUploadFile({ context, file, uploadFolder }) {
 
   const uploadRequest = new Request(uploadUrl.toString(), {
     method: 'POST',
-    headers: context.request.headers,
+    headers: buildUploadHeaders(context.request),
     body: form,
   });
+
+  await assertUploadAllowed(context, uploadUrl, uploadRequest);
 
   const uploadContext = {
     ...context,
@@ -62,7 +127,8 @@ async function defaultUploadFile({ context, file, uploadFolder }) {
     uploadConfig: context.uploadConfig || await fetchUploadConfig(context.env, context),
   };
 
-  const response = await processFileUpload(uploadContext, form);
+  const processUpload = context.processUploadFile || processFileUpload;
+  const response = await processUpload(uploadContext, form);
   if (!response.ok) {
     throw new Error((await response.text()) || 'Photo upload failed');
   }
