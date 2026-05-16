@@ -80,6 +80,13 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-film-card__perforation \{[\s\S]*repeating-linear-gradient\(90deg, rgba\(244, 246, 250, 0\.9\) 0 10px, transparent 10px 18px\)/);
   });
 
+  it('defines route-scoped Moments selectors', () => {
+    assert.match(css, /#codex-media-library-root \.cml-moments \{/);
+    assert.match(css, /#codex-media-library-root \.cml-moments-composer[\s\S]*\{/);
+    assert.match(css, /#codex-media-library-root \.cml-moments-calendar[\s\S]*\{/);
+    assert.match(css, /#codex-media-library-root \.cml-moments-day-wall[\s\S]*\{/);
+  });
+
   it('hides native browser cancel icons inside the Films library search', () => {
     assert.match(css, /\.cml-films-library-search input::-webkit-search-cancel-button/);
     assert.match(css, /\.cml-films-library-search input\[type="search"\] \{[\s\S]*appearance: none;/);
