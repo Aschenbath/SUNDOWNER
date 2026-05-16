@@ -16,6 +16,23 @@ const posts = [{
   }],
 }];
 
+const hydratedPosts = [{
+  id: 'moment-1-hydrated',
+  body: '今天云还是很好看',
+  createdAt: '2026-05-16T21:00:00.000Z',
+  date: '2026-05-16',
+  attachments: [{
+    item: {
+      id: 'photo-1',
+      type: 'photo',
+      label: 'golden hour.jpg',
+      thumbnailUrl: '/thumbs/golden-hour.jpg?size=480&name=golden hour.jpg',
+      sourceUrl: '/source/golden hour.jpg?download=1&x="quoted"',
+    },
+    metadata: { FileName: 'golden hour.jpg', FileType: 'image/jpeg' },
+  }],
+}];
+
 describe('Moments components', () => {
   it('adds Moments to primary navigation', () => {
     assert.ok(navigationModel.primary.includes('Moments'));
@@ -63,11 +80,33 @@ describe('Moments components', () => {
     assert.match(html, /data-action="delete-moment"/);
     assert.match(html, /data-action="open-preview"/);
     assert.match(html, /data-id="Moments\/2026-05-16\/cloud space\.jpg"/);
+    assert.match(html, /data-preview-source="\/file\/Moments\/2026-05-16\/cloud%20space\.jpg"/);
     assert.match(html, /src="\/file\/Moments\/2026-05-16\/cloud%20space\.jpg"/);
     assert.doesNotMatch(html, /src="\/file\/Moments%2F2026-05-16%2Fcloud%20space\.jpg"/);
+    assert.doesNotMatch(html, /data-preview-source="\/file\/Moments%2F2026-05-16%2Fcloud%20space\.jpg"/);
     assert.match(html, /cloud space.jpg/);
     assert.match(html, /draft/);
     assert.match(html, /local.jpg/);
+  });
+
+  it('uses hydrated attachment sourceUrl as the preview source hint with escaping', () => {
+    const html = MomentsView({
+      posts: hydratedPosts,
+      isLoading: false,
+      isPublishing: false,
+      draftBody: '',
+      draftFiles: [],
+      selectedDate: '2026-05-16',
+      calendarMonth: '2026-05',
+      datesWithPhotos: { '2026-05-16': 1 },
+      authorName: 'Aschenbath',
+      authorAvatarData: '',
+      error: '',
+    });
+
+    assert.match(html, /data-id="photo-1"/);
+    assert.match(html, /data-preview-source="\/source\/golden hour\.jpg\?download=1&amp;x=&quot;quoted&quot;"/);
+    assert.match(html, /src="\/thumbs\/golden-hour\.jpg\?size=480&amp;name=golden hour\.jpg"/);
   });
 
   it('shows publish failure while preserving draft markup', () => {
@@ -122,7 +161,9 @@ describe('Moments components', () => {
     assert.ok(dayWall, 'expected day wall section to be rendered');
     assert.match(dayWall[0], /cloud space.jpg/);
     assert.match(dayWall[0], /data-id="Moments\/2026-05-16\/cloud space\.jpg"/);
+    assert.match(dayWall[0], /data-preview-source="\/file\/Moments\/2026-05-16\/cloud%20space\.jpg"/);
     assert.match(dayWall[0], /src="\/file\/Moments\/2026-05-16\/cloud%20space\.jpg"/);
+    assert.doesNotMatch(dayWall[0], /data-preview-source="\/file\/Moments%2F2026-05-16%2Fcloud%20space\.jpg"/);
     assert.doesNotMatch(dayWall[0], /other.jpg/);
   });
 });

@@ -1028,6 +1028,15 @@ function getMomentAttachmentItem(attachment = {}) {
   };
 }
 
+function getMomentAttachmentPreviewSource(attachment = {}) {
+  const fileId = String(attachment.fileId || '');
+  const fallbackUrl = buildFileRouteUrl(fileId);
+  if (attachment.item) {
+    return String(attachment.item.sourceUrl || attachment.item.thumbnailUrl || fallbackUrl || '');
+  }
+  return fallbackUrl;
+}
+
 function buildMomentsCalendarModel(monthKey = '', selectedDate = '', datesWithPhotos = {}) {
   const fallbackMonthKey = String(monthKey || selectedDate || new Date().toISOString().slice(0, 7));
   const [rawYear, rawMonth] = fallbackMonthKey.split('-').map(Number);
@@ -1093,8 +1102,9 @@ function renderMomentImageGrid(attachments = []) {
         const item = getMomentAttachmentItem(attachment);
         const label = item.label || attachment.metadata?.FileName || 'Moment photo';
         const actionId = item.id || attachment.fileId || '';
+        const previewSource = getMomentAttachmentPreviewSource(attachment);
         return `
-          <button type="button" class="cml-moment-card__photo" data-action="open-preview" data-id="${escapeHtml(actionId)}" aria-label="Open ${escapeHtml(label)}">
+          <button type="button" class="cml-moment-card__photo" data-action="open-preview" data-id="${escapeHtml(actionId)}" data-preview-source="${escapeHtml(previewSource)}" aria-label="Open ${escapeHtml(label)}">
             ${renderMediaAsset(item, 'cml-moment-card__image', false, { noAction: true })}
             ${extraCount && index === visibleAttachments.length - 1 ? `<span class="cml-moment-card__more">+${extraCount}</span>` : ''}
           </button>
@@ -1179,8 +1189,9 @@ function renderMomentsDayWall({ posts = [], selectedDate = '' } = {}) {
             const item = getMomentAttachmentItem(attachment);
             const label = item.label || attachment.metadata?.FileName || 'Moment photo';
             const actionId = item.id || attachment.fileId || '';
+            const previewSource = getMomentAttachmentPreviewSource(attachment);
             return `
-              <button type="button" class="cml-moments-day-wall__item" data-action="open-preview" data-id="${escapeHtml(actionId)}" aria-label="Open ${escapeHtml(label)}">
+              <button type="button" class="cml-moments-day-wall__item" data-action="open-preview" data-id="${escapeHtml(actionId)}" data-preview-source="${escapeHtml(previewSource)}" aria-label="Open ${escapeHtml(label)}">
                 ${renderMediaAsset(item, 'cml-moments-day-wall__image', false, { noAction: true })}
               </button>
             `;
