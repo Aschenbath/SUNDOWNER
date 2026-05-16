@@ -11,15 +11,8 @@ const posts = [{
   createdAt: '2026-05-16T20:15:00.000Z',
   date: '2026-05-16',
   attachments: [{
-    fileId: 'Moments/2026-05-16/cloud.jpg',
-    metadata: { FileName: 'cloud.jpg', FileType: 'image/jpeg' },
-    item: {
-      id: 'Moments/2026-05-16/cloud.jpg',
-      thumbnailUrl: '/file/Moments/2026-05-16/cloud.jpg',
-      sourceUrl: '/file/Moments/2026-05-16/cloud.jpg',
-      type: 'photo',
-      label: 'cloud.jpg',
-    },
+    fileId: 'Moments/2026-05-16/cloud space.jpg',
+    metadata: { FileName: 'cloud space.jpg', FileType: 'image/jpeg' },
   }],
 }];
 
@@ -69,7 +62,10 @@ describe('Moments components', () => {
     assert.match(html, /Aschenbath/);
     assert.match(html, /data-action="delete-moment"/);
     assert.match(html, /data-action="open-preview"/);
-    assert.match(html, /cloud.jpg/);
+    assert.match(html, /data-id="Moments\/2026-05-16\/cloud space\.jpg"/);
+    assert.match(html, /src="\/file\/Moments\/2026-05-16\/cloud%20space\.jpg"/);
+    assert.doesNotMatch(html, /src="\/file\/Moments%2F2026-05-16%2Fcloud%20space\.jpg"/);
+    assert.match(html, /cloud space.jpg/);
     assert.match(html, /draft/);
     assert.match(html, /local.jpg/);
   });
@@ -107,13 +103,6 @@ describe('Moments components', () => {
           attachments: [{
             fileId: 'Moments/2026-05-15/other.jpg',
             metadata: { FileName: 'other.jpg', FileType: 'image/jpeg' },
-            item: {
-              id: 'Moments/2026-05-15/other.jpg',
-              thumbnailUrl: '/file/Moments/2026-05-15/other.jpg',
-              sourceUrl: '/file/Moments/2026-05-15/other.jpg',
-              type: 'photo',
-              label: 'other.jpg',
-            },
           }],
         },
       ],
@@ -131,7 +120,9 @@ describe('Moments components', () => {
 
     const dayWall = html.match(/<section class="cml-moments-day-wall"[\s\S]*?<\/section>/);
     assert.ok(dayWall, 'expected day wall section to be rendered');
-    assert.match(dayWall[0], /cloud.jpg/);
+    assert.match(dayWall[0], /cloud space.jpg/);
+    assert.match(dayWall[0], /data-id="Moments\/2026-05-16\/cloud space\.jpg"/);
+    assert.match(dayWall[0], /src="\/file\/Moments\/2026-05-16\/cloud%20space\.jpg"/);
     assert.doesNotMatch(dayWall[0], /other.jpg/);
   });
 });

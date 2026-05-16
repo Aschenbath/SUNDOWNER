@@ -998,20 +998,32 @@ function formatFileDate(dateStr) {
   return `${y}-${m}-${day} ${hh}:${mm}`;
 }
 
+function buildFileRouteUrl(fileId = '') {
+  const normalizedFileId = String(fileId || '');
+  if (!normalizedFileId) {
+    return '/file/';
+  }
+  const encodedPath = normalizedFileId
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+  return `/file/${encodedPath}`;
+}
+
 function getMomentAttachmentItem(attachment = {}) {
   if (attachment.item) {
     return attachment.item;
   }
 
   const fileId = String(attachment.fileId || '');
-  const encodedFileId = encodeURIComponent(fileId);
-  const label = attachment.metadata?.FileName || fileId || 'Moment photo';
+  const fallbackUrl = buildFileRouteUrl(fileId);
+  const label = attachment.metadata?.FileName || fileId.split('/').pop() || fileId || 'Moment photo';
 
   return {
     id: fileId,
     type: 'photo',
-    thumbnailUrl: `/file/${encodedFileId}`,
-    sourceUrl: `/file/${encodedFileId}`,
+    thumbnailUrl: fallbackUrl,
+    sourceUrl: fallbackUrl,
     label
   };
 }
