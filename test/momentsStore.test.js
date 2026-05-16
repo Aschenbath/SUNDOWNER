@@ -212,6 +212,65 @@ describe('MomentsStore', () => {
     assert.equal(fileRecord.metadata.FileName, 'a.jpg');
   });
 
+  it('updates post body and replaces attachment order without touching file records', async () => {
+    const d1 = new SqliteD1(':memory:');
+    await seedFile(d1, 'Moments/2026-05-16/a.jpg', { FileName: 'a.jpg', FileType: 'image/jpeg' });
+    await seedFile(d1, 'Photos/2026-05-16/b.jpg', { FileName: 'b.jpg', FileType: 'image/jpeg' });
+    await seedFile(d1, 'Photos/2026-05-16/c.jpg', { FileName: 'c.jpg', FileType: 'image/jpeg' });
+    const store = new MomentsStore({ img_d1: d1 });
+
+    const created = await store.createPost({
+      body: 'before',
+      fileIds: ['Moments/2026-05-16/a.jpg', 'Photos/2026-05-16/b.jpg'],
+      now: '2026-05-16T20:15:00.000Z',
+    });
+
+    const updated = await store.updatePost(created.id, {
+      body: 'after',
+      fileIds: ['Photos/2026-05-16/c.jpg', 'Photos/2026-05-16/b.jpg'],
+      now: '2026-05-16T20:30:00.000Z',
+    });
+
+    assert.equal(updated.body, 'after');
+    assert.deepEqual(updated.attachments.map((attachment) => attachment.fileId), [
+      'Photos/2026-05-16/c.jpg',
+      'Photos/2026-05-16/b.jpg',
+    ]);
+
+    const fileRecord = await new D1Database(d1).getWithMetadata('Moments/2026-05-16/a.jpg');
+    assert.equal(fileRecord.metadata.FileName, 'a.jpg');
+  });
+
+  it('rejects edits that reference missing or non-image existing files', async () => {
+    const d1 = new SqliteD1(':memory:');
+    await seedFile(d1, 'Photos/2026-05-16/photo.jpg', { FileType: 'image/jpeg' });
+    await seedFile(d1, 'Photos/2026-05-16/doc.pdf', { FileType: 'application/pdf' });
+    const store = new MomentsStore({ img_d1: d1 });
+    const created = await store.createPost({
+      body: 'body',
+      fileIds: ['Photos/2026-05-16/photo.jpg'],
+      now: '2026-05-16T20:15:00.000Z',
+    });
+
+    await assert.rejects(
+      () => store.updatePost(created.id, {
+        body: 'bad',
+        fileIds: ['missing.jpg'],
+        now: '2026-05-16T20:30:00.000Z',
+      }),
+      /Attachment file not found/
+    );
+
+    await assert.rejects(
+      () => store.updatePost(created.id, {
+        body: 'bad',
+        fileIds: ['Photos/2026-05-16/doc.pdf'],
+        now: '2026-05-16T20:30:00.000Z',
+      }),
+      /Moment attachments must be images/
+    );
+  });
+
   it('rejects empty posts, too many attachments, missing files, and non-image attachments', async () => {
     const d1 = new SqliteD1(':memory:');
     await seedFile(d1, 'Moments/2026-05-16/photo.jpg', { FileType: 'image/jpeg' });

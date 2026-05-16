@@ -176,6 +176,7 @@ export class MomentsStore {
       throw new Error('A Moment can include at most 9 photos');
     }
 
+    const attachments = [];
     for (const fileId of fileIds) {
       const metadata = await this.getFileMetadata(fileId);
       if (!metadata) {
@@ -184,7 +185,10 @@ export class MomentsStore {
       if (!String(metadata.FileType || '').toLowerCase().startsWith('image/')) {
         throw new Error('Moment attachments must be images');
       }
+      attachments.push({ fileId, metadata });
     }
+
+    return attachments;
   }
 
   async createPost({ body = '', fileIds = [], now = new Date().toISOString() } = {}) {
@@ -225,6 +229,68 @@ export class MomentsStore {
     }
 
     return this.getPost(postId);
+  }
+
+  async updatePost(postId, { body = '', fileIds = [], now = new Date().toISOString() } = {}) {
+    await this.ensureSchema();
+
+    const normalizedId = normalizeText(postId, 240);
+    if (!normalizedId) {
+      throw new Error('Moment id is required');
+    }
+
+    const existingPost = await this.getPost(normalizedId);
+    if (!existingPost) {
+      throw new Error('Moment post not found');
+    }
+
+    const normalizedBody = normalizeText(body, MAX_BODY_LENGTH);
+    const normalizedFileIds = normalizeFileIds(fileIds);
+    if (!normalizedBody && normalizedFileIds.length === 0) {
+      throw new Error('Moment body or at least one photo is required');
+    }
+
+    await this.validateAttachments(normalizedFileIds);
+    const updatedAt = new Date(now).toISOString();
+
+    await this.db.prepare(
+      'UPDATE moments_posts SET body = ?, updated_at = ? WHERE id = ?'
+    ).bind(normalizedBody, updatedAt, normalizedId).run();
+
+    try {
+      await this.db.prepare('DELETE FROM moment_attachments WHERE post_id = ?').bind(normalizedId).run();
+      for (let index = 0; index < normalizedFileIds.length; index += 1) {
+        await this.db.prepare(
+          'INSERT INTO moment_attachments (id, post_id, file_id, sort_order, created_at) VALUES (?, ?, ?, ?, ?)'
+        ).bind(
+          createAttachmentId(normalizedId, index),
+          normalizedId,
+          normalizedFileIds[index],
+          index,
+          updatedAt,
+        ).run();
+      }
+    } catch (error) {
+      await this.db.prepare('DELETE FROM moment_attachments WHERE post_id = ?').bind(normalizedId).run();
+      for (let index = 0; index < existingPost.attachments.length; index += 1) {
+        const attachment = existingPost.attachments[index];
+        await this.db.prepare(
+          'INSERT INTO moment_attachments (id, post_id, file_id, sort_order, created_at) VALUES (?, ?, ?, ?, ?)'
+        ).bind(
+          attachment.id || createAttachmentId(normalizedId, index),
+          normalizedId,
+          attachment.fileId,
+          Number(attachment.sortOrder || index),
+          attachment.createdAt || existingPost.createdAt,
+        ).run();
+      }
+      await this.db.prepare(
+        'UPDATE moments_posts SET body = ?, updated_at = ? WHERE id = ?'
+      ).bind(existingPost.body || '', existingPost.updatedAt || existingPost.createdAt, normalizedId).run();
+      throw error;
+    }
+
+    return this.getPost(normalizedId);
   }
 
   async loadAttachmentsByPostIds(postIds = []) {
