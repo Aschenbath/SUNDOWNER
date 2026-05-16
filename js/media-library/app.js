@@ -14944,11 +14944,11 @@ function syncMount() {
   }
 }
 
-function openPreview(itemId) {
+function openPreview(itemId, sourceHint = '') {
   const sourceTile = itemId
     ? refs.root?.querySelector(`.cml-media-tile[data-tile-id="${itemId}"]`)
     : null;
-  const sourceHint = getMediaSourceFromTile(sourceTile);
+  sourceHint = normalizeText(sourceHint) || getMediaSourceFromTile(sourceTile);
   const resolvedPreviewItem = resolvePreviewItem(getAllItems(), {
     id: itemId,
     sourceHint
@@ -15723,7 +15723,7 @@ function handleAction(actionTarget, event = null) {
         if (targetItem && targetItem.type === 'document') {
           downloadPreviewItem(actionTarget.dataset.id);
         } else {
-          openPreview(actionTarget.dataset.id);
+          openPreview(actionTarget.dataset.id, actionTarget.dataset.previewSource || '');
         }
       }
       return true;
@@ -17040,7 +17040,7 @@ function handleClick(event) {
       handleTileSelect(actionTarget.dataset.id, event);
     } else {
       state.avatarMenuOpen = false;
-      openPreview(actionTarget.dataset.id);
+      openPreview(actionTarget.dataset.id, actionTarget.dataset.previewSource || '');
     }
     return;
   }
