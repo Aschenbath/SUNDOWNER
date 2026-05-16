@@ -1,0 +1,81 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+import {
+  buildMomentAttachmentItem,
+  deriveMomentCalendarMonth,
+  normalizeMomentPosts,
+} from '../js/media-library/moments-state.js';
+
+const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+describe('Moments app helpers', () => {
+  it('normalizes posts and maps attachments to media preview items', () => {
+    const posts = normalizeMomentPosts([{
+      id: 'moment-1',
+      body: 'hello',
+      createdAt: '2026-05-16T20:15:00.000Z',
+      attachments: [{
+        fileId: 'Moments/2026-05-16/a space.jpg',
+        metadata: { FileName: 'a space.jpg', FileType: 'image/jpeg', Width: 800, Height: 600 },
+      }],
+    }]);
+
+    assert.equal(posts[0].date, '2026-05-16');
+    assert.equal(posts[0].attachments[0].item.id, 'Moments/2026-05-16/a space.jpg');
+    assert.equal(posts[0].attachments[0].item.thumbnailUrl, '/file/Moments/2026-05-16/a%20space.jpg');
+    assert.equal(posts[0].attachments[0].item.type, 'photo');
+  });
+
+  it('accepts snake_case API payloads and preserves raw file ids', () => {
+    const posts = normalizeMomentPosts([{
+      id: 'moment-2',
+      body: 'snake',
+      created_at: '2026-05-17T08:00:00.000Z',
+      attachments: [{
+        file_id: 'Moments/2026-05-17/b.jpg',
+        metadata: { file_name: 'b.jpg', file_type: 'image/jpeg', width: 640, height: 480 },
+      }],
+    }]);
+
+    assert.equal(posts[0].createdAt, '2026-05-17T08:00:00.000Z');
+    assert.equal(posts[0].attachments[0].fileId, 'Moments/2026-05-17/b.jpg');
+    assert.equal(posts[0].attachments[0].item.id, 'Moments/2026-05-17/b.jpg');
+    assert.equal(posts[0].attachments[0].item.label, 'b.jpg');
+  });
+
+  it('derives the calendar month from selected date', () => {
+    assert.equal(deriveMomentCalendarMonth('2026-05-16'), '2026-05');
+    assert.equal(deriveMomentCalendarMonth('bad'), new Date().toISOString().slice(0, 7));
+  });
+
+  it('builds attachment preview items with labels and dimensions', () => {
+    const item = buildMomentAttachmentItem({
+      fileId: 'photo.jpg',
+      metadata: { FileName: 'Photo', FileType: 'image/jpeg', Width: 100, Height: 50 },
+    });
+    assert.equal(item.id, 'photo.jpg');
+    assert.equal(item.label, 'Photo');
+    assert.equal(item.width, 100);
+    assert.equal(item.height, 50);
+  });
+
+  it('wires the Moments route, actions, loading, and preview item source in app.js', () => {
+    assert.match(appSource, /MomentsView\(/);
+    assert.match(appSource, /isMomentsView/);
+    assert.match(appSource, /\/api\/manage\/moments/);
+    assert.match(appSource, /choose-moment-photos/);
+    assert.match(appSource, /publish-moment/);
+    assert.match(appSource, /select-moments-date/);
+    assert.match(appSource, /change-moments-month/);
+    assert.match(appSource, /delete-moment/);
+    assert.match(appSource, /getMomentAttachmentItems\(\)/);
+    assert.match(appSource, /#\/moments/);
+    assert.match(appSource, /loadMoments\(\{ forceRender: true \}\)/);
+    assert.match(appSource, /data-moments-draft-input/);
+    assert.match(appSource, /state\.momentsDraftBody = input\.value/);
+    assert.match(appSource, /new FormData\(\)/);
+    assert.match(appSource, /URL\.createObjectURL\(/);
+    assert.match(appSource, /URL\.revokeObjectURL\(/);
+  });
+});

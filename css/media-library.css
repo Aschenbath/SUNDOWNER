@@ -11799,6 +11799,329 @@ body.codex-media-library-active #app {
   transition: width 90ms linear, color 100ms ease;
 }
 
+#codex-media-library-root .cml-main-content-shell--moments {
+  min-height: 0;
+}
+
+#codex-media-library-root .cml-main-content--moments {
+  min-height: 0;
+}
+
+#codex-media-library-root .cml-main-content__inner.is-moments-view {
+  min-height: 100%;
+}
+
+#codex-media-library-root .cml-moments {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 28px;
+  min-height: 100%;
+  color: var(--cml-theme-text, #f5f7fb);
+}
+
+#codex-media-library-root .cml-moments__main {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-moments__hero p {
+  margin: 0 0 6px;
+  color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.68));
+  font-size: 14px;
+}
+
+#codex-media-library-root .cml-moments__hero h1 {
+  margin: 0;
+  font-size: clamp(28px, 3vw, 42px);
+  letter-spacing: -0.04em;
+}
+
+#codex-media-library-root .cml-moments-composer,
+#codex-media-library-root .cml-moment-card,
+#codex-media-library-root .cml-moments-calendar,
+#codex-media-library-root .cml-moments-day-wall {
+  border: 1px solid var(--cml-theme-card-border, rgba(255, 255, 255, 0.08));
+  border-radius: 24px;
+  background: var(--cml-theme-surface-elevated, rgba(14, 19, 34, 0.76));
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.18);
+}
+
+#codex-media-library-root .cml-moments-composer,
+#codex-media-library-root .cml-moment-card,
+#codex-media-library-root .cml-moments-calendar,
+#codex-media-library-root .cml-moments-day-wall {
+  padding: 18px;
+}
+
+#codex-media-library-root .cml-moments-composer__input {
+  width: 100%;
+  min-height: 118px;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1.6;
+}
+
+#codex-media-library-root .cml-moments-composer__previews,
+#codex-media-library-root .cml-moment-card__photos,
+#codex-media-library-root .cml-moments-day-wall__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#codex-media-library-root .cml-moments-composer__preview,
+#codex-media-library-root .cml-moment-card__photo,
+#codex-media-library-root .cml-moments-day-wall__item {
+  position: relative;
+  overflow: hidden;
+  margin: 0;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  color: inherit;
+}
+
+#codex-media-library-root .cml-moments-composer__preview img,
+#codex-media-library-root .cml-moment-card__image,
+#codex-media-library-root .cml-moments-day-wall__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#codex-media-library-root .cml-moments-composer__preview figcaption {
+  position: absolute;
+  right: 28px;
+  bottom: 8px;
+  left: 8px;
+  overflow: hidden;
+  color: #fff;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+}
+
+#codex-media-library-root .cml-moments-composer__remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.56);
+  color: white;
+}
+
+#codex-media-library-root .cml-moments-composer__error {
+  margin: 12px 0 0;
+  color: #ffb4b4;
+  font-size: 13px;
+}
+
+#codex-media-library-root .cml-moments-composer__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+#codex-media-library-root .cml-moments-composer__secondary,
+#codex-media-library-root .cml-moments-composer__publish,
+#codex-media-library-root .cml-moment-card__delete,
+#codex-media-library-root .cml-moments-calendar button {
+  border: 0;
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-moments-composer__secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--cml-theme-hover, rgba(255, 255, 255, 0.08));
+}
+
+#codex-media-library-root .cml-moments-composer__count {
+  margin-right: auto;
+  color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.62));
+  font-size: 13px;
+}
+
+#codex-media-library-root .cml-moments-composer__publish {
+  padding: 11px 20px;
+  background: linear-gradient(135deg, var(--cml-theme-accent, #5967ff), var(--cml-theme-accent-strong, #3141d8));
+  color: var(--cml-text-on-accent, #fff);
+  font-weight: 700;
+}
+
+#codex-media-library-root .cml-moments-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+#codex-media-library-root .cml-moment-card__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#codex-media-library-root .cml-moment-card__meta {
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-moment-card__header time {
+  display: block;
+  margin-top: 2px;
+  color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.6));
+  font-size: 13px;
+}
+
+#codex-media-library-root .cml-moment-card__delete {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  margin-left: auto;
+  place-items: center;
+  background: transparent;
+  color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.58));
+}
+
+#codex-media-library-root .cml-moment-card__body {
+  margin: 16px 0;
+  color: var(--cml-theme-text, rgba(245, 247, 251, 0.92));
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+#codex-media-library-root .cml-moment-card__photos[data-count="1"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#codex-media-library-root .cml-moment-card__photos[data-count="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#codex-media-library-root .cml-moment-card__more {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.48);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+#codex-media-library-root .cml-moments__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-moments-calendar__header,
+#codex-media-library-root .cml-moments-day-wall__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+#codex-media-library-root .cml-moments-calendar h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+#codex-media-library-root .cml-moments-calendar__weekdays,
+#codex-media-library-root .cml-moments-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  text-align: center;
+}
+
+#codex-media-library-root .cml-moments-calendar__weekdays {
+  margin-bottom: 8px;
+  color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.48));
+  font-size: 12px;
+}
+
+#codex-media-library-root .cml-moments-calendar__grid button,
+#codex-media-library-root .cml-moments-calendar__grid .is-empty {
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  background: transparent;
+  color: var(--cml-theme-text, rgba(245, 247, 251, 0.9));
+}
+
+#codex-media-library-root .cml-moments-calendar__grid button.has-photos span::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 4px;
+  margin: 3px auto 0;
+  border-radius: 999px;
+  background: var(--cml-theme-accent, #6c7cff);
+}
+
+#codex-media-library-root .cml-moments-calendar__grid button.is-selected {
+  background: var(--cml-theme-accent, #3f51f4);
+  color: var(--cml-text-on-accent, #fff);
+  box-shadow: 0 10px 24px rgba(var(--cml-theme-accent-rgb, 63, 81, 244), 0.32);
+}
+
+#codex-media-library-root .cml-moments-day-wall__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#codex-media-library-root .cml-moments-day-wall__empty,
+#codex-media-library-root .cml-moments-empty,
+#codex-media-library-root .cml-moments-loading {
+  margin: 0;
+  padding: 22px;
+  color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.58));
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  #codex-media-library-root .cml-moments {
+    grid-template-columns: 1fr;
+  }
+
+  #codex-media-library-root .cml-moments__rail {
+    order: 0;
+  }
+
+  #codex-media-library-root .cml-moments__main {
+    order: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  #codex-media-library-root .cml-moments-composer__previews,
+  #codex-media-library-root .cml-moment-card__photos,
+  #codex-media-library-root .cml-moments-day-wall__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 #codex-media-library-root .cml-films-library-search input::-webkit-search-decoration,
 #codex-media-library-root .cml-films-library-search input::-webkit-search-cancel-button,
 #codex-media-library-root .cml-films-library-search input::-webkit-search-results-button,

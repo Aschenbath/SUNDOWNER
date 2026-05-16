@@ -1,0 +1,282 @@
+import assert from 'node:assert/strict';
+
+import { onRequest } from '../functions/api/manage/moments.js';
+import { D1Database } from '../functions/utils/d1Database.js';
+import { SqliteD1 } from '../server/sqliteD1.js';
+
+async function seedFile(d1, id, metadata = {}) {
+  const db = new D1Database(d1);
+  await db.put(id, '', {
+    metadata: {
+      FileName: metadata.FileName || id.split('/').pop(),
+      FileType: metadata.FileType || 'image/jpeg',
+      TimeStamp: metadata.TimeStamp || Date.now(),
+      Directory: metadata.Directory || 'Moments/2026-05-16/',
+      ...metadata,
+    },
+  });
+}
+
+function createContext({ request, env, uploadFile, now, processUploadFile } = {}) {
+  return {
+    request: request || new Request('https://example.com/api/manage/moments'),
+    env: env || { img_d1: new SqliteD1(':memory:') },
+    waitUntil(promise) {
+      return promise;
+    },
+    uploadFile,
+    processUploadFile,
+    now,
+  };
+}
+
+describe('manage moments route', () => {
+  it('returns 503 when D1 is missing', async () => {
+    const response = await onRequest(createContext({ env: {} }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 503);
+    assert.equal(payload.error, 'Moments require D1 storage');
+  });
+
+  it('rejects empty multipart body/photos', async () => {
+    const form = new FormData();
+    form.set('body', '   ');
+    const response = await onRequest(createContext({
+      request: new Request('https://example.com/api/manage/moments', { method: 'POST', body: form }),
+    }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.match(payload.error, /body or at least one photo/);
+  });
+
+  it('rejects non-image photos before upload', async () => {
+    const form = new FormData();
+    form.append('photos[]', new File(['hello'], 'note.txt', { type: 'text/plain' }));
+    const response = await onRequest(createContext({
+      request: new Request('https://example.com/api/manage/moments', { method: 'POST', body: form }),
+    }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(payload.error, 'Moments photos must be images');
+  });
+
+  it('maps malformed multipart boundaries to 400', async () => {
+    const response = await onRequest(createContext({
+      request: new Request('https://example.com/api/manage/moments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'multipart/form-data' },
+        body: 'broken-body',
+      }),
+    }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.match(payload.error, /formdata|multipart|boundary/i);
+  });
+
+  it('creates a post from multipart photos through the injected upload function', async () => {
+    const d1 = new SqliteD1(':memory:');
+    let receivedFolder = '';
+    const form = new FormData();
+    form.set('body', '今天云很好看');
+    form.append('photos[]', new File(['fake image'], 'cloud.jpg', { type: 'image/jpeg' }));
+
+    const response = await onRequest(createContext({
+      env: { img_d1: d1 },
+      now: '2026-05-16T20:15:00.000Z',
+      request: new Request('https://example.com/api/manage/moments', { method: 'POST', body: form }),
+      uploadFile: async ({ file, uploadFolder }) => {
+        receivedFolder = uploadFolder;
+        assert.equal(file.name, 'cloud.jpg');
+        await seedFile(d1, `${uploadFolder}/cloud.jpg`, { FileName: 'cloud.jpg', FileType: 'image/jpeg' });
+        return { fileId: `${uploadFolder}/cloud.jpg`, src: `/file/${uploadFolder}/cloud.jpg` };
+      },
+    }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(receivedFolder, 'Moments/2026-05-16');
+    assert.equal(payload.post.body, '今天云很好看');
+    assert.equal(payload.post.attachments[0].fileId, 'Moments/2026-05-16/cloud.jpg');
+  });
+
+  it('requires upload credentials on the default internal upload path', async () => {
+    const d1 = new SqliteD1(':memory:');
+    const form = new FormData();
+    form.set('body', 'auth required');
+    form.append('photos[]', new File(['fake image'], 'auth.jpg', { type: 'image/jpeg' }));
+
+    let processCalled = false;
+    const response = await onRequest(createContext({
+      env: { img_d1: d1 },
+      now: '2026-05-16T20:15:00.000Z',
+      request: new Request('https://example.com/api/manage/moments', {
+        method: 'POST',
+        body: form,
+      }),
+      processUploadFile: async () => {
+        processCalled = true;
+        throw new Error('should not reach upload processor without credentials');
+      },
+    }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(payload.error, 'Unauthorized');
+    assert.equal(processCalled, false);
+  });
+
+  it('does not forward outer multipart content-type or cookies to the default internal upload path', async () => {
+    const d1 = new SqliteD1(':memory:');
+    const db = new D1Database(d1);
+    await db.put('manage@sysConfig@security', JSON.stringify({
+      auth: {
+        user: { authCode: 'moments-secret' },
+        admin: { adminUsername: '', adminPassword: '' },
+      },
+      upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+      access: { allowedDomains: '', whiteListMode: false },
+      apiTokens: { tokens: {} },
+    }));
+
+    const form = new FormData();
+    form.set('body', 'header sanitation');
+    form.append('photos[]', new File(['fake image'], 'header.jpg', { type: 'image/jpeg' }));
+    const outerRequest = new Request('https://example.com/api/manage/moments', {
+      method: 'POST',
+      headers: {
+        authCode: 'moments-secret',
+        Cookie: 'authCode=moments-secret',
+        'x-forwarded-for': '198.51.100.8, 198.51.100.9',
+        'x-unrelated-header': 'ignore-me',
+      },
+      body: form,
+    });
+    const outerContentType = outerRequest.headers.get('Content-Type');
+
+    let observedContentType = null;
+    let observedCookie = null;
+    let observedAuthCode = null;
+    let observedForwardedFor = null;
+
+    const response = await onRequest(createContext({
+      env: {
+        img_d1: d1,
+        TG_BOT_TOKEN: 'bot-token',
+        TG_CHAT_ID: '123456',
+      },
+      now: '2026-05-16T20:15:00.000Z',
+      request: outerRequest,
+      processUploadFile: async ({ request: uploadRequest }, uploadForm) => {
+        observedContentType = uploadRequest.headers.get('Content-Type');
+        observedCookie = uploadRequest.headers.get('Cookie');
+        observedAuthCode = uploadRequest.headers.get('authCode');
+        observedForwardedFor = uploadRequest.headers.get('x-forwarded-for');
+        assert.equal(uploadRequest.headers.get('x-unrelated-header'), null);
+        assert.equal(uploadRequest.headers.get('Authorization'), null);
+        assert.equal(uploadForm.get('file').name, 'header.jpg');
+        await seedFile(d1, 'Moments/2026-05-16/header.jpg', { FileName: 'header.jpg', FileType: 'image/jpeg' });
+        return new Response(JSON.stringify([{ src: '/file/Moments/2026-05-16/header.jpg' }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      },
+    }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.match(observedContentType || '', /^multipart\/form-data; boundary=/i);
+    assert.notEqual(observedContentType, outerContentType);
+    assert.equal(observedCookie, null);
+    assert.equal(observedAuthCode, 'moments-secret');
+    assert.equal(observedForwardedFor, '198.51.100.8, 198.51.100.9');
+    assert.equal(payload.post.attachments[0].fileId, 'Moments/2026-05-16/header.jpg');
+  });
+
+  it('blocks the default internal upload path for blocked upload IPs', async () => {
+    const d1 = new SqliteD1(':memory:');
+    const db = new D1Database(d1);
+    await db.put('manage@sysConfig@security', JSON.stringify({
+      auth: {
+        user: { authCode: 'moments-secret' },
+        admin: { adminUsername: '', adminPassword: '' },
+      },
+      upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+      access: { allowedDomains: '', whiteListMode: false },
+      apiTokens: { tokens: {} },
+    }));
+    await db.put('manage@blockipList', '203.0.113.77');
+
+    const form = new FormData();
+    form.set('body', 'blocked ip');
+    form.append('photos[]', new File(['fake image'], 'blocked.jpg', { type: 'image/jpeg' }));
+
+    let processCalled = false;
+    const response = await onRequest(createContext({
+      env: {
+        img_d1: d1,
+        TG_BOT_TOKEN: 'bot-token',
+        TG_CHAT_ID: '123456',
+      },
+      now: '2026-05-16T20:15:00.000Z',
+      request: new Request('https://example.com/api/manage/moments', {
+        method: 'POST',
+        headers: {
+          authCode: 'moments-secret',
+          'x-forwarded-for': '203.0.113.77',
+        },
+        body: form,
+      }),
+      processUploadFile: async () => {
+        processCalled = true;
+        throw new Error('should not reach upload processor when IP is blocked');
+      },
+    }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 403);
+    assert.equal(payload.error, 'Upload IP is blocked');
+    assert.equal(processCalled, false);
+  });
+
+  it('filters posts by date and deletes only Moment rows, preserving underlying file metadata', async () => {
+    const d1 = new SqliteD1(':memory:');
+    await seedFile(d1, 'Moments/2026-05-16/a.jpg', { FileName: 'a.jpg' });
+    const form = new FormData();
+    form.append('photos[]', new File(['fake image'], 'a.jpg', { type: 'image/jpeg' }));
+    const createResponse = await onRequest(createContext({
+      env: { img_d1: d1 },
+      now: '2026-05-16T20:15:00.000Z',
+      request: new Request('https://example.com/api/manage/moments', { method: 'POST', body: form }),
+      uploadFile: async () => ({ fileId: 'Moments/2026-05-16/a.jpg', src: '/file/Moments/2026-05-16/a.jpg' }),
+    }));
+    const created = await createResponse.json();
+
+    const listResponse = await onRequest(createContext({
+      env: { img_d1: d1 },
+      request: new Request('https://example.com/api/manage/moments?date=2026-05-16'),
+    }));
+    const listPayload = await listResponse.json();
+    assert.equal(listResponse.status, 200);
+    assert.equal(listPayload.posts.length, 1);
+
+    const deleteResponse = await onRequest(createContext({
+      env: { img_d1: d1 },
+      request: new Request(`https://example.com/api/manage/moments?id=${encodeURIComponent(created.post.id)}`, { method: 'DELETE' }),
+    }));
+    assert.equal(deleteResponse.status, 200);
+
+    const afterDeleteResponse = await onRequest(createContext({
+      env: { img_d1: d1 },
+      request: new Request('https://example.com/api/manage/moments?date=2026-05-16'),
+    }));
+    const afterDeletePayload = await afterDeleteResponse.json();
+    assert.equal(afterDeletePayload.posts.length, 0);
+
+    const fileRecord = await new D1Database(d1).getWithMetadata('Moments/2026-05-16/a.jpg');
+    assert.equal(fileRecord.metadata.FileName, 'a.jpg');
+  });
+});

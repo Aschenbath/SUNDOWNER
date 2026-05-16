@@ -27,6 +27,7 @@ import {
   MediaTimelineSection,
   MindChatView,
   MindLoadingView,
+  MomentsView,
   MobileAudioMiniPlayer,
   MobileBottomNav,
   MusicListView,
@@ -54,6 +55,11 @@ import {
   summarizeMediaSearch,
 } from './search-filters.js?v=4';
 import { loadJson, saveJson } from './storage.js';
+import {
+  buildMomentAttachmentItem,
+  deriveMomentCalendarMonth,
+  normalizeMomentPosts,
+} from './moments-state.js';
 import {
   buildPickerPreserveFlags,
   canUseDistinctAlbumPicker,
@@ -107,6 +113,8 @@ const API_PAGE_SIZE = 200;
 const API_MAX_ITEMS = 1600;
 const API_REQUEST_TIMEOUT_MS = 12000;
 const STORAGE_REQUEST_TIMEOUT_MS = 5000;
+const MOMENTS_REQUEST_TIMEOUT_MS = 12000;
+const MAX_MOMENT_DRAFT_FILES = 9;
 const SEARCH_INPUT_DEBOUNCE_MS = 160;
 const FILM_SEARCH_DEBOUNCE_MS = 280;
 const FILM_SEARCH_MIN_LOADING_MS = 80;
@@ -676,6 +684,16 @@ const state = {
   mindLoading: false,
   mindHydrated: false,
   mindLastLoadedAt: 0,
+  momentsPosts: [],
+  momentsDatesWithPhotos: {},
+  momentsLoading: false,
+  momentsHydrated: false,
+  momentsPublishing: false,
+  momentsDraftBody: '',
+  momentsDraftFiles: [],
+  momentsSelectedDate: new Date().toISOString().slice(0, 10),
+  momentsCalendarMonth: new Date().toISOString().slice(0, 7),
+  momentsError: '',
   mindSettingsBusy: false,
   mindDeletingIds: new Set(),
   mindSettings: initialMindSettings,
@@ -881,6 +899,7 @@ let persistedPlaylistStatePromise = null;
 let pendingPersistedPlaylistSnapshot = null;
 let mindStatePromise = null;
 let mindMirrorPromise = null;
+let momentsStatePromise = null;
 let mindMutationQueue = Promise.resolve();
 let mindVisitStickyMessages = [];
 let stableAppViewportHeight = 0;
@@ -1003,6 +1022,50 @@ function getMusicContextItems(items = getAccessibleItems()) {
     .filter((item) => itemBelongsToPlaylist(item, activePlaylistName));
 }
 
+function getMomentAttachmentItems(posts = state.momentsPosts) {
+  return safeArray(posts).flatMap((post) => safeArray(post?.attachments).map((attachment) => {
+    const item = attachment?.item || buildMomentAttachmentItem(attachment);
+    return {
+      ...item,
+      id: normalizeText(item?.id || attachment?.fileId),
+      sourceId: normalizeText(item?.sourceId || attachment?.fileId),
+      sourceUrl: normalizeText(item?.sourceUrl || ''),
+      thumbnailUrl: normalizeText(item?.thumbnailUrl || item?.sourceUrl || ''),
+      posterUrl: normalizeText(item?.posterUrl || ''),
+      type: 'photo',
+      label: normalizeText(item?.label || attachment?.metadata?.FileName || 'Moment photo'),
+      width: Number(item?.width) || 0,
+      height: Number(item?.height) || 0,
+      mimeType: normalizeText(item?.mimeType || attachment?.metadata?.FileType || 'image/jpeg') || 'image/jpeg',
+      favorite: Boolean(item?.favorite),
+      personLabels: safeArray(item?.personLabels),
+      tags: safeArray(item?.tags),
+      explicitTags: safeArray(item?.explicitTags),
+      location: normalizeText(item?.location || ''),
+      sizeMb: Number(item?.sizeMb) || 0,
+      browserPreviewSupported: item?.browserPreviewSupported !== false,
+      description: normalizeText(item?.description || ''),
+      isPrivateAlbum: Boolean(item?.isPrivateAlbum),
+      isDocumentLike: false,
+      takenAt: normalizeText(item?.takenAt || post?.createdAt || ''),
+      displayTakenAt: normalizeText(item?.displayTakenAt || post?.createdAt || ''),
+      timelineLabel: normalizeText(item?.timelineLabel || ''),
+      year: Number(item?.year) || 0,
+      month: Number(item?.month) || 0,
+      day: Number(item?.day) || 0,
+      monthLabel: normalizeText(item?.monthLabel || ''),
+      album: normalizeText(item?.album || 'Moments'),
+      collectionAlbum: normalizeText(item?.collectionAlbum || ''),
+      exif: item?.exif || null,
+      audioTitle: normalizeText(item?.audioTitle || ''),
+      audioArtist: normalizeText(item?.audioArtist || ''),
+      audioAlbum: normalizeText(item?.audioAlbum || ''),
+      audioDuration: Number(item?.audioDuration) || 0,
+      blurThumbUrl: normalizeText(item?.blurThumbUrl || ''),
+      sourceContext: 'moments',
+    };
+  })).filter((item) => item.id && item.sourceId);
+}
 
 function getAudioQueueItems(items = getAccessibleItems()) {
   if (state.primaryFilter === 'Music' && getActivePlaylistName()) {
@@ -4671,6 +4734,267 @@ function getAccessibleItems(items = getAllItems()) {
   });
 }
 
+function buildMomentsDatesWithPhotos(posts = state.momentsPosts) {
+  return safeArray(posts).reduce((accumulator, post) => {
+    const date = normalizeText(post?.date);
+    const photoCount = safeArray(post?.attachments).length;
+    if (date && photoCount > 0) {
+      accumulator[date] = (accumulator[date] || 0) + photoCount;
+    }
+    return accumulator;
+  }, {});
+}
+
+function revokeMomentDraftFilePreview(file) {
+  const previewUrl = normalizeText(file?.previewUrl);
+  if (!previewUrl || !previewUrl.startsWith('blob:') || typeof URL?.revokeObjectURL !== 'function') {
+    return;
+  }
+  try {
+    URL.revokeObjectURL(previewUrl);
+  } catch {
+    // Ignore URL revocation failures.
+  }
+}
+
+function revokeMomentDraftPreviews(files = state.momentsDraftFiles) {
+  safeArray(files).forEach((file) => revokeMomentDraftFilePreview(file));
+}
+
+function setMomentSelectedDate(date = '', { syncMonth = true } = {}) {
+  const normalizedDate = normalizeText(date);
+  if (!normalizedDate) {
+    return;
+  }
+  state.momentsSelectedDate = normalizedDate;
+  if (syncMonth) {
+    state.momentsCalendarMonth = deriveMomentCalendarMonth(normalizedDate);
+  }
+}
+
+function chooseMomentSelectedDate(posts = state.momentsPosts) {
+  const availableDates = [...new Set(safeArray(posts).map((post) => normalizeText(post?.date)).filter(Boolean))]
+    .sort((left, right) => right.localeCompare(left));
+  const preferredDate = normalizeText(state.momentsSelectedDate);
+  if (preferredDate && availableDates.includes(preferredDate)) {
+    return preferredDate;
+  }
+  return preferredDate || availableDates[0] || new Date().toISOString().slice(0, 10);
+}
+
+function applyMomentsPayload(payload = {}, { preserveSelection = false } = {}) {
+  const posts = normalizeMomentPosts(payload.posts || payload.data || []);
+  state.momentsPosts = posts;
+  state.momentsDatesWithPhotos = payload.datesWithPhotos && typeof payload.datesWithPhotos === 'object'
+    ? { ...payload.datesWithPhotos }
+    : buildMomentsDatesWithPhotos(posts);
+  const nextSelectedDate = preserveSelection
+    ? chooseMomentSelectedDate(posts)
+    : (normalizeText(state.momentsSelectedDate) || chooseMomentSelectedDate(posts));
+  setMomentSelectedDate(nextSelectedDate, { syncMonth: true });
+}
+
+function buildMomentDayItems(date = state.momentsSelectedDate) {
+  const normalizedDate = normalizeText(date);
+  if (!normalizedDate) {
+    return [];
+  }
+  return safeArray(state.momentsPosts)
+    .filter((post) => normalizeText(post?.date) === normalizedDate)
+    .flatMap((post) => safeArray(post?.attachments).map((attachment) => attachment?.item || buildMomentAttachmentItem(attachment)));
+}
+
+function getMomentPostById(postId = '') {
+  const normalizedId = normalizeText(postId);
+  if (!normalizedId) {
+    return null;
+  }
+  return state.momentsPosts.find((post) => normalizeText(post?.id) === normalizedId) || null;
+}
+
+function clearMomentsError({ shouldRender = false } = {}) {
+  if (!state.momentsError) {
+    return;
+  }
+  state.momentsError = '';
+  if (shouldRender) {
+    render();
+  }
+}
+
+function clearMomentDraft({ shouldRender = true } = {}) {
+  revokeMomentDraftPreviews(state.momentsDraftFiles);
+  state.momentsDraftBody = '';
+  state.momentsDraftFiles = [];
+  state.momentsError = '';
+  if (shouldRender) {
+    render();
+  }
+}
+
+async function fetchMomentsJson(url, options = {}) {
+  const response = await apiFetch(url, {
+    timeoutMs: MOMENTS_REQUEST_TIMEOUT_MS,
+    ...options,
+  });
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  if (!response.ok) {
+    throw new Error(data?.error || `${url} returned ${response.status}`);
+  }
+  return data;
+}
+
+async function loadMoments({ forceRender = false } = {}) {
+  if (momentsStatePromise) {
+    return momentsStatePromise;
+  }
+  state.momentsLoading = true;
+  if (forceRender && refs.root && state.primaryFilter === 'Moments') {
+    render();
+  }
+  momentsStatePromise = fetchMomentsJson('/api/manage/moments')
+    .then((payload) => {
+      applyMomentsPayload(payload, { preserveSelection: true });
+      state.momentsHydrated = true;
+      state.momentsError = '';
+      return payload;
+    })
+    .catch((error) => {
+      state.momentsError = error?.message || 'Failed to load Moments.';
+      throw error;
+    })
+    .finally(() => {
+      state.momentsLoading = false;
+      momentsStatePromise = null;
+      if (forceRender && refs.root && state.primaryFilter === 'Moments') {
+        render();
+      }
+    });
+  return momentsStatePromise;
+}
+
+function openMomentDraftPicker() {
+  if (!(refs.root instanceof HTMLElement)) {
+    return;
+  }
+  const input = refs.root.querySelector('[data-moment-file-input]');
+  if (input instanceof HTMLInputElement) {
+    input.click();
+  }
+}
+
+function removeMomentDraftFile(index) {
+  const numericIndex = Number(index);
+  if (!Number.isInteger(numericIndex) || numericIndex < 0 || numericIndex >= state.momentsDraftFiles.length) {
+    return;
+  }
+  const removed = state.momentsDraftFiles[numericIndex];
+  revokeMomentDraftFilePreview(removed);
+  state.momentsDraftFiles = state.momentsDraftFiles.filter((_, currentIndex) => currentIndex !== numericIndex);
+  render();
+}
+
+async function handleMomentDraftSelection(fileList) {
+  const selectedFiles = Array.from(fileList || [])
+    .filter((file) => file instanceof File)
+    .filter((file) => String(file.type || '').toLowerCase().startsWith('image/'));
+  if (!selectedFiles.length) {
+    return;
+  }
+  const remainingSlots = Math.max(0, MAX_MOMENT_DRAFT_FILES - state.momentsDraftFiles.length);
+  if (!remainingSlots) {
+    showToast('A Moment can include at most 9 photos');
+    return;
+  }
+  const acceptedFiles = selectedFiles.slice(0, remainingSlots).map((file) => ({
+    file,
+    name: file.name || 'Moment photo',
+    previewUrl: typeof URL?.createObjectURL === 'function' ? URL.createObjectURL(file) : '',
+  }));
+  if (selectedFiles.length > remainingSlots) {
+    showToast('A Moment can include at most 9 photos');
+  }
+  state.momentsDraftFiles = [...state.momentsDraftFiles, ...acceptedFiles];
+  state.momentsError = '';
+  render();
+}
+
+async function publishMoment() {
+  const body = String(state.momentsDraftBody || '').trim();
+  const draftFiles = safeArray(state.momentsDraftFiles);
+  if (!body && draftFiles.length === 0) {
+    state.momentsError = 'Moment body or at least one photo is required';
+    render();
+    return;
+  }
+  state.momentsPublishing = true;
+  state.momentsError = '';
+  render();
+  const formData = new FormData();
+  if (body) {
+    formData.set('body', body);
+  }
+  draftFiles.forEach((entry) => {
+    if (entry?.file instanceof File) {
+      formData.append('photos', entry.file, entry.file.name || 'photo');
+    }
+  });
+  try {
+    const payload = await fetchMomentsJson('/api/manage/moments', {
+      method: 'POST',
+      body: formData,
+      headers: {},
+    });
+    const createdPosts = normalizeMomentPosts(payload?.post ? [payload.post] : []);
+    const createdPost = createdPosts[0] || null;
+    if (createdPost) {
+      state.momentsPosts = normalizeMomentPosts([createdPost, ...state.momentsPosts]);
+      state.momentsDatesWithPhotos = buildMomentsDatesWithPhotos(state.momentsPosts);
+      setMomentSelectedDate(createdPost.date || chooseMomentSelectedDate(state.momentsPosts), { syncMonth: true });
+    }
+    clearMomentDraft({ shouldRender: false });
+    state.momentsPublishing = false;
+    state.momentsHydrated = true;
+    render();
+    void performSyncLiveMedia({ forceRender: false });
+  } catch (error) {
+    state.momentsPublishing = false;
+    state.momentsError = error?.message || 'Failed to publish Moment.';
+    render();
+  }
+}
+
+async function deleteMomentById(momentId) {
+  const normalizedId = normalizeText(momentId);
+  if (!normalizedId) {
+    return;
+  }
+  const existingPosts = state.momentsPosts;
+  const existingDatesWithPhotos = { ...state.momentsDatesWithPhotos };
+  const existingSelectedDate = state.momentsSelectedDate;
+  const nextPosts = existingPosts.filter((post) => normalizeText(post?.id) !== normalizedId);
+  state.momentsPosts = nextPosts;
+  state.momentsDatesWithPhotos = buildMomentsDatesWithPhotos(nextPosts);
+  setMomentSelectedDate(chooseMomentSelectedDate(nextPosts), { syncMonth: true });
+  render();
+  try {
+    await fetchMomentsJson(`/api/manage/moments?id=${encodeURIComponent(normalizedId)}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    state.momentsPosts = existingPosts;
+    state.momentsDatesWithPhotos = existingDatesWithPhotos;
+    setMomentSelectedDate(existingSelectedDate, { syncMonth: true });
+    state.momentsError = error?.message || 'Failed to delete Moment.';
+    render();
+  }
+}
+
 function inferVideoCategory(metadata, type) {
   if (type !== 'video' || !metadata || typeof metadata !== 'object') {
     return '';
@@ -6368,6 +6692,9 @@ function getSearchContextLabel() {
   if (state.primaryFilter === 'Films') {
     return 'Films';
   }
+  if (state.primaryFilter === 'Moments') {
+    return 'Moments';
+  }
   if (state.secondaryFilter) {
     return state.secondaryFilter;
   }
@@ -7022,6 +7349,9 @@ function buildContentViewKey(viewModel) {
     state.primaryFilter,
     state.primaryFilter === 'Films'
       ? (state.filmDetailOpen && state.activeFilmId ? `detail:${state.activeFilmId}` : 'index')
+      : '',
+    state.primaryFilter === 'Moments'
+      ? `${state.momentsSelectedDate}|${state.momentsCalendarMonth}`
       : '',
     viewModel.activeAlbumName || '',
     viewModel.activePlaylistName || '',
@@ -8186,6 +8516,9 @@ function isTodoPhotoItem(item) {
 
 
 function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = false } = {}) {
+  if (state.primaryFilter === 'Moments') {
+    return getMomentAttachmentItems();
+  }
   const parsedSearch = parseMediaSearchQuery(state.searchQuery);
   const query = parsedSearch.textQuery.toLowerCase();
   const activeAlbumName = getActiveAlbumName();
@@ -8554,6 +8887,7 @@ function getViewModel() {
     parsedSearch.textQuery
     || countActiveMediaSearchFilters(parsedSearch.filters) > 0
   );
+  const isMomentsView = state.primaryFilter === 'Moments' && !globalSearchActive;
   if (state.primaryFilter === 'Music' && state.activePlaylistName) {
     const playlistExists = state.playlistNames.some((name) => normalizePlaylistKey(name) === normalizePlaylistKey(state.activePlaylistName));
     if (!playlistExists) {
@@ -8638,12 +8972,12 @@ function getViewModel() {
   const audioQueueItems = getAudioQueueItems(accessibleItems);
   const currentAudioItem = getAudioItemById(state.audioCurrentId, accessibleItems)
     || getAudioItemById(state.audioCurrentId, getAllItems());
-  const timelineItems = isMindView || isMusicView || isFilmsView
+  const timelineItems = isMindView || isMusicView || isFilmsView || isMomentsView
     ? []
     : state.primaryFilter === 'Bin'
     ? state.binItems
     : filteredItems;
-  const baseSections = isMindView || isMusicView || isCollectionRoot || isFilmsView
+  const baseSections = isMindView || isMusicView || isCollectionRoot || isFilmsView || isMomentsView
     ? []
     : buildSections(timelineItems, state.primaryFilter === 'Bin'
       ? {
@@ -8654,12 +8988,12 @@ function getViewModel() {
           getScrubberLabel: (item) => formatScrubberLabel(item.deletedAt || item.takenAt)
         }
       : undefined);
-  const laidOutSections = isMindView || isMusicView || isCollectionRoot || isFilmsView
+  const laidOutSections = isMindView || isMusicView || isCollectionRoot || isFilmsView || isMomentsView
     ? []
     : buildTimelineLayoutSections(baseSections, {
         sectionGap: state.primaryFilter === 'Bin' ? BIN_TIMELINE_SECTION_GAP : TIMELINE_SECTION_GAP
       });
-  const shouldVirtualizeTimeline = !isMindView && !isMusicView && !isCollectionRoot && !isFilmsView && timelineItems.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD;
+  const shouldVirtualizeTimeline = !isMindView && !isMusicView && !isCollectionRoot && !isFilmsView && !isMomentsView && timelineItems.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD;
   const virtualWindow = !shouldVirtualizeTimeline
     ? {
         sections: laidOutSections.map((section) => ({
@@ -8679,7 +9013,7 @@ function getViewModel() {
           viewportHeight: state.virtualViewportHeight
         });
   const sections = virtualWindow.sections;
-  const years = isMindView || isMusicView || isCollectionRoot || isFilmsView
+  const years = isMindView || isMusicView || isCollectionRoot || isFilmsView || isMomentsView
     ? []
     : [...new Set(timelineItems.map((item) => String(item.year)))]
       .sort((left, right) => Number(right) - Number(left));
@@ -8689,7 +9023,11 @@ function getViewModel() {
     scrubberLabel: section.scrubberLabel || section.year,
     isYearBoundary: index === 0 || sections[index - 1].year !== section.year
   }));
-  const previewItems = state.primaryFilter === 'Bin' ? [] : filteredItems;
+  const previewItems = state.primaryFilter === 'Bin'
+    ? []
+    : isMomentsView
+      ? getMomentAttachmentItems()
+      : filteredItems;
   const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
   const previewItem = previewIndex >= 0 ? previewItems[previewIndex] : null;
   const canSetAlbumCover = Boolean(
@@ -8719,6 +9057,7 @@ function getViewModel() {
     isAlbumPickerMode,
     isFilmsView,
     isMindView,
+    isMomentsView,
     isGlobalSearchView,
     globalSearchResultCount,
     isMusicView,
@@ -8738,6 +9077,9 @@ function getViewModel() {
     musicItems,
     currentAudioItem,
     audioQueueItems,
+    momentsPosts: state.momentsPosts,
+    momentsDatesWithPhotos: state.momentsDatesWithPhotos,
+    momentDayItems: buildMomentDayItems(),
     isVideoAlbumRoot,
     videoAlbumCards,
     videoAlbumCount: videoAlbumCards.length,
@@ -8884,6 +9226,14 @@ function isPrimaryViewDomInSync(primary) {
       && !domAlbum
       && !domSearchView
       && (refs.root.querySelector('.cml-main-content__inner.is-mind-view') instanceof HTMLElement);
+  }
+  if (primary === 'Moments') {
+    return domPrimary === 'Moments'
+      && !domSecondary
+      && !domPrivate
+      && !domAlbum
+      && !domSearchView
+      && domPlaylist === '';
   }
   return domPrimary === normalizeText(primary)
     && domSecondary === normalizeText(state.secondaryFilter || '')
@@ -13793,10 +14143,10 @@ function render() {
           canDownloadSelection: viewModel.canDownloadSelection,
           canSetAlbumCover: viewModel.canSetAlbumCover
         })}
-        <div class="cml-main-content-shell ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'cml-main-content-shell--music' : ''}">
-          <main class="cml-main-content ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'cml-main-content--music' : ''}" tabindex="-1">
+        <div class="cml-main-content-shell ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'cml-main-content-shell--music' : ''} ${viewModel.isMomentsView ? 'cml-main-content-shell--moments' : ''}">
+          <main class="cml-main-content ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'cml-main-content--music' : ''} ${viewModel.isMomentsView ? 'cml-main-content--moments' : ''}" tabindex="-1">
             <div
-              class="cml-main-content__inner ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'is-music-view' : ''} ${viewModel.isGlobalSearchView ? 'is-search-view' : ''}"
+              class="cml-main-content__inner ${viewModel.isMindView ? 'is-mind-view' : ''} ${viewModel.isMusicView ? 'is-music-view' : ''} ${viewModel.isMomentsView ? 'is-moments-view' : ''} ${viewModel.isGlobalSearchView ? 'is-search-view' : ''}"
               data-primary-view="${normalizeText(state.primaryFilter || 'Photos')}"
               data-secondary-view="${normalizeText(state.secondaryFilter || '')}"
               data-private-view="${state.privateViewOpen ? '1' : '0'}"
@@ -13880,6 +14230,20 @@ function render() {
                     saveStatus: state.filmSaveStatus
                   })
                   : renderFilmsIndexPageHtml())
+                : viewModel.isMomentsView
+                ? MomentsView({
+                    posts: state.momentsPosts,
+                    isLoading: state.momentsLoading && !state.momentsHydrated,
+                    isPublishing: state.momentsPublishing,
+                    draftBody: state.momentsDraftBody,
+                    draftFiles: state.momentsDraftFiles,
+                    selectedDate: state.momentsSelectedDate,
+                    calendarMonth: state.momentsCalendarMonth,
+                    datesWithPhotos: state.momentsDatesWithPhotos,
+                    authorName: state.adminDisplayName || state.adminUsername || 'Aschenbath',
+                    authorAvatarData: state.adminAvatarData,
+                    error: state.momentsError,
+                  })
                 : viewModel.isMusicView
                 ? `${MusicSummary({
                     totalCount: viewModel.musicItems.length,
@@ -13976,7 +14340,7 @@ function render() {
                     }))}`}
             </div>
           </main>
-          ${!showDesktopAudioPanel && !viewModel.isMindView && !viewModel.isMusicView && !viewModel.isCollectionRoot && !viewModel.isGlobalSearchView && state.secondaryFilter !== 'Documents' ? YearScroller({
+          ${!showDesktopAudioPanel && !viewModel.isMindView && !viewModel.isMusicView && !viewModel.isMomentsView && !viewModel.isCollectionRoot && !viewModel.isGlobalSearchView && state.secondaryFilter !== 'Documents' ? YearScroller({
             scrubberSections: viewModel.scrubberSections,
             activeSectionAnchor: state.activeSectionAnchor,
             activeScrubberLabel: state.activeScrubberLabel
@@ -14390,7 +14754,13 @@ function animatePreviewSwap(direction = 0) {
 }
 
 function getPreviewItems(items = getAccessibleItems()) {
-  return state.primaryFilter === 'Bin' ? state.binItems : getFilteredItems(items);
+  if (state.primaryFilter === 'Bin') {
+    return state.binItems;
+  }
+  if (state.primaryFilter === 'Moments') {
+    return getMomentAttachmentItems();
+  }
+  return getFilteredItems(items);
 }
 
 function getPreviewMediaSignature(node) {
@@ -14944,12 +15314,15 @@ function syncMount() {
   }
 }
 
-function openPreview(itemId) {
+function openPreview(itemId, sourceHint = '') {
   const sourceTile = itemId
     ? refs.root?.querySelector(`.cml-media-tile[data-tile-id="${itemId}"]`)
     : null;
-  const sourceHint = getMediaSourceFromTile(sourceTile);
+  sourceHint = normalizeText(sourceHint) || getMediaSourceFromTile(sourceTile);
   const resolvedPreviewItem = resolvePreviewItem(getAllItems(), {
+    id: itemId,
+    sourceHint
+  }) || resolvePreviewItem(getMomentAttachmentItems(), {
     id: itemId,
     sourceHint
   });
@@ -15195,6 +15568,9 @@ function applyLocationRouteToMountedUi() {
     } else if (hasFreshMindMessages()) {
       void mirrorMindMessagesIfNeeded();
     }
+  }
+  if (state.primaryFilter === 'Moments' && !state.momentsHydrated && !state.momentsLoading) {
+    void loadMoments({ forceRender: true });
   }
   if (state.primaryFilter === 'Bin') {
     void fetchBinItems();
@@ -15723,12 +16099,38 @@ function handleAction(actionTarget, event = null) {
         if (targetItem && targetItem.type === 'document') {
           downloadPreviewItem(actionTarget.dataset.id);
         } else {
-          openPreview(actionTarget.dataset.id);
+          openPreview(actionTarget.dataset.id, actionTarget.dataset.previewSource || '');
         }
       }
       return true;
     case 'open-upload':
       requestNativeUpload();
+      return true;
+    case 'choose-moment-photos':
+      openMomentDraftPicker();
+      return true;
+    case 'remove-moment-draft-file':
+      removeMomentDraftFile(actionTarget.dataset.index);
+      return true;
+    case 'publish-moment':
+      void publishMoment();
+      return true;
+    case 'select-moments-date':
+      if (actionTarget.dataset.date) {
+        setMomentSelectedDate(actionTarget.dataset.date, { syncMonth: true });
+        render();
+      }
+      return true;
+    case 'change-moments-month': {
+      const direction = Number(actionTarget.dataset.direction || 0);
+      const [year, month] = state.momentsCalendarMonth.split('-').map(Number);
+      const nextMonth = new Date(year, month - 1 + direction, 1);
+      state.momentsCalendarMonth = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
+      render();
+      return true;
+    }
+    case 'delete-moment':
+      void deleteMomentById(actionTarget.dataset.id);
       return true;
     case 'send-mind-message':
       void sendMindMessage();
@@ -17040,7 +17442,7 @@ function handleClick(event) {
       handleTileSelect(actionTarget.dataset.id, event);
     } else {
       state.avatarMenuOpen = false;
-      openPreview(actionTarget.dataset.id);
+      openPreview(actionTarget.dataset.id, actionTarget.dataset.previewSource || '');
     }
     return;
   }
@@ -17163,6 +17565,9 @@ function handleClick(event) {
       applyLocationRouteToMountedUi();
       if (state.primaryFilter === 'Films') {
         void warmFilmSearch();
+      }
+      if (state.primaryFilter === 'Moments' && !state.momentsHydrated && !state.momentsLoading) {
+        void loadMoments({ forceRender: true });
       }
       return;
     }
@@ -17385,6 +17790,11 @@ function handleInput(event) {
       : readMindDraftFromEditor(input);
     return;
   }
+  if (input instanceof HTMLTextAreaElement && input.hasAttribute('data-moments-draft-input')) {
+    state.momentsDraftBody = input.value;
+    clearMomentsError();
+    return;
+  }
   const activeNotesLine = getFilmNotesSourceLineFromEventTarget(input);
   if (activeNotesLine) {
     if (filmNotesStableRaf) {
@@ -17590,6 +18000,11 @@ function handleChange(event) {
   }
   if (target.dataset.mindFile) {
     void handleMindAssetSelection(target.dataset.mindFile, target.files && target.files[0] ? target.files[0] : null);
+    target.value = '';
+    return;
+  }
+  if (target.hasAttribute('data-moment-file-input')) {
+    void handleMomentDraftSelection(target.files);
     target.value = '';
     return;
   }
@@ -18257,6 +18672,9 @@ function buildNavigationHash() {
   if (primary === 'Mind') {
     return '#/mind';
   }
+  if (primary === 'Moments') {
+    return '#/moments';
+  }
   if (primary === 'Bin') {
     return '#/bin';
   }
@@ -18378,6 +18796,15 @@ function restoreNavigationFromHash() {
       state.videoCategoryFilter = '';
       state.activeAlbumName = '';
       state.activePlaylistName = '';
+      clearPrivateViewState();
+      break;
+    case 'moments':
+      state.primaryFilter = 'Moments';
+      state.secondaryFilter = '';
+      state.videoCategoryFilter = '';
+      state.activeAlbumName = '';
+      state.activePlaylistName = '';
+      state.momentsCalendarMonth = deriveMomentCalendarMonth(state.momentsSelectedDate);
       clearPrivateViewState();
       break;
     case 'music':

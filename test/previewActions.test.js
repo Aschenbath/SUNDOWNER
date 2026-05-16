@@ -3003,9 +3003,32 @@ describe('media library download actions', () => {
 
     assert.match(componentsSource, /function BinMediaTile\(\{ item, selected, layout \}\) \{/);
     assert.match(componentsSource, /data-action="open-preview"/);
-    assert.match(appSource, /function getPreviewItems\(items = getAccessibleItems\(\)\) \{\s*return state\.primaryFilter === 'Bin' \? state\.binItems : getFilteredItems\(items\);/);
+    assert.match(appSource, /function getPreviewItems\(items = getAccessibleItems\(\)\) \{/);
+    assert.match(appSource, /state\.primaryFilter === 'Bin'[\s\S]*return state\.binItems;/);
+    assert.match(appSource, /state\.primaryFilter === 'Moments'[\s\S]*return getMomentAttachmentItems\(\);/);
     assert.match(appSource, /isBinView: state\.primaryFilter === 'Bin'/);
     assert.match(appSource, /function movePreview\(direction\) \{\s*const items = getPreviewItems\(\);/);
+  });
+
+  it('consumes explicit preview source hints for non-tile preview triggers', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const openPreviewStart = appSource.indexOf('function openPreview(');
+    const openPreviewEnd = appSource.indexOf('function openPreviewFromEvent(');
+    const openPreviewSection = openPreviewStart >= 0 && openPreviewEnd > openPreviewStart
+      ? appSource.slice(openPreviewStart, openPreviewEnd)
+      : '';
+    const clickPreviewSection = appSource.match(/if \(!isSelectClick && actionTarget instanceof HTMLElement && actionTarget\.dataset\.action === 'open-preview' && actionTarget\.dataset\.id\) \{[\s\S]*?return;\s*\}/)?.[0] || '';
+    const handleActionSection = appSource.match(/case 'open-preview':[\s\S]*?return true;/)?.[0] || '';
+
+    assert.ok(openPreviewSection);
+    assert.match(openPreviewSection, /function openPreview\(itemId,\s*(?:sourceHint = ''|\{\s*sourceHint = ''\s*\} = \{\})\)/);
+    assert.match(openPreviewSection, /sourceHint = normalizeText\(sourceHint\) \|\| getMediaSourceFromTile\(sourceTile\);/);
+    assert.match(openPreviewSection, /resolvePreviewItem\(getAllItems\(\), \{[\s\S]*sourceHint[\s\S]*\}\);/);
+    assert.match(openPreviewSection, /state\.previewSourceHint = sourceHint \|\| resolvedPreviewItem\?\.thumbnailUrl \|\| resolvedPreviewItem\?\.sourceUrl \|\| '';/);
+    assert.match(clickPreviewSection, /dataset\.previewSource/);
+    assert.match(clickPreviewSection, /openPreview\(actionTarget\.dataset\.id,\s*(?:actionTarget\.dataset\.previewSource \|\| ''|\{\s*sourceHint: actionTarget\.dataset\.previewSource \|\| ''\s*\})\);/);
+    assert.match(handleActionSection, /dataset\.previewSource/);
+    assert.match(handleActionSection, /openPreview\(actionTarget\.dataset\.id,\s*(?:actionTarget\.dataset\.previewSource \|\| ''|\{\s*sourceHint: actionTarget\.dataset\.previewSource \|\| ''\s*\})\);/);
   });
 
   it('keeps Bin mutation flows local-first and avoids success-path live sync', () => {
