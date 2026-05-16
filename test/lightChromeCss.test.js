@@ -91,6 +91,11 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-moment-card__header \.cml-avatar-visual \{[\s\S]*width: 42px;[\s\S]*height: 42px;[\s\S]*flex: 0 0 42px;/);
   });
 
+  it('defines route-scoped Moments picker selectors', () => {
+    assert.match(css, /#codex-media-library-root \.cml-moments-picker/);
+    assert.match(css, /#codex-media-library-root \.cml-moments-composer__existing/);
+  });
+
   it('hides native browser cancel icons inside the Films library search', () => {
     assert.match(css, /\.cml-films-library-search input::-webkit-search-cancel-button/);
     assert.match(css, /\.cml-films-library-search input\[type="search"\] \{[\s\S]*appearance: none;/);

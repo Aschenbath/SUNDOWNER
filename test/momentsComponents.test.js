@@ -58,7 +58,7 @@ describe('Moments components', () => {
       isLoading: false,
       isPublishing: false,
       draftBody: 'draft',
-      draftFiles: [{ name: 'local.jpg', previewUrl: 'blob:local' }],
+      draftAttachments: [{ name: 'local.jpg', previewUrl: 'blob:local', source: 'upload' }],
       selectedDate: '2026-05-16',
       calendarMonth: '2026-05',
       datesWithPhotos: { '2026-05-16': 1 },
@@ -115,7 +115,7 @@ describe('Moments components', () => {
       isLoading: false,
       isPublishing: false,
       draftBody: 'retry me',
-      draftFiles: [{ name: 'keep.jpg', previewUrl: 'blob:keep' }],
+      draftAttachments: [{ name: 'keep.jpg', previewUrl: 'blob:keep', source: 'upload' }],
       selectedDate: '2026-05-16',
       calendarMonth: '2026-05',
       datesWithPhotos: {},
@@ -128,6 +128,33 @@ describe('Moments components', () => {
     assert.match(html, /data-moments-draft-input/);
     assert.match(html, /retry me/);
     assert.match(html, /keep.jpg/);
+  });
+
+  it('renders a Choose from Photos action and edit-mode controls', () => {
+    const html = MomentsView({
+      posts,
+      isLoading: false,
+      isPublishing: false,
+      draftBody: 'hello',
+      draftAttachments: [{ name: 'photo-1.jpg', previewUrl: '/file/photo-1', source: 'existing', fileId: 'photo-1' }],
+      isEditing: true,
+      pickerOpen: true,
+      pickerItems: [{ id: 'photo-1', sourceUrl: '/file/photo-1', thumbnailUrl: '/file/photo-1', label: 'photo-1', type: 'photo' }],
+      pickerSelectedIds: ['photo-1'],
+      selectedDate: '2026-05-16',
+      calendarMonth: '2026-05',
+      datesWithPhotos: { '2026-05-16': 1 },
+      authorName: 'Aschenbath',
+      authorAvatarData: '',
+      error: '',
+    });
+
+    assert.match(html, /Choose from Photos/);
+    assert.match(html, /Save changes/);
+    assert.match(html, /Cancel edit/);
+    assert.match(html, /data-action="open-moments-photo-picker"/);
+    assert.match(html, /data-action="toggle-moments-picker-photo"/);
+    assert.match(html, /data-action="apply-moments-photo-picker"/);
   });
 
   it('shows only selected-day attachments in the day wall', () => {

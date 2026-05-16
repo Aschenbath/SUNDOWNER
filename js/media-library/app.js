@@ -57,7 +57,9 @@ import {
 import { loadJson, saveJson } from './storage.js';
 import {
   buildMomentAttachmentItem,
+  buildMomentMutationPayload,
   deriveMomentCalendarMonth,
+  normalizeMomentDraftAttachments,
   normalizeMomentPosts,
 } from './moments-state.js';
 import {
@@ -690,7 +692,11 @@ const state = {
   momentsHydrated: false,
   momentsPublishing: false,
   momentsDraftBody: '',
-  momentsDraftFiles: [],
+  momentsDraftAttachments: [],
+  momentsEditingPostId: '',
+  momentsPickerOpen: false,
+  momentsPickerSelection: new Set(),
+  momentsPickerQuery: '',
   momentsSelectedDate: new Date().toISOString().slice(0, 10),
   momentsCalendarMonth: new Date().toISOString().slice(0, 7),
   momentsError: '',
@@ -4757,8 +4763,10 @@ function revokeMomentDraftFilePreview(file) {
   }
 }
 
-function revokeMomentDraftPreviews(files = state.momentsDraftFiles) {
-  safeArray(files).forEach((file) => revokeMomentDraftFilePreview(file));
+function revokeMomentDraftPreviews(files = state.momentsDraftAttachments) {
+  safeArray(files)
+    .filter((file) => file?.source !== 'existing')
+    .forEach((file) => revokeMomentDraftFilePreview(file));
 }
 
 function setMomentSelectedDate(date = '', { syncMonth = true } = {}) {
@@ -4823,9 +4831,13 @@ function clearMomentsError({ shouldRender = false } = {}) {
 }
 
 function clearMomentDraft({ shouldRender = true } = {}) {
-  revokeMomentDraftPreviews(state.momentsDraftFiles);
+  revokeMomentDraftPreviews(state.momentsDraftAttachments);
   state.momentsDraftBody = '';
-  state.momentsDraftFiles = [];
+  state.momentsDraftAttachments = [];
+  state.momentsEditingPostId = '';
+  state.momentsPickerOpen = false;
+  state.momentsPickerSelection = new Set();
+  state.momentsPickerQuery = '';
   state.momentsError = '';
   if (shouldRender) {
     render();
@@ -4890,12 +4902,12 @@ function openMomentDraftPicker() {
 
 function removeMomentDraftFile(index) {
   const numericIndex = Number(index);
-  if (!Number.isInteger(numericIndex) || numericIndex < 0 || numericIndex >= state.momentsDraftFiles.length) {
+  if (!Number.isInteger(numericIndex) || numericIndex < 0 || numericIndex >= state.momentsDraftAttachments.length) {
     return;
   }
-  const removed = state.momentsDraftFiles[numericIndex];
+  const removed = state.momentsDraftAttachments[numericIndex];
   revokeMomentDraftFilePreview(removed);
-  state.momentsDraftFiles = state.momentsDraftFiles.filter((_, currentIndex) => currentIndex !== numericIndex);
+  state.momentsDraftAttachments = state.momentsDraftAttachments.filter((_, currentIndex) => currentIndex !== numericIndex);
   render();
 }
 
@@ -4906,28 +4918,65 @@ async function handleMomentDraftSelection(fileList) {
   if (!selectedFiles.length) {
     return;
   }
-  const remainingSlots = Math.max(0, MAX_MOMENT_DRAFT_FILES - state.momentsDraftFiles.length);
+  const remainingSlots = Math.max(0, MAX_MOMENT_DRAFT_FILES - state.momentsDraftAttachments.length);
   if (!remainingSlots) {
     showToast('A Moment can include at most 9 photos');
     return;
   }
-  const acceptedFiles = selectedFiles.slice(0, remainingSlots).map((file) => ({
+  const acceptedFiles = normalizeMomentDraftAttachments(selectedFiles.slice(0, remainingSlots).map((file) => ({
+    source: 'upload',
     file,
     name: file.name || 'Moment photo',
     previewUrl: typeof URL?.createObjectURL === 'function' ? URL.createObjectURL(file) : '',
-  }));
+  })));
   if (selectedFiles.length > remainingSlots) {
     showToast('A Moment can include at most 9 photos');
   }
-  state.momentsDraftFiles = [...state.momentsDraftFiles, ...acceptedFiles];
+  state.momentsDraftAttachments = [...state.momentsDraftAttachments, ...acceptedFiles];
   state.momentsError = '';
   render();
 }
 
+function startEditingMoment(post) {
+  if (!post?.id) {
+    return;
+  }
+  state.momentsEditingPostId = post.id;
+  state.momentsDraftBody = post.body || '';
+  state.momentsDraftAttachments = normalizeMomentDraftAttachments((post.attachments || []).map((attachment) => ({
+    source: 'existing',
+    fileId: attachment.fileId,
+    metadata: attachment.metadata,
+    previewUrl: attachment.item?.thumbnailUrl || attachment.item?.sourceUrl || '',
+    name: attachment.metadata?.FileName || attachment.item?.label || '',
+  })));
+  state.momentsError = '';
+  render();
+}
+
+function buildMomentFormData() {
+  const payload = buildMomentMutationPayload({
+    body: state.momentsDraftBody,
+    attachments: state.momentsDraftAttachments,
+  });
+  const formData = new FormData();
+  if (payload.body) {
+    formData.set('body', payload.body);
+  }
+  payload.existingFileIds.forEach((fileId) => {
+    formData.append('existingFileIds[]', fileId);
+  });
+  payload.uploadFiles.forEach((file) => {
+    if (file) {
+      formData.append('photos', file, file.name || 'photo');
+    }
+  });
+  return { payload, formData };
+}
+
 async function publishMoment() {
-  const body = String(state.momentsDraftBody || '').trim();
-  const draftFiles = safeArray(state.momentsDraftFiles);
-  if (!body && draftFiles.length === 0) {
+  const { payload, formData } = buildMomentFormData();
+  if (!payload.body && payload.existingFileIds.length === 0 && payload.uploadFiles.length === 0) {
     state.momentsError = 'Moment body or at least one photo is required';
     render();
     return;
@@ -4935,25 +4984,20 @@ async function publishMoment() {
   state.momentsPublishing = true;
   state.momentsError = '';
   render();
-  const formData = new FormData();
-  if (body) {
-    formData.set('body', body);
-  }
-  draftFiles.forEach((entry) => {
-    if (entry?.file instanceof File) {
-      formData.append('photos', entry.file, entry.file.name || 'photo');
-    }
-  });
   try {
-    const payload = await fetchMomentsJson('/api/manage/moments', {
-      method: 'POST',
+    const requestUrl = state.momentsEditingPostId
+      ? `/api/manage/moments?id=${encodeURIComponent(state.momentsEditingPostId)}`
+      : '/api/manage/moments';
+    const method = state.momentsEditingPostId ? 'PATCH' : 'POST';
+    const response = await fetchMomentsJson(requestUrl, {
+      method,
       body: formData,
       headers: {},
     });
-    const createdPosts = normalizeMomentPosts(payload?.post ? [payload.post] : []);
+    const createdPosts = normalizeMomentPosts(response?.post ? [response.post] : []);
     const createdPost = createdPosts[0] || null;
     if (createdPost) {
-      state.momentsPosts = normalizeMomentPosts([createdPost, ...state.momentsPosts]);
+      state.momentsPosts = normalizeMomentPosts([createdPost, ...state.momentsPosts.filter((post) => post.id !== createdPost.id)]);
       state.momentsDatesWithPhotos = buildMomentsDatesWithPhotos(state.momentsPosts);
       setMomentSelectedDate(createdPost.date || chooseMomentSelectedDate(state.momentsPosts), { syncMonth: true });
     }
@@ -14236,7 +14280,11 @@ function render() {
                     isLoading: state.momentsLoading && !state.momentsHydrated,
                     isPublishing: state.momentsPublishing,
                     draftBody: state.momentsDraftBody,
-                    draftFiles: state.momentsDraftFiles,
+                    draftAttachments: state.momentsDraftAttachments,
+                    isEditing: Boolean(state.momentsEditingPostId),
+                    pickerOpen: state.momentsPickerOpen,
+                    pickerItems: [],
+                    pickerSelectedIds: [...state.momentsPickerSelection],
                     selectedDate: state.momentsSelectedDate,
                     calendarMonth: state.momentsCalendarMonth,
                     datesWithPhotos: state.momentsDatesWithPhotos,

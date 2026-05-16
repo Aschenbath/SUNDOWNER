@@ -1067,14 +1067,14 @@ function buildMomentsCalendarModel(monthKey = '', selectedDate = '', datesWithPh
   return { year, month, cells };
 }
 
-function renderMomentsComposer({ draftBody = '', draftFiles = [], isPublishing = false, error = '' } = {}) {
+function renderMomentsComposer({ draftBody = '', draftAttachments = [], isPublishing = false, isEditing = false, error = '' } = {}) {
   return `
     <section class="cml-moments-composer" data-moments-composer>
       <input type="file" data-moment-file-input accept="image/*" multiple hidden>
       <textarea class="cml-moments-composer__input" data-moments-draft-input placeholder="记录此刻的想法..." maxlength="2000" ${isPublishing ? 'disabled' : ''}>${escapeHtml(draftBody)}</textarea>
-      ${draftFiles.length ? `
+      ${draftAttachments.length ? `
         <div class="cml-moments-composer__previews">
-          ${draftFiles.map((file, index) => `
+          ${draftAttachments.map((file, index) => `
             <figure class="cml-moments-composer__preview">
               <img src="${escapeHtml(file.previewUrl || '')}" alt="${escapeHtml(file.name || `Photo ${index + 1}`)}" loading="lazy" decoding="async">
               <figcaption>${escapeHtml(file.name || `Photo ${index + 1}`)}</figcaption>
@@ -1086,8 +1086,12 @@ function renderMomentsComposer({ draftBody = '', draftFiles = [], isPublishing =
       ${error ? `<p class="cml-moments-composer__error" role="alert">${escapeHtml(error)}</p>` : ''}
       <footer class="cml-moments-composer__actions">
         <button type="button" class="cml-moments-composer__secondary" data-action="choose-moment-photos" ${isPublishing ? 'disabled' : ''}>${icon('image')}<span>图片</span></button>
-        <span class="cml-moments-composer__count">${draftFiles.length}/9</span>
-        <button type="button" class="cml-moments-composer__publish" data-action="publish-moment" ${isPublishing ? 'disabled' : ''}>${isPublishing ? '发布中...' : '发布'}</button>
+        <button type="button" class="cml-moments-composer__secondary cml-moments-composer__existing" data-action="open-moments-photo-picker" ${isPublishing ? 'disabled' : ''}>Choose from Photos</button>
+        <span class="cml-moments-composer__count">${draftAttachments.length}/9</span>
+        ${isEditing
+          ? `<button type="button" class="cml-moments-composer__secondary" data-action="cancel-moment-edit" ${isPublishing ? 'disabled' : ''}>Cancel edit</button>
+             <button type="button" class="cml-moments-composer__publish" data-action="save-moment" ${isPublishing ? 'disabled' : ''}>${isPublishing ? '保存中...' : 'Save changes'}</button>`
+          : `<button type="button" class="cml-moments-composer__publish" data-action="publish-moment" ${isPublishing ? 'disabled' : ''}>${isPublishing ? '发布中...' : '发布'}</button>`}
       </footer>
     </section>
   `;
@@ -1203,12 +1207,43 @@ function renderMomentsDayWall({ posts = [], selectedDate = '' } = {}) {
   `;
 }
 
+function renderMomentsPicker({ open = false, items = [], selectedIds = [] } = {}) {
+  if (!open) {
+    return '';
+  }
+
+  return `
+    <div class="cml-moments-picker" data-moments-picker>
+      <div class="cml-moments-picker__panel">
+        <header class="cml-moments-picker__header">
+          <h3>Choose from Photos</h3>
+          <button type="button" data-action="close-moments-photo-picker" aria-label="Close picker">${icon('close')}</button>
+        </header>
+        <div class="cml-moments-picker__grid">
+          ${items.map((item) => `
+            <button type="button" class="cml-moments-picker__item ${selectedIds.includes(item.id) ? 'is-selected' : ''}" data-action="toggle-moments-picker-photo" data-id="${escapeHtml(item.id)}" aria-pressed="${selectedIds.includes(item.id) ? 'true' : 'false'}">
+              ${renderMediaAsset(item, 'cml-moments-picker__image', false, { noAction: true })}
+            </button>
+          `).join('')}
+        </div>
+        <footer class="cml-moments-picker__footer">
+          <button type="button" class="cml-moments-picker__apply" data-action="apply-moments-photo-picker">Add selected</button>
+        </footer>
+      </div>
+    </div>
+  `;
+}
+
 export function MomentsView({
   posts = [],
   isLoading = false,
   isPublishing = false,
+  isEditing = false,
   draftBody = '',
-  draftFiles = [],
+  draftAttachments = [],
+  pickerOpen = false,
+  pickerItems = [],
+  pickerSelectedIds = [],
   selectedDate = '',
   calendarMonth = '',
   datesWithPhotos = {},
@@ -1223,7 +1258,8 @@ export function MomentsView({
           <p>Moments</p>
           <h1>记录生活，分享此刻想法</h1>
         </header>
-        ${renderMomentsComposer({ draftBody, draftFiles, isPublishing, error })}
+        ${renderMomentsComposer({ draftBody, draftAttachments, isPublishing, isEditing, error })}
+        ${renderMomentsPicker({ open: pickerOpen, items: pickerItems, selectedIds: pickerSelectedIds })}
         ${isLoading
     ? '<div class="cml-moments-loading">Loading Moments...</div>'
     : renderMomentsFeed({ posts, authorName, authorAvatarData })}

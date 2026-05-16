@@ -11938,6 +11938,85 @@ body.codex-media-library-active #app {
   margin-top: 16px;
 }
 
+#codex-media-library-root .cml-moments-composer__existing {
+  white-space: nowrap;
+}
+
+#codex-media-library-root .cml-moments-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(8, 10, 14, 0.56);
+  backdrop-filter: blur(10px);
+}
+
+#codex-media-library-root .cml-moments-picker__panel {
+  width: min(920px, 100%);
+  max-height: min(80vh, 760px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid var(--cml-theme-card-border, rgba(255, 255, 255, 0.08));
+  border-radius: 24px;
+  background: var(--cml-theme-surface-elevated, rgba(24, 26, 31, 0.96));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+#codex-media-library-root .cml-moments-picker__header,
+#codex-media-library-root .cml-moments-picker__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#codex-media-library-root .cml-moments-picker__header {
+  margin-bottom: 16px;
+}
+
+#codex-media-library-root .cml-moments-picker__header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+#codex-media-library-root .cml-moments-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#codex-media-library-root .cml-moments-picker__item {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  aspect-ratio: 1;
+}
+
+#codex-media-library-root .cml-moments-picker__item.is-selected {
+  border-color: var(--cml-theme-accent, #78aaf8);
+  box-shadow: 0 0 0 2px rgba(var(--cml-theme-accent-rgb, 120, 170, 248), 0.24);
+}
+
+#codex-media-library-root .cml-moments-picker__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#codex-media-library-root .cml-moments-picker__apply {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--cml-theme-accent, #5967ff), var(--cml-theme-accent-strong, #3141d8));
+  color: var(--cml-text-on-accent, #fff);
+  font-weight: 700;
+}
+
 #codex-media-library-root .cml-moments-composer__secondary,
 #codex-media-library-root .cml-moments-composer__publish,
 #codex-media-library-root .cml-moment-card__delete,
