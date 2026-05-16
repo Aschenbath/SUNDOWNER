@@ -122,10 +122,15 @@ function mapPostRow(row, attachments = []) {
   };
 }
 
+function createBindPlaceholders(count) {
+  return Array.from({ length: count }, () => '?').join(', ');
+}
+
 export class MomentsStore {
   constructor(env = {}) {
     this.db = assertD1(env);
     this.schemaReady = null;
+    this.filesTableExists = null;
   }
 
   async ensureSchema() {
@@ -142,10 +147,17 @@ export class MomentsStore {
 
   async hasFilesTable() {
     await this.ensureSchema();
-    const row = await this.db.prepare(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'files'",
-    ).first();
-    return Boolean(row?.name);
+
+    if (this.filesTableExists === null) {
+      this.filesTableExists = (async () => {
+        const row = await this.db.prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'files'",
+        ).first();
+        return Boolean(row?.name);
+      })();
+    }
+
+    return this.filesTableExists;
   }
 
   async getFileMetadata(fileId) {
@@ -215,6 +227,39 @@ export class MomentsStore {
     return this.getPost(postId);
   }
 
+  async loadAttachmentsByPostIds(postIds = []) {
+    await this.ensureSchema();
+
+    if (!postIds.length) {
+      return new Map();
+    }
+
+    const placeholders = createBindPlaceholders(postIds.length);
+    const attachmentSql = await this.hasFilesTable()
+      ? `SELECT a.id AS attachment_id, a.post_id, a.file_id, a.sort_order, a.created_at AS attachment_created_at, f.metadata
+         FROM moment_attachments a
+         LEFT JOIN files f ON f.id = a.file_id
+         WHERE a.post_id IN (${placeholders})
+         ORDER BY a.post_id ASC, a.sort_order ASC, a.id ASC`
+      : `SELECT id AS attachment_id, post_id, file_id, sort_order, created_at AS attachment_created_at
+         FROM moment_attachments
+         WHERE post_id IN (${placeholders})
+         ORDER BY post_id ASC, sort_order ASC, id ASC`;
+
+    const attachmentRows = await this.db.prepare(attachmentSql).bind(...postIds).all();
+    const attachmentsByPostId = new Map(postIds.map((postId) => [postId, []]));
+
+    for (const row of attachmentRows.results || []) {
+      const attachments = attachmentsByPostId.get(row.post_id);
+      if (!attachments) {
+        continue;
+      }
+      attachments.push(mapAttachmentRow(row, parseJson(row.metadata, {})));
+    }
+
+    return attachmentsByPostId;
+  }
+
   async getPost(postId) {
     await this.ensureSchema();
 
@@ -226,28 +271,8 @@ export class MomentsStore {
       return null;
     }
 
-    let attachmentRows;
-    if (await this.hasFilesTable()) {
-      attachmentRows = await this.db.prepare(
-        `SELECT a.id AS attachment_id, a.post_id, a.file_id, a.sort_order, a.created_at AS attachment_created_at, f.metadata
-         FROM moment_attachments a
-         LEFT JOIN files f ON f.id = a.file_id
-         WHERE a.post_id = ?
-         ORDER BY a.sort_order ASC, a.id ASC`,
-      ).bind(postId).all();
-    } else {
-      attachmentRows = await this.db.prepare(
-        `SELECT id AS attachment_id, post_id, file_id, sort_order, created_at AS attachment_created_at
-         FROM moment_attachments
-         WHERE post_id = ?
-         ORDER BY sort_order ASC, id ASC`,
-      ).bind(postId).all();
-    }
-
-    return mapPostRow(
-      postRow,
-      (attachmentRows.results || []).map((row) => mapAttachmentRow(row, parseJson(row.metadata, {}))),
-    );
+    const attachmentsByPostId = await this.loadAttachmentsByPostIds([postId]);
+    return mapPostRow(postRow, attachmentsByPostId.get(postId) || []);
   }
 
   async listPosts({ date = '', page = 1, pageSize = DEFAULT_PAGE_SIZE } = {}) {
@@ -267,13 +292,10 @@ export class MomentsStore {
        LIMIT ? OFFSET ?`,
     ).bind(...params, normalizedPageSize, offset).all();
 
-    const posts = [];
-    for (const row of postRows.results || []) {
-      const post = await this.getPost(row.id);
-      if (post) {
-        posts.push(post);
-      }
-    }
+    const pageRows = postRows.results || [];
+    const postIds = pageRows.map((row) => row.id);
+    const attachmentsByPostId = await this.loadAttachmentsByPostIds(postIds);
+    const posts = pageRows.map((row) => mapPostRow(row, attachmentsByPostId.get(row.id) || []));
 
     const countRow = await this.db.prepare(
       `SELECT COUNT(*) AS total FROM moments_posts${whereClause}`,
