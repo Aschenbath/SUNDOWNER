@@ -25,6 +25,7 @@ const icons = {
   memory: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18a7.5 7.5 0 0 1 15 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="9.4" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   cloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.8 18.3a4.3 4.3 0 1 1 .8-8.5 5.2 5.2 0 0 1 10.1 1.4A3.6 3.6 0 0 1 18 18.3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   calendar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8v2.4M17 4.8v2.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="4.8" y="6.8" width="14.4" height="12.4" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4.8 10.2h14.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
+  moments: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.2 12.1c0-4 3.1-7.1 7.1-7.1s7.1 3.1 7.1 7.1-3.1 7.1-7.1 7.1c-1.2 0-2.3-.3-3.3-.8l-3.2 1 1-3.1a7 7 0 0 1-1.6-4.2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 11.2h6.5M9 14.2h4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
   pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.2s5-5.3 5-9a5 5 0 1 0-10 0c0 3.7 5 9 5 9Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="11.2" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 7.4h10.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M9.3 5.1h5.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M8.5 7.4v9a1.9 1.9 0 0 0 1.9 1.9h3.2a1.9 1.9 0 0 0 1.9-1.9v-9" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   restore: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 1.8-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 6.2V12H10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -489,6 +490,8 @@ export function Sidebar({
         ? 'sidebar-music'
       : key === 'films'
         ? 'films'
+      : key === 'moments'
+        ? 'moments'
       : key === 'bin'
         ? 'trash'
         : key === 'mind'
@@ -993,6 +996,220 @@ function formatFileDate(dateStr) {
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
   return `${y}-${m}-${day} ${hh}:${mm}`;
+}
+
+function getMomentAttachmentItem(attachment = {}) {
+  if (attachment.item) {
+    return attachment.item;
+  }
+
+  const fileId = String(attachment.fileId || '');
+  const encodedFileId = encodeURIComponent(fileId);
+  const label = attachment.metadata?.FileName || fileId || 'Moment photo';
+
+  return {
+    id: fileId,
+    type: 'photo',
+    thumbnailUrl: `/file/${encodedFileId}`,
+    sourceUrl: `/file/${encodedFileId}`,
+    label
+  };
+}
+
+function buildMomentsCalendarModel(monthKey = '', selectedDate = '', datesWithPhotos = {}) {
+  const fallbackMonthKey = String(monthKey || selectedDate || new Date().toISOString().slice(0, 7));
+  const [rawYear, rawMonth] = fallbackMonthKey.split('-').map(Number);
+  const now = new Date();
+  const year = Number.isFinite(rawYear) ? rawYear : now.getFullYear();
+  const month = Number.isFinite(rawMonth) ? rawMonth : (now.getMonth() + 1);
+  const firstDay = new Date(year, month - 1, 1);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const leadingEmptyCells = firstDay.getDay();
+  const cells = [];
+
+  for (let index = 0; index < leadingEmptyCells; index += 1) {
+    cells.push({ type: 'empty', key: `empty-${index}` });
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    cells.push({
+      type: 'day',
+      key: date,
+      label: String(day),
+      date,
+      isSelected: date === selectedDate,
+      hasPhotos: Boolean(datesWithPhotos[date])
+    });
+  }
+
+  return { year, month, cells };
+}
+
+function renderMomentsComposer({ draftBody = '', draftFiles = [], isPublishing = false, error = '' } = {}) {
+  return `
+    <section class="cml-moments-composer" data-moments-composer>
+      <textarea class="cml-moments-composer__input" data-moments-draft-input placeholder="记录此刻的想法..." maxlength="2000" ${isPublishing ? 'disabled' : ''}>${escapeHtml(draftBody)}</textarea>
+      ${draftFiles.length ? `
+        <div class="cml-moments-composer__previews">
+          ${draftFiles.map((file, index) => `
+            <figure class="cml-moments-composer__preview">
+              <img src="${escapeHtml(file.previewUrl || '')}" alt="${escapeHtml(file.name || `Photo ${index + 1}`)}" loading="lazy" decoding="async">
+              <figcaption>${escapeHtml(file.name || `Photo ${index + 1}`)}</figcaption>
+              <button type="button" class="cml-moments-composer__remove" data-action="remove-moment-draft-file" data-index="${index}" aria-label="Remove photo" ${isPublishing ? 'disabled' : ''}>${icon('close')}</button>
+            </figure>
+          `).join('')}
+        </div>
+      ` : ''}
+      ${error ? `<p class="cml-moments-composer__error" role="alert">${escapeHtml(error)}</p>` : ''}
+      <footer class="cml-moments-composer__actions">
+        <button type="button" class="cml-moments-composer__secondary" data-action="choose-moment-photos" ${isPublishing ? 'disabled' : ''}>${icon('image')}<span>图片</span></button>
+        <span class="cml-moments-composer__count">${draftFiles.length}/9</span>
+        <button type="button" class="cml-moments-composer__publish" data-action="publish-moment" ${isPublishing ? 'disabled' : ''}>${isPublishing ? '发布中...' : '发布'}</button>
+      </footer>
+    </section>
+  `;
+}
+
+function renderMomentImageGrid(attachments = []) {
+  const visibleAttachments = attachments.slice(0, 4);
+  const extraCount = Math.max(0, attachments.length - visibleAttachments.length);
+
+  return `
+    <div class="cml-moment-card__photos" data-count="${visibleAttachments.length}">
+      ${visibleAttachments.map((attachment, index) => {
+        const item = getMomentAttachmentItem(attachment);
+        const label = item.label || attachment.metadata?.FileName || 'Moment photo';
+        const actionId = item.id || attachment.fileId || '';
+        return `
+          <button type="button" class="cml-moment-card__photo" data-action="open-preview" data-id="${escapeHtml(actionId)}" aria-label="Open ${escapeHtml(label)}">
+            ${renderMediaAsset(item, 'cml-moment-card__image', false, { noAction: true })}
+            ${extraCount && index === visibleAttachments.length - 1 ? `<span class="cml-moment-card__more">+${extraCount}</span>` : ''}
+          </button>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderMomentsFeed({ posts = [], authorName = 'Aschenbath', authorAvatarData = '' } = {}) {
+  if (!posts.length) {
+    return `
+      <section class="cml-moments-feed">
+        <div class="cml-moments-empty">还没有 Moments，发一张今天的照片吧。</div>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="cml-moments-feed">
+      ${posts.map((post) => `
+        <article class="cml-moment-card" data-moment-id="${escapeHtml(post.id)}">
+          <header class="cml-moment-card__header">
+            ${renderAvatarVisual({ displayName: authorName, avatarData: authorAvatarData })}
+            <div class="cml-moment-card__meta">
+              <strong>${escapeHtml(authorName || 'Aschenbath')}</strong>
+              <time datetime="${escapeHtml(post.createdAt || '')}">${escapeHtml(formatFileDate(post.createdAt))}</time>
+            </div>
+            <button type="button" class="cml-moment-card__delete" data-action="delete-moment" data-id="${escapeHtml(post.id)}" aria-label="Delete Moment">${icon('trash')}</button>
+          </header>
+          ${post.body ? `<p class="cml-moment-card__body">${escapeHtml(post.body)}</p>` : ''}
+          ${(post.attachments && post.attachments.length) ? renderMomentImageGrid(post.attachments) : ''}
+        </article>
+      `).join('')}
+    </section>
+  `;
+}
+
+function renderMomentsCalendar({ selectedDate = '', calendarMonth = '', datesWithPhotos = {} } = {}) {
+  const calendar = buildMomentsCalendarModel(calendarMonth, selectedDate, datesWithPhotos);
+
+  return `
+    <section class="cml-moments-calendar" data-moments-calendar>
+      <header class="cml-moments-calendar__header">
+        <h3>${escapeHtml(`${calendar.year}年${calendar.month}月`)}</h3>
+        <div class="cml-moments-calendar__actions">
+          <button type="button" data-action="change-moments-month" data-direction="-1" aria-label="Previous month">${icon('previous')}</button>
+          <button type="button" data-action="change-moments-month" data-direction="1" aria-label="Next month">${icon('next')}</button>
+        </div>
+      </header>
+      <div class="cml-moments-calendar__weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+      <div class="cml-moments-calendar__grid">
+        ${calendar.cells.map((cell) => {
+          if (cell.type === 'empty') {
+            return '<span class="cml-moments-calendar__cell is-empty" aria-hidden="true"></span>';
+          }
+          return `
+            <button type="button" class="cml-moments-calendar__cell ${cell.isSelected ? 'is-selected' : ''} ${cell.hasPhotos ? 'has-photos' : ''}" data-action="select-moments-date" data-date="${cell.date}" aria-pressed="${cell.isSelected ? 'true' : 'false'}">
+              <span>${escapeHtml(cell.label)}</span>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderMomentsDayWall({ posts = [], selectedDate = '' } = {}) {
+  const attachments = posts
+    .filter((post) => post.date === selectedDate)
+    .flatMap((post) => post.attachments || []);
+
+  return `
+    <section class="cml-moments-day-wall" data-moments-day-wall>
+      <header class="cml-moments-day-wall__header">
+        <span>Photo wall</span>
+        <strong>${escapeHtml(selectedDate || '')}</strong>
+      </header>
+      ${attachments.length ? `
+        <div class="cml-moments-day-wall__grid">
+          ${attachments.map((attachment) => {
+            const item = getMomentAttachmentItem(attachment);
+            const label = item.label || attachment.metadata?.FileName || 'Moment photo';
+            const actionId = item.id || attachment.fileId || '';
+            return `
+              <button type="button" class="cml-moments-day-wall__item" data-action="open-preview" data-id="${escapeHtml(actionId)}" aria-label="Open ${escapeHtml(label)}">
+                ${renderMediaAsset(item, 'cml-moments-day-wall__image', false, { noAction: true })}
+              </button>
+            `;
+          }).join('')}
+        </div>
+      ` : '<p class="cml-moments-day-wall__empty">这天还没有照片。</p>'}
+    </section>
+  `;
+}
+
+export function MomentsView({
+  posts = [],
+  isLoading = false,
+  isPublishing = false,
+  draftBody = '',
+  draftFiles = [],
+  selectedDate = '',
+  calendarMonth = '',
+  datesWithPhotos = {},
+  authorName = 'Aschenbath',
+  authorAvatarData = '',
+  error = ''
+} = {}) {
+  return `
+    <section class="cml-moments" data-moments-view>
+      <div class="cml-moments__main">
+        <header class="cml-moments__hero">
+          <p>Moments</p>
+          <h1>记录生活，分享此刻想法</h1>
+        </header>
+        ${renderMomentsComposer({ draftBody, draftFiles, isPublishing, error })}
+        ${isLoading
+    ? '<div class="cml-moments-loading">Loading Moments...</div>'
+    : renderMomentsFeed({ posts, authorName, authorAvatarData })}
+      </div>
+      <aside class="cml-moments__rail">
+        ${renderMomentsCalendar({ selectedDate, calendarMonth, datesWithPhotos })}
+        ${renderMomentsDayWall({ posts, selectedDate })}
+      </aside>
+    </section>
+  `;
 }
 
 function getFileExtIcon(fileName) {
