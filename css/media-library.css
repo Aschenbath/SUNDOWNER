@@ -11981,6 +11981,13 @@ body.codex-media-library-active #app {
   gap: 12px;
 }
 
+#codex-media-library-root .cml-moment-card__header .cml-avatar-visual {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 50%;
+}
+
 #codex-media-library-root .cml-moment-card__meta {
   min-width: 0;
 }
