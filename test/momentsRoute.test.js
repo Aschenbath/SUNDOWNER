@@ -279,4 +279,70 @@ describe('manage moments route', () => {
     const fileRecord = await new D1Database(d1).getWithMetadata('Moments/2026-05-16/a.jpg');
     assert.equal(fileRecord.metadata.FileName, 'a.jpg');
   });
+
+  it('creates a post from mixed existing photo ids and uploaded photos', async () => {
+    const d1 = new SqliteD1(':memory:');
+    await seedFile(d1, 'Photos/2026-05-16/existing.jpg', { FileName: 'existing.jpg', FileType: 'image/jpeg' });
+    const form = new FormData();
+    form.set('body', 'mixed');
+    form.append('existingFileIds[]', 'Photos/2026-05-16/existing.jpg');
+    form.append('photos[]', new File(['fake image'], 'upload.jpg', { type: 'image/jpeg' }));
+
+    const response = await onRequest(createContext({
+      env: { img_d1: d1 },
+      now: '2026-05-16T20:15:00.000Z',
+      request: new Request('https://example.com/api/manage/moments', { method: 'POST', body: form }),
+      uploadFile: async ({ uploadFolder }) => {
+        await seedFile(d1, `${uploadFolder}/upload.jpg`, { FileName: 'upload.jpg', FileType: 'image/jpeg' });
+        return { fileId: `${uploadFolder}/upload.jpg`, src: `/file/${uploadFolder}/upload.jpg` };
+      },
+    }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.post.body, 'mixed');
+    assert.deepEqual(payload.post.attachments.map((attachment) => attachment.fileId), [
+      'Photos/2026-05-16/existing.jpg',
+      'Moments/2026-05-16/upload.jpg',
+    ]);
+  });
+
+  it('patches an existing Moments post with mixed existing and uploaded attachments', async () => {
+    const d1 = new SqliteD1(':memory:');
+    await seedFile(d1, 'Photos/2026-05-16/existing.jpg', { FileName: 'existing.jpg', FileType: 'image/jpeg' });
+    await seedFile(d1, 'Moments/2026-05-16/original.jpg', { FileName: 'original.jpg', FileType: 'image/jpeg' });
+
+    const createForm = new FormData();
+    createForm.set('body', 'before');
+    createForm.append('photos[]', new File(['fake image'], 'original.jpg', { type: 'image/jpeg' }));
+    const createResponse = await onRequest(createContext({
+      env: { img_d1: d1 },
+      now: '2026-05-16T20:15:00.000Z',
+      request: new Request('https://example.com/api/manage/moments', { method: 'POST', body: createForm }),
+      uploadFile: async () => ({ fileId: 'Moments/2026-05-16/original.jpg', src: '/file/Moments/2026-05-16/original.jpg' }),
+    }));
+    const created = await createResponse.json();
+
+    const patchForm = new FormData();
+    patchForm.set('body', 'after');
+    patchForm.append('existingFileIds[]', 'Photos/2026-05-16/existing.jpg');
+    patchForm.append('photos[]', new File(['fake image'], 'replacement.jpg', { type: 'image/jpeg' }));
+    const patchResponse = await onRequest(createContext({
+      env: { img_d1: d1 },
+      now: '2026-05-16T20:30:00.000Z',
+      request: new Request(`https://example.com/api/manage/moments?id=${encodeURIComponent(created.post.id)}`, { method: 'PATCH', body: patchForm }),
+      uploadFile: async ({ uploadFolder }) => {
+        await seedFile(d1, `${uploadFolder}/replacement.jpg`, { FileName: 'replacement.jpg', FileType: 'image/jpeg' });
+        return { fileId: `${uploadFolder}/replacement.jpg`, src: `/file/${uploadFolder}/replacement.jpg` };
+      },
+    }));
+    const patched = await patchResponse.json();
+
+    assert.equal(patchResponse.status, 200);
+    assert.equal(patched.post.body, 'after');
+    assert.deepEqual(patched.post.attachments.map((attachment) => attachment.fileId), [
+      'Photos/2026-05-16/existing.jpg',
+      'Moments/2026-05-16/replacement.jpg',
+    ]);
+  });
 });

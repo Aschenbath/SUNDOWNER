@@ -183,17 +183,31 @@ function collectPhotos(form) {
   return photos;
 }
 
-async function handlePost(context, store) {
+function collectExistingFileIds(form) {
+  const fileIds = [];
+  for (const key of ['existingFileIds[]', 'existingFileIds']) {
+    for (const entry of form.getAll(key)) {
+      const value = normalizeText(entry, 500);
+      if (value) {
+        fileIds.push(value);
+      }
+    }
+  }
+  return [...new Set(fileIds)];
+}
+
+async function buildMomentMutationInput(context) {
   const now = resolveNow(context);
   const uploadFolder = `Moments/${todayFolderDate(now)}`;
   const form = await context.request.formData();
   const body = normalizeText(form.get('body'), MAX_BODY_LENGTH);
   const photos = collectPhotos(form);
+  const existingFileIds = collectExistingFileIds(form);
 
-  if (!body && photos.length === 0) {
+  if (!body && photos.length === 0 && existingFileIds.length === 0) {
     throw new Error('Moment body or at least one photo is required');
   }
-  if (photos.length > MAX_PHOTOS) {
+  if (photos.length + existingFileIds.length > MAX_PHOTOS) {
     throw new Error('A Moment can include at most 9 photos');
   }
   if (photos.some((file) => !String(file.type || '').toLowerCase().startsWith('image/'))) {
@@ -206,12 +220,24 @@ async function handlePost(context, store) {
     uploaded.push(await uploadFile({ context, file, uploadFolder }));
   }
 
-  const post = await store.createPost({
+  return {
     body,
-    fileIds: uploaded.map((item) => item.fileId),
+    fileIds: [...existingFileIds, ...uploaded.map((item) => item.fileId)],
     now: now.toISOString(),
-  });
+  };
+}
 
+async function handlePost(context, store) {
+  const mutation = await buildMomentMutationInput(context);
+  const post = await store.createPost(mutation);
+  return jsonResponse({ post });
+}
+
+async function handlePatch(context, store) {
+  const url = new URL(context.request.url);
+  const id = url.searchParams.get('id') || '';
+  const mutation = await buildMomentMutationInput(context);
+  const post = await store.updatePost(id, mutation);
   return jsonResponse({ post });
 }
 
@@ -229,6 +255,9 @@ export async function onRequest(context) {
     }
     if (context.request.method === 'POST') {
       return await handlePost(context, store);
+    }
+    if (context.request.method === 'PATCH') {
+      return await handlePatch(context, store);
     }
     if (context.request.method === 'DELETE') {
       return await handleDelete(context, store);
