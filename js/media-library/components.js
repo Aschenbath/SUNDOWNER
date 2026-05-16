@@ -1070,6 +1070,7 @@ function buildMomentsCalendarModel(monthKey = '', selectedDate = '', datesWithPh
 function renderMomentsComposer({ draftBody = '', draftFiles = [], isPublishing = false, error = '' } = {}) {
   return `
     <section class="cml-moments-composer" data-moments-composer>
+      <input type="file" data-moment-file-input accept="image/*" multiple hidden>
       <textarea class="cml-moments-composer__input" data-moments-draft-input placeholder="记录此刻的想法..." maxlength="2000" ${isPublishing ? 'disabled' : ''}>${escapeHtml(draftBody)}</textarea>
       ${draftFiles.length ? `
         <div class="cml-moments-composer__previews">
