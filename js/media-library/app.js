@@ -906,6 +906,7 @@ let pendingPersistedPlaylistSnapshot = null;
 let mindStatePromise = null;
 let mindMirrorPromise = null;
 let momentsStatePromise = null;
+let draggedMomentDraftIndex = -1;
 let mindMutationQueue = Promise.resolve();
 let mindVisitStickyMessages = [];
 let stableAppViewportHeight = 0;

@@ -131,6 +131,7 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /move-moment-draft-file-left/);
     assert.match(appSource, /move-moment-draft-file-right/);
     assert.match(appSource, /dragstart/);
+    assert.match(appSource, /let draggedMomentDraftIndex = -1;/);
     assert.match(appSource, /new FormData\(\)/);
     assert.match(appSource, /URL\.createObjectURL\(/);
     assert.match(appSource, /URL\.revokeObjectURL\(/);
