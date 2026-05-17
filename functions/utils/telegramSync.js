@@ -520,24 +520,6 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
         lastTouchedAt: Date.now(),
     }
 
-    const photoFileIds = [fileId]
-    if (shouldCreateMomentsFromTelegramMessage({ caption: message.caption || '', photoFileIds })) {
-        const momentsStore = new MomentsStore(context.env)
-        const momentsDedupeKey = buildTelegramMomentsDedupeKey({
-            chatId: message.chat?.id,
-            messageId: message.message_id,
-            mediaGroupId,
-        })
-        if (telegramDedupeRecord.momentsDedupeKey !== momentsDedupeKey) {
-            await momentsStore.createPost({
-                body: extractMomentsCaptionBody(message.caption || ''),
-                fileIds: photoFileIds.slice(0, 9),
-                now: Number(message.date || 0) * 1000 || Date.now(),
-            })
-            telegramDedupeRecord.momentsDedupeKey = momentsDedupeKey
-        }
-    }
-
     await saveTelegramDedupeRecord(db, channel.name, messageId, telegramDedupeRecord)
 
     return {
@@ -545,6 +527,10 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
         ignored: false,
         fileId,
         staleFileIds,
+        caption: String(message.caption || ''),
+        mediaGroupId,
+        chatId: message.chat?.id,
+        createdAt: Number(message.date || 0) * 1000 || Date.now(),
         channelName: channel.name,
         messageId: message.message_id,
         updateId: update.update_id,
@@ -603,6 +589,38 @@ async function processUpdatesForChannels(context, channels, updates, source) {
                 error: message,
             })
         }
+    }
+
+    const momentsGroups = new Map()
+    for (const importedFile of summary.importedFiles) {
+        const photoFileIds = importedFile?.fileId ? [importedFile.fileId] : []
+        if (!shouldCreateMomentsFromTelegramMessage({ caption: importedFile.caption || '', photoFileIds })) {
+            continue
+        }
+        const groupKey = importedFile.mediaGroupId
+            ? `${importedFile.channelName}:group:${importedFile.mediaGroupId}`
+            : `${importedFile.channelName}:message:${importedFile.messageId}`
+        if (!momentsGroups.has(groupKey)) {
+            momentsGroups.set(groupKey, {
+                channelName: importedFile.channelName,
+                chatId: importedFile.chatId,
+                messageId: importedFile.messageId,
+                mediaGroupId: importedFile.mediaGroupId || '',
+                createdAt: importedFile.createdAt,
+                caption: importedFile.caption || '',
+                fileIds: [],
+            })
+        }
+        momentsGroups.get(groupKey).fileIds.push(importedFile.fileId)
+    }
+
+    for (const group of momentsGroups.values()) {
+        const momentsStore = new MomentsStore(context.env)
+        await momentsStore.createPost({
+            body: extractMomentsCaptionBody(group.caption),
+            fileIds: group.fileIds.slice(0, 9),
+            now: group.createdAt,
+        })
     }
 
     return summary

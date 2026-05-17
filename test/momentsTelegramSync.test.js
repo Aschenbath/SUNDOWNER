@@ -37,4 +37,10 @@ describe('momentsTelegramSync', () => {
       'telegram-moments:1:message:2'
     );
   });
+
+  it('prefers the group-level dedupe key so one album becomes one Moments post', () => {
+    const keyA = buildTelegramMomentsDedupeKey({ chatId: '100', messageId: '200', mediaGroupId: 'group-1' });
+    const keyB = buildTelegramMomentsDedupeKey({ chatId: '100', messageId: '201', mediaGroupId: 'group-1' });
+    assert.equal(keyA, keyB);
+  });
 });
