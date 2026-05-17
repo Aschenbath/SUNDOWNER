@@ -41,5 +41,5 @@ export function shouldUpsertTelegramMomentsPost({ caption = '', photoFileIds = [
   if (shouldCreateMomentsFromTelegramMessage({ caption, photoFileIds })) {
     return true;
   }
-  return Boolean(normalizeText(mediaGroupId) && (previousState?.postId || existingPost?.id));
+  return Boolean(normalizeText(mediaGroupId) && (previousState?.postId || previousState?.body || existingPost?.id));
 }

@@ -549,6 +549,35 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
     })
     const existingPost = await momentsStore.getPost(postId)
 
+    const previousEntries = Array.isArray(previousState?.attachmentEntries)
+        ? previousState.attachmentEntries
+        : (previousState?.fileIds || []).map((existingFileId, index) => ({ fileId: existingFileId, messageId: index }))
+    const mergedEntries = [...previousEntries, ...photoFileIds.map((currentFileId) => ({
+        fileId: currentFileId,
+        messageId: Number(message.message_id || 0),
+    }))]
+    const dedupedEntries = [...new Map(mergedEntries.map((entry) => [entry.fileId, entry])).values()]
+        .sort((left, right) => {
+            if (Number(left.messageId || 0) !== Number(right.messageId || 0)) {
+                return Number(left.messageId || 0) - Number(right.messageId || 0)
+            }
+            return String(left.fileId || '').localeCompare(String(right.fileId || ''))
+        })
+        .slice(0, 9)
+    const nextFileIds = dedupedEntries.map((entry) => entry.fileId)
+    const nextBodyCandidate = extractMomentsCaptionBody(message.caption || '')
+    const postBody = previousState?.body || existingPost?.body || nextBodyCandidate
+    const createdAt = previousState?.createdAt || existingPost?.createdAt || (Number(message.date || 0) * 1000 || Date.now())
+
+    await db.put(stateKey, JSON.stringify({
+        postId,
+        body: postBody,
+        fileIds: nextFileIds,
+        attachmentEntries: dedupedEntries,
+        createdAt,
+        lastTouchedAt: Date.now(),
+    }))
+
     if (shouldUpsertTelegramMomentsPost({
         caption: message.caption || '',
         photoFileIds,
@@ -556,9 +585,6 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
         previousState,
         existingPost,
     })) {
-        const nextFileIds = [...new Set([...(previousState?.fileIds || []), ...existingPost?.attachments?.map((attachment) => attachment.fileId) || [], ...photoFileIds])].slice(0, 9)
-        const postBody = previousState?.body || existingPost?.body || extractMomentsCaptionBody(message.caption || '')
-        const createdAt = previousState?.createdAt || existingPost?.createdAt || (Number(message.date || 0) * 1000 || Date.now())
         if (existingPost) {
             const updated = await momentsStore.updatePost(postId, {
                 body: postBody,
@@ -580,6 +606,7 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
             postId,
             body: postBody,
             fileIds: nextFileIds,
+            attachmentEntries: dedupedEntries,
             createdAt,
             lastTouchedAt: Date.now(),
         }))
