@@ -99,6 +99,21 @@ describe('Moments app helpers', () => {
     assert.equal(payload.uploadFiles.length, 1);
   });
 
+  it('keeps attachment order in the final mutation payload', () => {
+    const payload = buildMomentMutationPayload({
+      body: 'ordered',
+      attachments: [
+        { source: 'existing', fileId: 'Photos/2026-05-16/b.jpg' },
+        { source: 'existing', fileId: 'Photos/2026-05-16/a.jpg' },
+      ],
+    });
+
+    assert.deepEqual(payload.existingFileIds, [
+      'Photos/2026-05-16/b.jpg',
+      'Photos/2026-05-16/a.jpg',
+    ]);
+  });
+
   it('wires the Moments route, actions, loading, and preview item source in app.js', () => {
     assert.match(appSource, /MomentsView\(/);
     assert.match(appSource, /isMomentsView/);
@@ -113,6 +128,9 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /loadMoments\(\{ forceRender: true \}\)/);
     assert.match(appSource, /data-moments-draft-input/);
     assert.match(appSource, /state\.momentsDraftBody = input\.value/);
+    assert.match(appSource, /move-moment-draft-file-left/);
+    assert.match(appSource, /move-moment-draft-file-right/);
+    assert.match(appSource, /dragstart/);
     assert.match(appSource, /new FormData\(\)/);
     assert.match(appSource, /URL\.createObjectURL\(/);
     assert.match(appSource, /URL\.revokeObjectURL\(/);

@@ -11875,6 +11875,12 @@ body.codex-media-library-active #app {
   gap: 10px;
 }
 
+#codex-media-library-root .cml-moments-composer__preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
 #codex-media-library-root .cml-moments-composer__preview,
 #codex-media-library-root .cml-moment-card__photo,
 #codex-media-library-root .cml-moments-day-wall__item {
@@ -11887,6 +11893,12 @@ body.codex-media-library-active #app {
   aspect-ratio: 4 / 3;
   padding: 0;
   color: inherit;
+}
+
+#codex-media-library-root .cml-moments-composer__preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 #codex-media-library-root .cml-moments-composer__preview img,
@@ -11911,10 +11923,17 @@ body.codex-media-library-active #app {
   white-space: nowrap;
 }
 
-#codex-media-library-root .cml-moments-composer__remove {
+#codex-media-library-root .cml-moments-composer__preview-actions {
   position: absolute;
   top: 6px;
   right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#codex-media-library-root .cml-moments-composer__remove,
+#codex-media-library-root .cml-moments-composer__drag-handle {
   display: grid;
   width: 24px;
   height: 24px;

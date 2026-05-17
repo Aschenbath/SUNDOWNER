@@ -160,7 +160,10 @@ describe('Moments components', () => {
       isLoading: false,
       isPublishing: false,
       draftBody: 'hello',
-      draftAttachments: [{ name: 'photo-1.jpg', previewUrl: '/file/photo-1', source: 'existing', fileId: 'photo-1' }],
+      draftAttachments: [
+        { name: 'photo-1.jpg', previewUrl: '/file/photo-1', source: 'existing', fileId: 'photo-1' },
+        { name: 'photo-2.jpg', previewUrl: '/file/photo-2', source: 'existing', fileId: 'photo-2' },
+      ],
       isEditing: true,
       pickerOpen: true,
       pickerItems: [{ id: 'photo-1', sourceUrl: '/file/photo-1', thumbnailUrl: '/file/photo-1', label: 'photo-1', type: 'photo' }],
@@ -179,6 +182,12 @@ describe('Moments components', () => {
     assert.match(html, /data-action="open-moments-photo-picker"/);
     assert.match(html, /data-action="toggle-moments-picker-photo"/);
     assert.match(html, /data-action="apply-moments-photo-picker"/);
+    assert.match(html, /cml-moments-composer__preview-grid/);
+    assert.match(html, /cml-moment-card__photos--double/);
+    assert.match(html, /data-action="move-moment-draft-file-left"/);
+    assert.match(html, /data-action="move-moment-draft-file-right"/);
+    assert.match(html, /draggable="true"/);
+    assert.match(html, /data-moment-draft-index="0"/);
   });
 
   it('renders Telegram-imported Moments images as images instead of generic photo labels', () => {

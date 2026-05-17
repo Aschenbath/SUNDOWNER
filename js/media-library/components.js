@@ -1067,6 +1067,32 @@ function buildMomentsCalendarModel(monthKey = '', selectedDate = '', datesWithPh
   return { year, month, cells };
 }
 
+function renderMomentDraftGrid(draftAttachments = [], { isPublishing = false } = {}) {
+  if (!draftAttachments.length) {
+    return '';
+  }
+  const gridClass = draftAttachments.length === 1
+    ? 'cml-moments-composer__preview-grid cml-moment-card__photos cml-moment-card__photos--single'
+    : draftAttachments.length === 2
+      ? 'cml-moments-composer__preview-grid cml-moment-card__photos cml-moment-card__photos--double'
+      : 'cml-moments-composer__preview-grid cml-moment-card__photos cml-moment-card__photos--grid';
+
+  return `
+    <div class="${gridClass}">
+      ${draftAttachments.map((file, index) => `
+        <figure class="cml-moment-card__photo cml-moments-composer__preview" data-moment-draft-index="${index}" data-drag-handle="moment-preview" draggable="true">
+          <img class="cml-moment-card__image" src="${escapeHtml(file.previewUrl || '')}" alt="${escapeHtml(file.name || `Photo ${index + 1}`)}" loading="lazy" decoding="async">
+          <div class="cml-moments-composer__preview-actions">
+            <button type="button" class="cml-moments-composer__drag-handle" data-action="move-moment-draft-file-left" data-index="${index}" aria-label="Move photo left" ${isPublishing || index === 0 ? 'disabled' : ''}>${icon('previous')}</button>
+            <button type="button" class="cml-moments-composer__drag-handle" data-action="move-moment-draft-file-right" data-index="${index}" aria-label="Move photo right" ${isPublishing || index === draftAttachments.length - 1 ? 'disabled' : ''}>${icon('next')}</button>
+            <button type="button" class="cml-moments-composer__remove" data-action="remove-moment-draft-file" data-index="${index}" aria-label="Remove photo" ${isPublishing ? 'disabled' : ''}>${icon('close')}</button>
+          </div>
+        </figure>
+      `).join('')}
+    </div>
+  `;
+}
+
 function renderMomentsComposer({ draftBody = '', draftAttachments = [], isPublishing = false, isEditing = false, error = '' } = {}) {
   return `
     <section class="cml-moments-composer" data-moments-composer>
@@ -1079,16 +1105,7 @@ function renderMomentsComposer({ draftBody = '', draftAttachments = [], isPublis
         <span class="cml-moments-composer__count">${draftAttachments.length}/9</span>
       </div>
       <textarea class="cml-moments-composer__input" data-moments-draft-input placeholder="记录此刻的想法..." maxlength="2000" ${isPublishing ? 'disabled' : ''}>${escapeHtml(draftBody)}</textarea>
-      ${draftAttachments.length ? `
-        <div class="cml-moments-composer__previews">
-          ${draftAttachments.map((file, index) => `
-            <figure class="cml-moments-composer__preview">
-              <img src="${escapeHtml(file.previewUrl || '')}" alt="${escapeHtml(file.name || `Photo ${index + 1}`)}" loading="lazy" decoding="async">
-              <button type="button" class="cml-moments-composer__remove" data-action="remove-moment-draft-file" data-index="${index}" aria-label="Remove photo" ${isPublishing ? 'disabled' : ''}>${icon('close')}</button>
-            </figure>
-          `).join('')}
-        </div>
-      ` : ''}
+      ${renderMomentDraftGrid(draftAttachments, { isPublishing })}
       ${error ? `<p class="cml-moments-composer__error" role="alert">${escapeHtml(error)}</p>` : ''}
       <footer class="cml-moments-composer__actions">
         <div class="cml-moments-composer__action-group">

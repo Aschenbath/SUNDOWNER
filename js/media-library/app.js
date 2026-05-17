@@ -4956,6 +4956,39 @@ function applyMomentPickerSelection() {
   render();
 }
 
+function moveMomentDraftFile(index, direction) {
+  const numericIndex = Number(index);
+  const numericDirection = Number(direction);
+  const nextIndex = numericIndex + numericDirection;
+  if (!Number.isInteger(numericIndex) || !Number.isInteger(numericDirection)) {
+    return;
+  }
+  if (numericIndex < 0 || nextIndex < 0 || numericIndex >= state.momentsDraftAttachments.length || nextIndex >= state.momentsDraftAttachments.length) {
+    return;
+  }
+  const nextAttachments = state.momentsDraftAttachments.slice();
+  const [moved] = nextAttachments.splice(numericIndex, 1);
+  nextAttachments.splice(nextIndex, 0, moved);
+  state.momentsDraftAttachments = nextAttachments;
+  render();
+}
+
+function reorderMomentDraftFile(fromIndex, toIndex) {
+  const start = Number(fromIndex);
+  const end = Number(toIndex);
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start === end) {
+    return;
+  }
+  if (start < 0 || end < 0 || start >= state.momentsDraftAttachments.length || end >= state.momentsDraftAttachments.length) {
+    return;
+  }
+  const nextAttachments = state.momentsDraftAttachments.slice();
+  const [moved] = nextAttachments.splice(start, 1);
+  nextAttachments.splice(end, 0, moved);
+  state.momentsDraftAttachments = nextAttachments;
+  render();
+}
+
 function removeMomentDraftFile(index) {
   const numericIndex = Number(index);
   if (!Number.isInteger(numericIndex) || numericIndex < 0 || numericIndex >= state.momentsDraftAttachments.length) {
@@ -15329,6 +15362,42 @@ function mount() {
     refs.root.addEventListener('input', handleInput);
     refs.root.addEventListener('paste', handlePaste);
     refs.root.addEventListener('change', handleChange);
+    refs.root.addEventListener('dragstart', (event) => {
+      const tile = event.target instanceof Element ? event.target.closest('[data-moment-draft-index]') : null;
+      if (!(tile instanceof HTMLElement) || !(event.dataTransfer instanceof DataTransfer)) {
+        return;
+      }
+      const index = Number(tile.dataset.momentDraftIndex || -1);
+      if (!Number.isInteger(index) || index < 0) {
+        return;
+      }
+      draggedMomentDraftIndex = index;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(index));
+    });
+    refs.root.addEventListener('dragover', (event) => {
+      const tile = event.target instanceof Element ? event.target.closest('[data-moment-draft-index]') : null;
+      if (!(tile instanceof HTMLElement)) {
+        return;
+      }
+      event.preventDefault();
+      if (event.dataTransfer instanceof DataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    });
+    refs.root.addEventListener('drop', (event) => {
+      const tile = event.target instanceof Element ? event.target.closest('[data-moment-draft-index]') : null;
+      if (!(tile instanceof HTMLElement)) {
+        return;
+      }
+      event.preventDefault();
+      const targetIndex = Number(tile.dataset.momentDraftIndex || -1);
+      reorderMomentDraftFile(draggedMomentDraftIndex, targetIndex);
+      draggedMomentDraftIndex = -1;
+    });
+    refs.root.addEventListener('dragend', () => {
+      draggedMomentDraftIndex = -1;
+    });
     refs.root.addEventListener('compositionstart', handleCompositionStart);
     refs.root.addEventListener('compositionend', handleCompositionEnd);
     refs.root.addEventListener('focusin', handleFocusIn);
@@ -16242,6 +16311,12 @@ function handleAction(actionTarget, event = null) {
       return true;
     case 'apply-moments-photo-picker':
       applyMomentPickerSelection();
+      return true;
+    case 'move-moment-draft-file-left':
+      moveMomentDraftFile(actionTarget.dataset.index, -1);
+      return true;
+    case 'move-moment-draft-file-right':
+      moveMomentDraftFile(actionTarget.dataset.index, 1);
       return true;
     case 'remove-moment-draft-file':
       removeMomentDraftFile(actionTarget.dataset.index);
@@ -17883,6 +17958,13 @@ function handlePointerDown(event) {
   filmPointerStartEditSurface = '';
   if (!(event.target instanceof Element)) {
     return;
+  }
+  const draftTile = event.target.closest('[data-moment-draft-index]');
+  if (draftTile instanceof HTMLElement) {
+    const index = Number(draftTile.dataset.momentDraftIndex || -1);
+    if (Number.isInteger(index) && index >= 0) {
+      draggedMomentDraftIndex = index;
+    }
   }
   if (state.filmNotesEditing && event.target.closest('.cml-film-notes-editor')) {
     filmPointerStartEditSurface = 'notes';
