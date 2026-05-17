@@ -12194,20 +12194,35 @@ body.codex-media-library-active #app {
   white-space: pre-wrap;
 }
 
+#codex-media-library-root .cml-moment-card {
+  padding: 22px;
+}
+
 #codex-media-library-root .cml-moment-card__photos--single {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
 #codex-media-library-root .cml-moment-card__photos--double {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 #codex-media-library-root .cml-moment-card__photos--grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
+}
+
+#codex-media-library-root .cml-moment-card__photo {
+  border-radius: 0;
+  aspect-ratio: 1;
+}
+
+#codex-media-library-root .cml-moment-card__image {
+  border-radius: 0;
 }
 
 #codex-media-library-root .cml-moment-card__more {

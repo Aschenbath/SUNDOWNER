@@ -15255,15 +15255,19 @@ function startLiveObserver() {
     attributeFilter: ['src', 'title', 'aria-label', 'class']
   });
 
-  [0, 180, 700, 1800].forEach((delay) => {
-    window.setTimeout(() => {
-      const shouldRetrySync = delay === 0 || state.isLibraryLoading || !state.liveMediaSignature || state.mediaItems.length === 0;
-      if (shouldRetrySync) {
-        syncLiveMedia({ forceRender: delay === 0 });
-      }
-      consumePendingUploadRequest();
-    }, delay);
-  });
+  if (state.primaryFilter !== 'Moments') {
+    [0, 180, 700, 1800].forEach((delay) => {
+      window.setTimeout(() => {
+        const shouldRetrySync = delay === 0 || state.isLibraryLoading || !state.liveMediaSignature || state.mediaItems.length === 0;
+        if (shouldRetrySync) {
+          syncLiveMedia({ forceRender: delay === 0 });
+        }
+        consumePendingUploadRequest();
+      }, delay);
+    });
+  } else {
+    consumePendingUploadRequest();
+  }
 }
 
 function stopLiveObserver() {

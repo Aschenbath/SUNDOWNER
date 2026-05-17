@@ -101,6 +101,7 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-moment-card__actions/);
     assert.match(css, /#codex-media-library-root \.cml-moment-card__stamp/);
     assert.match(css, /#codex-media-library-root \.cml-moment-card__photos--single/);
+    assert.match(css, /#codex-media-library-root \.cml-moment-card__photo \{[\s\S]*border-radius: 0;[\s\S]*aspect-ratio: 1;/);
   });
 
   it('hides native browser cancel icons inside the Films library search', () => {
