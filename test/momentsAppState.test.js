@@ -150,5 +150,9 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /const initialItems = firstFiles/);
     assert.match(appSource, /scheduleDeferredStartupTask\(async \(\) => \{/);
     assert.match(appSource, /persistMediaPayload\(/);
+    assert.match(appSource, /const INITIAL_PHOTOS_PAGE_SIZE = 60/);
+    assert.match(appSource, /void loadPersistedAlbumState\(\{ forceRender: false \}\)/);
+    assert.match(appSource, /void loadPersistedPlaylistState\(\{ forceRender: false \}\)/);
+    assert.match(appSource, /void loadMovieEntries\(\{ forceRender: false \}\)/);
   });
 });

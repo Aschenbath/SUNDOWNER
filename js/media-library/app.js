@@ -112,6 +112,7 @@ const LEGACY_ALBUM_STORAGE_KEYS = [
   ALBUM_COVERS_STORAGE_KEY
 ];
 const API_PAGE_SIZE = 200;
+const INITIAL_PHOTOS_PAGE_SIZE = 60;
 const API_MAX_ITEMS = 1600;
 const API_REQUEST_TIMEOUT_MS = 12000;
 const STORAGE_REQUEST_TIMEOUT_MS = 5000;
@@ -5504,10 +5505,10 @@ function buildIndexedMediaItem(record, domLookup, index) {
   return shouldDisplayMediaItem(nextItem) ? nextItem : null;
 }
 
-async function fetchListPage(start) {
+async function fetchListPage(start, count = API_PAGE_SIZE) {
   const params = new URLSearchParams({
     start: String(start),
-    count: String(API_PAGE_SIZE),
+    count: String(count),
     recursive: 'true',
     fileType: 'image,video,audio,other'
   });
@@ -5524,7 +5525,7 @@ async function fetchListPage(start) {
 
 async function fetchIndexedMediaItems(domItems) {
   const domLookup = buildDomLookup(domItems);
-  const firstPayload = await fetchListPage(0);
+  const firstPayload = await fetchListPage(0, INITIAL_PHOTOS_PAGE_SIZE);
   const firstFiles = safeArray(firstPayload?.files);
   const firstReturnedCount = toPositiveNumber(firstPayload?.returnedCount, firstFiles.length);
   const firstTotalCount = Math.max(firstFiles.length, toPositiveNumber(firstPayload?.totalCount, firstFiles.length));
@@ -15367,9 +15368,11 @@ function mount() {
   lockDocumentScroll();
   markPerf('app-init-start');
   state.liveSyncAttempts = 0;
-  void loadPersistedAlbumState({ forceRender: false });
-  void loadPersistedPlaylistState({ forceRender: false });
-  void loadMovieEntries({ forceRender: false });
+  scheduleDeferredStartupTask(async () => {
+    void loadPersistedAlbumState({ forceRender: false });
+    void loadPersistedPlaylistState({ forceRender: false });
+    void loadMovieEntries({ forceRender: false });
+  }, { timeoutMs: 900 });
   if (state.primaryFilter === 'Mind') {
     void loadMindState({ forceRender: false, mirrorAfterLoad: true });
   }
