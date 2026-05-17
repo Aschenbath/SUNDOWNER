@@ -835,21 +835,26 @@ export async function handleTelegramWebhook(context, channelName, providedSecret
         throw error
     }
 
-    const result = await importTelegramUpdate(context, channel, update, 'webhook')
+    const summary = await processUpdatesForChannels(context, [channel], [update], 'webhook')
     const now = Date.now()
 
     await updateTelegramChannels(context.env, [channel.name], current => ({
         ...current,
         lastSyncAt: now,
-        lastProcessedCount: result.imported ? 1 : 0,
-        lastError: '',
+        lastProcessedCount: summary.importedCount || 0,
+        lastError: summary.errors[0]?.error || '',
         lastSyncSource: 'webhook',
         lastWebhookEventAt: now,
     }))
 
     return {
         success: true,
-        ...result,
+        imported: summary.importedCount > 0,
+        ignored: summary.importedCount === 0,
+        importedCount: summary.importedCount,
+        importedFiles: summary.importedFiles,
+        ignoredReasons: summary.ignoredReasons,
+        errors: summary.errors,
     }
 }
 
