@@ -112,7 +112,7 @@ const LEGACY_ALBUM_STORAGE_KEYS = [
   ALBUM_COVERS_STORAGE_KEY
 ];
 const API_PAGE_SIZE = 200;
-const INITIAL_PHOTOS_PAGE_SIZE = 60;
+const INITIAL_PHOTOS_PAGE_SIZE = 200;
 const API_MAX_ITEMS = 1600;
 const API_REQUEST_TIMEOUT_MS = 12000;
 const STORAGE_REQUEST_TIMEOUT_MS = 5000;
@@ -5522,7 +5522,6 @@ async function fetchListPage(start, count = API_PAGE_SIZE) {
     start: String(start),
     count: String(count),
     recursive: 'true',
-    fileType: 'image,video,audio,other',
     sortBy: 'timestamp',
     sortOrder: 'desc'
   });

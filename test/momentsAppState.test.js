@@ -157,7 +157,7 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /state\.mediaItems = fullItems/);
     assert.match(appSource, /state\.librarySyncMeta = \{/);
     assert.match(appSource, /render\(\);/);
-    assert.match(appSource, /const INITIAL_PHOTOS_PAGE_SIZE = 60/);
+    assert.match(appSource, /const INITIAL_PHOTOS_PAGE_SIZE = 200/);
     assert.match(appSource, /void loadPersistedAlbumState\(\{ forceRender: false \}\)/);
     assert.match(appSource, /void loadPersistedPlaylistState\(\{ forceRender: false \}\)/);
     assert.match(appSource, /void loadMovieEntries\(\{ forceRender: false \}\)/);

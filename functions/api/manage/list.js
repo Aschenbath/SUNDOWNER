@@ -16,7 +16,22 @@ const corsHeaders = {
 };
 const MAX_D1_PAGE_SIZE = 500;
 const DEFAULT_D1_PAGE_SIZE = 50;
+const HYBRID_SUPPLEMENT_PAGE_SIZE = 500;
+const HYBRID_SUPPLEMENT_MAX_FILES = 5000;
 const ALLOWED_SORT_BY = new Set(['created_at', 'file_name', 'file_type', 'timestamp']);
+const GENERIC_FILE_TYPES = new Set([
+    '',
+    'application/octet-stream',
+    'binary/octet-stream',
+    'application/x-binary',
+    'application/unknown',
+    'unknown',
+    'none',
+    'null',
+]);
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'heic', 'heif'];
+const VIDEO_EXTENSIONS = ['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi'];
+const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg'];
 
 function parseMigrationStatus(rawValue) {
     if (!rawValue) {
@@ -46,6 +61,197 @@ function normalizeSortBy(sortBy) {
 
 function normalizeSortOrder(sortOrder) {
     return String(sortOrder || '').toLowerCase() === 'asc' ? 'asc' : 'desc';
+}
+
+function normalizeText(value) {
+    return String(value ?? '').trim();
+}
+
+function normalizeFileType(value) {
+    return normalizeText(value).toLowerCase();
+}
+
+function extractDirectory(filePath) {
+    const normalized = normalizeText(filePath).replace(/\\/g, '/');
+    const lastSlashIndex = normalized.lastIndexOf('/');
+    return lastSlashIndex === -1 ? '' : normalized.slice(0, lastSlashIndex + 1);
+}
+
+function getFileName(file) {
+    return normalizeText(file?.metadata?.FileName || file?.metadata?.file_name || file?.id?.split('/').pop() || file?.id || '');
+}
+
+function getFileTypeReference(file) {
+    return `${getFileName(file)} ${normalizeText(file?.id)}`.toLowerCase();
+}
+
+function hasFileExtension(file, extensions) {
+    const reference = getFileTypeReference(file);
+    return extensions.some((extension) => new RegExp(`\\.${extension}(?:$|[?#\\s])`).test(reference));
+}
+
+function isImageFile(file) {
+    const mimeType = normalizeFileType(file?.metadata?.FileType || file?.metadata?.file_type);
+    return mimeType.startsWith('image/')
+        || mimeType === 'image'
+        || mimeType === 'photo'
+        || (GENERIC_FILE_TYPES.has(mimeType) && hasFileExtension(file, IMAGE_EXTENSIONS));
+}
+
+function isVideoFile(file) {
+    const mimeType = normalizeFileType(file?.metadata?.FileType || file?.metadata?.file_type);
+    return mimeType.startsWith('video/')
+        || mimeType === 'video'
+        || (GENERIC_FILE_TYPES.has(mimeType) && hasFileExtension(file, VIDEO_EXTENSIONS));
+}
+
+function isAudioFile(file) {
+    const mimeType = normalizeFileType(file?.metadata?.FileType || file?.metadata?.file_type);
+    return mimeType.startsWith('audio/')
+        || mimeType === 'audio'
+        || (GENERIC_FILE_TYPES.has(mimeType) && hasFileExtension(file, AUDIO_EXTENSIONS));
+}
+
+function isMediaFile(file) {
+    return isImageFile(file) || isVideoFile(file) || isAudioFile(file);
+}
+
+function matchesTypeFilters(file, typeFilters) {
+    if (!typeFilters.length) {
+        return true;
+    }
+
+    return typeFilters.some((rawType) => {
+        const type = normalizeText(rawType).toLowerCase();
+        if (type === 'image' || type === 'photo') return isImageFile(file);
+        if (type === 'video') return isVideoFile(file);
+        if (type === 'audio') return isAudioFile(file);
+        if (type === 'document' || type === 'other') return !isMediaFile(file);
+        return true;
+    });
+}
+
+function isRecycleBinRecord(metadata = {}) {
+    const rawValue = metadata.RecycleBin ?? metadata.recycleBin ?? metadata.recycle_bin;
+    return ['1', 'true', 'yes'].includes(normalizeText(rawValue).toLowerCase());
+}
+
+function isFavouriteRecord(metadata = {}) {
+    return [
+        metadata.IsFavourite,
+        metadata.IsFavorite,
+        metadata.Favourite,
+        metadata.Favorite,
+        metadata.Favorited,
+    ].some((value) => ['1', 'true', 'yes'].includes(normalizeText(value).toLowerCase()));
+}
+
+function matchesChannelNameFilters(file, channelNameFilters) {
+    if (!channelNameFilters.length) {
+        return true;
+    }
+
+    const metadata = file.metadata || {};
+    const channel = normalizeText(metadata.Channel);
+    const channelName = normalizeText(metadata.ChannelName);
+    return channelNameFilters.some((filterValue) => {
+        const normalized = normalizeText(filterValue);
+        if (normalized.includes(':')) {
+            const [filterChannel, filterChannelName] = normalized.split(':', 2);
+            return channel === filterChannel && channelName === filterChannelName;
+        }
+        return channelName === normalized;
+    });
+}
+
+function matchesDirectory(file, directory, recursive) {
+    if (!directory) {
+        return true;
+    }
+
+    const normalizedDirectory = directory.endsWith('/') ? directory : `${directory}/`;
+    const id = normalizeText(file.id).replace(/\\/g, '/');
+    const metadataDirectory = normalizeText(file.metadata?.Directory || file.metadata?.directory || '').replace(/\\/g, '/');
+    if (recursive) {
+        return id.startsWith(normalizedDirectory) || metadataDirectory.startsWith(normalizedDirectory);
+    }
+
+    const directDirectory = metadataDirectory || extractDirectory(id);
+    return directDirectory === normalizedDirectory;
+}
+
+function matchesSearch(file, search) {
+    const query = normalizeText(search).toLowerCase();
+    if (!query) {
+        return true;
+    }
+
+    return getFileName(file).toLowerCase().includes(query)
+        || normalizeText(file.id).toLowerCase().includes(query);
+}
+
+function matchesRecycleMode(file, recycleBinMode) {
+    const isRecycled = isRecycleBinRecord(file.metadata || {});
+    if (recycleBinMode === 'only') {
+        return isRecycled;
+    }
+    if (recycleBinMode === 'include') {
+        return true;
+    }
+    return !isRecycled;
+}
+
+function matchesHybridSupplementFilters(file, {
+    directory,
+    recursive,
+    search,
+    typeFilters,
+    channelNameFilters,
+    recycleBinMode,
+    favourites,
+}) {
+    return Boolean(file?.id)
+        && !file.id.startsWith('manage@')
+        && !file.id.startsWith('chunk_')
+        && matchesDirectory(file, directory, recursive)
+        && matchesSearch(file, search)
+        && matchesTypeFilters(file, typeFilters)
+        && matchesChannelNameFilters(file, channelNameFilters)
+        && matchesRecycleMode(file, recycleBinMode)
+        && (!favourites || isFavouriteRecord(file.metadata || {}));
+}
+
+function getSortValue(file, sortBy) {
+    const metadata = file.metadata || {};
+    if (sortBy === 'file_name') {
+        return getFileName(file).toLowerCase();
+    }
+    if (sortBy === 'file_type') {
+        return normalizeFileType(metadata.FileType || metadata.file_type);
+    }
+    if (sortBy === 'timestamp') {
+        return Number(metadata.TimeStamp ?? metadata.timeStamp ?? metadata.timestamp ?? metadata.DateTaken ?? 0) || 0;
+    }
+    return Number(metadata.CreatedAt ?? metadata.createdAt ?? metadata.TimeStamp ?? metadata.timeStamp ?? 0) || 0;
+}
+
+function sortFiles(files, sortBy, sortOrder) {
+    const direction = sortOrder === 'asc' ? 1 : -1;
+    return files.sort((left, right) => {
+        const leftValue = getSortValue(left, sortBy);
+        const rightValue = getSortValue(right, sortBy);
+        if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+            if (leftValue !== rightValue) {
+                return (leftValue - rightValue) * direction;
+            }
+        } else {
+            const compared = String(leftValue).localeCompare(String(rightValue));
+            if (compared !== 0) {
+                return compared * direction;
+            }
+        }
+        return normalizeText(left.id).localeCompare(normalizeText(right.id)) * direction;
+    });
 }
 
 function shouldUseD1ListQueryPath({
@@ -82,6 +288,121 @@ async function isD1ListQueryEnabled(env) {
     const db = getDatabase(env);
     const migrationStatus = parseMigrationStatus(await db.get(KV_TO_D1_MIGRATION_STATE_KEY));
     return migrationStatus?.complete === true;
+}
+
+function canUseHybridKvSupplement(env) {
+    const dbConfig = checkDatabaseConfig(env);
+    return dbConfig.usingHybrid
+        && env?.img_url
+        && typeof env.img_url.list === 'function';
+}
+
+async function queryAllD1Files(db, queryOptions) {
+    const files = [];
+    let total = 0;
+    let offset = 0;
+
+    while (files.length < HYBRID_SUPPLEMENT_MAX_FILES) {
+        const page = await db.queryFiles({
+            ...queryOptions,
+            page: Math.floor(offset / HYBRID_SUPPLEMENT_PAGE_SIZE) + 1,
+            pageSize: HYBRID_SUPPLEMENT_PAGE_SIZE,
+            offset,
+        });
+        const pageFiles = Array.isArray(page.files) ? page.files : [];
+        total = Math.max(total, Number(page.total || 0), files.length + pageFiles.length);
+        files.push(...pageFiles);
+        if (!pageFiles.length || pageFiles.length < HYBRID_SUPPLEMENT_PAGE_SIZE || files.length >= total) {
+            break;
+        }
+        offset += pageFiles.length;
+    }
+
+    return {
+        files: files.slice(0, HYBRID_SUPPLEMENT_MAX_FILES),
+        total,
+    };
+}
+
+async function queryKvSupplementFiles(context, filters) {
+    const kv = context.env?.img_url;
+    if (!kv || typeof kv.list !== 'function') {
+        return [];
+    }
+
+    const files = [];
+    let cursor = null;
+    const prefix = filters.directory || '';
+
+    while (files.length < HYBRID_SUPPLEMENT_MAX_FILES) {
+        const response = await kv.list({
+            limit: 1000,
+            cursor,
+            ...(prefix ? { prefix } : {}),
+        });
+        const keys = Array.isArray(response?.keys) ? response.keys : [];
+
+        for (const item of keys) {
+            if (files.length >= HYBRID_SUPPLEMENT_MAX_FILES) {
+                break;
+            }
+            const id = normalizeText(item?.name);
+            if (!id || id.startsWith('manage@') || id.startsWith('chunk_')) {
+                continue;
+            }
+            let metadata = item?.metadata && typeof item.metadata === 'object' ? item.metadata : null;
+            if (!metadata && typeof kv.getWithMetadata === 'function') {
+                const record = await kv.getWithMetadata(id);
+                metadata = record?.metadata && typeof record.metadata === 'object' ? record.metadata : {};
+            }
+
+            const file = { id, metadata: metadata || {} };
+            if (matchesHybridSupplementFilters(file, filters)) {
+                files.push(file);
+            }
+        }
+
+        cursor = response?.cursor;
+        if (!cursor || keys.length === 0) {
+            break;
+        }
+    }
+
+    return files;
+}
+
+async function queryHybridFilesWithKvSupplement(context, db, queryOptions, {
+    offset,
+    pageSize,
+    sortBy,
+    sortOrder,
+    filters,
+}) {
+    const [d1Result, kvFiles] = await Promise.all([
+        queryAllD1Files(db, queryOptions),
+        queryKvSupplementFiles(context, filters),
+    ]);
+
+    const mergedById = new Map();
+    d1Result.files.forEach((file) => {
+        if (file?.id) {
+            mergedById.set(file.id, file);
+        }
+    });
+    kvFiles.forEach((file) => {
+        if (file?.id && !mergedById.has(file.id)) {
+            mergedById.set(file.id, file);
+        }
+    });
+
+    const mergedFiles = sortFiles([...mergedById.values()], sortBy, sortOrder);
+    const total = mergedFiles.length;
+    return {
+        files: mergedFiles.slice(offset, offset + pageSize),
+        total,
+        supplementedCount: Math.max(0, total - d1Result.total),
+        d1Total: d1Result.total,
+    };
 }
 
 export async function onRequest(context) {
@@ -264,7 +585,7 @@ export async function onRequest(context) {
             }
             typeFilters.push(...fileTypeArray);
             const channelNameFilters = channelNameArray.length > 0 ? channelNameArray : channelArray;
-            const queryResult = await db.queryFiles({
+            const d1QueryOptions = {
                 page,
                 pageSize,
                 offset,
@@ -277,7 +598,24 @@ export async function onRequest(context) {
                 channelNames: channelNameFilters,
                 recycleBinMode,
                 favourites: favouritesRequested,
-            });
+            };
+            const queryResult = canUseHybridKvSupplement(context.env)
+                ? await queryHybridFilesWithKvSupplement(context, db, d1QueryOptions, {
+                    offset,
+                    pageSize,
+                    sortBy,
+                    sortOrder,
+                    filters: {
+                        directory: dir,
+                        recursive,
+                        search,
+                        typeFilters,
+                        channelNameFilters,
+                        recycleBinMode,
+                        favourites: favouritesRequested,
+                    },
+                })
+                : await db.queryFiles(d1QueryOptions);
             const compatibleFiles = queryResult.files.map(file => ({
                 name: file.id,
                 metadata: sanitizeExposedMetadata(file.metadata)
@@ -299,7 +637,12 @@ export async function onRequest(context) {
                 count: pageSize,
                 indexLastUpdated: Date.now(),
                 isIndexedResponse: true,
-                isD1QueryResponse: true
+                isD1QueryResponse: true,
+                ...(queryResult.supplementedCount > 0 ? {
+                    isHybridSupplementedResponse: true,
+                    d1TotalCount: queryResult.d1Total,
+                    kvSupplementedCount: queryResult.supplementedCount
+                } : {})
             }), {
                 headers: { "Content-Type": "application/json", ...corsHeaders }
             });

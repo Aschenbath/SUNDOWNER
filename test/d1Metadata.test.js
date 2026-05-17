@@ -728,6 +728,44 @@ describe('D1 metadata migration path', () => {
         assert.deepEqual(payload.files.map((file) => file.name), ['photos/b.jpg']);
     });
 
+    it('list route supplements complete D1 migrations with legacy KV files that are still missing from D1', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+        const d1 = new D1Database(env.img_d1);
+
+        await seedD1File(d1, 'photos/latest.jpg', { FileName: 'latest.jpg', FileType: 'image/jpeg', TimeStamp: 300 });
+        await env.img_url.put('photos/old.jpg', 'kv-old', {
+            metadata: {
+                FileName: 'old.jpg',
+                FileType: 'image/jpeg',
+                TimeStamp: 200,
+                Directory: 'photos/',
+            },
+        });
+        await d1.put(KV_TO_D1_MIGRATION_STATE_KEY, JSON.stringify({
+            complete: true,
+            nextCursor: null,
+            updatedAt: Date.now(),
+        }));
+
+        const response = await listRoute(createContext(
+            env,
+            new Request('https://example.com/api/manage/list?recursive=true&start=0&count=10&sortBy=timestamp&sortOrder=desc', {
+                method: 'GET',
+            }),
+        ));
+
+        assert.equal(response.status, 200);
+        const payload = await response.json();
+        assert.equal(payload.totalCount, 2);
+        assert.equal(payload.isHybridSupplementedResponse, true);
+        assert.equal(payload.d1TotalCount, 1);
+        assert.equal(payload.kvSupplementedCount, 1);
+        assert.deepEqual(payload.files.map((file) => file.name), ['photos/latest.jpg', 'photos/old.jpg']);
+    });
+
     it('list route clamps D1 pageSize requests to the raised 500-item ceiling', async () => {
         const env = {
             img_url: new MemoryKV(),
