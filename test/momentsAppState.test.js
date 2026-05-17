@@ -146,10 +146,13 @@ describe('Moments app helpers', () => {
   });
 
   it('progressively hydrates the Photos index instead of blocking first paint on every page', () => {
-    assert.match(appSource, /const firstPayload = await fetchListPage\(0\)/);
+    assert.match(appSource, /const firstPayload = await fetchListPage\(0, INITIAL_PHOTOS_PAGE_SIZE\)/);
     assert.match(appSource, /const initialItems = firstFiles/);
     assert.match(appSource, /scheduleDeferredStartupTask\(async \(\) => \{/);
     assert.match(appSource, /persistMediaPayload\(/);
+    assert.match(appSource, /state\.mediaItems = fullItems/);
+    assert.match(appSource, /state\.librarySyncMeta = \{/);
+    assert.match(appSource, /render\(\);/);
     assert.match(appSource, /const INITIAL_PHOTOS_PAGE_SIZE = 60/);
     assert.match(appSource, /void loadPersistedAlbumState\(\{ forceRender: false \}\)/);
     assert.match(appSource, /void loadPersistedPlaylistState\(\{ forceRender: false \}\)/);

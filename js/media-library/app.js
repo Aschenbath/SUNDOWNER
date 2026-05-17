@@ -5582,16 +5582,25 @@ async function fetchIndexedMediaItems(domItems) {
       })
       .map(({ sortOrder, domIndex, ...item }) => item);
 
+    const nextLibrarySyncMeta = {
+      source: 'indexed',
+      totalCount: Math.max(totalCount, fullItems.length),
+      loadedCount: fullItems.length,
+      isTruncated: Math.max(totalCount, fullItems.length) > fullItems.length,
+    };
+
     persistMediaPayload({
       items: fullItems,
-      librarySyncMeta: {
-        source: 'indexed',
-        totalCount: Math.max(totalCount, fullItems.length),
-        loadedCount: fullItems.length,
-        isTruncated: Math.max(totalCount, fullItems.length) > fullItems.length,
-      },
+      librarySyncMeta: nextLibrarySyncMeta,
       cachedAt: Date.now(),
     });
+
+    state.mediaItems = fullItems;
+    state.librarySyncMeta = nextLibrarySyncMeta;
+    state.isLibraryLoading = false;
+    if (refs.root && state.primaryFilter !== 'Moments') {
+      render();
+    }
   }, { timeoutMs: 300 });
 
   return payload;
