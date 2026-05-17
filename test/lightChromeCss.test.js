@@ -102,6 +102,8 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-moment-card__stamp/);
     assert.match(css, /#codex-media-library-root \.cml-moment-card__photos--single/);
     assert.match(css, /#codex-media-library-root \.cml-moment-card__photo \{[\s\S]*border-radius: 0;[\s\S]*aspect-ratio: 1;/);
+    assert.match(css, /#codex-media-library-root \.cml-moments-day-wall__item \{[\s\S]*border-radius: 0;/);
+    assert.match(css, /#codex-media-library-root \.cml-moment-card__body \{[\s\S]*font-size: 18px;/);
   });
 
   it('hides native browser cancel icons inside the Films library search', () => {

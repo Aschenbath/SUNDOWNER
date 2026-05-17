@@ -12187,10 +12187,10 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-moment-card__body {
-  margin: 14px 0 18px;
-  color: rgba(245, 247, 251, 0.92);
-  line-height: 1.72;
-  font-size: 16px;
+  margin: 16px 0 18px;
+  color: rgba(245, 247, 251, 0.94);
+  line-height: 1.78;
+  font-size: 18px;
   white-space: pre-wrap;
 }
 
@@ -12202,6 +12202,10 @@ body.codex-media-library-active #app {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0;
+}
+
+#codex-media-library-root .cml-moment-card__photos--single .cml-moment-card__photo {
+  aspect-ratio: 1.2;
 }
 
 #codex-media-library-root .cml-moment-card__photos--double {
@@ -12222,6 +12226,14 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-moment-card__image {
+  border-radius: 0;
+}
+
+#codex-media-library-root .cml-moments-day-wall__item {
+  border-radius: 0;
+}
+
+#codex-media-library-root .cml-moments-day-wall__image {
   border-radius: 0;
 }
 
