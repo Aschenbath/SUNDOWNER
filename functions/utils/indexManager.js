@@ -39,6 +39,59 @@
 
 import { getDatabase, checkDatabaseConfig } from './databaseAdapter.js';
 
+const GENERIC_FILE_TYPES = new Set([
+    '',
+    'application/octet-stream',
+    'binary/octet-stream',
+    'application/x-binary',
+    'application/unknown',
+    'unknown',
+    'none',
+    'null',
+]);
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'heic', 'heif'];
+const VIDEO_EXTENSIONS = ['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi'];
+const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg'];
+
+function normalizeFileType(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function getFileTypeReference(file) {
+    return `${file?.metadata?.FileName || ''} ${file?.id || ''}`.trim().toLowerCase();
+}
+
+function hasFileExtension(file, extensions) {
+    const reference = getFileTypeReference(file);
+    return extensions.some((extension) => new RegExp(`\\.${extension}(?:$|[?#\\s])`).test(reference));
+}
+
+function isIndexedImageFile(file) {
+    const mimeType = normalizeFileType(file?.metadata?.FileType);
+    return mimeType.startsWith('image/')
+        || mimeType === 'image'
+        || mimeType === 'photo'
+        || (GENERIC_FILE_TYPES.has(mimeType) && hasFileExtension(file, IMAGE_EXTENSIONS));
+}
+
+function isIndexedVideoFile(file) {
+    const mimeType = normalizeFileType(file?.metadata?.FileType);
+    return mimeType.startsWith('video/')
+        || mimeType === 'video'
+        || (GENERIC_FILE_TYPES.has(mimeType) && hasFileExtension(file, VIDEO_EXTENSIONS));
+}
+
+function isIndexedAudioFile(file) {
+    const mimeType = normalizeFileType(file?.metadata?.FileType);
+    return mimeType.startsWith('audio/')
+        || mimeType === 'audio'
+        || (GENERIC_FILE_TYPES.has(mimeType) && hasFileExtension(file, AUDIO_EXTENSIONS));
+}
+
+function isIndexedMediaFile(file) {
+    return isIndexedImageFile(file) || isIndexedVideoFile(file) || isIndexedAudioFile(file);
+}
+
 const OPERATION_TTL_SECONDS = 3600;
 const REBUILD_LOCK_KEY = 'manage@index@rebuild_lock';
 const REBUILD_LOCK_TTL_SECONDS = 60;
@@ -928,18 +981,15 @@ export async function readIndex(context, options = {}) {
         // 'other' 匹配不属于以上三类的文件
         if (fileTypeArr.length > 0) {
             filteredFiles = filteredFiles.filter(file => {
-                const mimeType = file.metadata.FileType || '';
                 return fileTypeArr.some(ft => {
                     if (ft === 'image') {
-                        return mimeType.startsWith('image/');
+                        return isIndexedImageFile(file);
                     } else if (ft === 'video') {
-                        return mimeType.startsWith('video/');
+                        return isIndexedVideoFile(file);
                     } else if (ft === 'audio') {
-                        return mimeType.startsWith('audio/');
+                        return isIndexedAudioFile(file);
                     } else if (ft === 'other') {
-                        return !mimeType.startsWith('image/') && 
-                               !mimeType.startsWith('video/') && 
-                               !mimeType.startsWith('audio/');
+                        return !isIndexedMediaFile(file);
                     }
                     return false;
                 });

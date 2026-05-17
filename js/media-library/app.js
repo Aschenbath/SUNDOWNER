@@ -5356,7 +5356,19 @@ function inferAudioMetadata(metadata = {}, fileName = '') {
 
 function inferMimeTypeFromReference(fileId, fileName, rawMimeType) {
   const normalized = normalizeText(rawMimeType).toLowerCase();
-  if (normalized && normalized !== 'application/octet-stream') {
+  if (normalized && ![
+    'application/octet-stream',
+    'binary/octet-stream',
+    'application/x-binary',
+    'application/unknown',
+    'unknown',
+    'none',
+    'null',
+    'image',
+    'video',
+    'audio',
+    'photo'
+  ].includes(normalized)) {
     return normalized;
   }
   const reference = `${normalizeText(fileName)} ${normalizeText(fileId)}`.toLowerCase();

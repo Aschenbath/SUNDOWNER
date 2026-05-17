@@ -498,6 +498,83 @@ describe('D1 metadata migration path', () => {
         assert.deepEqual(result.files.map((file) => file.id), ['photos/image.jpg']);
     });
 
+    it('queryFiles treats legacy generic file types as media when the filename extension is explicit', async () => {
+        const d1 = new D1Database(new SqliteD1(':memory:'));
+
+        await seedD1File(d1, 'photos/legacy-image.jpg', { FileType: 'image', TimeStamp: 1 });
+        await seedD1File(d1, 'photos/octet-image.jpg', { FileType: 'application/octet-stream', TimeStamp: 4 });
+        await seedD1File(d1, 'photos/path-only-image.jpg', { FileName: 'path-only-image', FileType: 'application/octet-stream', TimeStamp: 5 });
+        await seedD1File(d1, 'photos/legacy-video.mp4', { FileType: 'video', TimeStamp: 2 });
+        await seedD1File(d1, 'photos/legacy-audio.m4a', { FileType: 'audio', TimeStamp: 3 });
+
+        const images = await d1.queryFiles({
+            types: ['image'],
+            page: 1,
+            pageSize: 10,
+            sortBy: 'timestamp',
+            sortOrder: 'desc',
+        });
+        const videos = await d1.queryFiles({
+            types: ['video'],
+            page: 1,
+            pageSize: 10,
+            sortBy: 'timestamp',
+            sortOrder: 'desc',
+        });
+        const audio = await d1.queryFiles({
+            types: ['audio'],
+            page: 1,
+            pageSize: 10,
+            sortBy: 'timestamp',
+            sortOrder: 'desc',
+        });
+
+        assert.deepEqual(images.files.map((file) => file.id), ['photos/path-only-image.jpg', 'photos/octet-image.jpg', 'photos/legacy-image.jpg']);
+        assert.deepEqual(videos.files.map((file) => file.id), ['photos/legacy-video.mp4']);
+        assert.deepEqual(audio.files.map((file) => file.id), ['photos/legacy-audio.m4a']);
+    });
+
+    it('readIndex treats legacy generic file types as media when the filename extension is explicit', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+        };
+        const context = createContext(env);
+
+        await env.img_url.put('manage@index@meta', JSON.stringify({
+            lastUpdated: Date.now(),
+            totalCount: 4,
+            chunkCount: 1,
+            chunkSize: 5000,
+        }));
+        await env.img_url.put('manage@index_0', createIndexChunk([
+            { id: 'photos/legacy-image.jpg', metadata: { FileName: 'legacy-image.jpg', FileType: 'image', Directory: 'photos/' } },
+            { id: 'photos/octet-image.jpg', metadata: { FileName: 'octet-image.jpg', FileType: 'application/octet-stream', Directory: 'photos/' } },
+            { id: 'photos/legacy-video.mp4', metadata: { FileName: 'legacy-video.mp4', FileType: 'video', Directory: 'photos/' } },
+            { id: 'photos/doc.pdf', metadata: { FileName: 'doc.pdf', FileType: 'application/pdf', Directory: 'photos/' } },
+        ]));
+
+        const images = await readIndex(context, {
+            fileType: ['image'],
+            includeSubdirFiles: true,
+            count: -1,
+        });
+        const allMedia = await readIndex(context, {
+            fileType: ['image', 'video', 'audio', 'other'],
+            includeSubdirFiles: true,
+            count: -1,
+        });
+
+        assert.equal(images.success, true);
+        assert.deepEqual(images.files.map((file) => file.id), ['photos/legacy-image.jpg', 'photos/octet-image.jpg']);
+        assert.equal(allMedia.success, true);
+        assert.deepEqual(allMedia.files.map((file) => file.id), [
+            'photos/legacy-image.jpg',
+            'photos/octet-image.jpg',
+            'photos/legacy-video.mp4',
+            'photos/doc.pdf',
+        ]);
+    });
+
     it('queryFiles falls back to metadata fields and filename extensions for legacy D1 rows', async () => {
         const d1 = new D1Database(new SqliteD1(':memory:'));
 

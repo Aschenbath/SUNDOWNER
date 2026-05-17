@@ -82,15 +82,21 @@ const ALLOWED_SORT_COLUMNS = {
 };
 const FILE_NAME_LOOKUP_SQL = "LOWER(COALESCE(NULLIF(file_name, ''), json_extract(metadata, '$.FileName'), json_extract(metadata, '$.file_name'), id))";
 const FILE_TYPE_LOOKUP_SQL = "LOWER(COALESCE(NULLIF(file_type, ''), json_extract(metadata, '$.FileType'), json_extract(metadata, '$.file_type'), ''))";
+const FILE_EXTENSION_LOOKUP_SQL = "LOWER(COALESCE(NULLIF(file_name, ''), json_extract(metadata, '$.FileName'), json_extract(metadata, '$.file_name'), '') || ' ' || id)";
 const IMAGE_EXTENSION_SQL = [
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'heic', 'heif'
-].map((ext) => `${FILE_NAME_LOOKUP_SQL} LIKE '%.${ext}'`).join(' OR ');
+].map((ext) => `${FILE_EXTENSION_LOOKUP_SQL} LIKE '%.${ext}'`).join(' OR ');
 const VIDEO_EXTENSION_SQL = [
     'mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi'
-].map((ext) => `${FILE_NAME_LOOKUP_SQL} LIKE '%.${ext}'`).join(' OR ');
+].map((ext) => `${FILE_EXTENSION_LOOKUP_SQL} LIKE '%.${ext}'`).join(' OR ');
 const AUDIO_EXTENSION_SQL = [
     'mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg'
-].map((ext) => `${FILE_NAME_LOOKUP_SQL} LIKE '%.${ext}'`).join(' OR ');
+].map((ext) => `${FILE_EXTENSION_LOOKUP_SQL} LIKE '%.${ext}'`).join(' OR ');
+const GENERIC_FILE_TYPE_SQL = `(${FILE_TYPE_LOOKUP_SQL} IN ('', 'application/octet-stream', 'binary/octet-stream', 'application/x-binary', 'application/unknown', 'unknown', 'none', 'null'))`;
+const IMAGE_TYPE_SQL = `(${FILE_TYPE_LOOKUP_SQL} LIKE 'image/%' OR ${FILE_TYPE_LOOKUP_SQL} IN ('image', 'photo') OR (${GENERIC_FILE_TYPE_SQL} AND (${IMAGE_EXTENSION_SQL})))`;
+const VIDEO_TYPE_SQL = `(${FILE_TYPE_LOOKUP_SQL} LIKE 'video/%' OR ${FILE_TYPE_LOOKUP_SQL} = 'video' OR (${GENERIC_FILE_TYPE_SQL} AND (${VIDEO_EXTENSION_SQL})))`;
+const AUDIO_TYPE_SQL = `(${FILE_TYPE_LOOKUP_SQL} LIKE 'audio/%' OR ${FILE_TYPE_LOOKUP_SQL} = 'audio' OR (${GENERIC_FILE_TYPE_SQL} AND (${AUDIO_EXTENSION_SQL})))`;
+const MEDIA_TYPE_SQL = `(${IMAGE_TYPE_SQL} OR ${VIDEO_TYPE_SQL} OR ${AUDIO_TYPE_SQL})`;
 
 function normalizeStringArray(value) {
     if (Array.isArray(value)) {
@@ -341,13 +347,13 @@ class D1Database {
             const typeClauses = [];
             for (const type of typeFilters) {
                 if (type === 'image') {
-                    typeClauses.push(`(${FILE_TYPE_LOOKUP_SQL} LIKE 'image/%' OR (${FILE_TYPE_LOOKUP_SQL} = '' AND (${IMAGE_EXTENSION_SQL})))`);
+                    typeClauses.push(IMAGE_TYPE_SQL);
                 } else if (type === 'video') {
-                    typeClauses.push(`(${FILE_TYPE_LOOKUP_SQL} LIKE 'video/%' OR (${FILE_TYPE_LOOKUP_SQL} = '' AND (${VIDEO_EXTENSION_SQL})))`);
+                    typeClauses.push(VIDEO_TYPE_SQL);
                 } else if (type === 'audio') {
-                    typeClauses.push(`(${FILE_TYPE_LOOKUP_SQL} LIKE 'audio/%' OR (${FILE_TYPE_LOOKUP_SQL} = '' AND (${AUDIO_EXTENSION_SQL})))`);
+                    typeClauses.push(AUDIO_TYPE_SQL);
                 } else if (type === 'document' || type === 'other') {
-                    typeClauses.push(`(${FILE_TYPE_LOOKUP_SQL} NOT LIKE 'image/%' AND ${FILE_TYPE_LOOKUP_SQL} NOT LIKE 'video/%' AND ${FILE_TYPE_LOOKUP_SQL} NOT LIKE 'audio/%' AND NOT (${IMAGE_EXTENSION_SQL}) AND NOT (${VIDEO_EXTENSION_SQL}) AND NOT (${AUDIO_EXTENSION_SQL}))`);
+                    typeClauses.push(`NOT ${MEDIA_TYPE_SQL}`);
                 }
             }
 
