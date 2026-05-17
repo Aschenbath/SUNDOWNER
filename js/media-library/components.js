@@ -1071,13 +1071,19 @@ function renderMomentsComposer({ draftBody = '', draftAttachments = [], isPublis
   return `
     <section class="cml-moments-composer" data-moments-composer>
       <input type="file" data-moment-file-input accept="image/*" multiple hidden>
+      <div class="cml-moments-composer__toolbar">
+        <div class="cml-moments-composer__toolbar-copy">
+          <span class="cml-moments-composer__eyebrow">Moments</span>
+          <strong>${isEditing ? '编辑这一刻' : '说说此刻'}</strong>
+        </div>
+        <span class="cml-moments-composer__count">${draftAttachments.length}/9</span>
+      </div>
       <textarea class="cml-moments-composer__input" data-moments-draft-input placeholder="记录此刻的想法..." maxlength="2000" ${isPublishing ? 'disabled' : ''}>${escapeHtml(draftBody)}</textarea>
       ${draftAttachments.length ? `
         <div class="cml-moments-composer__previews">
           ${draftAttachments.map((file, index) => `
             <figure class="cml-moments-composer__preview">
               <img src="${escapeHtml(file.previewUrl || '')}" alt="${escapeHtml(file.name || `Photo ${index + 1}`)}" loading="lazy" decoding="async">
-              <figcaption>${escapeHtml(file.name || `Photo ${index + 1}`)}</figcaption>
               <button type="button" class="cml-moments-composer__remove" data-action="remove-moment-draft-file" data-index="${index}" aria-label="Remove photo" ${isPublishing ? 'disabled' : ''}>${icon('close')}</button>
             </figure>
           `).join('')}
@@ -1085,24 +1091,32 @@ function renderMomentsComposer({ draftBody = '', draftAttachments = [], isPublis
       ` : ''}
       ${error ? `<p class="cml-moments-composer__error" role="alert">${escapeHtml(error)}</p>` : ''}
       <footer class="cml-moments-composer__actions">
-        <button type="button" class="cml-moments-composer__secondary" data-action="choose-moment-photos" ${isPublishing ? 'disabled' : ''}>${icon('image')}<span>图片</span></button>
-        <button type="button" class="cml-moments-composer__secondary cml-moments-composer__existing" data-action="open-moments-photo-picker" ${isPublishing ? 'disabled' : ''}>Choose from Photos</button>
-        <span class="cml-moments-composer__count">${draftAttachments.length}/9</span>
-        ${isEditing
-          ? `<button type="button" class="cml-moments-composer__secondary" data-action="cancel-moment-edit" ${isPublishing ? 'disabled' : ''}>Cancel edit</button>
-             <button type="button" class="cml-moments-composer__publish" data-action="save-moment" ${isPublishing ? 'disabled' : ''}>${isPublishing ? '保存中...' : 'Save changes'}</button>`
-          : `<button type="button" class="cml-moments-composer__publish" data-action="publish-moment" ${isPublishing ? 'disabled' : ''}>${isPublishing ? '发布中...' : '发布'}</button>`}
+        <div class="cml-moments-composer__action-group">
+          <button type="button" class="cml-moments-composer__secondary" data-action="choose-moment-photos" ${isPublishing ? 'disabled' : ''}>${icon('image')}<span>图片</span></button>
+          <button type="button" class="cml-moments-composer__secondary cml-moments-composer__existing" data-action="open-moments-photo-picker" ${isPublishing ? 'disabled' : ''}>Choose from Photos</button>
+        </div>
+        <div class="cml-moments-composer__submit-group">
+          ${isEditing
+            ? `<button type="button" class="cml-moments-composer__ghost" data-action="cancel-moment-edit" ${isPublishing ? 'disabled' : ''}>Cancel edit</button>
+               <button type="button" class="cml-moments-composer__publish" data-action="save-moment" ${isPublishing ? 'disabled' : ''}>${isPublishing ? '保存中...' : 'Save changes'}</button>`
+            : `<button type="button" class="cml-moments-composer__publish" data-action="publish-moment" ${isPublishing ? 'disabled' : ''}>${isPublishing ? '发布中...' : '发布'}</button>`}
+        </div>
       </footer>
     </section>
   `;
 }
 
 function renderMomentImageGrid(attachments = []) {
-  const visibleAttachments = attachments.slice(0, 4);
+  const visibleAttachments = attachments.slice(0, 9);
   const extraCount = Math.max(0, attachments.length - visibleAttachments.length);
+  const gridClass = visibleAttachments.length === 1
+    ? 'cml-moment-card__photos cml-moment-card__photos--single'
+    : visibleAttachments.length === 2
+      ? 'cml-moment-card__photos cml-moment-card__photos--double'
+      : 'cml-moment-card__photos cml-moment-card__photos--grid';
 
   return `
-    <div class="cml-moment-card__photos" data-count="${visibleAttachments.length}">
+    <div class="${gridClass}" data-count="${visibleAttachments.length}">
       ${visibleAttachments.map((attachment, index) => {
         const item = getMomentAttachmentItem(attachment);
         const label = item.label || attachment.metadata?.FileName || 'Moment photo';
@@ -1133,13 +1147,17 @@ function renderMomentsFeed({ posts = [], authorName = 'Aschenbath', authorAvatar
       ${posts.map((post) => `
         <article class="cml-moment-card" data-moment-id="${escapeHtml(post.id)}">
           <header class="cml-moment-card__header">
-            ${renderAvatarVisual({ displayName: authorName, avatarData: authorAvatarData })}
-            <div class="cml-moment-card__meta">
-              <strong>${escapeHtml(authorName || 'Aschenbath')}</strong>
-              <time datetime="${escapeHtml(post.createdAt || '')}">${escapeHtml(formatFileDate(post.createdAt))}</time>
+            <div class="cml-moment-card__identity">
+              ${renderAvatarVisual({ displayName: authorName, avatarData: authorAvatarData })}
+              <div class="cml-moment-card__meta">
+                <strong>${escapeHtml(authorName || 'Aschenbath')}</strong>
+                <time class="cml-moment-card__stamp" datetime="${escapeHtml(post.createdAt || '')}">${escapeHtml(formatFileDate(post.createdAt))}</time>
+              </div>
             </div>
-            <button type="button" class="cml-moment-card__delete" data-action="edit-moment" data-id="${escapeHtml(post.id)}" aria-label="Edit Moment">${icon('edit')}</button>
-            <button type="button" class="cml-moment-card__delete" data-action="delete-moment" data-id="${escapeHtml(post.id)}" aria-label="Delete Moment">${icon('trash')}</button>
+            <div class="cml-moment-card__actions">
+              <button type="button" class="cml-moment-card__delete" data-action="edit-moment" data-id="${escapeHtml(post.id)}" aria-label="Edit Moment">${icon('edit')}</button>
+              <button type="button" class="cml-moment-card__delete" data-action="delete-moment" data-id="${escapeHtml(post.id)}" aria-label="Delete Moment">${icon('trash')}</button>
+            </div>
           </header>
           ${post.body ? `<p class="cml-moment-card__body">${escapeHtml(post.body)}</p>` : ''}
           ${(post.attachments && post.attachments.length) ? renderMomentImageGrid(post.attachments) : ''}
@@ -1257,7 +1275,8 @@ export function MomentsView({
       <div class="cml-moments__main">
         <header class="cml-moments__hero">
           <p>Moments</p>
-          <h1>记录生活，分享此刻想法</h1>
+          <h1>把今天留在这里</h1>
+          <span class="cml-moments__hero-note">像朋友圈，但只写给自己看。</span>
         </header>
         ${renderMomentsComposer({ draftBody, draftAttachments, isPublishing, isEditing, error })}
         ${renderMomentsPicker({ open: pickerOpen, items: pickerItems, selectedIds: pickerSelectedIds })}

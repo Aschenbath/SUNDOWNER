@@ -89,6 +89,7 @@ describe('Moments components', () => {
     assert.match(html, /data-moments-view/);
     assert.match(html, /data-moments-composer/);
     assert.match(html, /data-moments-draft-input/);
+    assert.match(html, /cml-moments-composer__toolbar/);
     assert.match(html, /data-action="choose-moment-photos"/);
     assert.match(html, /data-action="publish-moment"/);
     assert.match(html, /data-moments-calendar/);
@@ -96,6 +97,8 @@ describe('Moments components', () => {
     assert.match(html, /data-moments-day-wall/);
     assert.match(html, /今天云很好看/);
     assert.match(html, /Aschenbath/);
+    assert.match(html, /cml-moment-card__actions/);
+    assert.match(html, /cml-moment-card__stamp/);
     assert.match(html, /data-action="edit-moment"/);
     assert.match(html, /data-action="delete-moment"/);
     assert.match(html, /data-action="open-preview"/);

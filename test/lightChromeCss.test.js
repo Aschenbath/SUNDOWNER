@@ -96,6 +96,13 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-moments-composer__existing/);
   });
 
+  it('defines the refined Moments feed selectors', () => {
+    assert.match(css, /#codex-media-library-root \.cml-moments-composer__toolbar/);
+    assert.match(css, /#codex-media-library-root \.cml-moment-card__actions/);
+    assert.match(css, /#codex-media-library-root \.cml-moment-card__stamp/);
+    assert.match(css, /#codex-media-library-root \.cml-moment-card__photos--single/);
+  });
+
   it('hides native browser cancel icons inside the Films library search', () => {
     assert.match(css, /\.cml-films-library-search input::-webkit-search-cancel-button/);
     assert.match(css, /\.cml-films-library-search input\[type="search"\] \{[\s\S]*appearance: none;/);
