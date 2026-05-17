@@ -11895,10 +11895,16 @@ body.codex-media-library-active #app {
   color: inherit;
 }
 
-#codex-media-library-root .cml-moments-composer__preview-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+#codex-media-library-root .cml-moments-composer__preview {
+  cursor: grab;
+}
+
+#codex-media-library-root .cml-moments-composer__preview:active {
+  cursor: grabbing;
+}
+
+#codex-media-library-root .cml-moments-composer__preview.is-drag-target {
+  box-shadow: 0 0 0 2px rgba(var(--cml-theme-accent-rgb, 120, 170, 248), 0.3);
 }
 
 #codex-media-library-root .cml-moments-composer__preview img,

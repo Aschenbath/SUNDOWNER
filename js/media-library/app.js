@@ -15382,8 +15382,15 @@ function mount() {
         return;
       }
       event.preventDefault();
+      tile.classList.add('is-drag-target');
       if (event.dataTransfer instanceof DataTransfer) {
         event.dataTransfer.dropEffect = 'move';
+      }
+    });
+    refs.root.addEventListener('dragleave', (event) => {
+      const tile = event.target instanceof Element ? event.target.closest('[data-moment-draft-index]') : null;
+      if (tile instanceof HTMLElement) {
+        tile.classList.remove('is-drag-target');
       }
     });
     refs.root.addEventListener('drop', (event) => {
@@ -15392,9 +15399,16 @@ function mount() {
         return;
       }
       event.preventDefault();
+      tile.classList.remove('is-drag-target');
       const targetIndex = Number(tile.dataset.momentDraftIndex || -1);
       reorderMomentDraftFile(draggedMomentDraftIndex, targetIndex);
       draggedMomentDraftIndex = -1;
+    });
+    refs.root.addEventListener('dragend', () => {
+      draggedMomentDraftIndex = -1;
+      refs.root.querySelectorAll('[data-moment-draft-index].is-drag-target').forEach((node) => {
+        node.classList.remove('is-drag-target');
+      });
     });
     refs.root.addEventListener('dragend', () => {
       draggedMomentDraftIndex = -1;
