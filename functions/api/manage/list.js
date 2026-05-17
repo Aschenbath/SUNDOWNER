@@ -18,6 +18,8 @@ const MAX_D1_PAGE_SIZE = 500;
 const DEFAULT_D1_PAGE_SIZE = 50;
 const HYBRID_SUPPLEMENT_PAGE_SIZE = 500;
 const HYBRID_SUPPLEMENT_MAX_FILES = 5000;
+const LEGACY_KV_INDEX_META_KEY = 'manage@index@meta';
+const LEGACY_KV_INDEX_KEY = 'manage@index';
 const ALLOWED_SORT_BY = new Set(['created_at', 'file_name', 'file_type', 'timestamp']);
 const GENERIC_FILE_TYPES = new Set([
     '',
@@ -71,6 +73,18 @@ function normalizeFileType(value) {
     return normalizeText(value).toLowerCase();
 }
 
+function parseJsonValue(rawValue, fallback = null) {
+    if (!rawValue) {
+        return fallback;
+    }
+
+    try {
+        return JSON.parse(rawValue);
+    } catch {
+        return fallback;
+    }
+}
+
 function extractDirectory(filePath) {
     const normalized = normalizeText(filePath).replace(/\\/g, '/');
     const lastSlashIndex = normalized.lastIndexOf('/');
@@ -83,6 +97,84 @@ function getFileName(file) {
 
 function getFileTypeReference(file) {
     return `${getFileName(file)} ${normalizeText(file?.id)}`.toLowerCase();
+}
+
+function getMetadataValue(metadata = {}, keys = []) {
+    for (const key of keys) {
+        const value = metadata?.[key];
+        if (value !== undefined && value !== null && normalizeText(value)) {
+            return normalizeText(value);
+        }
+    }
+    return '';
+}
+
+function normalizeIdentityPart(value) {
+    return normalizeText(value).toLowerCase();
+}
+
+function getFileIdentityKeys(file) {
+    const metadata = file?.metadata || {};
+    const keys = new Set();
+    const id = normalizeIdentityPart(file?.id);
+    if (id) {
+        keys.add(`id:${id}`);
+    }
+
+    const fileUniqueId = getMetadataValue(metadata, ['TgFileUniqueId', 'tgFileUniqueId', 'tg_file_unique_id']);
+    if (fileUniqueId) {
+        keys.add(`tg-unique:${normalizeIdentityPart(fileUniqueId)}`);
+    }
+
+    const tgFileId = getMetadataValue(metadata, ['TgFileId', 'TgFileID', 'tgFileId', 'tg_file_id']);
+    if (tgFileId) {
+        keys.add(`tg-file:${normalizeIdentityPart(tgFileId)}`);
+    }
+
+    const tgChatId = getMetadataValue(metadata, ['TgChatId', 'tgChatId', 'tg_chat_id']);
+    const tgMessageId = getMetadataValue(metadata, ['TgMessageId', 'tgMessageId', 'tg_message_id']);
+    if (tgChatId && tgMessageId) {
+        keys.add(`tg-message:${normalizeIdentityPart(tgChatId)}:${normalizeIdentityPart(tgMessageId)}`);
+    }
+
+    const discordChannelId = getMetadataValue(metadata, ['DiscordChannelId', 'discordChannelId']);
+    const discordMessageId = getMetadataValue(metadata, ['DiscordMessageId', 'discordMessageId']);
+    const discordAttachmentId = getMetadataValue(metadata, ['DiscordAttachmentId', 'discordAttachmentId']);
+    if (discordChannelId && discordMessageId) {
+        keys.add(`discord-message:${normalizeIdentityPart(discordChannelId)}:${normalizeIdentityPart(discordMessageId)}:${normalizeIdentityPart(discordAttachmentId)}`);
+    }
+
+    const s3Bucket = getMetadataValue(metadata, ['S3BucketName', 's3BucketName']);
+    const s3Key = getMetadataValue(metadata, ['S3FileKey', 's3FileKey']);
+    if (s3Bucket && s3Key) {
+        keys.add(`s3:${normalizeIdentityPart(s3Bucket)}:${normalizeIdentityPart(s3Key)}`);
+    }
+
+    const hfRepo = getMetadataValue(metadata, ['HfRepo', 'hfRepo']);
+    const hfPath = getMetadataValue(metadata, ['HfFilePath', 'hfFilePath']);
+    if (hfRepo && hfPath) {
+        keys.add(`hf:${normalizeIdentityPart(hfRepo)}:${normalizeIdentityPart(hfPath)}`);
+    }
+
+    const fileName = normalizeIdentityPart(getFileName(file));
+    const fileSize = normalizeIdentityPart(getMetadataValue(metadata, ['FileSizeBytes', 'fileSizeBytes', 'FileSize', 'fileSize']));
+    const width = normalizeIdentityPart(getMetadataValue(metadata, ['Width', 'width']));
+    const height = normalizeIdentityPart(getMetadataValue(metadata, ['Height', 'height']));
+    if (fileName && fileSize && (width || height)) {
+        keys.add(`file-shape:${fileName}:${fileSize}:${width}x${height}`);
+    } else if (fileName && fileSize) {
+        keys.add(`file-size:${fileName}:${fileSize}`);
+    }
+
+    return [...keys];
+}
+
+function addIdentityKeys(targetSet, file) {
+    getFileIdentityKeys(file).forEach((key) => targetSet.add(key));
+}
+
+function hasAnyIdentityKey(targetSet, file) {
+    return getFileIdentityKeys(file).some((key) => targetSet.has(key));
 }
 
 function hasFileExtension(file, extensions) {
@@ -324,10 +416,59 @@ async function queryAllD1Files(db, queryOptions) {
     };
 }
 
+async function queryLegacyKvIndexSupplementFiles(context, filters) {
+    const kv = context.env?.img_url;
+    if (!kv || typeof kv.get !== 'function') {
+        return null;
+    }
+
+    const metadata = parseJsonValue(await kv.get(LEGACY_KV_INDEX_META_KEY), null);
+    const chunkCount = Number(metadata?.chunkCount || 0);
+    if (!metadata || !Number.isFinite(chunkCount) || chunkCount <= 0) {
+        return null;
+    }
+
+    const files = [];
+    for (let chunkId = 0; chunkId < chunkCount && files.length < HYBRID_SUPPLEMENT_MAX_FILES; chunkId++) {
+        const rawChunk = await kv.get(`${LEGACY_KV_INDEX_KEY}_${chunkId}`);
+        const chunk = parseJsonValue(rawChunk, []);
+        if (!Array.isArray(chunk)) {
+            continue;
+        }
+
+        for (const entry of chunk) {
+            if (files.length >= HYBRID_SUPPLEMENT_MAX_FILES) {
+                break;
+            }
+            const id = normalizeText(entry?.id || entry?.name);
+            const file = {
+                id,
+                metadata: entry?.metadata && typeof entry.metadata === 'object' ? entry.metadata : {},
+            };
+            if (matchesHybridSupplementFilters(file, filters)) {
+                files.push(file);
+            }
+        }
+    }
+
+    return {
+        files,
+        source: 'legacy-kv-index',
+    };
+}
+
 async function queryKvSupplementFiles(context, filters) {
+    const indexedResult = await queryLegacyKvIndexSupplementFiles(context, filters);
+    if (indexedResult) {
+        return indexedResult;
+    }
+
     const kv = context.env?.img_url;
     if (!kv || typeof kv.list !== 'function') {
-        return [];
+        return {
+            files: [],
+            source: 'none',
+        };
     }
 
     const files = [];
@@ -368,7 +509,10 @@ async function queryKvSupplementFiles(context, filters) {
         }
     }
 
-    return files;
+    return {
+        files,
+        source: 'raw-kv',
+    };
 }
 
 async function queryHybridFilesWithKvSupplement(context, db, queryOptions, {
@@ -378,21 +522,48 @@ async function queryHybridFilesWithKvSupplement(context, db, queryOptions, {
     sortOrder,
     filters,
 }) {
-    const [d1Result, kvFiles] = await Promise.all([
+    const shouldBlockD1RecycleAliases = filters.recycleBinMode === 'exclude';
+    const [d1Result, d1IdentityResult, kvResult] = await Promise.all([
         queryAllD1Files(db, queryOptions),
+        shouldBlockD1RecycleAliases
+            ? queryAllD1Files(db, {
+                ...queryOptions,
+                recycleBinMode: 'include',
+            })
+            : null,
         queryKvSupplementFiles(context, filters),
     ]);
 
     const mergedById = new Map();
+    const seenIdentityKeys = new Set();
+    const blockedIdentityKeys = new Set();
     d1Result.files.forEach((file) => {
         if (file?.id) {
             mergedById.set(file.id, file);
+            addIdentityKeys(seenIdentityKeys, file);
         }
     });
+
+    if (shouldBlockD1RecycleAliases && d1IdentityResult?.files?.length) {
+        d1IdentityResult.files.forEach((file) => {
+            if (isRecycleBinRecord(file?.metadata || {})) {
+                addIdentityKeys(blockedIdentityKeys, file);
+            }
+        });
+    }
+
+    let supplementedCount = 0;
+    const kvFiles = Array.isArray(kvResult?.files) ? kvResult.files : [];
     kvFiles.forEach((file) => {
-        if (file?.id && !mergedById.has(file.id)) {
-            mergedById.set(file.id, file);
+        if (!file?.id || mergedById.has(file.id)) {
+            return;
         }
+        if (hasAnyIdentityKey(blockedIdentityKeys, file) || hasAnyIdentityKey(seenIdentityKeys, file)) {
+            return;
+        }
+        mergedById.set(file.id, file);
+        addIdentityKeys(seenIdentityKeys, file);
+        supplementedCount++;
     });
 
     const mergedFiles = sortFiles([...mergedById.values()], sortBy, sortOrder);
@@ -400,8 +571,9 @@ async function queryHybridFilesWithKvSupplement(context, db, queryOptions, {
     return {
         files: mergedFiles.slice(offset, offset + pageSize),
         total,
-        supplementedCount: Math.max(0, total - d1Result.total),
+        supplementedCount,
         d1Total: d1Result.total,
+        kvSupplementSource: kvResult?.source || 'none',
     };
 }
 
@@ -641,7 +813,8 @@ export async function onRequest(context) {
                 ...(queryResult.supplementedCount > 0 ? {
                     isHybridSupplementedResponse: true,
                     d1TotalCount: queryResult.d1Total,
-                    kvSupplementedCount: queryResult.supplementedCount
+                    kvSupplementedCount: queryResult.supplementedCount,
+                    kvSupplementSource: queryResult.kvSupplementSource
                 } : {})
             }), {
                 headers: { "Content-Type": "application/json", ...corsHeaders }

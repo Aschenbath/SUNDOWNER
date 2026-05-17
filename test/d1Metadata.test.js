@@ -766,6 +766,155 @@ describe('D1 metadata migration path', () => {
         assert.deepEqual(payload.files.map((file) => file.name), ['photos/latest.jpg', 'photos/old.jpg']);
     });
 
+    it('list route does not duplicate KV aliases that match an active D1 media identity', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+        const d1 = new D1Database(env.img_d1);
+
+        await seedD1File(d1, 'photos/latest-copy.jpg', {
+            FileName: 'same.jpg',
+            FileType: 'image/jpeg',
+            FileSize: '2.4',
+            Width: '1200',
+            Height: '900',
+            TgFileUniqueId: 'telegram-unique-1',
+            TimeStamp: 300,
+        });
+        await env.img_url.put('photos/legacy-alias.jpg', 'kv-old', {
+            metadata: {
+                FileName: 'same.jpg',
+                FileType: 'image/jpeg',
+                FileSize: '2.4',
+                Width: '1200',
+                Height: '900',
+                TgFileUniqueId: 'telegram-unique-1',
+                TimeStamp: 200,
+                Directory: 'photos/',
+            },
+        });
+        await d1.put(KV_TO_D1_MIGRATION_STATE_KEY, JSON.stringify({
+            complete: true,
+            nextCursor: null,
+            updatedAt: Date.now(),
+        }));
+
+        const response = await listRoute(createContext(
+            env,
+            new Request('https://example.com/api/manage/list?recursive=true&start=0&count=10&sortBy=timestamp&sortOrder=desc', {
+                method: 'GET',
+            }),
+        ));
+
+        assert.equal(response.status, 200);
+        const payload = await response.json();
+        assert.equal(payload.totalCount, 1);
+        assert.equal(payload.kvSupplementedCount, undefined);
+        assert.deepEqual(payload.files.map((file) => file.name), ['photos/latest-copy.jpg']);
+    });
+
+    it('list route does not resurrect stale KV aliases for D1 recycle-bin records', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+        const d1 = new D1Database(env.img_d1);
+
+        await seedD1File(d1, 'photos/deleted-copy.jpg', {
+            FileName: 'deleted.jpg',
+            FileType: 'image/jpeg',
+            FileSize: '1.2',
+            Width: '800',
+            Height: '600',
+            TgFileUniqueId: 'deleted-unique-1',
+            RecycleBin: 'true',
+            DeletedAt: String(Date.now()),
+            TimeStamp: 300,
+        });
+        await env.img_url.put('photos/deleted-legacy-alias.jpg', 'kv-old', {
+            metadata: {
+                FileName: 'deleted.jpg',
+                FileType: 'image/jpeg',
+                FileSize: '1.2',
+                Width: '800',
+                Height: '600',
+                TgFileUniqueId: 'deleted-unique-1',
+                TimeStamp: 200,
+                Directory: 'photos/',
+            },
+        });
+        await d1.put(KV_TO_D1_MIGRATION_STATE_KEY, JSON.stringify({
+            complete: true,
+            nextCursor: null,
+            updatedAt: Date.now(),
+        }));
+
+        const response = await listRoute(createContext(
+            env,
+            new Request('https://example.com/api/manage/list?recursive=true&start=0&count=10&sortBy=timestamp&sortOrder=desc', {
+                method: 'GET',
+            }),
+        ));
+
+        assert.equal(response.status, 200);
+        const payload = await response.json();
+        assert.equal(payload.totalCount, 0);
+        assert.deepEqual(payload.files, []);
+    });
+
+    it('list route prefers the legacy KV index over raw KV scans for hybrid supplements', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+        const d1 = new D1Database(env.img_d1);
+
+        await seedD1File(d1, 'photos/latest.jpg', { FileName: 'latest.jpg', FileType: 'image/jpeg', TimeStamp: 300 });
+        await env.img_url.put('manage@index@meta', JSON.stringify({
+            lastUpdated: Date.now(),
+            totalCount: 1,
+            chunkCount: 1,
+            chunkSize: 5000,
+        }));
+        await env.img_url.put('manage@index_0', JSON.stringify([{
+            id: 'photos/indexed-old.jpg',
+            metadata: {
+                FileName: 'indexed-old.jpg',
+                FileType: 'image/jpeg',
+                TimeStamp: 200,
+                Directory: 'photos/',
+            },
+        }]));
+        await env.img_url.put('photos/raw-stale.jpg', 'kv-stale', {
+            metadata: {
+                FileName: 'raw-stale.jpg',
+                FileType: 'image/jpeg',
+                TimeStamp: 250,
+                Directory: 'photos/',
+            },
+        });
+        await d1.put(KV_TO_D1_MIGRATION_STATE_KEY, JSON.stringify({
+            complete: true,
+            nextCursor: null,
+            updatedAt: Date.now(),
+        }));
+
+        const response = await listRoute(createContext(
+            env,
+            new Request('https://example.com/api/manage/list?recursive=true&start=0&count=10&sortBy=timestamp&sortOrder=desc', {
+                method: 'GET',
+            }),
+        ));
+
+        assert.equal(response.status, 200);
+        const payload = await response.json();
+        assert.equal(payload.totalCount, 2);
+        assert.equal(payload.kvSupplementedCount, 1);
+        assert.equal(payload.kvSupplementSource, 'legacy-kv-index');
+        assert.deepEqual(payload.files.map((file) => file.name), ['photos/latest.jpg', 'photos/indexed-old.jpg']);
+    });
+
     it('list route clamps D1 pageSize requests to the raised 500-item ceiling', async () => {
         const env = {
             img_url: new MemoryKV(),
