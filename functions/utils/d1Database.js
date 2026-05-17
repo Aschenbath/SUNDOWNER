@@ -76,9 +76,21 @@ function normalizeBoolean(value) {
 
 const ALLOWED_SORT_COLUMNS = {
     created_at: 'created_at',
-    file_name: 'file_name',
-    file_type: 'file_type',
+    file_name: "COALESCE(NULLIF(file_name, ''), json_extract(metadata, '$.FileName'), json_extract(metadata, '$.file_name'), id)",
+    file_type: "COALESCE(NULLIF(file_type, ''), json_extract(metadata, '$.FileType'), json_extract(metadata, '$.file_type'), '')",
+    timestamp: "COALESCE(timestamp, CAST(json_extract(metadata, '$.TimeStamp') AS INTEGER), CAST(json_extract(metadata, '$.timeStamp') AS INTEGER), CAST(strftime('%s', created_at) AS INTEGER) * 1000, 0)",
 };
+const FILE_NAME_LOOKUP_SQL = "LOWER(COALESCE(NULLIF(file_name, ''), json_extract(metadata, '$.FileName'), json_extract(metadata, '$.file_name'), id))";
+const FILE_TYPE_LOOKUP_SQL = "LOWER(COALESCE(NULLIF(file_type, ''), json_extract(metadata, '$.FileType'), json_extract(metadata, '$.file_type'), ''))";
+const IMAGE_EXTENSION_SQL = [
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'heic', 'heif'
+].map((ext) => `${FILE_NAME_LOOKUP_SQL} LIKE '%.${ext}'`).join(' OR ');
+const VIDEO_EXTENSION_SQL = [
+    'mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi'
+].map((ext) => `${FILE_NAME_LOOKUP_SQL} LIKE '%.${ext}'`).join(' OR ');
+const AUDIO_EXTENSION_SQL = [
+    'mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg'
+].map((ext) => `${FILE_NAME_LOOKUP_SQL} LIKE '%.${ext}'`).join(' OR ');
 
 function normalizeStringArray(value) {
     if (Array.isArray(value)) {
@@ -271,8 +283,11 @@ class D1Database {
         await this.ensureSchema();
 
         const page = Math.max(1, Number.parseInt(options.page, 10) || 1);
-        const pageSize = Math.min(200, Math.max(1, Number.parseInt(options.pageSize, 10) || 50));
-        const offset = (page - 1) * pageSize;
+        const pageSize = Math.min(500, Math.max(1, Number.parseInt(options.pageSize, 10) || 50));
+        const requestedOffset = Number.parseInt(options.offset, 10);
+        const offset = Number.isFinite(requestedOffset) && requestedOffset >= 0
+            ? requestedOffset
+            : (page - 1) * pageSize;
         const sortColumn = normalizeSortBy(options.sortBy);
         const sortDirection = normalizeSortOrder(options.sortOrder);
         const search = String(options.search || '').trim();
@@ -292,8 +307,8 @@ class D1Database {
         }
 
         if (search) {
-            whereClauses.push('COALESCE(file_name, id) LIKE ?');
-            params.push(`%${search}%`);
+            whereClauses.push(`${FILE_NAME_LOOKUP_SQL} LIKE ?`);
+            params.push(`%${search.toLowerCase()}%`);
         }
 
         if (channelFilters.length > 0) {
@@ -326,13 +341,13 @@ class D1Database {
             const typeClauses = [];
             for (const type of typeFilters) {
                 if (type === 'image') {
-                    typeClauses.push("COALESCE(file_type, '') LIKE 'image/%'");
+                    typeClauses.push(`(${FILE_TYPE_LOOKUP_SQL} LIKE 'image/%' OR (${FILE_TYPE_LOOKUP_SQL} = '' AND (${IMAGE_EXTENSION_SQL})))`);
                 } else if (type === 'video') {
-                    typeClauses.push("COALESCE(file_type, '') LIKE 'video/%'");
+                    typeClauses.push(`(${FILE_TYPE_LOOKUP_SQL} LIKE 'video/%' OR (${FILE_TYPE_LOOKUP_SQL} = '' AND (${VIDEO_EXTENSION_SQL})))`);
                 } else if (type === 'audio') {
-                    typeClauses.push("COALESCE(file_type, '') LIKE 'audio/%'");
+                    typeClauses.push(`(${FILE_TYPE_LOOKUP_SQL} LIKE 'audio/%' OR (${FILE_TYPE_LOOKUP_SQL} = '' AND (${AUDIO_EXTENSION_SQL})))`);
                 } else if (type === 'document' || type === 'other') {
-                    typeClauses.push("(COALESCE(file_type, '') NOT LIKE 'image/%' AND COALESCE(file_type, '') NOT LIKE 'video/%' AND COALESCE(file_type, '') NOT LIKE 'audio/%')");
+                    typeClauses.push(`(${FILE_TYPE_LOOKUP_SQL} NOT LIKE 'image/%' AND ${FILE_TYPE_LOOKUP_SQL} NOT LIKE 'video/%' AND ${FILE_TYPE_LOOKUP_SQL} NOT LIKE 'audio/%' AND NOT (${IMAGE_EXTENSION_SQL}) AND NOT (${VIDEO_EXTENSION_SQL}) AND NOT (${AUDIO_EXTENSION_SQL}))`);
                 }
             }
 

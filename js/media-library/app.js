@@ -5510,7 +5510,9 @@ async function fetchListPage(start, count = API_PAGE_SIZE) {
     start: String(start),
     count: String(count),
     recursive: 'true',
-    fileType: 'image,video,audio,other'
+    fileType: 'image,video,audio,other',
+    sortBy: 'timestamp',
+    sortOrder: 'desc'
   });
   const response = await apiFetch(`/api/manage/list?${params.toString()}`, {
     timeoutMs: API_REQUEST_TIMEOUT_MS
@@ -5551,6 +5553,7 @@ async function fetchIndexedMediaItems(domItems) {
 
   scheduleDeferredStartupTask(async () => {
     const files = [...firstFiles];
+    const seenFileIds = new Set(firstFiles.map((file) => normalizeText(file?.name || file?.id)).filter(Boolean));
     let start = firstReturnedCount;
     let totalCount = firstTotalCount;
 
@@ -5560,10 +5563,21 @@ async function fetchIndexedMediaItems(domItems) {
       if (!pageFiles.length) {
         break;
       }
-      files.push(...pageFiles);
+      let addedCount = 0;
+      pageFiles.forEach((file) => {
+        const fileId = normalizeText(file?.name || file?.id);
+        if (fileId && seenFileIds.has(fileId)) {
+          return;
+        }
+        if (fileId) {
+          seenFileIds.add(fileId);
+        }
+        files.push(file);
+        addedCount += 1;
+      });
       const returnedCount = toPositiveNumber(nextPayload?.returnedCount, pageFiles.length);
       totalCount = Math.max(totalCount, toPositiveNumber(nextPayload?.totalCount, files.length));
-      const shouldStop = returnedCount < API_PAGE_SIZE || files.length >= totalCount || files.length >= API_MAX_ITEMS;
+      const shouldStop = returnedCount < API_PAGE_SIZE || addedCount === 0 || files.length >= totalCount || files.length >= API_MAX_ITEMS;
       if (shouldStop) {
         break;
       }

@@ -149,6 +149,10 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /const firstPayload = await fetchListPage\(0, INITIAL_PHOTOS_PAGE_SIZE\)/);
     assert.match(appSource, /const initialItems = firstFiles/);
     assert.match(appSource, /scheduleDeferredStartupTask\(async \(\) => \{/);
+    assert.match(appSource, /sortBy: 'timestamp'/);
+    assert.match(appSource, /sortOrder: 'desc'/);
+    assert.match(appSource, /const seenFileIds = new Set/);
+    assert.match(appSource, /addedCount === 0/);
     assert.match(appSource, /persistMediaPayload\(/);
     assert.match(appSource, /state\.mediaItems = fullItems/);
     assert.match(appSource, /state\.librarySyncMeta = \{/);

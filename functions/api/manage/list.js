@@ -16,7 +16,7 @@ const corsHeaders = {
 };
 const MAX_D1_PAGE_SIZE = 500;
 const DEFAULT_D1_PAGE_SIZE = 50;
-const ALLOWED_SORT_BY = new Set(['created_at', 'file_name', 'file_type']);
+const ALLOWED_SORT_BY = new Set(['created_at', 'file_name', 'file_type', 'timestamp']);
 
 function parseMigrationStatus(rawValue) {
     if (!rawValue) {
@@ -249,10 +249,13 @@ export async function onRequest(context) {
                 max: MAX_D1_PAGE_SIZE,
                 fallback: DEFAULT_D1_PAGE_SIZE,
             });
+            const hasExplicitPage = pageRequested !== null;
+            const startOffset = Math.max(0, start);
             const page = clampInteger(pageRequested, {
                 min: 1,
-                fallback: Math.floor(Math.max(0, start) / pageSize) + 1,
+                fallback: Math.floor(startOffset / pageSize) + 1,
             });
+            const offset = hasExplicitPage ? (page - 1) * pageSize : startOffset;
             const sortBy = normalizeSortBy(sortByRequested);
             const sortOrder = normalizeSortOrder(sortOrderRequested);
             const typeFilters = [];
@@ -264,6 +267,7 @@ export async function onRequest(context) {
             const queryResult = await db.queryFiles({
                 page,
                 pageSize,
+                offset,
                 sortBy,
                 sortOrder,
                 search,
@@ -291,7 +295,7 @@ export async function onRequest(context) {
                 directFileCount: compatibleFiles.length,
                 directFolderCount: 0,
                 returnedCount: compatibleFiles.length,
-                start: (page - 1) * pageSize,
+                start: offset,
                 count: pageSize,
                 indexLastUpdated: Date.now(),
                 isIndexedResponse: true,

@@ -498,6 +498,55 @@ describe('D1 metadata migration path', () => {
         assert.deepEqual(result.files.map((file) => file.id), ['photos/image.jpg']);
     });
 
+    it('queryFiles falls back to metadata fields and filename extensions for legacy D1 rows', async () => {
+        const d1 = new D1Database(new SqliteD1(':memory:'));
+
+        await d1.put('photos/legacy-image.jpg', '', {
+            metadata: {
+                FileName: 'legacy-image.jpg',
+                TimeStamp: 1,
+            },
+        });
+        await d1.put('photos/legacy-video.mp4', '', {
+            metadata: {
+                FileName: 'legacy-video.mp4',
+                TimeStamp: 2,
+            },
+        });
+        await d1.put('photos/legacy-audio.m4a', '', {
+            metadata: {
+                FileName: 'legacy-audio.m4a',
+                TimeStamp: 3,
+            },
+        });
+
+        const images = await d1.queryFiles({
+            types: ['image'],
+            page: 1,
+            pageSize: 10,
+            sortBy: 'timestamp',
+            sortOrder: 'desc',
+        });
+        const videos = await d1.queryFiles({
+            types: ['video'],
+            page: 1,
+            pageSize: 10,
+            sortBy: 'timestamp',
+            sortOrder: 'desc',
+        });
+        const audio = await d1.queryFiles({
+            types: ['audio'],
+            page: 1,
+            pageSize: 10,
+            sortBy: 'timestamp',
+            sortOrder: 'desc',
+        });
+
+        assert.deepEqual(images.files.map((file) => file.id), ['photos/legacy-image.jpg']);
+        assert.deepEqual(videos.files.map((file) => file.id), ['photos/legacy-video.mp4']);
+        assert.deepEqual(audio.files.map((file) => file.id), ['photos/legacy-audio.m4a']);
+    });
+
     it('queryFiles searches by file_name with LIKE binding', async () => {
         const d1 = new D1Database(new SqliteD1(':memory:'));
 
@@ -568,6 +617,38 @@ describe('D1 metadata migration path', () => {
         assert.equal(payload.pageSize, 2);
         assert.equal(payload.totalPages, 2);
         assert.deepEqual(payload.files.map((file) => file.name), ['photos/c.jpg']);
+    });
+
+    it('list route preserves absolute offsets when page is omitted and D1 pagination uses timestamps', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: new SqliteD1(':memory:'),
+        };
+        const d1 = new D1Database(env.img_d1);
+
+        await seedD1File(d1, 'photos/a.jpg', { FileName: 'a.jpg', TimeStamp: 1 });
+        await seedD1File(d1, 'photos/b.jpg', { FileName: 'b.jpg', TimeStamp: 2 });
+        await seedD1File(d1, 'photos/c.jpg', { FileName: 'c.jpg', TimeStamp: 3 });
+        await d1.put(KV_TO_D1_MIGRATION_STATE_KEY, JSON.stringify({
+            complete: true,
+            nextCursor: null,
+            updatedAt: Date.now(),
+        }));
+
+        const response = await listRoute(createContext(
+            env,
+            new Request('https://example.com/api/manage/list?recursive=true&start=1&count=1&sortBy=timestamp&sortOrder=desc', {
+                method: 'GET',
+            }),
+        ));
+
+        assert.equal(response.status, 200);
+        const payload = await response.json();
+        assert.equal(payload.isD1QueryResponse, true);
+        assert.equal(payload.start, 1);
+        assert.equal(payload.page, 2);
+        assert.equal(payload.pageSize, 1);
+        assert.deepEqual(payload.files.map((file) => file.name), ['photos/b.jpg']);
     });
 
     it('list route clamps D1 pageSize requests to the raised 500-item ceiling', async () => {
