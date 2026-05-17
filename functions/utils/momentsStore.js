@@ -191,7 +191,7 @@ export class MomentsStore {
     return attachments;
   }
 
-  async createPost({ body = '', fileIds = [], now = new Date().toISOString() } = {}) {
+  async createPost({ id = '', body = '', fileIds = [], now = new Date().toISOString() } = {}) {
     await this.ensureSchema();
 
     const normalizedBody = normalizeText(body, MAX_BODY_LENGTH);
@@ -204,7 +204,7 @@ export class MomentsStore {
     await this.validateAttachments(normalizedFileIds);
 
     const createdAt = new Date(now).toISOString();
-    const postId = createMomentId(createdAt);
+    const postId = normalizeText(id, 240) || createMomentId(createdAt);
 
     await this.db.prepare(
       'INSERT INTO moments_posts (id, body, created_at, updated_at) VALUES (?, ?, ?, ?)',

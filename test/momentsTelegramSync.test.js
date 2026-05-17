@@ -4,6 +4,7 @@ describe('momentsTelegramSync', () => {
   let extractMomentsCaptionBody;
   let shouldCreateMomentsFromTelegramMessage;
   let buildTelegramMomentsDedupeKey;
+  let buildTelegramMomentsPostId;
   let buildTelegramMomentsStateKey;
   let shouldUpsertTelegramMomentsPost;
 
@@ -12,6 +13,7 @@ describe('momentsTelegramSync', () => {
       extractMomentsCaptionBody,
       shouldCreateMomentsFromTelegramMessage,
       buildTelegramMomentsDedupeKey,
+      buildTelegramMomentsPostId,
       buildTelegramMomentsStateKey,
       shouldUpsertTelegramMomentsPost,
     } = await import('../functions/utils/momentsTelegramSync.js'));
@@ -46,6 +48,13 @@ describe('momentsTelegramSync', () => {
     const keyA = buildTelegramMomentsDedupeKey({ chatId: '100', messageId: '200', mediaGroupId: 'group-1' });
     const keyB = buildTelegramMomentsDedupeKey({ chatId: '100', messageId: '201', mediaGroupId: 'group-1' });
     assert.equal(keyA, keyB);
+  });
+
+  it('builds a stable post id for one album post', () => {
+    const idA = buildTelegramMomentsPostId({ chatId: '100', messageId: '200', mediaGroupId: 'group-1' });
+    const idB = buildTelegramMomentsPostId({ chatId: '100', messageId: '201', mediaGroupId: 'group-1' });
+    assert.equal(idA, idB);
+    assert.match(idA, /^telegram-moment:/);
   });
 
   it('builds a stable state key for cross-request media-group aggregation', () => {

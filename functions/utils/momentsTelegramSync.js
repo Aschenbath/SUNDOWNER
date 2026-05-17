@@ -26,6 +26,10 @@ export function buildTelegramMomentsDedupeKey({ chatId = '', messageId = '', med
   return `telegram-moments:${normalizedChatId}:message:${normalizedMessageId}`;
 }
 
+export function buildTelegramMomentsPostId({ chatId = '', messageId = '', mediaGroupId = '' } = {}) {
+  return `telegram-moment:${buildTelegramMomentsDedupeKey({ chatId, messageId, mediaGroupId })}`;
+}
+
 export function buildTelegramMomentsStateKey({ chatId = '', mediaGroupId = '', messageId = '' } = {}) {
   return `${buildTelegramMomentsDedupeKey({ chatId, mediaGroupId, messageId })}:state`;
 }

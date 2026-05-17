@@ -14,6 +14,7 @@ import { resolveTelegramDedupeDecision, saveTelegramDedupeRecord } from './teleg
 import { upsertTelegramMindMessage } from './mindStore.js'
 import {
     buildTelegramMomentsDedupeKey,
+    buildTelegramMomentsPostId,
     buildTelegramMomentsStateKey,
     extractMomentsCaptionBody,
     shouldCreateMomentsFromTelegramMessage,
@@ -552,8 +553,13 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
         const postBody = previousState?.body || extractMomentsCaptionBody(message.caption || '')
         const createdAt = previousState?.createdAt || (Number(message.date || 0) * 1000 || Date.now())
 
-        let postId = previousState?.postId || ''
-        if (postId) {
+        let postId = previousState?.postId || buildTelegramMomentsPostId({
+            chatId: message.chat?.id,
+            messageId: message.message_id,
+            mediaGroupId,
+        })
+        const existingPost = await momentsStore.getPost(postId)
+        if (existingPost) {
             const updated = await momentsStore.updatePost(postId, {
                 body: postBody,
                 fileIds: nextFileIds,
@@ -562,11 +568,12 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
             postId = updated?.id || postId
         } else {
             const created = await momentsStore.createPost({
+                id: postId,
                 body: postBody,
                 fileIds: nextFileIds,
                 now: createdAt,
             })
-            postId = created?.id || ''
+            postId = created?.id || postId
         }
 
         await db.put(stateKey, JSON.stringify({
