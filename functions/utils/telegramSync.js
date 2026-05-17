@@ -654,38 +654,6 @@ async function processUpdatesForChannels(context, channels, updates, source) {
         }
     }
 
-    const momentsGroups = new Map()
-    for (const importedFile of summary.importedFiles) {
-        const photoFileIds = importedFile?.fileId ? [importedFile.fileId] : []
-        if (!shouldCreateMomentsFromTelegramMessage({ caption: importedFile.caption || '', photoFileIds })) {
-            continue
-        }
-        const groupKey = importedFile.mediaGroupId
-            ? `${importedFile.channelName}:group:${importedFile.mediaGroupId}`
-            : `${importedFile.channelName}:message:${importedFile.messageId}`
-        if (!momentsGroups.has(groupKey)) {
-            momentsGroups.set(groupKey, {
-                channelName: importedFile.channelName,
-                chatId: importedFile.chatId,
-                messageId: importedFile.messageId,
-                mediaGroupId: importedFile.mediaGroupId || '',
-                createdAt: importedFile.createdAt,
-                caption: importedFile.caption || '',
-                fileIds: [],
-            })
-        }
-        momentsGroups.get(groupKey).fileIds.push(importedFile.fileId)
-    }
-
-    for (const group of momentsGroups.values()) {
-        const momentsStore = new MomentsStore(context.env)
-        await momentsStore.createPost({
-            body: extractMomentsCaptionBody(group.caption),
-            fileIds: group.fileIds.slice(0, 9),
-            now: group.createdAt,
-        })
-    }
-
     return summary
 }
 
