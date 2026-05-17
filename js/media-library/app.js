@@ -15288,6 +15288,9 @@ function mount() {
   if (state.primaryFilter === 'Mind') {
     void loadMindState({ forceRender: false, mirrorAfterLoad: true });
   }
+  if (state.primaryFilter === 'Moments' && !state.momentsHydrated && !state.momentsLoading) {
+    void loadMoments({ forceRender: false });
+  }
   syncLiveMedia({ forceRender: false });
   void syncStorageSummary({ forceRender: false });
   if (!state.adminUsername) {

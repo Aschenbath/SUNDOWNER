@@ -403,6 +403,14 @@ async function buildImportedMetadata(context, channel, message, source, mediaInf
     const importDirectory = importContext.importDirectory || createImportDirectory(channel.name, channel.importDirectory)
     const timestamp = Number(message.edit_date || message.date || Math.floor(Date.now() / 1000)) * 1000
 
+    const listType = fileType.startsWith('image/')
+        ? 'Photo'
+        : fileType.startsWith('video/')
+            ? 'Video'
+            : fileType.startsWith('audio/')
+                ? 'Audio'
+                : 'None'
+
     const metadata = {
         FileName: fileName,
         FileType: fileType,
@@ -410,7 +418,7 @@ async function buildImportedMetadata(context, channel, message, source, mediaInf
         FileSizeBytes: Number(media.file_size || 0),
         UploadIP: 'telegram-channel-sync',
         UploadAddress: 'Telegram Channel',
-        ListType: 'None',
+        ListType: listType,
         TimeStamp: timestamp,
         Label: 'None',
         Directory: importDirectory,
