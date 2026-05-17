@@ -145,6 +145,16 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /if \(state\.momentsHydrated\) \{\s*render\(\);\s*void loadMoments\(\{ forceRender: false, background: true \}\);/);
   });
 
+  it('keeps the Moments photo picker lazy and patches selection without a full page render', () => {
+    assert.match(appSource, /let momentsPickerItemsCache = \[\];/);
+    assert.match(appSource, /function getMomentsPickerItemsSignature\(\)/);
+    assert.match(appSource, /function patchMomentPickerSelection\(\)/);
+    assert.match(appSource, /pickerItems: state\.momentsPickerOpen \? getMomentPickerItems\(\) : \[\]/);
+    assert.match(appSource, /if \(!patchMomentPickerSelection\(\)\) \{\s*render\(\);\s*\}/);
+    assert.doesNotMatch(appSource, /momentDayItems:/);
+    assert.doesNotMatch(appSource, /function buildMomentDayItems/);
+  });
+
   it('progressively hydrates the Photos index instead of blocking first paint on every page', () => {
     assert.match(appSource, /const firstPayload = await fetchListPage\(0, INITIAL_PHOTOS_PAGE_SIZE\)/);
     assert.match(appSource, /const initialItems = firstFiles/);

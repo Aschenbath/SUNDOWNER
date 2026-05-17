@@ -87,6 +87,9 @@ describe('Moments components', () => {
     });
 
     assert.match(html, /data-moments-view/);
+    assert.match(html, /Private journal/);
+    assert.match(html, /cml-moments__stats/);
+    assert.match(html, /<strong>1<\/strong><em>Posts<\/em>/);
     assert.match(html, /data-moments-composer/);
     assert.match(html, /data-moments-draft-input/);
     assert.match(html, /cml-moments-composer__toolbar/);
@@ -182,6 +185,8 @@ describe('Moments components', () => {
     assert.match(html, /data-action="open-moments-photo-picker"/);
     assert.match(html, /data-action="toggle-moments-picker-photo"/);
     assert.match(html, /data-action="apply-moments-photo-picker"/);
+    assert.match(html, /cml-moments-picker__check/);
+    assert.match(html, />Add 1<\/button>/);
     assert.match(html, /cml-moments-composer__preview-grid/);
     assert.match(html, /cml-moment-card__photos--double/);
     assert.match(html, /cml-moments-composer__drag-handle/);

@@ -47,7 +47,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=102';
+} from './components.js?v=103';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -908,6 +908,8 @@ let pendingPersistedPlaylistSnapshot = null;
 let mindStatePromise = null;
 let mindMirrorPromise = null;
 let momentsStatePromise = null;
+let momentsPickerItemsCache = [];
+let momentsPickerItemsSignature = '';
 let draggedMomentDraftIndex = -1;
 let mindMutationQueue = Promise.resolve();
 let mindVisitStickyMessages = [];
@@ -4821,16 +4823,6 @@ function persistMomentsPayload(payload = {}) {
   });
 }
 
-function buildMomentDayItems(date = state.momentsSelectedDate) {
-  const normalizedDate = normalizeText(date);
-  if (!normalizedDate) {
-    return [];
-  }
-  return safeArray(state.momentsPosts)
-    .filter((post) => normalizeText(post?.date) === normalizedDate)
-    .flatMap((post) => safeArray(post?.attachments).map((attachment) => attachment?.item || buildMomentAttachmentItem(attachment)));
-}
-
 function getMomentPostById(postId = '') {
   const normalizedId = normalizeText(postId);
   if (!normalizedId) {
@@ -4920,10 +4912,63 @@ function openMomentDraftPicker() {
   }
 }
 
-function getMomentPickerItems() {
-  return getAccessibleItems(getAllItems())
+function getMomentsPickerItemsSignature() {
+  const mediaHeadSignature = safeArray(state.mediaItems)
+    .slice(0, 180)
+    .map((item) => [
+      normalizeText(item?.id),
+      normalizeText(item?.type),
+      normalizeText(item?.thumbnailUrl),
+      item?.isPrivateAlbum ? '1' : '0'
+    ].join(':'))
+    .join('\u001f');
+  return [
+    state.mediaItems.length,
+    state.librarySyncMeta?.loadedCount || 0,
+    state.librarySyncMeta?.totalCount || 0,
+    state.librarySyncMeta?.source || '',
+    mediaHeadSignature,
+    Object.keys(state.albumAssignments || {}).length,
+    state.privateViewOpen ? 'private' : 'public',
+    state.privateRouteUnlocked ? 'unlocked' : 'locked'
+  ].join('|');
+}
+
+function getMomentPickerItems({ force = false } = {}) {
+  const nextSignature = getMomentsPickerItemsSignature();
+  if (!force && nextSignature === momentsPickerItemsSignature) {
+    return momentsPickerItemsCache;
+  }
+  momentsPickerItemsSignature = nextSignature;
+  momentsPickerItemsCache = getAccessibleItems(getAllItems())
     .filter((item) => item?.type === 'photo' && item?.id && item?.thumbnailUrl)
     .slice(0, 120);
+  return momentsPickerItemsCache;
+}
+
+function patchMomentPickerSelection() {
+  if (!(refs.root instanceof HTMLElement)) {
+    return false;
+  }
+  const picker = refs.root.querySelector('[data-moments-picker]');
+  if (!(picker instanceof HTMLElement)) {
+    return false;
+  }
+  const selectedIds = new Set([...state.momentsPickerSelection].map((id) => String(id)));
+  picker.querySelectorAll('[data-action="toggle-moments-picker-photo"]').forEach((button) => {
+    if (!(button instanceof HTMLElement)) {
+      return;
+    }
+    const isSelected = selectedIds.has(String(button.dataset.id || ''));
+    button.classList.toggle('is-selected', isSelected);
+    button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+  });
+  const applyButton = picker.querySelector('[data-action="apply-moments-photo-picker"]');
+  if (applyButton instanceof HTMLButtonElement) {
+    applyButton.disabled = selectedIds.size === 0;
+    applyButton.textContent = selectedIds.size ? `Add ${selectedIds.size}` : 'Add selected';
+  }
+  return true;
 }
 
 function toggleMomentPickerPhoto(itemId) {
@@ -4943,7 +4988,9 @@ function toggleMomentPickerPhoto(itemId) {
     next.add(normalizedId);
   }
   state.momentsPickerSelection = next;
-  render();
+  if (!patchMomentPickerSelection()) {
+    render();
+  }
 }
 
 function applyMomentPickerSelection() {
@@ -4953,7 +5000,8 @@ function applyMomentPickerSelection() {
     render();
     return;
   }
-  const selectedItems = getMomentPickerItems().filter((item) => selectedIds.includes(item.id));
+  const selectedIdSet = new Set(selectedIds);
+  const selectedItems = getMomentPickerItems().filter((item) => selectedIdSet.has(item.id));
   const existingIds = new Set(state.momentsDraftAttachments.map((item) => item.fileId).filter(Boolean));
   const additions = normalizeMomentDraftAttachments(selectedItems
     .filter((item) => !existingIds.has(item.id))
@@ -9295,7 +9343,6 @@ function getViewModel() {
     audioQueueItems,
     momentsPosts: state.momentsPosts,
     momentsDatesWithPhotos: state.momentsDatesWithPhotos,
-    momentDayItems: buildMomentDayItems(),
     isVideoAlbumRoot,
     videoAlbumCards,
     videoAlbumCount: videoAlbumCards.length,
@@ -14455,7 +14502,7 @@ function render() {
                     draftAttachments: state.momentsDraftAttachments,
                     isEditing: Boolean(state.momentsEditingPostId),
                     pickerOpen: state.momentsPickerOpen,
-                    pickerItems: getMomentPickerItems(),
+                    pickerItems: state.momentsPickerOpen ? getMomentPickerItems() : [],
                     pickerSelectedIds: [...state.momentsPickerSelection],
                     selectedDate: state.momentsSelectedDate,
                     calendarMonth: state.momentsCalendarMonth,

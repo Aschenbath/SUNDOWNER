@@ -11813,8 +11813,9 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-moments {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
-  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(272px, 340px);
+  align-items: start;
+  gap: 22px;
   min-height: 100%;
   color: var(--cml-theme-text, #f5f7fb);
 }
@@ -11822,20 +11823,8 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-moments__main {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 16px;
   min-width: 0;
-}
-
-#codex-media-library-root .cml-moments__hero p {
-  margin: 0 0 6px;
-  color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.68));
-  font-size: 14px;
-}
-
-#codex-media-library-root .cml-moments__hero h1 {
-  margin: 0;
-  font-size: clamp(28px, 3vw, 42px);
-  letter-spacing: -0.04em;
 }
 
 #codex-media-library-root .cml-moments-composer,
@@ -11843,21 +11832,22 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-moments-calendar,
 #codex-media-library-root .cml-moments-day-wall {
   border: 1px solid var(--cml-theme-card-border, rgba(255, 255, 255, 0.08));
-  border-radius: 24px;
-  background: var(--cml-theme-surface-elevated, rgba(14, 19, 34, 0.76));
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.18);
+  border-radius: 14px;
+  background: var(--cml-theme-surface-elevated, rgba(14, 19, 34, 0.72));
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.14);
 }
 
 #codex-media-library-root .cml-moments-composer,
 #codex-media-library-root .cml-moment-card,
 #codex-media-library-root .cml-moments-calendar,
 #codex-media-library-root .cml-moments-day-wall {
-  padding: 18px;
+  padding: 16px;
 }
 
 #codex-media-library-root .cml-moments-composer__input {
   width: 100%;
-  min-height: 118px;
+  min-height: 96px;
+  max-height: 42vh;
   resize: vertical;
   border: 0;
   outline: 0;
@@ -11888,7 +11878,7 @@ body.codex-media-library-active #app {
   overflow: hidden;
   margin: 0;
   border: 0;
-  border-radius: 16px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   aspect-ratio: 4 / 3;
   padding: 0;
@@ -11958,10 +11948,10 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-moments-composer__toolbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 #codex-media-library-root .cml-moments-composer__toolbar-copy {
@@ -11987,8 +11977,8 @@ body.codex-media-library-active #app {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 18px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 #codex-media-library-root .cml-moments-composer__action-group,
@@ -12003,7 +11993,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-moments-composer__ghost {
-  min-height: 40px;
+  min-height: 36px;
   padding: 0 14px;
   border: 0;
   border-radius: 999px;
@@ -12017,18 +12007,18 @@ body.codex-media-library-active #app {
   z-index: 120;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: 22px;
   background: rgba(8, 10, 14, 0.56);
   backdrop-filter: blur(10px);
 }
 
 #codex-media-library-root .cml-moments-picker__panel {
   width: min(920px, 100%);
-  max-height: min(80vh, 760px);
+  max-height: min(84vh, 780px);
   overflow: auto;
-  padding: 18px;
+  padding: 0;
   border: 1px solid var(--cml-theme-card-border, rgba(255, 255, 255, 0.08));
-  border-radius: 24px;
+  border-radius: 16px;
   background: var(--cml-theme-surface-elevated, rgba(24, 26, 31, 0.96));
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
 }
@@ -12042,7 +12032,22 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-moments-picker__header {
-  margin-bottom: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 16px 18px 12px;
+  background: var(--cml-theme-surface-elevated, rgba(24, 26, 31, 0.96));
+  border-bottom: 1px solid var(--cml-theme-card-border, rgba(255, 255, 255, 0.08));
+}
+
+#codex-media-library-root .cml-moments-picker__eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.5));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-moments-picker__header h3 {
@@ -12050,19 +12055,33 @@ body.codex-media-library-active #app {
   font-size: 18px;
 }
 
+#codex-media-library-root .cml-moments-picker__close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cml-theme-hover, rgba(255, 255, 255, 0.08));
+  color: inherit;
+}
+
 #codex-media-library-root .cml-moments-picker__grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 8px;
+  padding: 16px 18px;
 }
 
 #codex-media-library-root .cml-moments-picker__item {
+  position: relative;
   overflow: hidden;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   aspect-ratio: 1;
+  cursor: pointer;
 }
 
 #codex-media-library-root .cml-moments-picker__item.is-selected {
@@ -12071,19 +12090,65 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-moments-picker__image {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
+#codex-media-library-root .cml-moments-picker__check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--cml-theme-accent, #6c7cff);
+  color: var(--cml-text-on-accent, #fff);
+  opacity: 0;
+  transform: scale(0.88);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+#codex-media-library-root .cml-moments-picker__item.is-selected .cml-moments-picker__check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+#codex-media-library-root .cml-moments-picker__footer {
+  position: sticky;
+  bottom: 0;
+  padding: 12px 18px 16px;
+  background: var(--cml-theme-surface-elevated, rgba(24, 26, 31, 0.96));
+  border-top: 1px solid var(--cml-theme-card-border, rgba(255, 255, 255, 0.08));
+}
+
+#codex-media-library-root .cml-moments-picker__meta,
+#codex-media-library-root .cml-moments-picker__empty {
+  color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.58));
+  font-size: 13px;
+}
+
+#codex-media-library-root .cml-moments-picker__empty {
+  padding: 38px 18px;
+  text-align: center;
+}
+
 #codex-media-library-root .cml-moments-picker__apply {
-  min-height: 40px;
+  min-height: 38px;
   padding: 0 16px;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--cml-theme-accent, #5967ff), var(--cml-theme-accent-strong, #3141d8));
+  background: var(--cml-theme-accent, #5967ff);
   color: var(--cml-text-on-accent, #fff);
   font-weight: 700;
+}
+
+#codex-media-library-root .cml-moments-picker__apply:disabled {
+  cursor: default;
+  opacity: 0.42;
 }
 
 #codex-media-library-root .cml-moments-composer__secondary,
@@ -12100,19 +12165,23 @@ body.codex-media-library-active #app {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
+  min-height: 36px;
+  padding: 0 12px;
   background: var(--cml-theme-hover, rgba(255, 255, 255, 0.08));
 }
 
 #codex-media-library-root .cml-moments-composer__count {
-  margin-right: auto;
   color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.62));
   font-size: 13px;
 }
 
 #codex-media-library-root .cml-moments-composer__publish {
-  padding: 11px 20px;
-  background: linear-gradient(135deg, var(--cml-theme-accent, #5967ff), var(--cml-theme-accent-strong, #3141d8));
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  background: var(--cml-theme-accent, #5967ff);
   color: var(--cml-text-on-accent, #fff);
   font-weight: 700;
 }
@@ -12120,13 +12189,15 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-moments-feed {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 16px;
 }
 
 #codex-media-library-root .cml-moments__hero {
-  display: grid;
-  gap: 10px;
-  padding: 8px 4px 2px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 2px 2px 0;
 }
 
 #codex-media-library-root .cml-moments__hero p {
@@ -12134,20 +12205,47 @@ body.codex-media-library-active #app {
   color: rgba(220, 227, 244, 0.44);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 #codex-media-library-root .cml-moments__hero h1 {
   margin: 0;
-  font-size: clamp(30px, 4.2vw, 54px);
+  font-size: 36px;
   line-height: 1.04;
-  letter-spacing: -0.06em;
+  letter-spacing: 0;
 }
 
-#codex-media-library-root .cml-moments__hero-note {
-  color: rgba(220, 227, 244, 0.54);
-  font-size: 14px;
+#codex-media-library-root .cml-moments__stats {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+#codex-media-library-root .cml-moments__stats span {
+  display: grid;
+  min-width: 72px;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--cml-theme-card-border, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+#codex-media-library-root .cml-moments__stats strong {
+  color: rgba(245, 247, 251, 0.94);
+  font-size: 15px;
+  font-weight: 760;
+  line-height: 1;
+}
+
+#codex-media-library-root .cml-moments__stats em {
+  color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.56));
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.2;
 }
 
 #codex-media-library-root .cml-moment-card__header {
@@ -12213,15 +12311,17 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-moment-card__body {
-  margin: 16px 0 16px;
+  margin: 14px 0;
   color: rgba(245, 247, 251, 0.94);
-  line-height: 1.78;
-  font-size: 18px;
+  line-height: 1.68;
+  font-size: 16px;
   white-space: pre-wrap;
 }
 
 #codex-media-library-root .cml-moment-card {
-  padding: 22px;
+  padding: 18px;
+  content-visibility: auto;
+  contain-intrinsic-size: 520px;
 }
 
 #codex-media-library-root .cml-moment-card__footer {
@@ -12284,8 +12384,10 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-moments__rail {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
   min-width: 0;
+  position: sticky;
+  top: 18px;
 }
 
 #codex-media-library-root .cml-moments-calendar__header,
@@ -12299,14 +12401,14 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-moments-calendar h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
 }
 
 #codex-media-library-root .cml-moments-calendar__weekdays,
 #codex-media-library-root .cml-moments-calendar__grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
   text-align: center;
 }
 
@@ -12321,6 +12423,7 @@ body.codex-media-library-active #app {
   display: grid;
   aspect-ratio: 1;
   place-items: center;
+  border-radius: 8px;
   background: transparent;
   color: var(--cml-theme-text, rgba(245, 247, 251, 0.9));
 }
@@ -12357,10 +12460,12 @@ body.codex-media-library-active #app {
 @media (max-width: 900px) {
   #codex-media-library-root .cml-moments {
     grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   #codex-media-library-root .cml-moments__rail {
     order: 0;
+    position: static;
   }
 
   #codex-media-library-root .cml-moments__main {
@@ -12373,6 +12478,36 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-moment-card__photos,
   #codex-media-library-root .cml-moments-day-wall__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #codex-media-library-root .cml-moments__hero,
+  #codex-media-library-root .cml-moments-composer__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #codex-media-library-root .cml-moments__stats {
+    justify-content: stretch;
+  }
+
+  #codex-media-library-root .cml-moments__stats span {
+    flex: 1 1 30%;
+  }
+
+  #codex-media-library-root .cml-moments-composer__action-group,
+  #codex-media-library-root .cml-moments-composer__submit-group {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  #codex-media-library-root .cml-moments-picker {
+    padding: 12px;
+  }
+
+  #codex-media-library-root .cml-moments-picker__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 12px;
   }
 }
 #codex-media-library-root .cml-films-library-search input::-webkit-search-decoration,

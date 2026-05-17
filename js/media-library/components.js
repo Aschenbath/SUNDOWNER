@@ -1093,12 +1093,12 @@ function renderMomentDraftGrid(draftAttachments = [], { isPublishing = false } =
 }
 
 function renderMomentsComposer({ draftBody = '', draftAttachments = [], isPublishing = false, isEditing = false, error = '' } = {}) {
+  const publishIcon = isEditing ? icon('save') : icon('plus');
   return `
     <section class="cml-moments-composer" data-moments-composer>
       <input type="file" data-moment-file-input accept="image/*" multiple hidden>
       <div class="cml-moments-composer__toolbar">
         <div class="cml-moments-composer__toolbar-copy">
-          <span class="cml-moments-composer__eyebrow">Moments</span>
           <strong>${isEditing ? '编辑这一刻' : '说说此刻'}</strong>
         </div>
         <span class="cml-moments-composer__count">${draftAttachments.length}/9</span>
@@ -1109,13 +1109,13 @@ function renderMomentsComposer({ draftBody = '', draftAttachments = [], isPublis
       <footer class="cml-moments-composer__actions">
         <div class="cml-moments-composer__action-group">
           <button type="button" class="cml-moments-composer__secondary" data-action="choose-moment-photos" ${isPublishing ? 'disabled' : ''}>${icon('image')}<span>图片</span></button>
-          <button type="button" class="cml-moments-composer__secondary cml-moments-composer__existing" data-action="open-moments-photo-picker" ${isPublishing ? 'disabled' : ''}>Choose from Photos</button>
+          <button type="button" class="cml-moments-composer__secondary cml-moments-composer__existing" data-action="open-moments-photo-picker" aria-label="Choose from Photos" ${isPublishing ? 'disabled' : ''}>${icon('photos')}<span>Photos</span></button>
         </div>
         <div class="cml-moments-composer__submit-group">
           ${isEditing
             ? `<button type="button" class="cml-moments-composer__ghost" data-action="cancel-moment-edit" ${isPublishing ? 'disabled' : ''}>Cancel edit</button>
-               <button type="button" class="cml-moments-composer__publish" data-action="save-moment" ${isPublishing ? 'disabled' : ''}>${isPublishing ? '保存中...' : 'Save changes'}</button>`
-            : `<button type="button" class="cml-moments-composer__publish" data-action="publish-moment" ${isPublishing ? 'disabled' : ''}>${isPublishing ? '发布中...' : '发布'}</button>`}
+               <button type="button" class="cml-moments-composer__publish" data-action="save-moment" ${isPublishing ? 'disabled' : ''}>${publishIcon}<span>${isPublishing ? '保存中...' : 'Save changes'}</span></button>`
+            : `<button type="button" class="cml-moments-composer__publish" data-action="publish-moment" ${isPublishing ? 'disabled' : ''}>${publishIcon}<span>${isPublishing ? '发布中...' : '发布'}</span></button>`}
         </div>
       </footer>
     </section>
@@ -1248,27 +1248,52 @@ function renderMomentsPicker({ open = false, items = [], selectedIds = [] } = {}
   if (!open) {
     return '';
   }
+  const selectedIdSet = new Set(selectedIds.map((id) => String(id)));
+  const selectedCount = selectedIdSet.size;
+  const applyLabel = selectedCount ? `Add ${selectedCount}` : 'Add selected';
 
   return `
     <div class="cml-moments-picker" data-moments-picker>
       <div class="cml-moments-picker__panel">
         <header class="cml-moments-picker__header">
-          <h3>Choose from Photos</h3>
-          <button type="button" data-action="close-moments-photo-picker" aria-label="Close picker">${icon('close')}</button>
+          <div>
+            <span class="cml-moments-picker__eyebrow">Photos</span>
+            <h3>Choose from Photos</h3>
+          </div>
+          <button type="button" class="cml-moments-picker__close" data-action="close-moments-photo-picker" aria-label="Close picker">${icon('close')}</button>
         </header>
-        <div class="cml-moments-picker__grid">
-          ${items.map((item) => `
-            <button type="button" class="cml-moments-picker__item ${selectedIds.includes(item.id) ? 'is-selected' : ''}" data-action="toggle-moments-picker-photo" data-id="${escapeHtml(item.id)}" aria-pressed="${selectedIds.includes(item.id) ? 'true' : 'false'}">
+        ${items.length ? `
+          <div class="cml-moments-picker__grid">
+          ${items.map((item) => {
+            const isSelected = selectedIdSet.has(String(item.id));
+            return `
+            <button type="button" class="cml-moments-picker__item ${isSelected ? 'is-selected' : ''}" data-action="toggle-moments-picker-photo" data-id="${escapeHtml(item.id)}" aria-pressed="${isSelected ? 'true' : 'false'}">
               ${renderMediaAsset(item, 'cml-moments-picker__image', false, { noAction: true })}
+              <span class="cml-moments-picker__check" aria-hidden="true">${icon('check')}</span>
             </button>
-          `).join('')}
-        </div>
+          `;
+          }).join('')}
+          </div>
+        ` : '<div class="cml-moments-picker__empty">No Photos available.</div>'}
         <footer class="cml-moments-picker__footer">
-          <button type="button" class="cml-moments-picker__apply" data-action="apply-moments-photo-picker">Add selected</button>
+          <span class="cml-moments-picker__meta">${items.length} recent photos</span>
+          <button type="button" class="cml-moments-picker__apply" data-action="apply-moments-photo-picker" ${selectedCount ? '' : 'disabled'}>${escapeHtml(applyLabel)}</button>
         </footer>
       </div>
     </div>
   `;
+}
+
+function formatMomentSelectedDate(value = '') {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return 'Today';
+  }
+  const parts = normalized.split('-');
+  if (parts.length === 3) {
+    return `${parts[1]}.${parts[2]}`;
+  }
+  return normalized;
 }
 
 export function MomentsView({
@@ -1288,11 +1313,23 @@ export function MomentsView({
   authorAvatarData = '',
   error = ''
 } = {}) {
+  const totalPhotos = posts.reduce((sum, post) => sum + (post.attachments?.length || 0), 0);
+  const selectedDayPhotos = posts
+    .filter((post) => post.date === selectedDate)
+    .reduce((sum, post) => sum + (post.attachments?.length || 0), 0);
   return `
     <section class="cml-moments" data-moments-view>
       <div class="cml-moments__main">
         <header class="cml-moments__hero">
-          <p>Moments</p>
+          <div>
+            <p>Private journal</p>
+            <h1>Moments</h1>
+          </div>
+          <div class="cml-moments__stats" aria-label="Moments summary">
+            <span><strong>${posts.length}</strong><em>Posts</em></span>
+            <span><strong>${totalPhotos}</strong><em>Photos</em></span>
+            <span><strong>${escapeHtml(formatMomentSelectedDate(selectedDate))}</strong><em>${selectedDayPhotos} selected</em></span>
+          </div>
         </header>
         ${renderMomentsComposer({ draftBody, draftAttachments, isPublishing, isEditing, error })}
         ${renderMomentsPicker({ open: pickerOpen, items: pickerItems, selectedIds: pickerSelectedIds })}
