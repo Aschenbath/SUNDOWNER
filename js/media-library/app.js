@@ -535,6 +535,7 @@ const AUDIO_MODE_REPEAT_ONE = 'repeat-one';
 const AUDIO_MODE_SHUFFLE = 'shuffle';
 const MIND_SETTINGS_STORAGE_KEY = 'codex-media-library-mind-settings';
 const MIND_STATE_FRESH_MS = 30000;
+const MOMENTS_CACHE_KEY = 'codex-media-library-moments-cache';
 
 function loadStringSet(key) {
   const values = loadJson(key, []);
@@ -4803,6 +4804,22 @@ function applyMomentsPayload(payload = {}, { preserveSelection = false } = {}) {
   setMomentSelectedDate(nextSelectedDate, { syncMonth: true });
 }
 
+function readCachedMomentsPayload() {
+  const cached = loadJson(MOMENTS_CACHE_KEY, null);
+  return cached && typeof cached === 'object' ? cached : null;
+}
+
+function persistMomentsPayload(payload = {}) {
+  saveJson(MOMENTS_CACHE_KEY, {
+    posts: state.momentsPosts,
+    datesWithPhotos: state.momentsDatesWithPhotos,
+    selectedDate: state.momentsSelectedDate,
+    calendarMonth: state.momentsCalendarMonth,
+    cachedAt: Date.now(),
+    ...payload,
+  });
+}
+
 function buildMomentDayItems(date = state.momentsSelectedDate) {
   const normalizedDate = normalizeText(date);
   if (!normalizedDate) {
@@ -4873,6 +4890,7 @@ async function loadMoments({ forceRender = false, background = false } = {}) {
   momentsStatePromise = fetchMomentsJson('/api/manage/moments')
     .then((payload) => {
       applyMomentsPayload(payload, { preserveSelection: true });
+      persistMomentsPayload({ posts: state.momentsPosts, datesWithPhotos: state.momentsDatesWithPhotos });
       state.momentsHydrated = true;
       state.momentsError = '';
       return payload;
@@ -15327,6 +15345,11 @@ function mount() {
     void loadMindState({ forceRender: false, mirrorAfterLoad: true });
   }
   if (state.primaryFilter === 'Moments' && !state.momentsHydrated && !state.momentsLoading) {
+    const cachedMoments = readCachedMomentsPayload();
+    if (cachedMoments?.posts) {
+      applyMomentsPayload(cachedMoments, { preserveSelection: true });
+      state.momentsHydrated = true;
+    }
     void loadMoments({ forceRender: false });
   }
   if (state.primaryFilter !== 'Moments') {
@@ -17808,7 +17831,15 @@ function handleClick(event) {
           render();
           void loadMoments({ forceRender: false, background: true });
         } else {
-          void loadMoments({ forceRender: true });
+          const cachedMoments = readCachedMomentsPayload();
+          if (cachedMoments?.posts) {
+            applyMomentsPayload(cachedMoments, { preserveSelection: true });
+            state.momentsHydrated = true;
+            render();
+            void loadMoments({ forceRender: false, background: true });
+          } else {
+            void loadMoments({ forceRender: true });
+          }
         }
       }
       return;

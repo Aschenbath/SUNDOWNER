@@ -137,6 +137,8 @@ describe('Moments app helpers', () => {
 
   it('skips the full library sync on the critical path when mounting directly into Moments', () => {
     assert.match(appSource, /if \(state\.primaryFilter === 'Moments' && !state\.momentsHydrated && !state\.momentsLoading\) \{/);
+    assert.match(appSource, /loadJson\(MOMENTS_CACHE_KEY, null\)/);
+    assert.match(appSource, /saveJson\(MOMENTS_CACHE_KEY,/);
     assert.match(appSource, /void loadMoments\(\{ forceRender: false \}\)/);
     assert.match(appSource, /if \(state\.primaryFilter !== 'Moments'\) \{\s*syncLiveMedia\(\{ forceRender: false \}\);/);
     assert.match(appSource, /await loadMoments\(\{ forceRender: false, background: true \}\)/);
