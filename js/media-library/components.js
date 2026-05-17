@@ -1151,7 +1151,6 @@ function renderMomentsFeed({ posts = [], authorName = 'Aschenbath', authorAvatar
               ${renderAvatarVisual({ displayName: authorName, avatarData: authorAvatarData })}
               <div class="cml-moment-card__meta">
                 <strong>${escapeHtml(authorName || 'Aschenbath')}</strong>
-                <time class="cml-moment-card__stamp" datetime="${escapeHtml(post.createdAt || '')}">${escapeHtml(formatFileDate(post.createdAt))}</time>
               </div>
             </div>
             <div class="cml-moment-card__actions">
@@ -1161,6 +1160,9 @@ function renderMomentsFeed({ posts = [], authorName = 'Aschenbath', authorAvatar
           </header>
           ${post.body ? `<p class="cml-moment-card__body">${escapeHtml(post.body)}</p>` : ''}
           ${(post.attachments && post.attachments.length) ? renderMomentImageGrid(post.attachments) : ''}
+          <footer class="cml-moment-card__footer">
+            <time class="cml-moment-card__stamp" datetime="${escapeHtml(post.createdAt || '')}">${escapeHtml(formatFileDate(post.createdAt))}</time>
+          </footer>
         </article>
       `).join('')}
     </section>

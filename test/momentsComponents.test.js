@@ -99,6 +99,7 @@ describe('Moments components', () => {
     assert.match(html, /Aschenbath/);
     assert.match(html, /cml-moment-card__actions/);
     assert.match(html, /cml-moment-card__stamp/);
+    assert.match(html, /cml-moment-card__footer/);
     assert.match(html, /data-action="edit-moment"/);
     assert.match(html, /data-action="delete-moment"/);
     assert.match(html, /data-action="open-preview"/);
