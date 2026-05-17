@@ -128,8 +128,6 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /loadMoments\(\{ forceRender: true \}\)/);
     assert.match(appSource, /data-moments-draft-input/);
     assert.match(appSource, /state\.momentsDraftBody = input\.value/);
-    assert.match(appSource, /move-moment-draft-file-left/);
-    assert.match(appSource, /move-moment-draft-file-right/);
     assert.match(appSource, /dragstart/);
     assert.match(appSource, /let draggedMomentDraftIndex = -1;/);
     assert.match(appSource, /new FormData\(\)/);

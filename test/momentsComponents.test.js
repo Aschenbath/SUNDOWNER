@@ -184,8 +184,7 @@ describe('Moments components', () => {
     assert.match(html, /data-action="apply-moments-photo-picker"/);
     assert.match(html, /cml-moments-composer__preview-grid/);
     assert.match(html, /cml-moment-card__photos--double/);
-    assert.match(html, /data-action="move-moment-draft-file-left"/);
-    assert.match(html, /data-action="move-moment-draft-file-right"/);
+    assert.match(html, /cml-moments-composer__drag-handle/);
     assert.match(html, /draggable="true"/);
     assert.match(html, /data-moment-draft-index="0"/);
   });

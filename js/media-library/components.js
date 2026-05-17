@@ -1083,8 +1083,7 @@ function renderMomentDraftGrid(draftAttachments = [], { isPublishing = false } =
         <figure class="cml-moment-card__photo cml-moments-composer__preview" data-moment-draft-index="${index}" data-drag-handle="moment-preview" draggable="true">
           <img class="cml-moment-card__image" src="${escapeHtml(file.previewUrl || '')}" alt="${escapeHtml(file.name || `Photo ${index + 1}`)}" loading="lazy" decoding="async">
           <div class="cml-moments-composer__preview-actions">
-            <button type="button" class="cml-moments-composer__drag-handle" data-action="move-moment-draft-file-left" data-index="${index}" aria-label="Move photo left" ${isPublishing || index === 0 ? 'disabled' : ''}>${icon('previous')}</button>
-            <button type="button" class="cml-moments-composer__drag-handle" data-action="move-moment-draft-file-right" data-index="${index}" aria-label="Move photo right" ${isPublishing || index === draftAttachments.length - 1 ? 'disabled' : ''}>${icon('next')}</button>
+            <span class="cml-moments-composer__drag-handle" aria-hidden="true">${icon('drag')}</span>
             <button type="button" class="cml-moments-composer__remove" data-action="remove-moment-draft-file" data-index="${index}" aria-label="Remove photo" ${isPublishing ? 'disabled' : ''}>${icon('close')}</button>
           </div>
         </figure>
