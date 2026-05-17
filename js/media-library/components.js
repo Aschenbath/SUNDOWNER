@@ -1138,6 +1138,7 @@ function renderMomentsFeed({ posts = [], authorName = 'Aschenbath', authorAvatar
               <strong>${escapeHtml(authorName || 'Aschenbath')}</strong>
               <time datetime="${escapeHtml(post.createdAt || '')}">${escapeHtml(formatFileDate(post.createdAt))}</time>
             </div>
+            <button type="button" class="cml-moment-card__delete" data-action="edit-moment" data-id="${escapeHtml(post.id)}" aria-label="Edit Moment">${icon('edit')}</button>
             <button type="button" class="cml-moment-card__delete" data-action="delete-moment" data-id="${escapeHtml(post.id)}" aria-label="Delete Moment">${icon('trash')}</button>
           </header>
           ${post.body ? `<p class="cml-moment-card__body">${escapeHtml(post.body)}</p>` : ''}

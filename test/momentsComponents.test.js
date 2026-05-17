@@ -77,6 +77,7 @@ describe('Moments components', () => {
     assert.match(html, /data-moments-day-wall/);
     assert.match(html, /今天云很好看/);
     assert.match(html, /Aschenbath/);
+    assert.match(html, /data-action="edit-moment"/);
     assert.match(html, /data-action="delete-moment"/);
     assert.match(html, /data-action="open-preview"/);
     assert.match(html, /data-id="Moments\/2026-05-16\/cloud space\.jpg"/);
