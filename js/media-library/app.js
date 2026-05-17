@@ -4861,7 +4861,7 @@ async function fetchMomentsJson(url, options = {}) {
   return data;
 }
 
-async function loadMoments({ forceRender = false } = {}) {
+async function loadMoments({ forceRender = false, background = false } = {}) {
   if (momentsStatePromise) {
     return momentsStatePromise;
   }
@@ -15297,6 +15297,11 @@ function mount() {
   }
   if (state.primaryFilter !== 'Moments') {
     syncLiveMedia({ forceRender: false });
+    scheduleDeferredStartupTask(async () => {
+      if (!state.momentsHydrated && !state.momentsLoading) {
+        await loadMoments({ forceRender: false, background: true });
+      }
+    }, { timeoutMs: 600 });
   }
   void syncStorageSummary({ forceRender: false });
   if (!state.adminUsername) {
@@ -17708,8 +17713,13 @@ function handleClick(event) {
       if (state.primaryFilter === 'Films') {
         void warmFilmSearch();
       }
-      if (state.primaryFilter === 'Moments' && !state.momentsHydrated && !state.momentsLoading) {
-        void loadMoments({ forceRender: true });
+      if (state.primaryFilter === 'Moments' && !state.momentsLoading) {
+        if (state.momentsHydrated) {
+          render();
+          void loadMoments({ forceRender: false, background: true });
+        } else {
+          void loadMoments({ forceRender: true });
+        }
       }
       return;
     }

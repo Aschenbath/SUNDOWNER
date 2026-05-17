@@ -122,5 +122,7 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /if \(state\.primaryFilter === 'Moments' && !state\.momentsHydrated && !state\.momentsLoading\) \{/);
     assert.match(appSource, /void loadMoments\(\{ forceRender: false \}\)/);
     assert.match(appSource, /if \(state\.primaryFilter !== 'Moments'\) \{\s*syncLiveMedia\(\{ forceRender: false \}\);/);
+    assert.match(appSource, /await loadMoments\(\{ forceRender: false, background: true \}\)/);
+    assert.match(appSource, /if \(state\.momentsHydrated\) \{\s*render\(\);\s*void loadMoments\(\{ forceRender: false, background: true \}\);/);
   });
 });
