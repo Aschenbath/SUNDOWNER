@@ -12345,29 +12345,6 @@ body.codex-media-library-active #app {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-#codex-media-library-root .cml-moments-day-wall__summary {
-  display: grid;
-  gap: 10px;
-}
-
-#codex-media-library-root .cml-moments-day-wall__summary-count {
-  color: rgba(245, 247, 251, 0.92);
-  font-size: 18px;
-  font-weight: 700;
-}
-
-#codex-media-library-root .cml-moments-day-wall__summary-time {
-  color: rgba(220, 227, 244, 0.52);
-  font-size: 12px;
-}
-
-#codex-media-library-root .cml-moments-day-wall__summary-copy {
-  margin: 0;
-  color: rgba(220, 227, 244, 0.72);
-  font-size: 14px;
-  line-height: 1.6;
-}
-
 #codex-media-library-root .cml-moments-day-wall__empty,
 #codex-media-library-root .cml-moments-empty,
 #codex-media-library-root .cml-moments-loading {

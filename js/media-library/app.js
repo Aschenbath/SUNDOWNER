@@ -535,7 +535,6 @@ const AUDIO_MODE_REPEAT_ONE = 'repeat-one';
 const AUDIO_MODE_SHUFFLE = 'shuffle';
 const MIND_SETTINGS_STORAGE_KEY = 'codex-media-library-mind-settings';
 const MIND_STATE_FRESH_MS = 30000;
-const MEDIA_CACHE_KEY = 'codex-media-library-media-cache';
 const MOMENTS_CACHE_KEY = 'codex-media-library-moments-cache';
 
 function loadStringSet(key) {
@@ -5523,15 +5522,6 @@ async function fetchListPage(start) {
   return response.json();
 }
 
-function readCachedMediaPayload() {
-  const cached = loadJson(MEDIA_CACHE_KEY, null);
-  return cached && typeof cached === 'object' ? cached : null;
-}
-
-function persistMediaPayload(payload = {}) {
-  saveJson(MEDIA_CACHE_KEY, payload);
-}
-
 async function fetchIndexedMediaItems(domItems) {
   const domLookup = buildDomLookup(domItems);
   const files = [];
@@ -5569,23 +5559,12 @@ async function fetchIndexedMediaItems(domItems) {
     .map(({ sortOrder, domIndex, ...item }) => item);
 
   const effectiveTotalCount = Math.max(totalCount, items.length);
-  const payload = {
+  return {
     items,
     totalCount: effectiveTotalCount,
     loadedCount: items.length,
     isTruncated: effectiveTotalCount > items.length
   };
-  persistMediaPayload({
-    items: payload.items,
-    librarySyncMeta: {
-      source: 'indexed',
-      totalCount: payload.totalCount,
-      loadedCount: payload.loadedCount,
-      isTruncated: payload.isTruncated,
-    },
-    cachedAt: Date.now(),
-  });
-  return payload;
 }
 
 function getAllItems() {
@@ -15359,22 +15338,9 @@ function mount() {
   lockDocumentScroll();
   markPerf('app-init-start');
   state.liveSyncAttempts = 0;
-  const cachedMediaPayload = readCachedMediaPayload();
-  if (cachedMediaPayload?.items?.length && state.mediaItems.length === 0) {
-    state.mediaItems = cachedMediaPayload.items;
-    state.librarySyncMeta = cachedMediaPayload.librarySyncMeta || state.librarySyncMeta;
-    state.isLibraryLoading = false;
-  }
   void loadPersistedAlbumState({ forceRender: false });
   void loadPersistedPlaylistState({ forceRender: false });
   void loadMovieEntries({ forceRender: false });
-  const cachedMediaPayload = readCachedMediaPayload();
-  if (cachedMediaPayload?.items?.length && state.mediaItems.length === 0) {
-    state.mediaItems = cachedMediaPayload.items;
-    state.librarySyncMeta = cachedMediaPayload.librarySyncMeta || state.librarySyncMeta;
-    state.isLibraryLoading = false;
-  }
-
   if (state.primaryFilter === 'Mind') {
     void loadMindState({ forceRender: false, mirrorAfterLoad: true });
   }
