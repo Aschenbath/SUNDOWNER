@@ -117,4 +117,10 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /URL\.createObjectURL\(/);
     assert.match(appSource, /URL\.revokeObjectURL\(/);
   });
+
+  it('skips the full library sync on the critical path when mounting directly into Moments', () => {
+    assert.match(appSource, /if \(state\.primaryFilter === 'Moments' && !state\.momentsHydrated && !state\.momentsLoading\) \{/);
+    assert.match(appSource, /void loadMoments\(\{ forceRender: false \}\)/);
+    assert.match(appSource, /if \(state\.primaryFilter !== 'Moments'\) \{\s*syncLiveMedia\(\{ forceRender: false \}\);/);
+  });
 });

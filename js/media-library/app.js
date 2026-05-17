@@ -15291,7 +15291,9 @@ function mount() {
   if (state.primaryFilter === 'Moments' && !state.momentsHydrated && !state.momentsLoading) {
     void loadMoments({ forceRender: false });
   }
-  syncLiveMedia({ forceRender: false });
+  if (state.primaryFilter !== 'Moments') {
+    syncLiveMedia({ forceRender: false });
+  }
   void syncStorageSummary({ forceRender: false });
   if (!state.adminUsername) {
     void fetchAdminIdentity();
