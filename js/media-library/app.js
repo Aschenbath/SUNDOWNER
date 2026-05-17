@@ -5524,29 +5524,12 @@ async function fetchListPage(start) {
 
 async function fetchIndexedMediaItems(domItems) {
   const domLookup = buildDomLookup(domItems);
-  const files = [];
-  let start = 0;
-  let totalCount = 0;
+  const firstPayload = await fetchListPage(0);
+  const firstFiles = safeArray(firstPayload?.files);
+  const firstReturnedCount = toPositiveNumber(firstPayload?.returnedCount, firstFiles.length);
+  const firstTotalCount = Math.max(firstFiles.length, toPositiveNumber(firstPayload?.totalCount, firstFiles.length));
 
-  while (start < API_MAX_ITEMS) {
-    const payload = await fetchListPage(start);
-    const pageFiles = safeArray(payload?.files);
-    if (!pageFiles.length) {
-      break;
-    }
-
-    files.push(...pageFiles);
-    const returnedCount = toPositiveNumber(payload?.returnedCount, pageFiles.length);
-    totalCount = Math.max(totalCount, toPositiveNumber(payload?.totalCount, files.length));
-    const shouldStop = returnedCount < API_PAGE_SIZE || files.length >= totalCount || files.length >= API_MAX_ITEMS;
-    if (shouldStop) {
-      break;
-    }
-
-    start += returnedCount;
-  }
-
-  const items = files
+  const initialItems = firstFiles
     .slice(0, API_MAX_ITEMS)
     .map((record, index) => buildIndexedMediaItem(record, domLookup, index))
     .filter(Boolean)
@@ -5558,13 +5541,59 @@ async function fetchIndexedMediaItems(domItems) {
     })
     .map(({ sortOrder, domIndex, ...item }) => item);
 
-  const effectiveTotalCount = Math.max(totalCount, items.length);
-  return {
-    items,
-    totalCount: effectiveTotalCount,
-    loadedCount: items.length,
-    isTruncated: effectiveTotalCount > items.length
+  const payload = {
+    items: initialItems,
+    totalCount: firstTotalCount,
+    loadedCount: initialItems.length,
+    isTruncated: firstTotalCount > initialItems.length
   };
+
+  scheduleDeferredStartupTask(async () => {
+    const files = [...firstFiles];
+    let start = firstReturnedCount;
+    let totalCount = firstTotalCount;
+
+    while (start < API_MAX_ITEMS) {
+      const nextPayload = await fetchListPage(start);
+      const pageFiles = safeArray(nextPayload?.files);
+      if (!pageFiles.length) {
+        break;
+      }
+      files.push(...pageFiles);
+      const returnedCount = toPositiveNumber(nextPayload?.returnedCount, pageFiles.length);
+      totalCount = Math.max(totalCount, toPositiveNumber(nextPayload?.totalCount, files.length));
+      const shouldStop = returnedCount < API_PAGE_SIZE || files.length >= totalCount || files.length >= API_MAX_ITEMS;
+      if (shouldStop) {
+        break;
+      }
+      start += returnedCount;
+    }
+
+    const fullItems = files
+      .slice(0, API_MAX_ITEMS)
+      .map((record, index) => buildIndexedMediaItem(record, domLookup, index))
+      .filter(Boolean)
+      .sort((left, right) => {
+        if (right.sortOrder !== left.sortOrder) {
+          return right.sortOrder - left.sortOrder;
+        }
+        return left.label.localeCompare(right.label);
+      })
+      .map(({ sortOrder, domIndex, ...item }) => item);
+
+    persistMediaPayload({
+      items: fullItems,
+      librarySyncMeta: {
+        source: 'indexed',
+        totalCount: Math.max(totalCount, fullItems.length),
+        loadedCount: fullItems.length,
+        isTruncated: Math.max(totalCount, fullItems.length) > fullItems.length,
+      },
+      cachedAt: Date.now(),
+    });
+  }, { timeoutMs: 300 });
+
+  return payload;
 }
 
 function getAllItems() {

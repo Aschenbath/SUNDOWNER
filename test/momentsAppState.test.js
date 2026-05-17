@@ -144,4 +144,11 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /await loadMoments\(\{ forceRender: false, background: true \}\)/);
     assert.match(appSource, /if \(state\.momentsHydrated\) \{\s*render\(\);\s*void loadMoments\(\{ forceRender: false, background: true \}\);/);
   });
+
+  it('progressively hydrates the Photos index instead of blocking first paint on every page', () => {
+    assert.match(appSource, /const firstPayload = await fetchListPage\(0\)/);
+    assert.match(appSource, /const initialItems = firstFiles/);
+    assert.match(appSource, /scheduleDeferredStartupTask\(async \(\) => \{/);
+    assert.match(appSource, /persistMediaPayload\(/);
+  });
 });
