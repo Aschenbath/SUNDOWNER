@@ -12,6 +12,12 @@ import { getUploadConfig, normalizeUploadSettings } from '../api/manage/sysConfi
 import { sanitizeUploadFolder, sanitizeFileName, moderateContent } from '../upload/uploadTools.js'
 import { resolveTelegramDedupeDecision, saveTelegramDedupeRecord } from './telegramDedupe.js'
 import { upsertTelegramMindMessage } from './mindStore.js'
+import {
+    buildTelegramMomentsDedupeKey,
+    extractMomentsCaptionBody,
+    shouldCreateMomentsFromTelegramMessage,
+} from './momentsTelegramSync.js'
+import { MomentsStore } from './momentsStore.js'
 
 const TELEGRAM_ALLOWED_UPDATES = ['channel_post', 'edited_channel_post']
 const TELEGRAM_ALBUM_COMMAND_PREFIX = 'telegram-sync@album-command@'
@@ -504,13 +510,35 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
     const staleFileIds = await cleanupStaleImportedFiles(context, prefix, fileId)
     await db.put(fileId, '', { metadata })
     await addFileToIndex(context, fileId, metadata)
-    await saveTelegramDedupeRecord(db, channel.name, messageId, {
+
+    const mediaGroupId = String(message.media_group_id || '')
+    const telegramDedupeRecord = {
         fileId,
         fileUniqueId,
         messageId,
-        mediaGroupId: String(message.media_group_id || ''),
+        mediaGroupId,
         lastTouchedAt: Date.now(),
-    })
+    }
+
+    const photoFileIds = [fileId]
+    if (shouldCreateMomentsFromTelegramMessage({ caption: message.caption || '', photoFileIds })) {
+        const momentsStore = new MomentsStore(context.env)
+        const momentsDedupeKey = buildTelegramMomentsDedupeKey({
+            chatId: message.chat?.id,
+            messageId: message.message_id,
+            mediaGroupId,
+        })
+        if (telegramDedupeRecord.momentsDedupeKey !== momentsDedupeKey) {
+            await momentsStore.createPost({
+                body: extractMomentsCaptionBody(message.caption || ''),
+                fileIds: photoFileIds.slice(0, 9),
+                now: Number(message.date || 0) * 1000 || Date.now(),
+            })
+            telegramDedupeRecord.momentsDedupeKey = momentsDedupeKey
+        }
+    }
+
+    await saveTelegramDedupeRecord(db, channel.name, messageId, telegramDedupeRecord)
 
     return {
         imported: true,
