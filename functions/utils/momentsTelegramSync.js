@@ -34,12 +34,12 @@ export function buildTelegramMomentsStateKey({ chatId = '', mediaGroupId = '', m
   return `${buildTelegramMomentsDedupeKey({ chatId, mediaGroupId, messageId })}:state`;
 }
 
-export function shouldUpsertTelegramMomentsPost({ caption = '', photoFileIds = [], mediaGroupId = '', previousState = null } = {}) {
+export function shouldUpsertTelegramMomentsPost({ caption = '', photoFileIds = [], mediaGroupId = '', previousState = null, existingPost = null } = {}) {
   if (!Array.isArray(photoFileIds) || photoFileIds.length === 0) {
     return false;
   }
   if (shouldCreateMomentsFromTelegramMessage({ caption, photoFileIds })) {
     return true;
   }
-  return Boolean(normalizeText(mediaGroupId) && previousState?.postId);
+  return Boolean(normalizeText(mediaGroupId) && (previousState?.postId || existingPost?.id));
 }

@@ -541,24 +541,24 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
     })
     const rawMomentsState = await db.get(stateKey)
     const previousState = rawMomentsState ? JSON.parse(rawMomentsState) : null
+    const momentsStore = new MomentsStore(context.env)
+    let postId = previousState?.postId || buildTelegramMomentsPostId({
+        chatId: message.chat?.id,
+        messageId: message.message_id,
+        mediaGroupId,
+    })
+    const existingPost = await momentsStore.getPost(postId)
 
     if (shouldUpsertTelegramMomentsPost({
         caption: message.caption || '',
         photoFileIds,
         mediaGroupId,
         previousState,
+        existingPost,
     })) {
-        const momentsStore = new MomentsStore(context.env)
-        const nextFileIds = [...new Set([...(previousState?.fileIds || []), ...photoFileIds])].slice(0, 9)
-        const postBody = previousState?.body || extractMomentsCaptionBody(message.caption || '')
-        const createdAt = previousState?.createdAt || (Number(message.date || 0) * 1000 || Date.now())
-
-        let postId = previousState?.postId || buildTelegramMomentsPostId({
-            chatId: message.chat?.id,
-            messageId: message.message_id,
-            mediaGroupId,
-        })
-        const existingPost = await momentsStore.getPost(postId)
+        const nextFileIds = [...new Set([...(previousState?.fileIds || []), ...existingPost?.attachments?.map((attachment) => attachment.fileId) || [], ...photoFileIds])].slice(0, 9)
+        const postBody = previousState?.body || existingPost?.body || extractMomentsCaptionBody(message.caption || '')
+        const createdAt = previousState?.createdAt || existingPost?.createdAt || (Number(message.date || 0) * 1000 || Date.now())
         if (existingPost) {
             const updated = await momentsStore.updatePost(postId, {
                 body: postBody,

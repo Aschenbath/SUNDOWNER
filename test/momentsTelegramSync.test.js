@@ -76,6 +76,19 @@ describe('momentsTelegramSync', () => {
     );
   });
 
+  it('keeps appending later media-group items when the deterministic post already exists even if state is missing', () => {
+    assert.equal(
+      shouldUpsertTelegramMomentsPost({
+        caption: '',
+        photoFileIds: ['b'],
+        mediaGroupId: 'group-1',
+        previousState: null,
+        existingPost: { id: 'telegram-moment:telegram-moments:100:group:group-1' },
+      }),
+      true,
+    );
+  });
+
   it('does not create or append without /moments intent or previous album state', () => {
     assert.equal(
       shouldUpsertTelegramMomentsPost({
@@ -83,6 +96,7 @@ describe('momentsTelegramSync', () => {
         photoFileIds: ['b'],
         mediaGroupId: 'group-1',
         previousState: null,
+        existingPost: null,
       }),
       false,
     );
