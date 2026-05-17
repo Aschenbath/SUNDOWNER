@@ -1293,8 +1293,6 @@ export function MomentsView({
       <div class="cml-moments__main">
         <header class="cml-moments__hero">
           <p>Moments</p>
-          <h1>把今天留在这里</h1>
-          <span class="cml-moments__hero-note">像朋友圈，但只写给自己看。</span>
         </header>
         ${renderMomentsComposer({ draftBody, draftAttachments, isPublishing, isEditing, error })}
         ${renderMomentsPicker({ open: pickerOpen, items: pickerItems, selectedIds: pickerSelectedIds })}
