@@ -14,6 +14,7 @@ import { resolveTelegramDedupeDecision, saveTelegramDedupeRecord } from './teleg
 import { upsertTelegramMindMessage } from './mindStore.js'
 import {
     buildTelegramMomentsDedupeKey,
+    buildTelegramMomentsStateKey,
     extractMomentsCaptionBody,
     shouldCreateMomentsFromTelegramMessage,
 } from './momentsTelegramSync.js'
@@ -529,6 +530,46 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
     }
 
     await saveTelegramDedupeRecord(db, channel.name, messageId, telegramDedupeRecord)
+
+    const photoFileIds = [fileId]
+    if (shouldCreateMomentsFromTelegramMessage({ caption: message.caption || '', photoFileIds })) {
+        const momentsStore = new MomentsStore(context.env)
+        const stateKey = buildTelegramMomentsStateKey({
+            chatId: message.chat?.id,
+            messageId: message.message_id,
+            mediaGroupId,
+        })
+        const rawMomentsState = await db.get(stateKey)
+        const previousState = rawMomentsState ? JSON.parse(rawMomentsState) : null
+        const nextFileIds = [...new Set([...(previousState?.fileIds || []), ...photoFileIds])].slice(0, 9)
+        const postBody = previousState?.body || extractMomentsCaptionBody(message.caption || '')
+        const createdAt = previousState?.createdAt || (Number(message.date || 0) * 1000 || Date.now())
+
+        let postId = previousState?.postId || ''
+        if (postId) {
+            const updated = await momentsStore.updatePost(postId, {
+                body: postBody,
+                fileIds: nextFileIds,
+                now: createdAt,
+            })
+            postId = updated?.id || postId
+        } else {
+            const created = await momentsStore.createPost({
+                body: postBody,
+                fileIds: nextFileIds,
+                now: createdAt,
+            })
+            postId = created?.id || ''
+        }
+
+        await db.put(stateKey, JSON.stringify({
+            postId,
+            body: postBody,
+            fileIds: nextFileIds,
+            createdAt,
+            lastTouchedAt: Date.now(),
+        }))
+    }
 
     return {
         imported: true,
