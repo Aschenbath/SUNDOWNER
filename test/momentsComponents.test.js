@@ -237,11 +237,8 @@ describe('Moments components', () => {
 
     const dayWall = html.match(/<section class="cml-moments-day-wall"[\s\S]*?<\/section>/);
     assert.ok(dayWall, 'expected day wall section to be rendered');
-    assert.match(dayWall[0], /cloud space.jpg/);
-    assert.match(dayWall[0], /data-id="Moments\/2026-05-16\/cloud space\.jpg"/);
-    assert.match(dayWall[0], /data-preview-source="\/file\/Moments\/2026-05-16\/cloud%20space\.jpg"/);
-    assert.match(dayWall[0], /src="\/file\/Moments\/2026-05-16\/cloud%20space\.jpg"/);
-    assert.doesNotMatch(dayWall[0], /data-preview-source="\/file\/Moments%2F2026-05-16%2Fcloud%20space\.jpg"/);
+    assert.match(dayWall[0], /1 photos/);
+    assert.match(dayWall[0], /今天云很好看/);
     assert.doesNotMatch(dayWall[0], /other.jpg/);
   });
 });

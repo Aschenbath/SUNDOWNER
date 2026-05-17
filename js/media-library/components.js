@@ -1215,29 +1215,21 @@ function renderMomentsCalendar({ selectedDate = '', calendarMonth = '', datesWit
 }
 
 function renderMomentsDayWall({ posts = [], selectedDate = '' } = {}) {
-  const attachments = posts
-    .filter((post) => post.date === selectedDate)
-    .flatMap((post) => post.attachments || []);
+  const dayPosts = posts.filter((post) => post.date === selectedDate);
+  const attachments = dayPosts.flatMap((post) => post.attachments || []);
+  const latestPost = dayPosts[0] || null;
 
   return `
     <section class="cml-moments-day-wall" data-moments-day-wall>
       <header class="cml-moments-day-wall__header">
-        <span>Photo wall</span>
+        <span>On this day</span>
         <strong>${escapeHtml(selectedDate || '')}</strong>
       </header>
       ${attachments.length ? `
-        <div class="cml-moments-day-wall__grid">
-          ${attachments.map((attachment) => {
-            const item = getMomentAttachmentItem(attachment);
-            const label = item.label || attachment.metadata?.FileName || 'Moment photo';
-            const actionId = item.id || attachment.fileId || '';
-            const previewSource = getMomentAttachmentPreviewSource(attachment);
-            return `
-              <button type="button" class="cml-moments-day-wall__item" data-action="open-preview" data-id="${escapeHtml(actionId)}" data-preview-source="${escapeHtml(previewSource)}" aria-label="Open ${escapeHtml(label)}">
-                ${renderMediaAsset(item, 'cml-moments-day-wall__image', false, { noAction: true })}
-              </button>
-            `;
-          }).join('')}
+        <div class="cml-moments-day-wall__summary">
+          <span class="cml-moments-day-wall__summary-count">${attachments.length} photos</span>
+          <span class="cml-moments-day-wall__summary-time">${escapeHtml(formatFileDate(latestPost?.createdAt || ''))}</span>
+          ${latestPost?.body ? `<p class="cml-moments-day-wall__summary-copy">${escapeHtml(latestPost.body)}</p>` : ''}
         </div>
       ` : '<p class="cml-moments-day-wall__empty">这天还没有照片。</p>'}
     </section>
