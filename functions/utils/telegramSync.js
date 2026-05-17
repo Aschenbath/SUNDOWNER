@@ -17,6 +17,7 @@ import {
     buildTelegramMomentsStateKey,
     extractMomentsCaptionBody,
     shouldCreateMomentsFromTelegramMessage,
+    shouldUpsertTelegramMomentsPost,
 } from './momentsTelegramSync.js'
 import { MomentsStore } from './momentsStore.js'
 
@@ -532,15 +533,21 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
     await saveTelegramDedupeRecord(db, channel.name, messageId, telegramDedupeRecord)
 
     const photoFileIds = [fileId]
-    if (shouldCreateMomentsFromTelegramMessage({ caption: message.caption || '', photoFileIds })) {
+    const stateKey = buildTelegramMomentsStateKey({
+        chatId: message.chat?.id,
+        messageId: message.message_id,
+        mediaGroupId,
+    })
+    const rawMomentsState = await db.get(stateKey)
+    const previousState = rawMomentsState ? JSON.parse(rawMomentsState) : null
+
+    if (shouldUpsertTelegramMomentsPost({
+        caption: message.caption || '',
+        photoFileIds,
+        mediaGroupId,
+        previousState,
+    })) {
         const momentsStore = new MomentsStore(context.env)
-        const stateKey = buildTelegramMomentsStateKey({
-            chatId: message.chat?.id,
-            messageId: message.message_id,
-            mediaGroupId,
-        })
-        const rawMomentsState = await db.get(stateKey)
-        const previousState = rawMomentsState ? JSON.parse(rawMomentsState) : null
         const nextFileIds = [...new Set([...(previousState?.fileIds || []), ...photoFileIds])].slice(0, 9)
         const postBody = previousState?.body || extractMomentsCaptionBody(message.caption || '')
         const createdAt = previousState?.createdAt || (Number(message.date || 0) * 1000 || Date.now())

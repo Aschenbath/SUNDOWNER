@@ -29,3 +29,13 @@ export function buildTelegramMomentsDedupeKey({ chatId = '', messageId = '', med
 export function buildTelegramMomentsStateKey({ chatId = '', mediaGroupId = '', messageId = '' } = {}) {
   return `${buildTelegramMomentsDedupeKey({ chatId, mediaGroupId, messageId })}:state`;
 }
+
+export function shouldUpsertTelegramMomentsPost({ caption = '', photoFileIds = [], mediaGroupId = '', previousState = null } = {}) {
+  if (!Array.isArray(photoFileIds) || photoFileIds.length === 0) {
+    return false;
+  }
+  if (shouldCreateMomentsFromTelegramMessage({ caption, photoFileIds })) {
+    return true;
+  }
+  return Boolean(normalizeText(mediaGroupId) && previousState?.postId);
+}

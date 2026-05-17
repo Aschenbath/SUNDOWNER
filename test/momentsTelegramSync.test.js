@@ -5,6 +5,7 @@ describe('momentsTelegramSync', () => {
   let shouldCreateMomentsFromTelegramMessage;
   let buildTelegramMomentsDedupeKey;
   let buildTelegramMomentsStateKey;
+  let shouldUpsertTelegramMomentsPost;
 
   before(async () => {
     ({
@@ -12,6 +13,7 @@ describe('momentsTelegramSync', () => {
       shouldCreateMomentsFromTelegramMessage,
       buildTelegramMomentsDedupeKey,
       buildTelegramMomentsStateKey,
+      shouldUpsertTelegramMomentsPost,
     } = await import('../functions/utils/momentsTelegramSync.js'));
   });
 
@@ -51,5 +53,29 @@ describe('momentsTelegramSync', () => {
     const keyB = buildTelegramMomentsStateKey({ chatId: '100', messageId: '201', mediaGroupId: 'group-1' });
     assert.equal(keyA, keyB);
     assert.match(keyA, /:state$/);
+  });
+
+  it('continues appending photo ids for later media-group items even when only the first item had /moments caption', () => {
+    assert.equal(
+      shouldUpsertTelegramMomentsPost({
+        caption: '',
+        photoFileIds: ['b'],
+        mediaGroupId: 'group-1',
+        previousState: { postId: 'moment-1', fileIds: ['a'] },
+      }),
+      true,
+    );
+  });
+
+  it('does not create or append without /moments intent or previous album state', () => {
+    assert.equal(
+      shouldUpsertTelegramMomentsPost({
+        caption: '',
+        photoFileIds: ['b'],
+        mediaGroupId: 'group-1',
+        previousState: null,
+      }),
+      false,
+    );
   });
 });
