@@ -47,7 +47,7 @@ import {
   VideoCategoryBar,
   YearScroller,
   buildJustifiedRows
-} from './components.js?v=100';
+} from './components.js?v=101';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -61,7 +61,7 @@ import {
   deriveMomentCalendarMonth,
   normalizeMomentDraftAttachments,
   normalizeMomentPosts,
-} from './moments-state.js';
+} from './moments-state.js?v=2';
 import {
   buildPickerPreserveFlags,
   canUseDistinctAlbumPicker,

@@ -62,6 +62,17 @@ describe('Moments app helpers', () => {
     assert.equal(item.height, 50);
   });
 
+  it('uses preview thumbnails for unsupported image formats while keeping the original source url', () => {
+    const item = buildMomentAttachmentItem({
+      fileId: 'Moments/2026-05-17/flower.heic',
+      metadata: { FileName: 'flower.heic', FileType: 'image/heic' },
+    });
+
+    assert.equal(item.sourceUrl, '/file/Moments/2026-05-17/flower.heic');
+    assert.equal(item.thumbnailUrl, '/file/Moments/2026-05-17/flower.heic?preview=1');
+    assert.equal(item.browserPreviewSupported, false);
+  });
+
   it('normalizes mixed draft attachments from upload and existing sources', () => {
     const draft = normalizeMomentDraftAttachments([
       { source: 'existing', fileId: 'Photos/2026-05-16/a.jpg', metadata: { FileName: 'a.jpg', FileType: 'image/jpeg' } },

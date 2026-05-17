@@ -33,6 +33,25 @@ const hydratedPosts = [{
   }],
 }];
 
+const telegramImportedPosts = [{
+  id: 'moment-telegram-1',
+  body: 'test',
+  createdAt: '2026-05-17T10:50:00.000Z',
+  date: '2026-05-17',
+  attachments: [{
+    item: {
+      id: 'tg_photo_1',
+      type: 'photo',
+      label: 'IMG_1565.JPG',
+      thumbnailUrl: '/file/tg_photo_1?preview=1',
+      sourceUrl: '/file/tg_photo_1',
+      mimeType: 'image/jpeg',
+      browserPreviewSupported: true,
+    },
+    metadata: { FileName: 'IMG_1565.JPG', FileType: 'image/jpeg', ListType: 'None' },
+  }],
+}];
+
 describe('Moments components', () => {
   it('adds Moments to primary navigation', () => {
     assert.ok(navigationModel.primary.includes('Moments'));
@@ -156,6 +175,25 @@ describe('Moments components', () => {
     assert.match(html, /data-action="open-moments-photo-picker"/);
     assert.match(html, /data-action="toggle-moments-picker-photo"/);
     assert.match(html, /data-action="apply-moments-photo-picker"/);
+  });
+
+  it('renders Telegram-imported Moments images as images instead of generic photo labels', () => {
+    const html = MomentsView({
+      posts: telegramImportedPosts,
+      isLoading: false,
+      isPublishing: false,
+      draftBody: '',
+      draftAttachments: [],
+      selectedDate: '2026-05-17',
+      calendarMonth: '2026-05',
+      datesWithPhotos: { '2026-05-17': 1 },
+      authorName: 'Aschenbath',
+      authorAvatarData: '',
+      error: '',
+    });
+
+    assert.match(html, /src="\/file\/tg_photo_1\?preview=1"/);
+    assert.doesNotMatch(html, />Photo<\/span>/);
   });
 
   it('shows only selected-day attachments in the day wall', () => {

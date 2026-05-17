@@ -17,12 +17,35 @@ function normalizeMomentDate(value) {
   return parsed.toISOString().slice(0, 10);
 }
 
-function buildMomentFileUrl(fileId = '') {
+function buildMomentFileUrl(fileId = '', queryParams = null) {
   const normalizedFileId = normalizeText(fileId);
   if (!normalizedFileId) {
     return '/file/';
   }
-  return `/file/${normalizedFileId.split('/').map((segment) => encodeURIComponent(segment)).join('/')}`;
+  const baseRoute = `/file/${normalizedFileId.split('/').map((segment) => encodeURIComponent(segment)).join('/')}`;
+  if (!queryParams || typeof queryParams !== 'object') {
+    return baseRoute;
+  }
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(queryParams)) {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.set(key, String(value));
+    }
+  }
+  const queryString = searchParams.toString();
+  return queryString ? `${baseRoute}?${queryString}` : baseRoute;
+}
+
+function supportsMomentBrowserImagePreview(mimeType = '') {
+  const normalized = normalizeText(mimeType).toLowerCase();
+  return [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/bmp',
+    'image/avif',
+  ].includes(normalized);
 }
 
 function readAttachmentMetadata(attachment = {}) {
@@ -92,6 +115,8 @@ export function buildMomentAttachmentItem(attachment = {}) {
   const width = toFiniteNumber(readMetadataValue(metadata, ['Width', 'width']));
   const height = toFiniteNumber(readMetadataValue(metadata, ['Height', 'height']));
   const mimeType = normalizeText(readMetadataValue(metadata, ['FileType', 'fileType', 'file_type'])).toLowerCase();
+  const browserPreviewSupported = !mimeType || supportsMomentBrowserImagePreview(mimeType);
+  const thumbnailUrl = browserPreviewSupported ? sourceUrl : buildMomentFileUrl(fileId, { preview: '1' });
 
   return {
     ...(attachment.item && typeof attachment.item === 'object' ? attachment.item : {}),
@@ -100,7 +125,8 @@ export function buildMomentAttachmentItem(attachment = {}) {
     type: 'photo',
     label,
     sourceUrl,
-    thumbnailUrl: sourceUrl,
+    thumbnailUrl,
+    browserPreviewSupported,
     ...(width ? { width } : {}),
     ...(height ? { height } : {}),
     ...(mimeType ? { mimeType } : {}),
