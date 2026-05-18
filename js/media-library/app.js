@@ -6103,7 +6103,17 @@ async function fetchListPage(start, count = API_PAGE_SIZE) {
     throw new Error(`List API returned ${response.status}`);
   }
 
-  return response.json();
+  const payload = await response.json();
+  if (payload?.listTiming) {
+    pushPerfDiagnosticRow({
+      action: `list:${payload.listTiming.queryPath}`,
+      duration: payload.listTiming.durationMs,
+      networkAwaited: true,
+      'network awaited': 'yes',
+      renderPath: 'network'
+    });
+  }
+  return payload;
 }
 
 async function fetchIndexedMediaItems(domItems, cachedMediaPayload = null) {

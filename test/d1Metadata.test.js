@@ -689,6 +689,9 @@ describe('D1 metadata migration path', () => {
         assert.equal(response.status, 200);
         const payload = await response.json();
         assert.equal(payload.isD1QueryResponse, true);
+        assert.ok(payload.listTiming);
+        assert.equal(typeof payload.listTiming.durationMs, 'number');
+        assert.match(payload.listTiming.queryPath, /d1/);
         assert.equal(payload.total, 3);
         assert.equal(payload.page, 2);
         assert.equal(payload.pageSize, 2);

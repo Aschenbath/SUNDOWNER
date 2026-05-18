@@ -587,6 +587,7 @@ export async function onRequest(context) {
     }
 
     const url = new URL(request.url);
+    const listStartedAt = Date.now();
 
     // 解析查询参数
     let start = parseInt(url.searchParams.get('start'), 10) || 0;
@@ -810,6 +811,13 @@ export async function onRequest(context) {
                 indexLastUpdated: Date.now(),
                 isIndexedResponse: true,
                 isD1QueryResponse: true,
+                listTiming: {
+                    queryPath: queryResult.supplementedCount > 0 ? 'd1-hybrid-supplement' : 'd1',
+                    durationMs: Math.max(0, Date.now() - listStartedAt),
+                    pageSize,
+                    returnedCount: compatibleFiles.length,
+                    kvSupplementSource: queryResult.kvSupplementSource || 'none'
+                },
                 ...(queryResult.supplementedCount > 0 ? {
                     isHybridSupplementedResponse: true,
                     d1TotalCount: queryResult.d1Total,
@@ -862,7 +870,14 @@ export async function onRequest(context) {
             directFolderCount: result.directFolderCount,
             returnedCount: result.returnedCount,
             indexLastUpdated: result.indexLastUpdated,
-            isIndexedResponse: true // 标记这是来自索引的响应
+            isIndexedResponse: true,
+            listTiming: {
+                queryPath: 'index',
+                durationMs: Math.max(0, Date.now() - listStartedAt),
+                pageSize: count,
+                returnedCount: compatibleFiles.length,
+                kvSupplementSource: 'none'
+            }
         }), {
             headers: { "Content-Type": "application/json", ...corsHeaders }
         });

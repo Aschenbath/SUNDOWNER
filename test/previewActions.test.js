@@ -2411,6 +2411,22 @@ describe('media library download actions', () => {
     assert.match(appSource, /switch \(true\)/);
   });
 
+
+  it('records backend list timing rows in perf diagnostics', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const fetchStart = appSource.indexOf('async function fetchListPage');
+    const fetchEnd = appSource.indexOf('async function fetchIndexedMediaItems', fetchStart);
+    assert.ok(fetchStart >= 0 && fetchEnd > fetchStart);
+    const fetchSource = appSource.slice(fetchStart, fetchEnd);
+
+    assert.match(fetchSource, /const payload = await response\.json\(\);/);
+    assert.match(fetchSource, /payload\?\.listTiming/);
+    assert.ok(fetchSource.includes('action: `list:${payload.listTiming.queryPath}`'));
+    assert.match(fetchSource, /duration: payload\.listTiming\.durationMs/);
+    assert.match(fetchSource, /networkAwaited: true/);
+    assert.match(fetchSource, /renderPath: 'network'/);
+  });
+
   it('reports full-render phases and view-model cost behind cmlPerf', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
