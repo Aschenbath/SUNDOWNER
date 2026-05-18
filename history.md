@@ -1,6 +1,6 @@
 # SUNDOWNER History
 
-Last consolidated: 2026-05-13
+Last consolidated: 2026-05-18
 
 This is the single project-memory entrypoint for SUNDOWNER. It absorbs the older
 history-like markdown files so future agents can start here, then inspect code
@@ -226,6 +226,16 @@ Known-good local test pattern:
 
 #### May
 
+##### 18th
+
+###### Work Log
+
+- 2026-05-18 16:40 | [music][perf][scroll] Bounded the Music queue rail to 12 visible rows, patched Music playback state locally instead of replacing the full library, and added `content-visibility` plus intrinsic sizing to Music rows and queue items so Chromium can skip offscreen layout during wheel scrolling. Cache: `entry-loader.js?v=5`, `app.js?v=310`, `components.js?v=108`, `moments-state.js?v=3`, `media-cache-merge.js?v=2`, `films-components.js?v=81`, `films-data.js?v=7`, `media-library.css?v=276`. Validation: Node 22 syntax checks for `app.js` and `components.js`; focused Music `previewActions.test.js --grep music` 8 passing; full Mocha 507 passing with 1 pending; `git diff --cached --check` clean before commit. Browser/live-app manual QA not run in this pass.
+
+###### Decision Capsules
+
+- [music-scroll-dom-budget] Symptom: Music wheel scrolling still felt sticky on large libraries. Cause: the route duplicated the full track set in the queue rail and rebuilt the whole music library on playback state changes, so the scroll path paid for too much DOM. Fix: keep the queue rail bounded, patch only rows/queue locally, and let Chromium skip offscreen rows with `content-visibility`. Guard: keep future Music playback updates local and avoid full-library rebuilds for play/pause/progress.
+
 ##### 14th
 
 ###### Work Log
@@ -379,7 +389,9 @@ Known-good local test pattern:
 
 - read-protocol: start with `Get-Content history.md -Tail 14`; then read latest day if the task touches active work.
 - canonical-history: `history.md` is now the single project-memory file; retired duplicates are recoverable from git history, not active docs.
-- current-focus: Photos scroll responsiveness without `content-visibility` placeholders; keep `applyDimensionPatch` silent so ordinary scroll never re-enters `render()`. Preserve the Moments save-UX baseline and the prior Photos D1/KV hybrid supplement, provider-identity dedupe, recycle-bin alias blocking, metadata fallback, timestamp sorting, absolute pagination, and legacy/generic `FileType` extension inference.
+- current-focus: Music wheel scrolling now uses a bounded queue rail plus local row/queue patching; Photos scroll keeps the no-placeholder regression fix, with `applyDimensionPatch` silent so ordinary scroll never re-enters `render()`.
+- latest-state: 2026-May-18 (music scroll perf rebased); Music queue rail is capped at 12 visible rows, playback updates patch rows/queue locally, and Music rows/queue items use offscreen layout hints. Photos keeps the prior scroll regression fix: no media-row `content-visibility` placeholders and no deferred dimension-patch render. Cache `entry-loader.js?v=5`, `app.js?v=310`, `components.js?v=108`, `moments-state.js?v=3`, `media-cache-merge.js?v=2`, `films-components.js?v=81`, `films-data.js?v=7`, `media-library.css?v=276`; SUNDOWNER local dev/test default port remains `8787`, not `8080`.
+- latest-validation: 2026-May-18 (music scroll perf rebased); Node 22 syntax checks for `app.js` and `components.js`; focused Music `previewActions.test.js --grep music` 8 passing; full Mocha 507 passing with 1 pending; `git diff --cached --check` clean before commit. Browser/live-app manual QA not run in this pass.
 - latest-state: 2026-May-18 (scroll regression-fix); reverted earlier `content-visibility: auto` + per-row `contain-intrinsic-size` after they showed dark placeholders during ordinary scroll; reverted the `lastTimelineScrollAt`/`TIMELINE_DIMENSION_PATCH_IDLE_MS` idle guard because the deferred `render()` was freezing slow mouse interaction; `applyDimensionPatch` is now state-only (no `render()`, no `requestAnimationFrame`). `TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD` stays at 720 so normal libraries stay mounted. Cache `entry-loader.js?v=5`, `app.js?v=309`, `components.js?v=107`, `moments-state.js?v=3`, `media-cache-merge.js?v=2`, `films-components.js?v=81`, `films-data.js?v=7`, `media-library.css?v=275`; SUNDOWNER local dev/test default port remains `8787`, not `8080`.
 - latest-validation: 2026-May-18 (scroll regression-fix); Node 22 focused `previewActions.test.js --grep "normal Photos timelines"` 1 passing; full Mocha 504 passing with 1 pending. Browser/live-app manual QA not run in this pass.
 - latest-state: 2026-May-18; Photos startup has failure-safe cache fallback and full-library supplement protection; Storage topbar primes from loaded Photos; Telegram previews clear before full photo swap; Moments edit previews use the photo tile itself as the only drag affordance; Moment edit saves now skip no-op requests and apply changed saves locally before silent/background PATCH with stale-response guards. Cache `entry-loader.js?v=5`, `app.js?v=307`, `components.js?v=107`, `moments-state.js?v=3`, `media-cache-merge.js?v=2`, `films-components.js?v=81`, `films-data.js?v=7`, `media-library.css?v=273`; SUNDOWNER local dev/test default port remains `8787`, not `8080`.

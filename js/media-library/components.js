@@ -1752,7 +1752,9 @@ function formatMusicAddedLabel(item = {}) {
   return escapeHtml(label || 'Just now');
 }
 
-function renderQueueRows(queueItems = [], currentId = '', isPlaying = false) {
+const MUSIC_QUEUE_RENDER_LIMIT = 12;
+
+function renderQueueRows(queueItems = [], currentId = '', isPlaying = false, { limit = MUSIC_QUEUE_RENDER_LIMIT } = {}) {
   if (!queueItems.length) {
     return `
       <div class="cml-music-queue__empty-shell">
@@ -1771,6 +1773,10 @@ function renderQueueRows(queueItems = [], currentId = '', isPlaying = false) {
   const upNextItems = currentItem
     ? queueItems.filter((item, index) => index !== activeIndex)
     : queueItems;
+  const renderLimit = Math.max(1, Number(limit) || MUSIC_QUEUE_RENDER_LIMIT);
+  const visibleUpNextLimit = currentItem ? Math.max(0, renderLimit - 1) : renderLimit;
+  const visibleUpNextItems = upNextItems.slice(0, visibleUpNextLimit);
+  const hiddenUpNextCount = Math.max(0, upNextItems.length - visibleUpNextItems.length);
   const renderQueueButton = (item, index, section = 'up-next') => {
     const itemId = escapeHtml(String(item.id || ''));
     const title = getAudioDisplayTitle(item);
@@ -1829,9 +1835,12 @@ function renderQueueRows(queueItems = [], currentId = '', isPlaying = false) {
         <span class="cml-music-queue__section-label">Up next</span>
         <span class="cml-music-queue__section-meta">${upNextItems.length === 1 ? '1 track' : `${upNextItems.length} tracks`}</span>
       </div>
-      ${upNextItems.length
-        ? `<div class="cml-music-queue__stack">${upNextItems.map((item, index) => renderQueueButton(item, index, 'up-next')).join('')}</div>`
+      ${visibleUpNextItems.length
+        ? `<div class="cml-music-queue__stack">${visibleUpNextItems.map((item, index) => renderQueueButton(item, index, 'up-next')).join('')}</div>`
         : '<div class="cml-music-queue__empty">No upcoming tracks yet.</div>'}
+      ${hiddenUpNextCount > 0
+        ? `<div class="cml-music-queue__more" aria-label="${hiddenUpNextCount} more tracks stay in queue">${hiddenUpNextCount} more tracks stay in queue.</div>`
+        : ''}
     </section>
   `;
 }
@@ -1977,7 +1986,6 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
   const currentId = String(audioState.currentId || '');
   const isPlaying = Boolean(audioState.isPlaying);
   const queueSource = queueItems.length ? queueItems : items;
-  const queueHtml = renderQueueRows(queueSource, currentId, isPlaying);
   const playlistLabel = activePlaylistName || 'All tracks';
 
   return `
@@ -2037,17 +2045,30 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
         </section>
       </div>
       <aside class="cml-music-library__aside">
-        <section class="cml-music-queue" aria-label="Music queue">
-          <div class="cml-music-queue__head">
-            <div class="cml-music-queue__head-copy">
-              <p class="cml-music-queue__eyebrow">Up next</p>
-              <h4 class="cml-music-queue__title">Up Next</h4>
-              <p class="cml-music-queue__description">Queue and playlists stay visible here without competing with the library.</p>
-            </div>
-          </div>
-          <div class="cml-music-queue__list">${queueHtml}</div>
-        </section>
+        ${MusicQueuePanel({
+          queueItems: queueSource,
+          audioState: { currentId, isPlaying }
+        })}
       </aside>
+    </section>
+  `;
+}
+
+export function MusicQueuePanel({ queueItems = [], audioState = {} } = {}) {
+  const currentId = String(audioState.currentId || '');
+  const isPlaying = Boolean(audioState.isPlaying);
+  const queueHtml = renderQueueRows(queueItems, currentId, isPlaying);
+
+  return `
+    <section class="cml-music-queue" aria-label="Music queue">
+      <div class="cml-music-queue__head">
+        <div class="cml-music-queue__head-copy">
+          <p class="cml-music-queue__eyebrow">Up next</p>
+          <h4 class="cml-music-queue__title">Up Next</h4>
+          <p class="cml-music-queue__description">Queue and playlists stay visible here without competing with the library.</p>
+        </div>
+      </div>
+      <div class="cml-music-queue__list">${queueHtml}</div>
     </section>
   `;
 }

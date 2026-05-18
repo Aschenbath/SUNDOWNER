@@ -2243,6 +2243,34 @@ describe('media library download actions', () => {
     assert.match(panelHtml, /data-audio-volume/);
   });
 
+  it('bounds the music queue side rail so large libraries do not duplicate every track', () => {
+    const items = Array.from({ length: 30 }, (_, index) => ({
+      id: `audio-${index}`,
+      type: 'audio',
+      label: `track-${index}.mp3`,
+      audioTitle: `Track ${index}`,
+      audioArtist: `Artist ${index % 4}`,
+      audioAlbum: `Album ${index % 3}`,
+      audioDuration: 180,
+      takenAt: '2026-05-14T10:00:00.000Z'
+    }));
+    const listHtml = MusicListView({
+      items,
+      state: { layoutWidth: 1440 },
+      audioState: { currentId: 'audio-3', isPlaying: true },
+      queueItems: items,
+      playlists: [{ name: 'Long Queue', itemCount: items.length }],
+      activePlaylistName: ''
+    });
+
+    const renderedQueueRows = (listHtml.match(/class="cml-music-queue__item/g) || []).length;
+    const renderedTrackRows = (listHtml.match(/data-audio-row="/g) || []).length;
+
+    assert.equal(renderedTrackRows, 30);
+    assert.equal(renderedQueueRows, 12);
+    assert.match(listHtml, /18 more tracks stay in queue/);
+  });
+
   it('renders metadata-specific rename dialog copy for track title, artist, and album edits', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
@@ -2326,6 +2354,31 @@ describe('media library download actions', () => {
     assert.match(mainContentRule, /overflow: auto;/);
     assert.doesNotMatch(cssSource, /cml-music-summary__now-playing/);
     assert.doesNotMatch(cssSource, /cml-music-summary__focus/);
+  });
+
+  it('lets Chromium skip offscreen music row layout during free scrolling', () => {
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+    const musicRowRule = [...cssSource.matchAll(/#codex-media-library-root \.cml-main-content__inner\.is-music-view \.cml-music-row \{[\s\S]*?\n\s*\}/g)]
+      .map((match) => match[0])
+      .find((rule) => rule.includes('min-height: 70px;')) || '';
+    const queueItemRule = cssSource.match(/#codex-media-library-root \.cml-music-queue__item \{[\s\S]*?\n\s*\}/)?.[0] || '';
+
+    assert.match(musicRowRule, /content-visibility: auto;/);
+    assert.match(musicRowRule, /contain-intrinsic-size: 70px;/);
+    assert.match(queueItemRule, /content-visibility: auto;/);
+    assert.match(queueItemRule, /contain-intrinsic-size: 58px;/);
+  });
+
+  it('patches Music playback state without replacing the full library list', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const patchStart = appSource.indexOf('function patchAudioUi');
+    const patchEnd = appSource.indexOf('function ensureAudioEngine', patchStart);
+    assert.ok(patchStart >= 0 && patchEnd > patchStart);
+    const patchAudioUiSource = appSource.slice(patchStart, patchEnd);
+
+    assert.match(patchAudioUiSource, /patchMusicAudioRows\(viewModel\);/);
+    assert.match(patchAudioUiSource, /patchMusicQueuePanel\(viewModel\);/);
+    assert.doesNotMatch(patchAudioUiSource, /currentMusicLibrary\.replaceWith\(nextMusicLibrary\);/);
   });
 
   it('renders a desktop sidebar audio dock for non-music routes', () => {

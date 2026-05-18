@@ -9139,6 +9139,8 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-main-content__inner.is-music-view .cml-music-row {
   min-height: 70px;
+  content-visibility: auto;
+  contain-intrinsic-size: 70px;
   padding: 0 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.055);
   background: transparent !important;
@@ -9236,6 +9238,8 @@ body.codex-media-library-active #app {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
+  content-visibility: auto;
+  contain-intrinsic-size: 58px;
 }
 
 #codex-media-library-root .cml-music-queue__play {
@@ -9251,6 +9255,16 @@ body.codex-media-library-active #app {
 #codex-media-library-root .cml-music-queue__item.is-current .cml-music-queue__play {
   border-color: rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.08);
+}
+
+#codex-media-library-root .cml-music-queue__more {
+  margin-top: 9px;
+  padding: 10px 11px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  color: rgba(226, 232, 240, 0.58);
+  font-size: 12px;
+  font-weight: 650;
 }
 
 #codex-media-library-root .cml-music-queue__empty-shell {

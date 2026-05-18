@@ -31,6 +31,7 @@ import {
   MobileAudioMiniPlayer,
   MobileBottomNav,
   MusicListView,
+  MusicQueuePanel,
   MusicSummary,
   PrivateAlbumGate,
   PrivateAlbumSummary,
@@ -51,7 +52,7 @@ import {
   renderMomentsCalendar,
   renderMomentsDayWall,
   renderMomentsFeed
-} from './components.js?v=107';
+} from './components.js?v=108';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -1198,6 +1199,30 @@ function patchMusicAudioRows(viewModel) {
   return true;
 }
 
+function patchMusicQueuePanel(viewModel) {
+  if (!refs.root || !viewModel?.isMusicView) {
+    return false;
+  }
+  const currentQueue = refs.root.querySelector('.cml-music-queue');
+  if (!(currentQueue instanceof HTMLElement)) {
+    return false;
+  }
+  const template = document.createElement('template');
+  template.innerHTML = MusicQueuePanel({
+    queueItems: viewModel.audioQueueItems,
+    audioState: {
+      currentId: state.audioCurrentId,
+      isPlaying: state.audioPlaying
+    }
+  }).trim();
+  const nextQueue = template.content.firstElementChild;
+  if (!(nextQueue instanceof HTMLElement)) {
+    return false;
+  }
+  currentQueue.replaceWith(nextQueue);
+  return true;
+}
+
 function buildSidebarMarkupForAudio(viewModel, { showDesktopSidebarAudioDock = false } = {}) {
   const desktopAudioDockKey = showDesktopSidebarAudioDock
     ? `${normalizeText(viewModel.currentAudioItem?.id)}|${state.audioPlaying ? 'playing' : 'paused'}|${normalizeAudioMode(state.audioMode)}`
@@ -1305,30 +1330,8 @@ function patchAudioUi({ allowFullRender = true } = {}) {
         currentSummary.replaceWith(nextSummary);
       }
     }
-    const currentMusicLibrary = refs.root.querySelector('.cml-music-library');
-    if (currentMusicLibrary instanceof HTMLElement && viewModel.musicItems.length) {
-      const template = document.createElement('template');
-      template.innerHTML = MusicListView({
-        items: viewModel.musicItems,
-        state,
-        audioState: {
-          currentId: state.audioCurrentId,
-          isPlaying: state.audioPlaying
-        },
-        currentItem: viewModel.currentAudioItem,
-        currentTime: state.audioCurrentTime,
-        duration: state.audioDuration,
-        queueItems: viewModel.audioQueueItems,
-        playlists: viewModel.musicPlaylists,
-        activePlaylistName: viewModel.activePlaylistName
-      }).trim();
-      const nextMusicLibrary = template.content.firstElementChild;
-      if (nextMusicLibrary instanceof HTMLElement) {
-        currentMusicLibrary.replaceWith(nextMusicLibrary);
-      }
-    } else {
-      patchMusicAudioRows(viewModel);
-    }
+    patchMusicAudioRows(viewModel);
+    patchMusicQueuePanel(viewModel);
   }
 
   scheduleAudioUiSync();
