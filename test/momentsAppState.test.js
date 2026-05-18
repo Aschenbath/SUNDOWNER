@@ -197,4 +197,15 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /void loadPersistedPlaylistState\(\{ forceRender: false \}\)/);
     assert.match(appSource, /void loadMovieEntries\(\{ forceRender: false \}\)/);
   });
+
+  it('keeps cached Photos visible and stops loading when the live list request fails', () => {
+    assert.match(appSource, /const MEDIA_PAYLOAD_CACHE_KEY = 'codex-media-library-media-payload-cache';/);
+    assert.match(appSource, /function readCachedMediaPayload\(\) \{/);
+    assert.match(appSource, /function persistMediaPayload\(payload = \{\}\) \{/);
+    assert.match(appSource, /const cachedMediaPayload = readCachedMediaPayload\(\);/);
+    assert.match(appSource, /if \(cachedMediaPayload\?\.items\?\.length && !state\.mediaItems\.length\) \{/);
+    assert.match(appSource, /state\.librarySyncMeta = \{\s*\.\.\.cachedMediaPayload\.librarySyncMeta,\s*source: 'cache'/);
+    assert.match(appSource, /const hasFallbackItems = items\.length > 0;/);
+    assert.match(appSource, /const shouldKeepLoading = !hasFallbackItems/);
+  });
 });

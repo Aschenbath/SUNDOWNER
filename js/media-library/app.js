@@ -109,6 +109,7 @@ const ALBUM_COVERS_STORAGE_KEY = 'codex-media-library-album-covers';
 const PLAYLISTS_STORAGE_KEY = 'codex-media-library-playlists';
 const PLAYLIST_ASSIGNMENTS_STORAGE_KEY = 'codex-media-library-playlist-assignments';
 const FILM_ACCIDENTAL_ENTRY_CLEANUP_KEY = 'codex-media-library-film-accidental-entry-cleanup-v1';
+const MEDIA_PAYLOAD_CACHE_KEY = 'codex-media-library-media-payload-cache';
 const LEGACY_ALBUM_STORAGE_KEYS = [
   FAVORITES_STORAGE_KEY,
   ALBUMS_STORAGE_KEY,
@@ -4825,6 +4826,39 @@ function persistMomentsPayload(payload = {}) {
     calendarMonth: state.momentsCalendarMonth,
     cachedAt: Date.now(),
     ...payload,
+  });
+}
+
+function readCachedMediaPayload() {
+  const cached = loadJson(MEDIA_PAYLOAD_CACHE_KEY, null);
+  if (!cached || typeof cached !== 'object' || !Array.isArray(cached.items)) {
+    return null;
+  }
+  return {
+    ...cached,
+    items: cached.items.filter(Boolean),
+    librarySyncMeta: cached.librarySyncMeta && typeof cached.librarySyncMeta === 'object'
+      ? cached.librarySyncMeta
+      : null,
+  };
+}
+
+function persistMediaPayload(payload = {}) {
+  const items = Array.isArray(payload.items) ? payload.items.filter(Boolean).slice(0, API_MAX_ITEMS) : [];
+  if (!items.length) {
+    return;
+  }
+  saveJson(MEDIA_PAYLOAD_CACHE_KEY, {
+    items,
+    librarySyncMeta: payload.librarySyncMeta && typeof payload.librarySyncMeta === 'object'
+      ? payload.librarySyncMeta
+      : {
+        source: 'indexed',
+        totalCount: items.length,
+        loadedCount: items.length,
+        isTruncated: false,
+      },
+    cachedAt: Number(payload.cachedAt) || Date.now(),
   });
 }
 
@@ -15394,6 +15428,7 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
   const domItems = extractLiveMediaItems();
   let items = domItems;
   let surfaceReady = hasUnderlyingSurface();
+  const cachedMediaPayload = readCachedMediaPayload();
 
   try {
     const indexedResult = await fetchIndexedMediaItems(domItems);
@@ -15409,12 +15444,35 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
     }
   } catch (error) {
     console.warn('[media-library] falling back to DOM extraction', error);
-    state.librarySyncMeta = {
-      source: error?.message === 'Request timed out' ? 'timeout' : 'dom',
-      totalCount: domItems.length,
-      loadedCount: domItems.length,
-      isTruncated: false
-    };
+    if (cachedMediaPayload?.items?.length && !state.mediaItems.length) {
+      items = cachedMediaPayload.items;
+      surfaceReady = true;
+      state.librarySyncMeta = {
+        ...cachedMediaPayload.librarySyncMeta,
+        source: 'cache',
+        loadedCount: cachedMediaPayload.items.length,
+        totalCount: Math.max(
+          Number(cachedMediaPayload.librarySyncMeta?.totalCount) || 0,
+          cachedMediaPayload.items.length
+        ),
+      };
+    } else if (state.mediaItems.length && !domItems.length) {
+      items = state.mediaItems;
+      surfaceReady = true;
+      state.librarySyncMeta = {
+        ...state.librarySyncMeta,
+        source: state.librarySyncMeta?.source || 'stale',
+        loadedCount: state.mediaItems.length,
+        totalCount: Math.max(Number(state.librarySyncMeta?.totalCount) || 0, state.mediaItems.length),
+      };
+    } else {
+      state.librarySyncMeta = {
+        source: error?.message === 'Request timed out' ? 'timeout' : 'dom',
+        totalCount: domItems.length,
+        loadedCount: domItems.length,
+        isTruncated: false
+      };
+    }
   }
 
   const visibleSecondaryFilters = getVisibleSecondaryFilters(items);
@@ -15460,11 +15518,12 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
     }
   }
 
-  const timedOutWithoutFallback = items.length === 0
+  const hasFallbackItems = items.length > 0;
+  const timedOutWithoutFallback = !hasFallbackItems
     && state.librarySyncMeta?.source === 'timeout'
     && state.liveSyncAttempts >= 3;
-  const shouldKeepLoading = !timedOutWithoutFallback
-    && items.length === 0
+  const shouldKeepLoading = !hasFallbackItems
+    && !timedOutWithoutFallback
     && (!surfaceReady || state.liveSyncAttempts < 4);
   if (state.isLibraryLoading !== shouldKeepLoading) {
     state.isLibraryLoading = shouldKeepLoading;
