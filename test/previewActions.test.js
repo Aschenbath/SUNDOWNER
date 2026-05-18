@@ -2031,6 +2031,46 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /below\.jpg"[^>]+fetchpriority="high"/);
   });
 
+  it('keeps normal Photos timelines mounted instead of virtualizing during ordinary scroll', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+    const thresholdMatch = appSource.match(/const TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD = (\d+);/);
+
+    assert.ok(thresholdMatch);
+    assert.ok(Number(thresholdMatch[1]) >= 720);
+    assert.match(appSource, /timelineItems\.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD/);
+    assert.match(cssSource, /#codex-media-library-root \.cml-media-row \{[\s\S]*content-visibility: auto;/);
+    assert.match(cssSource, /#codex-media-library-root \.cml-media-row \{[\s\S]*contain-intrinsic-size: \d+px;/);
+    assert.match(appSource, /Date\.now\(\) - lastTimelineScrollAt < TIMELINE_DIMENSION_PATCH_IDLE_MS/);
+    assert.match(appSource, /dimensionPatchTimer = window\.setTimeout\(applyDimensionPatch, TIMELINE_DIMENSION_PATCH_IDLE_MS\);/);
+
+    const rowHtml = MediaGrid({
+      rows: [{
+        height: 222,
+        items: [{
+          item: {
+            id: 'managed-stable-row',
+            type: 'photo',
+            label: 'stable.jpg',
+            sourceUrl: '/file/scenery/stable.jpg',
+            thumbnailUrl: '/file/scenery/stable.jpg',
+            width: 1200,
+            height: 900,
+            displayTakenAt: 'April 8, 2026 21:42',
+          },
+          width: 296,
+          height: 222,
+        }],
+      }],
+      state: {
+        selectedIds: new Set(),
+        loadedMediaIds: new Set(),
+        fullLoadedMediaIds: new Set(),
+      },
+    });
+    assert.match(rowHtml, /class="cml-media-row" style="contain-intrinsic-size:222px;"/);
+  });
+
   it('keeps collection cards on date-only metadata, uses clickable album titles, and omits the cover summary line', () => {
     const summaryHtml = CollectionSummary({
       activeAlbumName: 'scenery',

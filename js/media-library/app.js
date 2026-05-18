@@ -223,7 +223,7 @@ const TIMELINE_SECTION_CHROME_ESTIMATE = 92;
 const TIMELINE_SECTION_GAP = 28;
 const BIN_TIMELINE_SECTION_GAP = 24;
 const TIMELINE_VIRTUAL_OVERSCAN = 960;
-const TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD = 120;
+const TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD = 720;
 const PHOTOS_PRIORITY_TILE_LIMIT = 8;
 const TILE_SELECTION_CHECK_MARKUP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 12.8 3.7 3.7 7.5-8.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
 const TILE_SELECTION_RING_MARKUP = '<span class="cml-media-tile__select-ring"></span>';
@@ -856,8 +856,10 @@ const state = {
   filmRouteTransition: ''
 };
 
+const TIMELINE_DIMENSION_PATCH_IDLE_MS = 600;
 let dimensionPatchTimer = 0;
 let dimensionPatchRenderRaf = 0;
+let lastTimelineScrollAt = 0;
 
 const refs = {
   root: null,
@@ -1799,7 +1801,11 @@ function captureDimension(img, tile) {
   if (Math.abs(storedAspect - naturalAspect) < 0.05) return;
   state.dimensionCache.set(id, { width: nw, height: nh });
   clearTimeout(dimensionPatchTimer);
-  dimensionPatchTimer = window.setTimeout(applyDimensionPatch, 150);
+  if (Date.now() - lastTimelineScrollAt < TIMELINE_DIMENSION_PATCH_IDLE_MS) {
+    dimensionPatchTimer = window.setTimeout(applyDimensionPatch, TIMELINE_DIMENSION_PATCH_IDLE_MS);
+  } else {
+    dimensionPatchTimer = window.setTimeout(applyDimensionPatch, 150);
+  }
 }
 
 function applyDimensionPatch() {
@@ -16743,6 +16749,7 @@ function handleScroll() {
   if (!refs.scrollRegion || scrollRestoring) {
     return;
   }
+  lastTimelineScrollAt = Date.now();
   revealScrubber();
   state.virtualScrollTop = refs.scrollRegion.scrollTop;
   state.virtualViewportHeight = refs.scrollRegion.clientHeight;

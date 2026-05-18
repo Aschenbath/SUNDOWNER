@@ -921,8 +921,9 @@ export function renderMediaRows(rows, state, coverItemId = '', { priorityItemLim
     if (!visibleItems.length) {
       return '';
     }
+    const placeholderHeight = Math.max(0, Math.round(row.height || 220));
     return `
-      <div class="cml-media-row">
+      <div class="cml-media-row" style="contain-intrinsic-size:${placeholderHeight}px;">
         ${visibleItems.map((layout) => MediaTile({
           item: layout.item,
           layout,
