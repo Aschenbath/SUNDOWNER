@@ -2074,6 +2074,24 @@ describe('media library download actions', () => {
     assert.doesNotMatch(rowHtml, /contain-intrinsic-size/);
   });
 
+  it('uses binary lookup for virtual timeline row ranges and active section updates', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const rowRangeStart = appSource.indexOf('function getVisibleRowRange');
+    const rowRangeEnd = appSource.indexOf('function applyTimelineVirtualWindow', rowRangeStart);
+    assert.ok(rowRangeStart >= 0 && rowRangeEnd > rowRangeStart);
+    const rowRangeSource = appSource.slice(rowRangeStart, rowRangeEnd);
+    const activeYearStart = appSource.indexOf('function updateActiveYear');
+    const activeYearEnd = appSource.indexOf('function getScrollableResultCount', activeYearStart);
+    assert.ok(activeYearStart >= 0 && activeYearEnd > activeYearStart);
+    const activeYearSource = appSource.slice(activeYearStart, activeYearEnd);
+
+    assert.match(appSource, /function findTimelineRowStartIndex\(/);
+    assert.match(appSource, /function findTimelineRowEndIndex\(/);
+    assert.match(appSource, /function findActiveSectionByScrollTop\(/);
+    assert.doesNotMatch(rowRangeSource, /while \(startIndex < rows\.length\)/);
+    assert.doesNotMatch(activeYearSource, /refs\.sectionAnchors\.forEach/);
+  });
+
   it('keeps collection cards on date-only metadata, uses clickable album titles, and omits the cover summary line', () => {
     const summaryHtml = CollectionSummary({
       activeAlbumName: 'scenery',

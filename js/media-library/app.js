@@ -9555,6 +9555,48 @@ function buildTimelineLayoutSections(sections, { sectionGap = TIMELINE_SECTION_G
   });
 }
 
+function getTimelineRowHeight(section, index) {
+  const row = section?.rows?.[index];
+  return Number(row?.height || row?.items?.[0]?.height || 0);
+}
+
+function findTimelineRowStartIndex(section, bodyStart) {
+  const rows = section.rows || [];
+  let lo = 0;
+  let hi = rows.length - 1;
+  let answer = rows.length;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const rowTop = section.rowOffsets[mid] || 0;
+    const rowBottom = rowTop + getTimelineRowHeight(section, mid);
+    if (rowBottom >= bodyStart) {
+      answer = mid;
+      hi = mid - 1;
+    } else {
+      lo = mid + 1;
+    }
+  }
+  return answer;
+}
+
+function findTimelineRowEndIndex(section, startIndex, bodyEnd) {
+  const rows = section.rows || [];
+  let lo = Math.max(0, startIndex);
+  let hi = rows.length - 1;
+  let answer = startIndex - 1;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const rowTop = section.rowOffsets[mid] || 0;
+    if (rowTop <= bodyEnd) {
+      answer = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return answer;
+}
+
 function getVisibleRowRange(section, scrollTop, viewportHeight) {
   const overscanStart = Math.max(0, scrollTop - TIMELINE_VIRTUAL_OVERSCAN);
   const overscanEnd = scrollTop + Math.max(viewportHeight, window.innerHeight || 900) + TIMELINE_VIRTUAL_OVERSCAN;
@@ -9573,24 +9615,8 @@ function getVisibleRowRange(section, scrollTop, viewportHeight) {
     };
   }
 
-  let startIndex = 0;
-  while (startIndex < rows.length) {
-    const rowTop = section.rowOffsets[startIndex];
-    const rowBottom = rowTop + Number(rows[startIndex].height || rows[startIndex].items?.[0]?.height || 0);
-    if (rowBottom >= bodyStart) {
-      break;
-    }
-    startIndex += 1;
-  }
-
-  let endIndex = rows.length - 1;
-  while (endIndex >= startIndex) {
-    const rowTop = section.rowOffsets[endIndex];
-    if (rowTop <= bodyEnd) {
-      break;
-    }
-    endIndex -= 1;
-  }
+  const startIndex = findTimelineRowStartIndex(section, bodyStart);
+  const endIndex = findTimelineRowEndIndex(section, startIndex, bodyEnd);
 
   if (startIndex >= rows.length || endIndex < startIndex) {
     return {
@@ -9604,7 +9630,7 @@ function getVisibleRowRange(section, scrollTop, viewportHeight) {
 
   const topSpacerHeight = section.rowOffsets[startIndex];
   const visibleHeight = section.rowOffsets[endIndex]
-    + Number(rows[endIndex].height || rows[endIndex].items?.[0]?.height || 0)
+    + getTimelineRowHeight(section, endIndex)
     - topSpacerHeight;
   const bottomSpacerHeight = Math.max(0, section.totalRowsHeight - topSpacerHeight - visibleHeight);
 
@@ -16955,6 +16981,28 @@ function scheduleTimelineRender() {
   });
 }
 
+function findActiveSectionByScrollTop(scrollTop = 0) {
+  const anchors = refs.sectionAnchors || [];
+  if (!anchors.length) {
+    return null;
+  }
+  let lo = 0;
+  let hi = anchors.length - 1;
+  let answer = anchors[0];
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const section = anchors[mid];
+    const top = section instanceof HTMLElement ? section.offsetTop : 0;
+    if (top - 40 <= scrollTop) {
+      answer = section;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return answer;
+}
+
 function updateActiveYear() {
   if (!refs.scrollRegion || !refs.sectionAnchors.length) {
     return;
@@ -16963,12 +17011,7 @@ function updateActiveYear() {
     return;
   }
   const scrollTop = refs.scrollRegion.scrollTop;
-  let activeSection = refs.sectionAnchors[0];
-  refs.sectionAnchors.forEach((section) => {
-    if (section.offsetTop - 40 <= scrollTop) {
-      activeSection = section;
-    }
-  });
+  const activeSection = findActiveSectionByScrollTop(scrollTop);
   const active = activeSection ? activeSection.getAttribute('data-year') : '';
   const nextActiveAnchor = activeSection ? activeSection.id : '';
   const nextScrubberLabel = activeSection ? normalizeText(activeSection.getAttribute('data-scrubber-label')) : '';
