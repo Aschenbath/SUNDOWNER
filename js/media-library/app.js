@@ -9807,30 +9807,74 @@ function getViewModel() {
   };
 }
 
+let layoutWidthRenderRaf = 0;
+
+function getLayoutBucket(width = 0) {
+  const normalizedWidth = Math.max(0, Number(width) || 0);
+  if (normalizedWidth <= 640) return 'phone';
+  if (normalizedWidth <= 960) return 'mobile';
+  if (normalizedWidth <= 1180) return 'compact-desktop';
+  if (normalizedWidth <= 1380) return 'desktop';
+  return 'wide';
+}
+
 function syncLayoutWidth() {
   if (!refs.contentInner) {
-    return;
+    return {
+      changed: false,
+      bucketChanged: false,
+      widthDelta: 0,
+      shouldRender: false,
+      previousWidth: state.layoutWidth,
+      nextWidth: state.layoutWidth,
+      previousBucket: getLayoutBucket(state.layoutWidth),
+      nextBucket: getLayoutBucket(state.layoutWidth)
+    };
   }
-  const getLayoutBucket = (width) => {
-    if (width <= 640) return 'phone';
-    if (width <= 960) return 'mobile';
-    if (width <= 1180) return 'compact-desktop';
-    if (width <= 1380) return 'desktop';
-    return 'wide';
-  };
   const nextWidth = Math.max(280, Math.round(refs.contentInner.clientWidth - 4));
   const previousWidth = Math.max(280, Number(state.layoutWidth) || 0);
-  const bucketChanged = getLayoutBucket(nextWidth) !== getLayoutBucket(previousWidth);
+  const previousBucket = getLayoutBucket(previousWidth);
+  const nextBucket = getLayoutBucket(nextWidth);
+  const bucketChanged = nextBucket !== previousBucket;
   const widthDelta = Math.abs(nextWidth - previousWidth);
-  if (!bucketChanged && widthDelta <= 80) {
-    return;
+  const changed = nextWidth !== previousWidth;
+  const shouldRender = bucketChanged || widthDelta > 80;
+  if (changed) {
+    state.layoutWidth = nextWidth;
   }
-  state.layoutWidth = nextWidth;
-  window.requestAnimationFrame(() => {
+  if (shouldRender) {
+    scheduleLayoutWidthRender();
+  }
+  return {
+    changed,
+    bucketChanged,
+    widthDelta,
+    shouldRender,
+    previousWidth,
+    nextWidth,
+    previousBucket,
+    nextBucket
+  };
+}
+
+function scheduleLayoutWidthRender() {
+  if (layoutWidthRenderRaf) {
+    window.cancelAnimationFrame(layoutWidthRenderRaf);
+  }
+  layoutWidthRenderRaf = window.requestAnimationFrame(() => {
+    layoutWidthRenderRaf = 0;
     if (refs.root) {
       render();
     }
   });
+}
+
+function cancelScheduledLayoutWidthRender() {
+  if (!layoutWidthRenderRaf) {
+    return;
+  }
+  window.cancelAnimationFrame(layoutWidthRenderRaf);
+  layoutWidthRenderRaf = 0;
 }
 
 /** Surgical sidebar active-state update — avoids full innerHTML rebuild flicker */
@@ -16830,9 +16874,13 @@ function handleWindowResize() {
     state.virtualViewportHeight = refs.scrollRegion.clientHeight;
     state.virtualScrollTop = refs.scrollRegion.scrollTop;
   }
-  syncLayoutWidth();
+  const layoutSync = syncLayoutWidth();
+  cancelScheduledLayoutWidthRender();
   if (isMobileMindComposerFocused()) {
     window.requestAnimationFrame(() => {
+      if (layoutSync.shouldRender) {
+        render();
+      }
       scrollMindToBottom({ force: true });
       finishPerfAction(perfToken);
     });
@@ -16844,6 +16892,11 @@ function handleWindowResize() {
       includeDetail: state.filmDetailOpen,
       includePicker: state.filmImagePickerMode === 'backdrop'
     });
+  }
+  if (!layoutSync.shouldRender && state.primaryFilter !== 'Films' && !state.filmDetailOpen && state.filmImagePickerMode !== 'backdrop') {
+    scheduleTimelineRender();
+    finishPerfActionAfterPaint(perfToken);
+    return;
   }
   render();
   finishPerfActionAfterPaint(perfToken);

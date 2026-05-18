@@ -2421,6 +2421,25 @@ describe('media library download actions', () => {
     assert.match(syncSource, /finally \{[\s\S]*if \(!didFinishPerfAction\) \{[\s\S]*finishLibrarySyncPerfAction\(\);[\s\S]*\}/);
   });
 
+  it('does not full-render on resize when the media layout bucket is unchanged', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const resizeStart = appSource.indexOf('function handleWindowResize');
+    const resizeEnd = appSource.indexOf('function handleVisualViewportResize', resizeStart);
+    assert.ok(resizeStart >= 0 && resizeEnd > resizeStart);
+    const resizeSource = appSource.slice(resizeStart, resizeEnd);
+
+    assert.match(appSource, /function getLayoutBucket\(/);
+    assert.match(appSource, /function syncLayoutWidth\(\)[\s\S]*return \{/);
+    assert.match(appSource, /const shouldRender = bucketChanged \|\| widthDelta > 80;/);
+    assert.match(appSource, /widthDelta,/);
+    assert.match(appSource, /shouldRender,/);
+    assert.match(resizeSource, /const layoutSync = syncLayoutWidth\(\);/);
+    assert.match(resizeSource, /if \(isMobileMindComposerFocused\(\)\) \{[\s\S]*if \(layoutSync\.shouldRender\) \{[\s\S]*render\(\);[\s\S]*scrollMindToBottom\(\{ force: true \}\);/);
+    assert.match(resizeSource, /if \(!layoutSync\.shouldRender && state\.primaryFilter !== 'Films' && !state\.filmDetailOpen && state\.filmImagePickerMode !== 'backdrop'\) \{[\s\S]*scheduleTimelineRender\(\);[\s\S]*return;/);
+    assert.doesNotMatch(resizeSource, /if \(!layoutSync\.bucketChanged/);
+    assert.match(resizeSource, /scheduleTimelineRender\(\);/);
+  });
+
   it('renders a desktop sidebar audio dock for non-music routes', () => {
     const dockHtml = SidebarAudioPlayer({
       currentItem: {
