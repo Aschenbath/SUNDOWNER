@@ -3659,6 +3659,30 @@ describe('media library download actions', () => {
     assert.doesNotMatch(applySearchQuerySource, /resetLoadedCount\(\);\s*render\(\);/);
   });
 
+  it('renders Bin loading surface with a stable patch root', () => {
+    const html = BinGrid({
+      items: [],
+      sections: [],
+      binSelectedIds: new Set(),
+      isBinLoading: true,
+      layoutWidth: 1440,
+      activeSectionAnchor: ''
+    });
+
+    assert.match(html, /data-bin-grid-root/);
+  });
+  it('patches Bin loading and list updates without forcing the full shell path', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const fetchStart = appSource.indexOf('async function fetchBinItems');
+    const fetchEnd = appSource.indexOf('function snapshotBinMutationState', fetchStart);
+    assert.ok(fetchStart >= 0 && fetchEnd > fetchStart);
+    const fetchSource = appSource.slice(fetchStart, fetchEnd);
+
+    assert.match(appSource, /function patchBinGridView\(/);
+    assert.match(fetchSource, /patchBinGridView\(\{ perfToken \}\)/);
+    assert.match(fetchSource, /if \(!patchBinGridView\(\{ perfToken \}\)\) \{\s*render\(\);/);
+    assert.doesNotMatch(fetchSource, /state\.isBinLoading = true;\s*render\(\);/);
+  });
   it('renders an inline clear affordance inside populated search fields', () => {
     const componentsSource = fs.readFileSync(new URL('../js/media-library/components.js', import.meta.url), 'utf8');
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');

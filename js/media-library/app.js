@@ -6373,13 +6373,51 @@ function buildBinItem(record) {
   return shouldDisplayMediaItem(nextItem) ? nextItem : null;
 }
 
+function patchBinGridView({ perfToken = null } = {}) {
+  if (!refs.root || state.primaryFilter !== 'Bin') {
+    return false;
+  }
+  const currentRoot = refs.root.querySelector('[data-bin-grid-root]');
+  if (!(currentRoot instanceof HTMLElement)) {
+    return false;
+  }
+  const viewModel = getViewModel();
+  const template = document.createElement('template');
+  template.innerHTML = BinGrid({
+    items: viewModel.binItems,
+    sections: viewModel.sections,
+    binSelectedIds: viewModel.binSelectedIds,
+    isBinLoading: viewModel.isBinLoading,
+    layoutWidth: state.layoutWidth,
+    activeSectionAnchor: state.activeSectionAnchor
+  }).trim();
+  const nextRoot = template.content.querySelector('[data-bin-grid-root]');
+  if (!(nextRoot instanceof HTMLElement)) {
+    return false;
+  }
+  currentRoot.replaceWith(nextRoot);
+  refs.sectionAnchors = [...refs.root.querySelectorAll('.cml-timeline-section')];
+  refs.sectionItemIds = new Map(viewModel.sections.map((section) => [
+    section.anchorId,
+    section.items.map((item) => item.id)
+  ]));
+  refs.timelineLayoutSections = viewModel.timelineLayoutSections || [];
+  refs.timelineVirtualSignature = viewModel.timelineVirtualSignature || '';
+  refs.timelineVirtualEnabled = Boolean(viewModel.timelineVirtualEnabled);
+  countPerfRender('bin-grid-patch');
+  setupImageLoadAnimations();
+  finishPerfActionAfterPaint(perfToken);
+  return true;
+}
 async function fetchBinItems() {
   if (state.isBinLoading) {
     return;
   }
   const perfToken = startPerfAction('bin load');
   state.isBinLoading = true;
-  render();
+  if (!patchBinGridView()) {
+    render();
+  }
   try {
     const response = await apiFetch('/api/manage/bin/list?limit=200');
     if (!response.ok) {
@@ -6397,8 +6435,10 @@ async function fetchBinItems() {
     showToast('Failed to load Bin. Refresh and try again.');
   } finally {
     state.isBinLoading = false;
-    render();
-    finishPerfActionAfterPaint(perfToken);
+    if (!patchBinGridView({ perfToken })) {
+      render();
+      finishPerfActionAfterPaint(perfToken);
+    }
   }
 }
 

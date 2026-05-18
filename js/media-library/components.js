@@ -3976,7 +3976,7 @@ export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutW
       `;
 
   return `
-    <div class="cml-bin-view">
+    <div class="cml-bin-view" data-bin-grid-root>
       <header class="cml-view-summary cml-view-summary--plain cml-bin-view__summary">
         <div class="cml-bin-view__meta">
           <p class="cml-view-summary__eyebrow">Bin</p>
