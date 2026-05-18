@@ -2801,6 +2801,7 @@ describe('media library download actions', () => {
     });
 
     assert.match(html, /data-search-results-view="global"/);
+    assert.match(html, /data-search-results-root/);
     assert.match(html, /data-search-group="photos"/);
     assert.match(html, /data-search-group="videos"/);
     assert.match(html, /data-search-group="music"/);
@@ -3626,6 +3627,36 @@ describe('media library download actions', () => {
     assert.match(appSource, /scheduleSearchQueryApply\(input\.value, \{\s*selectionStart: input\.selectionStart,\s*selectionEnd: input\.selectionEnd\s*\}\);/);
     assert.match(appSource, /applySearchQuery\(nextQuery, \{\s*preserveFocus: true,\s*selectionStart,\s*selectionEnd\s*\}\);/);
     assert.match(appSource, /window\.requestAnimationFrame\(\(\) => \{\s*restoreSearchInputFocus\(selectionStart, selectionEnd\);/);
+  });
+
+  it('patches global search results locally before falling back to a full render', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const renderSearchResultsStart = appSource.indexOf('function renderSearchResultsViewHtml');
+    const patchSearchResultsStart = appSource.indexOf('function patchGlobalSearchResultsView');
+    const applySearchQueryStart = appSource.indexOf('function applySearchQuery');
+    const scheduleSearchQueryStart = appSource.indexOf('function scheduleSearchQueryApply');
+    const renderSearchResultsSource = renderSearchResultsStart >= 0 && patchSearchResultsStart > renderSearchResultsStart
+      ? appSource.slice(renderSearchResultsStart, patchSearchResultsStart)
+      : '';
+    const patchSearchResultsSource = patchSearchResultsStart >= 0 && applySearchQueryStart > patchSearchResultsStart
+      ? appSource.slice(patchSearchResultsStart, applySearchQueryStart)
+      : '';
+    const applySearchQuerySource = applySearchQueryStart >= 0 && scheduleSearchQueryStart > applySearchQueryStart
+      ? appSource.slice(applySearchQueryStart, scheduleSearchQueryStart)
+      : '';
+
+    assert.match(renderSearchResultsSource, /function renderSearchResultsViewHtml\(viewModel = getViewModel\(\)\) \{/);
+    assert.match(renderSearchResultsSource, /return SearchResultsView\(\{/);
+    assert.match(patchSearchResultsSource, /function patchGlobalSearchResultsView\(\{ preserveFocus = false, selectionStart = null, selectionEnd = null, perfToken = null \} = \{\}\) \{/);
+    assert.match(patchSearchResultsSource, /if \(!refs\.root \|\| !viewModel\.isGlobalSearchView\) \{/);
+    assert.match(patchSearchResultsSource, /querySelector\('\[data-search-results-root\]'\)/);
+    assert.match(patchSearchResultsSource, /template\.innerHTML = renderSearchResultsViewHtml\(viewModel\)\.trim\(\);/);
+    assert.match(patchSearchResultsSource, /currentRoot\.replaceWith\(nextRoot\);/);
+    assert.match(patchSearchResultsSource, /countPerfRender\('global-search-results-patch'\);/);
+    assert.match(patchSearchResultsSource, /window\.requestAnimationFrame\(\(\) => \{\s*restoreSearchInputFocus\(selectionStart, selectionEnd\);[\s\S]*finishPerfAction\(perfToken\);/);
+    assert.doesNotMatch(patchSearchResultsSource, /finishPerfAction\(perfToken\);\s*return false;/);
+    assert.match(applySearchQuerySource, /if \(!patchGlobalSearchResultsView\(\{ preserveFocus, selectionStart, selectionEnd, perfToken \}\)\) \{\s*render\(\);/);
+    assert.doesNotMatch(applySearchQuerySource, /resetLoadedCount\(\);\s*render\(\);/);
   });
 
   it('renders an inline clear affordance inside populated search fields', () => {

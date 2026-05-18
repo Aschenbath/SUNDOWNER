@@ -3776,53 +3776,57 @@ export function SearchResultsView({
   const hasResults = photoCount || videoCount || audioCount || fileCount || albumCount;
   if (!hasResults) {
     return `
-      ${summary}
-      ${EmptyState({
-        query,
-        isLoading: false,
-        mode: 'media'
-      })}
+      <div data-search-results-root>
+        ${summary}
+        ${EmptyState({
+          query,
+          isLoading: false,
+          mode: 'media'
+        })}
+      </div>
     `;
   }
 
   return `
-    ${summary}
-    <div class="cml-search-results" data-search-results-view="global">
-      ${SearchResultSection({
-        title: 'Photos',
-        count: photoCount,
-        body: photoSections.map((section) => MediaTimelineSection({ section, state, layoutWidth })).join(''),
-        sectionClassName: 'cml-search-group--photos',
-        groupKey: 'photos'
-      })}
-      ${SearchResultSection({
-        title: 'Videos',
-        count: videoCount,
-        body: videoSections.map((section) => MediaTimelineSection({ section, state, layoutWidth })).join(''),
-        sectionClassName: 'cml-search-group--videos',
-        groupKey: 'videos'
-      })}
-      ${SearchResultSection({
-        title: 'Music',
-        count: audioCount,
-        body: SearchMusicRows({ items: audioItems, audioState, playlists, activePlaylistName }),
-        sectionClassName: 'cml-search-group--music',
-        groupKey: 'music'
-      })}
-      ${SearchResultSection({
-        title: 'Files',
-        count: fileCount,
-        body: SearchFileRows({ items: fileItems, state }),
-        sectionClassName: 'cml-search-group--files',
-        groupKey: 'files'
-      })}
-      ${SearchResultSection({
-        title: 'Albums',
-        count: albumCount,
-        body: albumCards.length ? CollectionGrid({ collections: albumCards }) : '',
-        sectionClassName: 'cml-search-group--albums',
-        groupKey: 'albums'
-      })}
+    <div data-search-results-root>
+      ${summary}
+      <div class="cml-search-results" data-search-results-view="global">
+        ${SearchResultSection({
+          title: 'Photos',
+          count: photoCount,
+          body: photoSections.map((section) => MediaTimelineSection({ section, state, layoutWidth })).join(''),
+          sectionClassName: 'cml-search-group--photos',
+          groupKey: 'photos'
+        })}
+        ${SearchResultSection({
+          title: 'Videos',
+          count: videoCount,
+          body: videoSections.map((section) => MediaTimelineSection({ section, state, layoutWidth })).join(''),
+          sectionClassName: 'cml-search-group--videos',
+          groupKey: 'videos'
+        })}
+        ${SearchResultSection({
+          title: 'Music',
+          count: audioCount,
+          body: SearchMusicRows({ items: audioItems, audioState, playlists, activePlaylistName }),
+          sectionClassName: 'cml-search-group--music',
+          groupKey: 'music'
+        })}
+        ${SearchResultSection({
+          title: 'Files',
+          count: fileCount,
+          body: SearchFileRows({ items: fileItems, state }),
+          sectionClassName: 'cml-search-group--files',
+          groupKey: 'files'
+        })}
+        ${SearchResultSection({
+          title: 'Albums',
+          count: albumCount,
+          body: albumCards.length ? CollectionGrid({ collections: albumCards }) : '',
+          sectionClassName: 'cml-search-group--albums',
+          groupKey: 'albums'
+        })}
+      </div>
     </div>
   `;
 }

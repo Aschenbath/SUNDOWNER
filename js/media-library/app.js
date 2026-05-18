@@ -3639,6 +3639,68 @@ function restoreSearchInputFocus(selectionStart = null, selectionEnd = null) {
   }
 }
 
+function renderSearchResultsViewHtml(viewModel = getViewModel()) {
+  const parsedSearch = parseMediaSearchQuery(state.searchQuery);
+  const searchFilterParts = summarizeMediaSearch(parsedSearch.filters);
+  return SearchResultsView({
+    query: parsedSearch.textQuery,
+    totalCount: viewModel.globalSearchResultCount,
+    filterParts: searchFilterParts,
+    hasActiveFilters: Boolean(searchFilterParts.length),
+    photoSections: viewModel.searchPhotoSections,
+    photoCount: viewModel.searchPhotoItems.length,
+    videoSections: viewModel.searchVideoSections,
+    videoCount: viewModel.searchVideoItems.length,
+    audioItems: viewModel.searchAudioItems,
+    audioCount: viewModel.searchAudioItems.length,
+    fileItems: viewModel.searchFileItems,
+    fileCount: viewModel.searchFileItems.length,
+    albumCards: viewModel.searchAlbumCards,
+    albumCount: viewModel.searchAlbumCards.length,
+    state,
+    layoutWidth: state.layoutWidth,
+    audioState: {
+      currentId: state.audioCurrentId,
+      isPlaying: state.audioPlaying
+    },
+    playlists: viewModel.musicPlaylists,
+    activePlaylistName: viewModel.activePlaylistName,
+    contextLabel: getSearchContextLabel(),
+    resultsLimited: Boolean(state.librarySyncMeta?.isTruncated || state.librarySyncMeta?.source === 'dom'),
+    resultSource: state.librarySyncMeta?.source || 'indexed',
+    loadedCount: state.librarySyncMeta?.loadedCount || 0
+  });
+}
+
+function patchGlobalSearchResultsView({ preserveFocus = false, selectionStart = null, selectionEnd = null, perfToken = null } = {}) {
+  const viewModel = getViewModel();
+  if (!refs.root || !viewModel.isGlobalSearchView) {
+    return false;
+  }
+  const currentRoot = refs.root.querySelector('[data-search-results-root]');
+  if (!(currentRoot instanceof HTMLElement)) {
+    return false;
+  }
+  const template = document.createElement('template');
+  template.innerHTML = renderSearchResultsViewHtml(viewModel).trim();
+  const nextRoot = template.content.querySelector('[data-search-results-root]');
+  if (!(nextRoot instanceof HTMLElement)) {
+    return false;
+  }
+  currentRoot.replaceWith(nextRoot);
+  countPerfRender('global-search-results-patch');
+  setupImageLoadAnimations();
+  if (preserveFocus) {
+    window.requestAnimationFrame(() => {
+      restoreSearchInputFocus(selectionStart, selectionEnd);
+      finishPerfAction(perfToken);
+    });
+  } else {
+    finishPerfActionAfterPaint(perfToken);
+  }
+  return true;
+}
+
 function applySearchQuery(nextQuery, { preserveFocus = false, selectionStart = null, selectionEnd = null } = {}) {
   const perfToken = startPerfAction('search query apply');
   if (pendingSearchApplyTimer) {
@@ -3654,14 +3716,16 @@ function applySearchQuery(nextQuery, { preserveFocus = false, selectionStart = n
   }
   clearSelection({ shouldRender: false });
   resetLoadedCount();
-  render();
-  if (preserveFocus) {
-    window.requestAnimationFrame(() => {
-      restoreSearchInputFocus(selectionStart, selectionEnd);
-      finishPerfAction(perfToken);
-    });
-  } else {
-    finishPerfActionAfterPaint(perfToken);
+  if (!patchGlobalSearchResultsView({ preserveFocus, selectionStart, selectionEnd, perfToken })) {
+    render();
+    if (preserveFocus) {
+      window.requestAnimationFrame(() => {
+        restoreSearchInputFocus(selectionStart, selectionEnd);
+        finishPerfAction(perfToken);
+      });
+    } else {
+      finishPerfActionAfterPaint(perfToken);
+    }
   }
 }
 
