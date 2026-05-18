@@ -155,6 +155,15 @@ describe('Moments app helpers', () => {
     assert.doesNotMatch(appSource, /function buildMomentDayItems/);
   });
 
+  it('patches Moments calendar date changes without refreshing the full route', () => {
+    assert.match(appSource, /function patchMomentsSelectedDateView\(\)/);
+    assert.match(appSource, /renderMomentsCalendar/);
+    assert.match(appSource, /renderMomentsDayWall/);
+    assert.match(appSource, /data-moments-stat="selected-date"/);
+    assert.match(appSource, /case 'select-moments-date':[\s\S]*?setMomentSelectedDate\(actionTarget\.dataset\.date, \{ syncMonth: true \}\);[\s\S]*?if \(!patchMomentsSelectedDateView\(\)\) \{\s*render\(\);\s*\}[\s\S]*?return true;/);
+    assert.match(appSource, /case 'change-moments-month':[\s\S]*?if \(!patchMomentsCalendar\(\)\) \{\s*render\(\);\s*\}[\s\S]*?return true;/);
+  });
+
   it('progressively hydrates the Photos index instead of blocking first paint on every page', () => {
     assert.match(appSource, /const firstPayload = await fetchListPage\(0, INITIAL_PHOTOS_PAGE_SIZE\)/);
     assert.match(appSource, /const initialItems = firstFiles/);

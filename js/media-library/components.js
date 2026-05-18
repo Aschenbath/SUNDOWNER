@@ -1185,7 +1185,7 @@ function renderMomentsFeed({ posts = [], authorName = 'Aschenbath', authorAvatar
   `;
 }
 
-function renderMomentsCalendar({ selectedDate = '', calendarMonth = '', datesWithPhotos = {} } = {}) {
+export function renderMomentsCalendar({ selectedDate = '', calendarMonth = '', datesWithPhotos = {} } = {}) {
   const calendar = buildMomentsCalendarModel(calendarMonth, selectedDate, datesWithPhotos);
 
   return `
@@ -1214,7 +1214,7 @@ function renderMomentsCalendar({ selectedDate = '', calendarMonth = '', datesWit
   `;
 }
 
-function renderMomentsDayWall({ posts = [], selectedDate = '' } = {}) {
+export function renderMomentsDayWall({ posts = [], selectedDate = '' } = {}) {
   const attachments = posts
     .filter((post) => post.date === selectedDate)
     .flatMap((post) => post.attachments || []);
@@ -1284,7 +1284,7 @@ function renderMomentsPicker({ open = false, items = [], selectedIds = [] } = {}
   `;
 }
 
-function formatMomentSelectedDate(value = '') {
+export function formatMomentSelectedDate(value = '') {
   const normalized = normalizeText(value);
   if (!normalized) {
     return 'Today';
@@ -1326,9 +1326,9 @@ export function MomentsView({
             <h1>Moments</h1>
           </div>
           <div class="cml-moments__stats" aria-label="Moments summary">
-            <span><strong>${posts.length}</strong><em>Posts</em></span>
-            <span><strong>${totalPhotos}</strong><em>Photos</em></span>
-            <span><strong>${escapeHtml(formatMomentSelectedDate(selectedDate))}</strong><em>${selectedDayPhotos} selected</em></span>
+            <span data-moments-stat="posts"><strong>${posts.length}</strong><em>Posts</em></span>
+            <span data-moments-stat="photos"><strong>${totalPhotos}</strong><em>Photos</em></span>
+            <span data-moments-stat="selected-date"><strong>${escapeHtml(formatMomentSelectedDate(selectedDate))}</strong><em>${selectedDayPhotos} selected</em></span>
           </div>
         </header>
         ${renderMomentsComposer({ draftBody, draftAttachments, isPublishing, isEditing, error })}

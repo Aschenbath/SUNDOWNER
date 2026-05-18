@@ -46,8 +46,11 @@ import {
   VideoAlbumSummary,
   VideoCategoryBar,
   YearScroller,
-  buildJustifiedRows
-} from './components.js?v=103';
+  buildJustifiedRows,
+  formatMomentSelectedDate,
+  renderMomentsCalendar,
+  renderMomentsDayWall
+} from './components.js?v=104';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -4969,6 +4972,66 @@ function patchMomentPickerSelection() {
     applyButton.textContent = selectedIds.size ? `Add ${selectedIds.size}` : 'Add selected';
   }
   return true;
+}
+
+function replaceMomentsSection(selector, markup) {
+  if (!(refs.root instanceof HTMLElement)) {
+    return false;
+  }
+  const current = refs.root.querySelector(selector);
+  if (!(current instanceof HTMLElement)) {
+    return false;
+  }
+  const template = document.createElement('template');
+  template.innerHTML = String(markup || '').trim();
+  const next = template.content.firstElementChild;
+  if (!(next instanceof HTMLElement)) {
+    return false;
+  }
+  current.replaceWith(next);
+  return true;
+}
+
+function patchMomentsSelectedDateSummary() {
+  if (!(refs.root instanceof HTMLElement)) {
+    return false;
+  }
+  const selectedStat = refs.root.querySelector('[data-moments-stat="selected-date"]');
+  if (!(selectedStat instanceof HTMLElement)) {
+    return false;
+  }
+  const selectedDayPhotos = safeArray(state.momentsPosts)
+    .filter((post) => normalizeText(post?.date) === normalizeText(state.momentsSelectedDate))
+    .reduce((sum, post) => sum + safeArray(post?.attachments).length, 0);
+  let valueNode = selectedStat.querySelector('strong');
+  let labelNode = selectedStat.querySelector('em');
+  if (!(valueNode instanceof HTMLElement) || !(labelNode instanceof HTMLElement)) {
+    selectedStat.textContent = '';
+    valueNode = document.createElement('strong');
+    labelNode = document.createElement('em');
+    selectedStat.append(valueNode, labelNode);
+  }
+  valueNode.textContent = formatMomentSelectedDate(state.momentsSelectedDate);
+  labelNode.textContent = `${selectedDayPhotos} selected`;
+  return true;
+}
+
+function patchMomentsCalendar() {
+  return replaceMomentsSection('[data-moments-calendar]', renderMomentsCalendar({
+    selectedDate: state.momentsSelectedDate,
+    calendarMonth: state.momentsCalendarMonth,
+    datesWithPhotos: state.momentsDatesWithPhotos
+  }));
+}
+
+function patchMomentsSelectedDateView() {
+  const calendarPatched = patchMomentsCalendar();
+  const dayWallPatched = replaceMomentsSection('[data-moments-day-wall]', renderMomentsDayWall({
+    posts: state.momentsPosts,
+    selectedDate: state.momentsSelectedDate
+  }));
+  const summaryPatched = patchMomentsSelectedDateSummary();
+  return calendarPatched && dayWallPatched && summaryPatched;
 }
 
 function toggleMomentPickerPhoto(itemId) {
@@ -16491,7 +16554,9 @@ function handleAction(actionTarget, event = null) {
     case 'select-moments-date':
       if (actionTarget.dataset.date) {
         setMomentSelectedDate(actionTarget.dataset.date, { syncMonth: true });
-        render();
+        if (!patchMomentsSelectedDateView()) {
+          render();
+        }
       }
       return true;
     case 'change-moments-month': {
@@ -16499,7 +16564,9 @@ function handleAction(actionTarget, event = null) {
       const [year, month] = state.momentsCalendarMonth.split('-').map(Number);
       const nextMonth = new Date(year, month - 1 + direction, 1);
       state.momentsCalendarMonth = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
-      render();
+      if (!patchMomentsCalendar()) {
+        render();
+      }
       return true;
     }
     case 'delete-moment':
