@@ -856,10 +856,7 @@ const state = {
   filmRouteTransition: ''
 };
 
-const TIMELINE_DIMENSION_PATCH_IDLE_MS = 600;
 let dimensionPatchTimer = 0;
-let dimensionPatchRenderRaf = 0;
-let lastTimelineScrollAt = 0;
 
 const refs = {
   root: null,
@@ -1801,23 +1798,17 @@ function captureDimension(img, tile) {
   if (Math.abs(storedAspect - naturalAspect) < 0.05) return;
   state.dimensionCache.set(id, { width: nw, height: nh });
   clearTimeout(dimensionPatchTimer);
-  if (Date.now() - lastTimelineScrollAt < TIMELINE_DIMENSION_PATCH_IDLE_MS) {
-    dimensionPatchTimer = window.setTimeout(applyDimensionPatch, TIMELINE_DIMENSION_PATCH_IDLE_MS);
-  } else {
-    dimensionPatchTimer = window.setTimeout(applyDimensionPatch, 150);
-  }
+  dimensionPatchTimer = window.setTimeout(applyDimensionPatch, 150);
 }
 
 function applyDimensionPatch() {
   if (state.dimensionCache.size === 0) return;
-  let changed = false;
   state.dimensionCache.forEach(({ width, height }, id) => {
     const mediaIdx = state.mediaItems.findIndex((m) => m.id === id);
     if (mediaIdx !== -1) {
       const current = state.mediaItems[mediaIdx];
       if (current.width !== width || current.height !== height) {
         state.mediaItems[mediaIdx] = { ...current, width, height };
-        changed = true;
       }
     }
     const binIdx = state.binItems.findIndex((m) => m.id === id);
@@ -1825,19 +1816,10 @@ function applyDimensionPatch() {
       const current = state.binItems[binIdx];
       if (current.width !== width || current.height !== height) {
         state.binItems[binIdx] = { ...current, width, height };
-        changed = true;
       }
     }
   });
   state.dimensionCache.clear();
-  if (changed && refs.root && !dimensionPatchRenderRaf) {
-    dimensionPatchRenderRaf = window.requestAnimationFrame(() => {
-      dimensionPatchRenderRaf = 0;
-      if (refs.root) {
-        render();
-      }
-    });
-  }
 }
 
 function revealLoadedPreviewImage(img, tile) {
@@ -16749,7 +16731,6 @@ function handleScroll() {
   if (!refs.scrollRegion || scrollRestoring) {
     return;
   }
-  lastTimelineScrollAt = Date.now();
   revealScrubber();
   state.virtualScrollTop = refs.scrollRegion.scrollTop;
   state.virtualViewportHeight = refs.scrollRegion.clientHeight;

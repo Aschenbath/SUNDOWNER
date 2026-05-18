@@ -2039,10 +2039,12 @@ describe('media library download actions', () => {
     assert.ok(thresholdMatch);
     assert.ok(Number(thresholdMatch[1]) >= 720);
     assert.match(appSource, /timelineItems\.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD/);
-    assert.match(cssSource, /#codex-media-library-root \.cml-media-row \{[\s\S]*content-visibility: auto;/);
-    assert.match(cssSource, /#codex-media-library-root \.cml-media-row \{[\s\S]*contain-intrinsic-size: \d+px;/);
-    assert.match(appSource, /Date\.now\(\) - lastTimelineScrollAt < TIMELINE_DIMENSION_PATCH_IDLE_MS/);
-    assert.match(appSource, /dimensionPatchTimer = window\.setTimeout\(applyDimensionPatch, TIMELINE_DIMENSION_PATCH_IDLE_MS\);/);
+    assert.doesNotMatch(cssSource, /\.cml-media-row \{[^}]*?content-visibility:/);
+    assert.doesNotMatch(cssSource, /\.cml-media-row \{[^}]*?contain-intrinsic-size:/);
+    const applyPatch = appSource.match(/function applyDimensionPatch\(\)[\s\S]*?\n\}/);
+    assert.ok(applyPatch, 'applyDimensionPatch should still exist');
+    assert.doesNotMatch(applyPatch[0], /\brender\(\)/);
+    assert.doesNotMatch(applyPatch[0], /requestAnimationFrame/);
 
     const rowHtml = MediaGrid({
       rows: [{
@@ -2068,7 +2070,8 @@ describe('media library download actions', () => {
         fullLoadedMediaIds: new Set(),
       },
     });
-    assert.match(rowHtml, /class="cml-media-row" style="contain-intrinsic-size:222px;"/);
+    assert.match(rowHtml, /<div class="cml-media-row">/);
+    assert.doesNotMatch(rowHtml, /contain-intrinsic-size/);
   });
 
   it('keeps collection cards on date-only metadata, uses clickable album titles, and omits the cover summary line', () => {

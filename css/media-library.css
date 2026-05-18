@@ -2616,8 +2616,6 @@ body.codex-media-library-active #app {
   display: flex;
   gap: 2px;
   align-items: stretch;
-  content-visibility: auto;
-  contain-intrinsic-size: 220px;
 }
 
 #codex-media-library-root .cml-media-tile {
