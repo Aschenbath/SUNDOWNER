@@ -352,12 +352,13 @@ export function buildJustifiedRows(items, options = {}) {
   return rows;
 }
 
-function renderMediaAsset(item, className, withControls = false, { noAction = false, preferFullImage = false } = {}) {
+function renderMediaAsset(item, className, withControls = false, { noAction = false, preferFullImage = false, priority = false } = {}) {
   const sourceUrl = item.sourceUrl || item.thumbnailUrl;
   const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
   const mediaUrl = escapeHtml((item.type === 'video' || item.type === 'audio') ? sourceUrl : imageUrl);
   const alt = escapeHtml(safeDisplayLabel(item));
-  const imageLoading = withControls ? 'eager' : 'lazy';
+  const imageLoading = withControls || priority ? 'eager' : 'lazy';
+  const imagePriorityAttr = priority ? ' fetchpriority="high"' : '';
   const originalPhotoUrl = item.type === 'photo' && sourceUrl && sourceUrl !== imageUrl
     ? escapeHtml(sourceUrl)
     : '';
@@ -405,7 +406,7 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
       const mimeTag = String(item.mimeType || 'image').replace(/^image\//i, '').toUpperCase();
       const errorHandler = `this.style.display='none';this.parentElement.classList.add('is-heic-fallback');this.parentElement.dataset.mimeTag='${escapeHtml(mimeTag)}'`;
-      return `<img class="${className}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}"${w}${h}${previewActionAttr} loading="${imageLoading}" decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
+      return `<img class="${className}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}"${w}${h}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
     }
   }
   if (item.type === 'video' && item.thumbnailUrl === sourceUrl) {
@@ -427,9 +428,9 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
     ? item.blurThumbUrl : '';
   if (blurThumb) {
     const fullSrcAttr = ` data-full-src="${mediaUrl}"`;
-    return `<img class="${className} is-blur-placeholder" src="${escapeHtml(blurThumb)}" alt="${alt}"${w}${h}${fallbackAttr}${fullSrcAttr}${previewActionAttr} loading="${imageLoading}" decoding="async"${errorAttr} />`;
+    return `<img class="${className} is-blur-placeholder" src="${escapeHtml(blurThumb)}" alt="${alt}"${w}${h}${fallbackAttr}${fullSrcAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async"${errorAttr} />`;
   }
-  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${fallbackAttr}${previewActionAttr} loading="${imageLoading}" decoding="async"${errorAttr} />`;
+  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${fallbackAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async"${errorAttr} />`;
 }
 
 function formatItemCount(count) {
@@ -886,7 +887,7 @@ export function TopSearchBar({ state, storageSummary = null, canDeleteSelection 
   `;
 }
 
-export function MediaTile({ item, selected, layout, isCover = false, state = null }) {
+export function MediaTile({ item, selected, layout, isCover = false, state = null, priority = false }) {
   if (!shouldDisplayMediaItem(item)) {
     return '';
   }
@@ -905,7 +906,7 @@ export function MediaTile({ item, selected, layout, isCover = false, state = nul
       <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
-      ${renderMediaAsset(item, 'cml-media-tile__image', false, { preferFullImage: isFullLoaded })}
+      ${renderMediaAsset(item, 'cml-media-tile__image', false, { preferFullImage: isFullLoaded, priority })}
       ${item.type === 'video' ? `<span class="cml-media-tile__video-badge" aria-hidden="true">${icon('play')}</span>` : ''}
       ${isCover ? `<span class="cml-media-tile__cover-badge" aria-label="Album cover">${icon('star')}</span>` : ''}
       <div class="cml-media-tile__scrim"></div>
@@ -913,7 +914,8 @@ export function MediaTile({ item, selected, layout, isCover = false, state = nul
   `;
 }
 
-export function renderMediaRows(rows, state, coverItemId = '') {
+export function renderMediaRows(rows, state, coverItemId = '', { priorityItemLimit = 0 } = {}) {
+  let renderedItemCount = 0;
   return rows.map((row) => {
     const visibleItems = row.items.filter((layout) => shouldDisplayMediaItem(layout.item));
     if (!visibleItems.length) {
@@ -926,24 +928,25 @@ export function renderMediaRows(rows, state, coverItemId = '') {
           layout,
           selected: state.selectedIds.has(layout.item.id),
           isCover: coverItemId && layout.item.id === coverItemId,
-          state
+          state,
+          priority: renderedItemCount++ < priorityItemLimit
         })).join('')}
       </div>
     `;
   }).join('');
 }
 
-export function MediaGrid({ rows, state, coverItemId = '', topSpacerHeight = 0, bottomSpacerHeight = 0 }) {
+export function MediaGrid({ rows, state, coverItemId = '', topSpacerHeight = 0, bottomSpacerHeight = 0, priorityItemLimit = 0 }) {
   return `
     <div class="cml-media-grid">
       ${topSpacerHeight > 0 ? `<div class="cml-media-grid__spacer" style="height:${Math.max(0, Math.round(topSpacerHeight))}px" aria-hidden="true"></div>` : ''}
-      ${renderMediaRows(rows, state, coverItemId)}
+      ${renderMediaRows(rows, state, coverItemId, { priorityItemLimit })}
       ${bottomSpacerHeight > 0 ? `<div class="cml-media-grid__spacer" style="height:${Math.max(0, Math.round(bottomSpacerHeight))}px" aria-hidden="true"></div>` : ''}
     </div>
   `;
 }
 
-export function MediaTimelineSection({ section, state, layoutWidth, coverItemId = '' }) {
+export function MediaTimelineSection({ section, state, layoutWidth, coverItemId = '', priorityItemLimit = 0 }) {
   const isSectionSelected = section.items.length > 0 && section.items.every((item) => state.selectedIds.has(item.id));
   const isActiveSection = String(state.activeSectionAnchor || '') === String(section.anchorId || '');
   return `
@@ -972,7 +975,8 @@ export function MediaTimelineSection({ section, state, layoutWidth, coverItemId 
         state,
         coverItemId,
         topSpacerHeight: section.topSpacerHeight,
-        bottomSpacerHeight: section.bottomSpacerHeight
+        bottomSpacerHeight: section.bottomSpacerHeight,
+        priorityItemLimit
       })}
     </section>
   `;

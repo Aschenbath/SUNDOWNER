@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar, AlbumDialog } from '../js/media-library/components.js';
+import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaGrid, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar, AlbumDialog } from '../js/media-library/components.js';
 import { FilmCard, FilmDetailPage, FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
 
 describe('media library download actions', () => {
@@ -1981,6 +1981,54 @@ describe('media library download actions', () => {
     assert.match(html, /src="\/file\/scenery\/river\.jpg\?preview=1"/);
     assert.doesNotMatch(html, /is-blur-placeholder/);
     assert.doesNotMatch(html, /data-full-src=/);
+  });
+
+  it('prioritizes above-the-fold photo tiles without making the whole timeline eager', () => {
+    const rows = [{
+      items: [
+        {
+          item: {
+            id: 'managed-priority-1',
+            type: 'photo',
+            label: 'front.jpg',
+            sourceUrl: '/file/scenery/front.jpg',
+            thumbnailUrl: '/file/scenery/front.jpg',
+            width: 1200,
+            height: 900,
+            displayTakenAt: 'April 8, 2026 21:42',
+          },
+          width: 240,
+          height: 180,
+        },
+        {
+          item: {
+            id: 'managed-priority-2',
+            type: 'photo',
+            label: 'below.jpg',
+            sourceUrl: '/file/scenery/below.jpg',
+            thumbnailUrl: '/file/scenery/below.jpg',
+            width: 1200,
+            height: 900,
+            displayTakenAt: 'April 8, 2026 21:43',
+          },
+          width: 240,
+          height: 180,
+        },
+      ],
+    }];
+    const html = MediaGrid({
+      rows,
+      state: {
+        selectedIds: new Set(),
+        loadedMediaIds: new Set(),
+        fullLoadedMediaIds: new Set(),
+      },
+      priorityItemLimit: 1,
+    });
+
+    assert.match(html, /front\.jpg"[^>]+loading="eager"[^>]+fetchpriority="high"/);
+    assert.match(html, /below\.jpg"[^>]+loading="lazy"/);
+    assert.doesNotMatch(html, /below\.jpg"[^>]+fetchpriority="high"/);
   });
 
   it('keeps collection cards on date-only metadata, uses clickable album titles, and omits the cover summary line', () => {

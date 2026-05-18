@@ -208,4 +208,21 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /const hasFallbackItems = items\.length > 0;/);
     assert.match(appSource, /const shouldKeepLoading = !hasFallbackItems/);
   });
+
+  it('keeps the topbar storage summary aligned with loaded Photos when quota metadata is empty', () => {
+    assert.match(appSource, /function buildLoadedMediaStorageSummaryFallback\(baseSummary = state\.storageSummary\) \{/);
+    assert.match(appSource, /const loadedItems = safeArray\(state\.mediaItems\);/);
+    assert.match(appSource, /loadedItems\.reduce\(\(sum, item\) => sum \+ Math\.max\(0, Number\(item\?\.sizeMb\) \|\| 0\), 0\)/);
+    assert.match(appSource, /const shouldUseLoadedFallback = loadedFallback\.totalCount > 0[\s\S]*?&& nextSummary\.totalCount === 0[\s\S]*?&& nextSummary\.usedMb === 0;/);
+    assert.match(appSource, /nextSummary = shouldUseLoadedFallback \? loadedFallback : nextSummary;/);
+    assert.match(appSource, /state\.isLibraryLoading = false;\s*void syncStorageSummary\(\{ forceRender: false \}\);/);
+  });
+
+  it('shows loaded Telegram previews clearly while the full photo keeps loading', () => {
+    assert.match(appSource, /function revealLoadedPreviewImage\(img, tile\) \{/);
+    assert.match(appSource, /img\.classList\.remove\('is-blur-placeholder'\);/);
+    assert.match(appSource, /tile\.classList\.add\('is-preview-loaded'\);/);
+    assert.match(appSource, /if \(fullSrc && img\.src !== fullSrc\) \{[\s\S]*?revealLoadedPreviewImage\(img, tile\);[\s\S]*?swapTileToFullImage\(img, tile, fullSrc\);[\s\S]*?return;/);
+    assert.match(appSource, /img\.addEventListener\('load', function onBlurLoad\(\) \{[\s\S]*?revealLoadedPreviewImage\(img, tile\);[\s\S]*?swapTileToFullImage\(img, tile, fullSrc\);/);
+  });
 });

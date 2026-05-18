@@ -51,7 +51,7 @@ import {
   renderMomentsCalendar,
   renderMomentsDayWall,
   renderMomentsFeed
-} from './components.js?v=105';
+} from './components.js?v=106';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -219,6 +219,7 @@ const TIMELINE_SECTION_GAP = 28;
 const BIN_TIMELINE_SECTION_GAP = 24;
 const TIMELINE_VIRTUAL_OVERSCAN = 960;
 const TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD = 120;
+const PHOTOS_PRIORITY_TILE_LIMIT = 8;
 const TILE_SELECTION_CHECK_MARKUP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 12.8 3.7 3.7 7.5-8.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
 const TILE_SELECTION_RING_MARKUP = '<span class="cml-media-tile__select-ring"></span>';
 const VIDEO_CATEGORY_MAX_LENGTH = 48;
@@ -1826,6 +1827,14 @@ function applyDimensionPatch() {
   }
 }
 
+function revealLoadedPreviewImage(img, tile) {
+  if (!(img instanceof HTMLImageElement) || !tile?.isConnected) {
+    return;
+  }
+  img.classList.remove('is-blur-placeholder');
+  tile.classList.add('is-preview-loaded');
+}
+
 function swapTileToFullImage(img, tile, fullSrc) {
   if (!(img instanceof HTMLImageElement) || !fullSrc) {
     return;
@@ -1893,6 +1902,7 @@ function setupImageLoadAnimations() {
       if (fullSrc && img.src !== fullSrc) {
         // Do not read dimensions from the blur thumbnail; wait for the real
         // image so portrait photos do not get patched as landscape tiles.
+        revealLoadedPreviewImage(img, tile);
         swapTileToFullImage(img, tile, fullSrc);
         return;
       } else if (fullSrc) {
@@ -1915,6 +1925,7 @@ function setupImageLoadAnimations() {
       img.addEventListener('load', function onBlurLoad() {
         tile.classList.add('is-img-loaded');
         rememberLoaded();
+        revealLoadedPreviewImage(img, tile);
         swapTileToFullImage(img, tile, fullSrc);
       }, { once: true });
       img.addEventListener('error', () => {
@@ -3627,6 +3638,17 @@ function buildStorageSummaryUpdate({ usedMb = 0, totalQuotaGb = 0, totalCount = 
   };
 }
 
+function buildLoadedMediaStorageSummaryFallback(baseSummary = state.storageSummary) {
+  const loadedItems = safeArray(state.mediaItems);
+  const loadedUsedMb = loadedItems.reduce((sum, item) => sum + Math.max(0, Number(item?.sizeMb) || 0), 0);
+  return buildStorageSummaryUpdate({
+    ...baseSummary,
+    usedMb: loadedUsedMb,
+    totalCount: loadedItems.length,
+    isLoading: false
+  });
+}
+
 function sameStorageSummary(left, right) {
   return left.usedMb === right.usedMb
     && left.totalQuotaGb === right.totalQuotaGb
@@ -4503,8 +4525,18 @@ async function performStorageSummarySync({ forceRender = false } = {}) {
       totalCount: quotaPayload ? quotaPayload.totalCount : state.storageSummary.totalCount,
       isLoading: false
     });
+    const loadedFallback = buildLoadedMediaStorageSummaryFallback(nextSummary);
+    const shouldUseLoadedFallback = loadedFallback.totalCount > 0
+      && nextSummary.totalCount === 0
+      && nextSummary.usedMb === 0;
+    nextSummary = shouldUseLoadedFallback ? loadedFallback : nextSummary;
   } catch (error) {
     console.warn('[media-library] storage summary sync failed', error);
+    const loadedFallback = buildLoadedMediaStorageSummaryFallback(nextSummary);
+    const shouldUseLoadedFallback = loadedFallback.totalCount > 0
+      && nextSummary.totalCount === 0
+      && nextSummary.usedMb === 0;
+    nextSummary = shouldUseLoadedFallback ? loadedFallback : nextSummary;
   }
 
   if (!sameStorageSummary(state.storageSummary, nextSummary)) {
@@ -5811,6 +5843,7 @@ async function fetchIndexedMediaItems(domItems) {
     state.mediaItems = fullItems;
     state.librarySyncMeta = nextLibrarySyncMeta;
     state.isLibraryLoading = false;
+    void syncStorageSummary({ forceRender: false });
     if (refs.root && state.primaryFilter !== 'Moments') {
       render();
     }
@@ -14737,7 +14770,8 @@ function render() {
                       section,
                       state,
                       layoutWidth: state.layoutWidth,
-                      coverItemId: viewModel.activeAlbumCoverId
+                      coverItemId: viewModel.activeAlbumCoverId,
+                      priorityItemLimit: section === viewModel.sections[0] ? PHOTOS_PRIORITY_TILE_LIMIT : 0
                      })).join('')
                      : EmptyState({
                       query: parsedSearch.textQuery,
@@ -16377,7 +16411,7 @@ function patchTimelineContent() {
 
     if (prevStart < 0 || prevEnd < 0 || !currentRowEls.length) {
       // No previous rows or empty — full replace of row content only
-      const rowHtml = renderMediaRows(visibleRows, state, coverItemId);
+      const rowHtml = renderMediaRows(visibleRows, state, coverItemId, { priorityItemLimit: 0 });
       // Remove existing rows
       currentRowEls.forEach((r) => r.remove());
       // Insert new rows after top spacer
@@ -16403,7 +16437,7 @@ function patchTimelineContent() {
       const addTop = Math.max(0, prevStart - nextStart);
       if (addTop > 0) {
         const newTopRows = allRows.slice(nextStart, nextStart + addTop);
-        const html = renderMediaRows(newTopRows, state, coverItemId);
+        const html = renderMediaRows(newTopRows, state, coverItemId, { priorityItemLimit: 0 });
         const firstRow = grid.querySelector('.cml-media-row');
         if (firstRow) {
           firstRow.insertAdjacentHTML('beforebegin', html);
@@ -16417,7 +16451,7 @@ function patchTimelineContent() {
       const addBottom = Math.max(0, nextEnd - prevEnd);
       if (addBottom > 0) {
         const newBottomRows = allRows.slice(prevEnd + 1, nextEnd + 1);
-        const html = renderMediaRows(newBottomRows, state, coverItemId);
+        const html = renderMediaRows(newBottomRows, state, coverItemId, { priorityItemLimit: 0 });
         const bottomSp = grid.querySelectorAll('.cml-media-grid__spacer');
         const lastSpacer = bottomSp.length > 1 ? bottomSp[bottomSp.length - 1] : null;
         if (lastSpacer) {
