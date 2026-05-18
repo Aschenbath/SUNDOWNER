@@ -9734,7 +9734,7 @@ function buildCollectionSummaries(items) {
     });
 }
 
-function getViewModel() {
+function getBaseViewModelContext() {
   const accessibleItems = getAccessibleItems();
   const visibleSecondaryFilters = getVisibleSecondaryFilters(accessibleItems);
   if (state.secondaryFilter && !visibleSecondaryFilters.includes(state.secondaryFilter)) {
@@ -9756,6 +9756,118 @@ function getViewModel() {
   const activeAlbumName = getActiveAlbumName();
   const albumSelectionTarget = getAlbumSelectionTarget(state);
   const videoAlbumSelectionTarget = getVideoAlbumSelectionTarget(state);
+  const isMindView = state.primaryFilter === 'Mind';
+  const isGlobalSearchView = globalSearchActive
+    && !isMindView
+    && state.primaryFilter !== 'Bin'
+    && !activeAlbumName
+    && !state.videoCategoryFilter
+    && !state.privateViewOpen
+    && !albumSelectionTarget
+    && !videoAlbumSelectionTarget
+    && !state.privateSelectionMode;
+  const isFilmsView = state.primaryFilter === 'Films' && !isGlobalSearchView;
+  const isMusicView = state.primaryFilter === 'Music' && !isGlobalSearchView;
+  const isCollectionRoot = state.primaryFilter === 'Collections' && !activeAlbumName && !isGlobalSearchView;
+  const isAlbumPickerMode = hasAnyPickerTarget(state);
+
+  return {
+    accessibleItems,
+    visibleSecondaryFilters,
+    parsedSearch,
+    globalSearchActive,
+    isMomentsView,
+    activeAlbumName,
+    albumSelectionTarget,
+    videoAlbumSelectionTarget,
+    isMindView,
+    isGlobalSearchView,
+    isFilmsView,
+    isMusicView,
+    isCollectionRoot,
+    isAlbumPickerMode,
+    activePlaylistName: getActivePlaylistName()
+  };
+}
+
+function buildViewModelResult(context = getBaseViewModelContext(), overrides = {}) {
+  return {
+    navigationModel: {
+      primary: navigationModel.primary,
+      secondary: context.visibleSecondaryFilters
+    },
+    activeAlbumName: context.activeAlbumName,
+    activeAlbumCoverId: '',
+    activeAlbumCoverLabel: '',
+    hasCustomAlbumCover: false,
+    albumSelectionTarget: context.albumSelectionTarget,
+    videoAlbumSelectionTarget: context.videoAlbumSelectionTarget,
+    isAlbumPickerMode: context.isAlbumPickerMode,
+    isFilmsView: context.isFilmsView,
+    isMindView: context.isMindView,
+    isMomentsView: context.isMomentsView,
+    isGlobalSearchView: context.isGlobalSearchView,
+    globalSearchResultCount: 0,
+    isMusicView: context.isMusicView,
+    activePlaylistName: context.activePlaylistName || getActivePlaylistName(),
+    isCollectionRoot: context.isCollectionRoot,
+    musicPlaylists: [],
+    collectionCards: [],
+    totalCollectionCount: 0,
+    filteredItems: [],
+    searchPhotoItems: [],
+    searchVideoItems: [],
+    searchAudioItems: [],
+    searchFileItems: [],
+    searchAlbumCards: [],
+    searchPhotoSections: [],
+    searchVideoSections: [],
+    musicItems: [],
+    currentAudioItem: null,
+    audioQueueItems: [],
+    momentsPosts: state.momentsPosts,
+    momentsDatesWithPhotos: state.momentsDatesWithPhotos,
+    isVideoAlbumRoot: false,
+    videoAlbumCards: [],
+    videoAlbumCount: 0,
+    videoAlbumGroupedItemCount: 0,
+    videoAlbumUngroupedCount: 0,
+    activeVideoAlbumItemCount: 0,
+    videoCategoryOptions: [],
+    videoCategoryScopeCount: 0,
+    sections: [],
+    timelineLayoutSections: [],
+    timelineVirtualSignature: '',
+    timelineVirtualEnabled: false,
+    years: [],
+    scrubberSections: [],
+    previewItems: [],
+    previewIndex: -1,
+    previewItem: null,
+    availableAlbums: [],
+    previewAlbumEntries: [],
+    filmRecord: null,
+    canSetAlbumCover: false,
+    canDownloadSelection: false,
+    canDeleteSelection: false,
+    binItems: state.binItems,
+    isBinLoading: state.isBinLoading,
+    binSelectedIds: state.binSelectedIds,
+    ...overrides
+  };
+}
+
+function getLegacyViewModel(context = getBaseViewModelContext()) {
+  const {
+    accessibleItems,
+    visibleSecondaryFilters,
+    parsedSearch,
+    globalSearchActive,
+    isMomentsView,
+    activeAlbumName,
+    albumSelectionTarget,
+    videoAlbumSelectionTarget
+  } = context;
   const filteredItems = getFilteredItems(accessibleItems);
   const searchPhotoItems = globalSearchActive
     ? filteredItems.filter((item) => item?.type === 'photo')
@@ -9965,6 +10077,69 @@ function getViewModel() {
     isBinLoading: state.isBinLoading,
     binSelectedIds: state.binSelectedIds
   };
+}
+
+
+function getPhotosViewModel(context = getBaseViewModelContext()) {
+  return getLegacyViewModel(context);
+}
+
+function getSearchViewModel(context = getBaseViewModelContext()) {
+  return getLegacyViewModel(context);
+}
+
+function getFilmsViewModel(context = getBaseViewModelContext()) {
+  return getLegacyViewModel(context);
+}
+
+function getMomentsViewModel(context = getBaseViewModelContext()) {
+  return getLegacyViewModel(context);
+}
+
+function getMusicViewModel(context = getBaseViewModelContext()) {
+  const { accessibleItems } = context;
+  const selectedItems = getSelectedItems(accessibleItems);
+  const musicItems = getMusicContextItems(accessibleItems);
+  const musicPlaylists = buildMusicPlaylistSummaries(accessibleItems);
+  const queueIds = Array.isArray(state.audioQueueIds) ? state.audioQueueIds : [];
+  const mappedQueue = context.activePlaylistName
+    ? []
+    : queueIds
+      .map((itemId) => getAudioItemById(itemId, accessibleItems))
+      .filter(Boolean);
+  const audioQueueItems = mappedQueue.length ? mappedQueue : musicItems;
+  const currentAudioItem = getAudioItemById(state.audioCurrentId, accessibleItems)
+    || getAudioItemById(state.audioCurrentId, getAllItems());
+  const previewIndex = musicItems.findIndex((item) => item.id === state.previewId);
+
+  return buildViewModelResult(context, {
+    musicPlaylists,
+    musicItems,
+    filteredItems: musicItems,
+    currentAudioItem,
+    audioQueueItems,
+    previewItems: musicItems,
+    previewIndex,
+    previewItem: previewIndex >= 0 ? musicItems[previewIndex] : null,
+    canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
+    canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item))
+  });
+}
+
+function getViewModel() {
+  const context = getBaseViewModelContext();
+  switch (true) {
+    case context.isGlobalSearchView:
+      return getSearchViewModel(context);
+    case context.isMusicView:
+      return getMusicViewModel(context);
+    case context.isFilmsView:
+      return getFilmsViewModel(context);
+    case context.isMomentsView:
+      return getMomentsViewModel(context);
+    default:
+      return getPhotosViewModel(context);
+  }
 }
 
 let layoutWidthRenderRaf = 0;

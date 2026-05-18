@@ -2399,6 +2399,18 @@ describe('media library download actions', () => {
     assert.doesNotMatch(patchAudioUiSource, /currentMusicLibrary\.replaceWith\(nextMusicLibrary\);/);
   });
 
+  it('dispatches view-model construction through route-specific builders', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /function getBaseViewModelContext\(/);
+    assert.match(appSource, /function getPhotosViewModel\(/);
+    assert.match(appSource, /function getMusicViewModel\(/);
+    assert.match(appSource, /function getFilmsViewModel\(/);
+    assert.match(appSource, /function getMomentsViewModel\(/);
+    assert.match(appSource, /function getSearchViewModel\(/);
+    assert.match(appSource, /switch \(true\)/);
+  });
+
   it('reports full-render phases and view-model cost behind cmlPerf', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
