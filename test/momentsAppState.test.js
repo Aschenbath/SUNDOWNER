@@ -188,6 +188,21 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /editingPostId: state\.momentsEditingPostId/);
   });
 
+  it('skips unchanged Moment edits instead of showing a saving state', () => {
+    assert.match(appSource, /function isMomentDraftUnchanged\(post = null, payload = buildMomentMutationPayload/);
+    assert.match(appSource, /if \(editingPost && isMomentDraftUnchanged\(editingPost, payload\)\) \{\s+clearMomentDraft\(\{ shouldRender: true \}\);\s+return;/);
+  });
+
+  it('keeps Moment edit saves local-first without blocking on a visible saving state', () => {
+    assert.match(appSource, /function applyOptimisticMomentEdit\(post, payload\)/);
+    assert.match(appSource, /let momentsSaveSequence = 0;/);
+    assert.match(appSource, /state\.momentsSaveSequences\.set\(normalizeText\(editingPostId\), saveSequence\);/);
+    assert.match(appSource, /if \(state\.momentsSaveSequences\.get\(normalizeText\(editingPostId\)\) !== saveSequence\) \{\s+return;\s+\}/);
+    assert.match(appSource, /const optimisticPost = applyOptimisticMomentEdit\(editingPost, payload\);/);
+    assert.match(appSource, /clearMomentDraft\(\{ shouldRender: false \}\);\s+patchMomentsPostSaveResult\(optimisticPost\);/);
+    assert.doesNotMatch(appSource, /state\.momentsPublishing = true;\s+state\.momentsError = '';\s+render\(\);\s+try \{\s+const requestUrl = state\.momentsEditingPostId/);
+  });
+
   it('progressively hydrates the Photos index instead of blocking first paint on every page', () => {
     assert.match(appSource, /const firstPayload = await fetchListPage\(0, INITIAL_PHOTOS_PAGE_SIZE\)/);
     assert.match(appSource, /const initialItems = firstFiles/);

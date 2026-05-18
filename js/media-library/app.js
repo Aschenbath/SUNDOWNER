@@ -711,6 +711,7 @@ const state = {
   momentsPickerOpen: false,
   momentsPickerSelection: new Set(),
   momentsPickerQuery: '',
+  momentsSaveSequences: new Map(),
   momentsSelectedDate: new Date().toISOString().slice(0, 10),
   momentsCalendarMonth: new Date().toISOString().slice(0, 7),
   momentsError: '',
@@ -922,6 +923,7 @@ let mindMirrorPromise = null;
 let momentsStatePromise = null;
 let momentsPickerItemsCache = [];
 let momentsPickerItemsSignature = '';
+let momentsSaveSequence = 0;
 let draggedMomentDraftIndex = -1;
 let mindMutationQueue = Promise.resolve();
 let mindVisitStickyMessages = [];
@@ -4955,6 +4957,74 @@ function getMomentPostById(postId = '') {
   return state.momentsPosts.find((post) => normalizeText(post?.id) === normalizedId) || null;
 }
 
+function getMomentPayloadSignature(payload = {}) {
+  return [
+    normalizeText(payload.body),
+    normalizeText(payload.date),
+    safeArray(payload.existingFileIds).map((fileId) => normalizeText(fileId)).join('\u001f'),
+    safeArray(payload.uploadFiles).map((file) => normalizeText(file?.name || '')).join('\u001f')
+  ].join('\u001e');
+}
+
+function getMomentPostSignature(post = null) {
+  return getMomentPayloadSignature({
+    body: post?.body,
+    date: post?.date,
+    existingFileIds: safeArray(post?.attachments).map((attachment) => normalizeText(attachment?.fileId)),
+    uploadFiles: []
+  });
+}
+
+function isMomentDraftUnchanged(post = null, payload = buildMomentMutationPayload({
+  body: state.momentsDraftBody,
+  date: state.momentsDraftDate || state.momentsSelectedDate,
+  attachments: state.momentsDraftAttachments
+})) {
+  if (!post || safeArray(payload.uploadFiles).length > 0) {
+    return false;
+  }
+  return getMomentPostSignature(post) === getMomentPayloadSignature(payload);
+}
+
+function applyOptimisticMomentEdit(post, payload) {
+  if (!post?.id) {
+    return null;
+  }
+  const existingAttachments = safeArray(post.attachments)
+    .filter((attachment) => payload.existingFileIds.includes(normalizeText(attachment?.fileId)));
+  return normalizeMomentPosts([{
+    ...post,
+    body: payload.body,
+    date: payload.date || post.date,
+    momentDate: payload.date || post.date,
+    attachments: existingAttachments,
+    updatedAt: new Date().toISOString()
+  }])[0] || null;
+}
+
+function replaceMomentPostLocally(post) {
+  if (!post?.id) {
+    return;
+  }
+  state.momentsPosts = normalizeMomentPosts([
+    post,
+    ...state.momentsPosts.filter((current) => normalizeText(current?.id) !== normalizeText(post.id))
+  ]);
+  state.momentsDatesWithPhotos = buildMomentsDatesWithPhotos(state.momentsPosts);
+  setMomentSelectedDate(post.date || chooseMomentSelectedDate(state.momentsPosts), { syncMonth: true });
+  state.momentsHydrated = true;
+}
+
+function patchMomentsPostSaveResult(post = null) {
+  if (post?.id && patchMomentsPostCard(post.id)) {
+    if (!patchMomentsSelectedDateView()) {
+      render();
+    }
+    return;
+  }
+  render();
+}
+
 function clearMomentsError({ shouldRender = false } = {}) {
   if (!state.momentsError) {
     return;
@@ -5351,22 +5421,65 @@ function buildMomentFormData() {
 
 async function publishMoment() {
   const editingPostId = state.momentsEditingPostId;
+  const editingPost = editingPostId ? getMomentPostById(editingPostId) : null;
   const { payload, formData } = buildMomentFormData();
   if (!payload.body && payload.existingFileIds.length === 0 && payload.uploadFiles.length === 0) {
     state.momentsError = 'Moment body or at least one photo is required';
     render();
     return;
   }
+  if (editingPost && isMomentDraftUnchanged(editingPost, payload)) {
+    clearMomentDraft({ shouldRender: true });
+    return;
+  }
+  if (editingPost) {
+    const optimisticPost = applyOptimisticMomentEdit(editingPost, payload);
+    if (optimisticPost) {
+      const saveSequence = momentsSaveSequence += 1;
+      state.momentsSaveSequences.set(normalizeText(editingPostId), saveSequence);
+      const previousPosts = state.momentsPosts;
+      const previousDatesWithPhotos = { ...state.momentsDatesWithPhotos };
+      const previousSelectedDate = state.momentsSelectedDate;
+      replaceMomentPostLocally(optimisticPost);
+      clearMomentDraft({ shouldRender: false });
+      patchMomentsPostSaveResult(optimisticPost);
+      fetchMomentsJson(`/api/manage/moments?id=${encodeURIComponent(editingPostId)}`, {
+        method: 'PATCH',
+        body: formData,
+        headers: {},
+      }).then((response) => {
+        const savedPosts = normalizeMomentPosts(response?.post ? [response.post] : []);
+        const savedPost = savedPosts[0] || null;
+        if (state.momentsSaveSequences.get(normalizeText(editingPostId)) !== saveSequence) {
+          return;
+        }
+        state.momentsSaveSequences.delete(normalizeText(editingPostId));
+        if (savedPost) {
+          replaceMomentPostLocally(savedPost);
+          patchMomentsPostSaveResult(savedPost);
+          persistMomentsPayload({ posts: state.momentsPosts, datesWithPhotos: state.momentsDatesWithPhotos });
+        }
+        void performSyncLiveMedia({ forceRender: false });
+      }).catch((error) => {
+        if (state.momentsSaveSequences.get(normalizeText(editingPostId)) !== saveSequence) {
+          return;
+        }
+        state.momentsSaveSequences.delete(normalizeText(editingPostId));
+        state.momentsPosts = previousPosts;
+        state.momentsDatesWithPhotos = previousDatesWithPhotos;
+        setMomentSelectedDate(previousSelectedDate, { syncMonth: true });
+        state.momentsError = error?.message || 'Failed to save Moment.';
+        render();
+      });
+      return;
+    }
+  }
   state.momentsPublishing = true;
   state.momentsError = '';
   render();
   try {
-    const requestUrl = state.momentsEditingPostId
-      ? `/api/manage/moments?id=${encodeURIComponent(state.momentsEditingPostId)}`
-      : '/api/manage/moments';
-    const method = state.momentsEditingPostId ? 'PATCH' : 'POST';
-    const response = await fetchMomentsJson(requestUrl, {
-      method,
+    const response = await fetchMomentsJson('/api/manage/moments', {
+      method: 'POST',
       body: formData,
       headers: {},
     });
