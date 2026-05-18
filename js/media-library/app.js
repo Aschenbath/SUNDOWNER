@@ -150,6 +150,7 @@ const FILM_BACKDROP_LEGACY_DEFAULT_FRAME = Object.freeze({
   backdropOpacityOverride: 0.66
 });
 const PERF_QUERY_FLAG = 'cmlPerf';
+const PERF_RECENT_MEASURE_LIMIT = 60;
 const FILM_METADATA_FIELDS = [
   'titleOverride',
   'originalTitleOverride',
@@ -281,6 +282,18 @@ function getPerfMarkName(value = '') {
     .slice(0, 72) || 'action';
 }
 
+function getPerfMarkupByteLength(markup = '') {
+  const normalizedMarkup = String(markup);
+  try {
+    if (typeof TextEncoder === 'function') {
+      return new TextEncoder().encode(normalizedMarkup).length;
+    }
+  } catch {
+    // Fall through to the string length fallback for diagnostics only.
+  }
+  return normalizedMarkup.length;
+}
+
 function markPerf(name) {
   if (!perfReporter.enabled) {
     return;
@@ -302,6 +315,22 @@ function measurePerf(name, start, end) {
     // Ignore partial measure failures when marks are not yet available.
   }
   schedulePerfReport();
+}
+
+function clearPerfMarks(...names) {
+  if (!perfReporter.enabled) {
+    return;
+  }
+  names
+    .map((name) => normalizeText(name))
+    .filter(Boolean)
+    .forEach((name) => {
+      try {
+        performance.clearMarks?.(`cml:${name}`);
+      } catch {
+        // Keep diagnostics non-blocking on browsers with partial Performance APIs.
+      }
+    });
 }
 
 function countPerfRender(kind = 'render') {
@@ -346,6 +375,7 @@ function finishPerfAction(token, { networkWaitMs = null } = {}) {
   perfReporter.activeActions.delete(token.id);
   markPerf(token.endMark);
   measurePerf(`${getPerfMarkName(token.action)}-${token.id}`, token.startMark, token.endMark);
+  clearPerfMarks(token.startMark, token.endMark);
   const measuredNetworkWait = networkWaitMs === null || networkWaitMs === undefined
     ? perfReporter.networkWaitMs - token.startNetworkWaitMs
     : networkWaitMs;
@@ -371,6 +401,47 @@ function finishPerfActionAfterPaint(token, options = {}) {
     return;
   }
   window.requestAnimationFrame(() => finishPerfAction(token, options));
+}
+
+function pushPerfDiagnosticRow(row = {}) {
+  if (!perfReporter.enabled) {
+    return;
+  }
+  perfReporter.actionRows.push({
+    ...row,
+    'render path': row['render path'] ?? row.renderPath ?? '',
+    'markup bytes': row['markup bytes'] ?? row.markupBytes ?? ''
+  });
+  if (perfReporter.actionRows.length > 80) {
+    perfReporter.actionRows.splice(0, perfReporter.actionRows.length - 80);
+  }
+  schedulePerfReport();
+}
+
+function measurePerfSpan(action, callback, extra = {}) {
+  if (!perfReporter.enabled) {
+    return callback();
+  }
+  const label = normalizeText(action) || 'unknown span';
+  const id = perfReporter.nextActionId++;
+  const markBase = `${getPerfMarkName(label)}-${id}`;
+  const startMark = `${markBase}-start`;
+  const endMark = `${markBase}-end`;
+  const startedAt = performance.now();
+  markPerf(startMark);
+  try {
+    return callback();
+  } finally {
+    markPerf(endMark);
+    measurePerf(`${getPerfMarkName(label)}-${id}`, startMark, endMark);
+    clearPerfMarks(startMark, endMark);
+    pushPerfDiagnosticRow({
+      action: label,
+      duration: roundPerfValue(performance.now() - startedAt),
+      renderPath: extra.renderPath || '',
+      markupBytes: extra.markupBytes ?? ''
+    });
+  }
 }
 
 function notePerfRender(kind = 'render') {
@@ -426,7 +497,17 @@ function flushPerfReport() {
   const rows = [];
   const seenRows = new Set();
   const pushPerfRow = (row = {}) => {
-    const key = `${row.action}|${row.duration}|${row['render count']}|${row['network wait']}`;
+    const key = [
+      row.action,
+      row.duration,
+      row['render count'],
+      row['network wait'],
+      row['network awaited'],
+      row['full render'],
+      row['render path'],
+      row.rendered,
+      row['markup bytes']
+    ].join('|');
     if (seenRows.has(key)) {
       return;
     }
@@ -441,8 +522,9 @@ function flushPerfReport() {
     pushPerfRow({ action: 'nav:loadEventEnd', duration: getPerfMetricValue(navigationEntry, 'loadEventEnd'), 'render count': '', 'network wait': '' });
   }
   const measures = performance.getEntriesByType?.('measure') || [];
-  measures
-    .filter((entry) => entry.name.startsWith('cml:'))
+  const cmlMeasures = measures.filter((entry) => entry.name.startsWith('cml:'));
+  const recentMeasures = cmlMeasures.slice(-PERF_RECENT_MEASURE_LIMIT);
+  recentMeasures
     .forEach((entry) => {
       pushPerfRow({
         action: entry.name.replace(/^cml:/, ''),
@@ -459,6 +541,11 @@ function flushPerfReport() {
   console.groupCollapsed(`[cml perf] ${window.location.pathname}${window.location.hash || ''}`);
   console.table(rows);
   console.groupEnd();
+  try {
+    cmlMeasures.forEach((entry) => performance.clearMeasures?.(entry.name));
+  } catch {
+    // Keep diagnostics non-blocking on browsers with partial Performance APIs.
+  }
 }
 
 function schedulePerfReport() {
@@ -14690,7 +14777,7 @@ function render() {
   const filmLibrarySearchSelectionStart = filmLibrarySearchWasFocused ? document.activeElement.selectionStart : null;
   const filmLibrarySearchSelectionEnd = filmLibrarySearchWasFocused ? document.activeElement.selectionEnd : null;
   const filmRouteTransition = state.filmRouteTransition;
-  const viewModel = getViewModel();
+  const viewModel = measurePerfSpan('getViewModel', () => getViewModel(), { renderPath: 'full-render' });
   const themeState = getThemeState();
   const contentViewKey = buildContentViewKey(viewModel);
   const shouldAnimateContentView = Boolean(lastContentViewKey) && lastContentViewKey !== contentViewKey;
@@ -14980,52 +15067,60 @@ function render() {
       ${MobileBottomNav({ navigationModel: viewModel.navigationModel, state })}
     </div>
   `;
+  const fullHtmlByteLength = perfReporter.enabled ? getPerfMarkupByteLength(fullHtml) : 0;
+  pushPerfDiagnosticRow({
+    action: 'render:markup-size',
+    renderPath: 'full-render',
+    markupBytes: fullHtmlByteLength
+  });
 
   // ── Incremental patch: keep sidebar alive across live-sync re-renders ──
   // Replace only non-sidebar siblings inside .cml-app-shell so the sidebar
   // DOM is never detached — no layout thrash, no flicker.
-  if (existingSidebar && existingShell) {
-    const tpl = document.createElement('template');
-    tpl.innerHTML = fullHtml;
-    const newShell = tpl.content.querySelector('.cml-app-shell');
-    let nextSidebar = null;
-    if (newShell) {
-      nextSidebar = newShell.querySelector('.cml-sidebar');
-      if (nextSidebar instanceof HTMLElement) {
-        const currentSignature = getSidebarStructureSignature(existingSidebar);
-        const nextSignature = getSidebarStructureSignature(nextSidebar);
-        const currentFooterSignature = getSidebarFooterSignature(existingSidebar);
-        const nextFooterSignature = getSidebarFooterSignature(nextSidebar);
-        if (currentSignature !== nextSignature || currentFooterSignature !== nextFooterSignature) {
-          existingSidebar.replaceWith(nextSidebar);
-        } else {
-          newShell.removeChild(nextSidebar);
+  measurePerfSpan('render:apply-dom', () => {
+    if (existingSidebar && existingShell) {
+      const tpl = document.createElement('template');
+      tpl.innerHTML = fullHtml;
+      const newShell = tpl.content.querySelector('.cml-app-shell');
+      let nextSidebar = null;
+      if (newShell) {
+        nextSidebar = newShell.querySelector('.cml-sidebar');
+        if (nextSidebar instanceof HTMLElement) {
+          const currentSignature = getSidebarStructureSignature(existingSidebar);
+          const nextSignature = getSidebarStructureSignature(nextSidebar);
+          const currentFooterSignature = getSidebarFooterSignature(existingSidebar);
+          const nextFooterSignature = getSidebarFooterSignature(nextSidebar);
+          if (currentSignature !== nextSignature || currentFooterSignature !== nextFooterSignature) {
+            existingSidebar.replaceWith(nextSidebar);
+          } else {
+            newShell.removeChild(nextSidebar);
+          }
         }
-      }
-      const liveSidebar = existingShell.querySelector('.cml-sidebar');
-      // Remove every child of the existing shell EXCEPT the sidebar
-      const toRemove = [];
-      for (let c = existingShell.firstChild; c; c = c.nextSibling) {
-        if (c !== liveSidebar) toRemove.push(c);
-      }
-      toRemove.forEach((c) => c.remove());
-      // Append everything from the new shell EXCEPT its sidebar
-      while (newShell.firstChild) {
-        const child = newShell.firstChild;
-        if (child instanceof Element && child.classList.contains('cml-sidebar')) {
-          newShell.removeChild(child);
-        } else {
-          existingShell.appendChild(child);
+        const liveSidebar = existingShell.querySelector('.cml-sidebar');
+        // Remove every child of the existing shell EXCEPT the sidebar
+        const toRemove = [];
+        for (let c = existingShell.firstChild; c; c = c.nextSibling) {
+          if (c !== liveSidebar) toRemove.push(c);
         }
+        toRemove.forEach((c) => c.remove());
+        // Append everything from the new shell EXCEPT its sidebar
+        while (newShell.firstChild) {
+          const child = newShell.firstChild;
+          if (child instanceof Element && child.classList.contains('cml-sidebar')) {
+            newShell.removeChild(child);
+          } else {
+            existingShell.appendChild(child);
+          }
+        }
+      } else {
+        refs.root.innerHTML = fullHtml;
       }
+      patchSidebarActive();
+      patchSidebarFooter(nextSidebar);
     } else {
       refs.root.innerHTML = fullHtml;
     }
-    patchSidebarActive();
-    patchSidebarFooter(nextSidebar);
-  } else {
-    refs.root.innerHTML = fullHtml;
-  }
+  }, { renderPath: 'full-render', markupBytes: fullHtmlByteLength });
 
   const liveShell = refs.root.querySelector('.cml-app-shell');
   if (liveShell instanceof HTMLElement) {

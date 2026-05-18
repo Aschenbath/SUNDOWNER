@@ -2381,6 +2381,26 @@ describe('media library download actions', () => {
     assert.doesNotMatch(patchAudioUiSource, /currentMusicLibrary\.replaceWith\(nextMusicLibrary\);/);
   });
 
+  it('reports full-render phases and view-model cost behind cmlPerf', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /function measurePerfSpan\(/);
+    assert.match(appSource, /function clearPerfMarks\(/);
+    assert.match(appSource, /measurePerfSpan\('getViewModel'/);
+    assert.match(appSource, /measurePerfSpan\('render:apply-dom'/);
+    assert.match(appSource, /clearPerfMarks\(startMark, endMark\);/);
+    assert.match(appSource, /clearPerfMarks\(token\.startMark, token\.endMark\);/);
+    assert.match(appSource, /pushPerfDiagnosticRow\(/);
+    assert.match(appSource, /function getPerfMarkupByteLength\(/);
+    assert.match(appSource, /const fullHtmlByteLength = perfReporter\.enabled \? getPerfMarkupByteLength\(fullHtml\) : 0;/);
+    assert.match(appSource, /row\['markup bytes'\]/);
+    assert.match(appSource, /row\['render path'\]/);
+    assert.match(appSource, /PERF_RECENT_MEASURE_LIMIT/);
+    assert.match(appSource, /recentMeasures/);
+    assert.match(appSource, /performance\.clearMeasures\?/);
+    assert.match(appSource, /markup bytes/);
+  });
+
   it('renders a desktop sidebar audio dock for non-music routes', () => {
     const dockHtml = SidebarAudioPlayer({
       currentItem: {
