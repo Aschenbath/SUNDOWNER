@@ -1287,7 +1287,7 @@ export function renderMomentsDayWall({ posts = [], selectedDate = '' } = {}) {
   `;
 }
 
-function renderMomentsPicker({ open = false, items = [], selectedIds = [] } = {}) {
+export function renderMomentsPicker({ open = false, items = [], selectedIds = [] } = {}) {
   if (!open) {
     return '';
   }
@@ -1376,7 +1376,7 @@ export function MomentsView({
           </div>
         </header>
         ${editingPostId ? '' : renderMomentsComposer({ draftBody, draftAttachments, isPublishing, error })}
-        ${renderMomentsPicker({ open: pickerOpen, items: pickerItems, selectedIds: pickerSelectedIds })}
+        <div data-moments-picker-root>${renderMomentsPicker({ open: pickerOpen, items: pickerItems, selectedIds: pickerSelectedIds })}</div>
         ${isLoading
     ? '<div class="cml-moments-loading">Loading Moments...</div>'
     : renderMomentsFeed({ posts, authorName, authorAvatarData, editingPostId, draftBody, draftDate, draftAttachments, isPublishing, error })}

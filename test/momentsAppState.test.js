@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
+import { MomentsView } from '../js/media-library/components.js';
+
 import {
   buildMomentAttachmentItem,
   buildMomentMutationPayload,
@@ -159,11 +161,26 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /if \(state\.momentsHydrated\) \{\s*render\(\);\s*void loadMoments\(\{ forceRender: false, background: true \}\);/);
   });
 
+  it('renders a stable Moments picker layer host for local open and close patches', () => {
+    const closedHtml = MomentsView({ pickerOpen: false });
+    const openHtml = MomentsView({ pickerOpen: true, pickerItems: [], pickerSelectedIds: [] });
+
+    assert.match(closedHtml, /data-moments-picker-root/);
+    assert.doesNotMatch(closedHtml, /data-moments-picker(?!-root)/);
+    assert.match(openHtml, /data-moments-picker-root/);
+    assert.match(openHtml, /data-moments-picker/);
+  });
+
   it('keeps the Moments photo picker lazy and patches selection without a full page render', () => {
     assert.match(appSource, /let momentsPickerItemsCache = \[\];/);
     assert.match(appSource, /function getMomentsPickerItemsSignature\(\)/);
+    assert.match(appSource, /function patchMomentsPickerLayer\(\{ perfToken = null \} = \{\}\)/);
+    assert.match(appSource, /\[data-moments-picker-root\]/);
+    assert.match(appSource, /function closeMomentsPhotoPicker\(\)/);
     assert.match(appSource, /function patchMomentPickerSelection\(\)/);
     assert.match(appSource, /pickerItems: state\.momentsPickerOpen \? getMomentPickerItems\(\) : \[\]/);
+    assert.match(appSource, /if \(!patchMomentsPickerLayer\(\{ perfToken \}\)\) \{\s*render\(\);\s*finishPerfActionAfterPaint\(perfToken\);\s*\}/);
+    assert.match(appSource, /case 'close-moments-photo-picker':\s*closeMomentsPhotoPicker\(\);\s*return true;/);
     assert.match(appSource, /if \(!patchMomentPickerSelection\(\)\) \{\s*render\(\);\s*\}/);
     assert.doesNotMatch(appSource, /momentDayItems:/);
     assert.doesNotMatch(appSource, /function buildMomentDayItems/);

@@ -51,8 +51,9 @@ import {
   formatMomentSelectedDate,
   renderMomentsCalendar,
   renderMomentsDayWall,
-  renderMomentsFeed
-} from './components.js?v=108';
+  renderMomentsFeed,
+  renderMomentsPicker
+} from './components.js?v=109';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -5257,8 +5258,20 @@ function openMomentsPhotoPicker() {
   const perfToken = startPerfAction('moments picker open');
   state.momentsPickerOpen = true;
   state.momentsPickerSelection = new Set();
-  render();
-  finishPerfActionAfterPaint(perfToken);
+  if (!patchMomentsPickerLayer({ perfToken })) {
+    render();
+    finishPerfActionAfterPaint(perfToken);
+  }
+}
+
+function closeMomentsPhotoPicker() {
+  const perfToken = startPerfAction('moments picker close');
+  state.momentsPickerOpen = false;
+  state.momentsPickerSelection = new Set();
+  if (!patchMomentsPickerLayer({ perfToken })) {
+    render();
+    finishPerfActionAfterPaint(perfToken);
+  }
 }
 
 function getMomentsPickerItemsSignature() {
@@ -5295,6 +5308,23 @@ function getMomentPickerItems({ force = false } = {}) {
   return momentsPickerItemsCache;
 }
 
+function patchMomentsPickerLayer({ perfToken = null } = {}) {
+  if (!(refs.root instanceof HTMLElement) || state.primaryFilter !== 'Moments') {
+    return false;
+  }
+  const pickerRoot = refs.root.querySelector('[data-moments-picker-root]');
+  if (!(pickerRoot instanceof HTMLElement)) {
+    return false;
+  }
+  pickerRoot.innerHTML = renderMomentsPicker({
+    open: state.momentsPickerOpen,
+    items: state.momentsPickerOpen ? getMomentPickerItems() : [],
+    selectedIds: [...state.momentsPickerSelection]
+  });
+  setupImageLoadAnimations();
+  finishPerfActionAfterPaint(perfToken);
+  return true;
+}
 function patchMomentPickerSelection() {
   if (!(refs.root instanceof HTMLElement)) {
     return false;
@@ -17110,9 +17140,7 @@ function handleAction(actionTarget, event = null) {
       openMomentsPhotoPicker();
       return true;
     case 'close-moments-photo-picker':
-      state.momentsPickerOpen = false;
-      state.momentsPickerSelection = new Set();
-      render();
+      closeMomentsPhotoPicker();
       return true;
     case 'toggle-moments-picker-photo':
       toggleMomentPickerPhoto(actionTarget.dataset.id);
