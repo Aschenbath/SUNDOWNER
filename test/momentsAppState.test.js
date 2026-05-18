@@ -34,6 +34,7 @@ describe('Moments app helpers', () => {
       id: 'moment-2',
       body: 'snake',
       created_at: '2026-05-17T08:00:00.000Z',
+      moment_date: '2026-05-10',
       attachments: [{
         file_id: 'Moments/2026-05-17/b.jpg',
         metadata: { file_name: 'b.jpg', file_type: 'image/jpeg', width: 640, height: 480 },
@@ -41,6 +42,8 @@ describe('Moments app helpers', () => {
     }]);
 
     assert.equal(posts[0].createdAt, '2026-05-17T08:00:00.000Z');
+    assert.equal(posts[0].date, '2026-05-10');
+    assert.equal(posts[0].momentDate, '2026-05-10');
     assert.equal(posts[0].attachments[0].fileId, 'Moments/2026-05-17/b.jpg');
     assert.equal(posts[0].attachments[0].item.id, 'Moments/2026-05-17/b.jpg');
     assert.equal(posts[0].attachments[0].item.label, 'b.jpg');
@@ -89,12 +92,14 @@ describe('Moments app helpers', () => {
   it('builds edit payloads from current draft attachment state', () => {
     const payload = buildMomentMutationPayload({
       body: 'edited',
+      date: '2026-04-30',
       attachments: [
         { source: 'existing', fileId: 'Photos/2026-05-16/a.jpg' },
         { source: 'upload', file: { name: 'b.jpg' } },
       ],
     });
 
+    assert.equal(payload.date, '2026-04-30');
     assert.deepEqual(payload.existingFileIds, ['Photos/2026-05-16/a.jpg']);
     assert.equal(payload.uploadFiles.length, 1);
   });
@@ -128,6 +133,7 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /loadMoments\(\{ forceRender: true \}\)/);
     assert.match(appSource, /data-moments-draft-input/);
     assert.match(appSource, /state\.momentsDraftBody = input\.value/);
+    assert.match(appSource, /state\.momentsDraftDate = input\.value/);
     assert.match(appSource, /dragstart/);
     assert.match(appSource, /let draggedMomentDraftIndex = -1;/);
     assert.match(appSource, /new FormData\(\)/);
@@ -162,6 +168,16 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /data-moments-stat="selected-date"/);
     assert.match(appSource, /case 'select-moments-date':[\s\S]*?setMomentSelectedDate\(actionTarget\.dataset\.date, \{ syncMonth: true \}\);[\s\S]*?if \(!patchMomentsSelectedDateView\(\)\) \{\s*render\(\);\s*\}[\s\S]*?return true;/);
     assert.match(appSource, /case 'change-moments-month':[\s\S]*?if \(!patchMomentsCalendar\(\)\) \{\s*render\(\);\s*\}[\s\S]*?return true;/);
+  });
+
+  it('keeps Moment edits in the source card and includes the editable date in saves', () => {
+    assert.match(appSource, /momentsDraftDate/);
+    assert.match(appSource, /function startEditingMoment\(post\)[\s\S]*?state\.momentsDraftDate = normalizeText\(post\.date\)/);
+    assert.match(appSource, /function buildMomentFormData\(\)[\s\S]*?date: state\.momentsDraftDate \|\| state\.momentsSelectedDate/);
+    assert.match(appSource, /formData\.set\('date', payload\.date\)/);
+    assert.match(appSource, /function patchMomentsPostCard\(postId = ''\)/);
+    assert.match(appSource, /renderMomentsFeed\(\{[\s\S]*?posts: \[post\]/);
+    assert.match(appSource, /editingPostId: state\.momentsEditingPostId/);
   });
 
   it('progressively hydrates the Photos index instead of blocking first paint on every page', () => {

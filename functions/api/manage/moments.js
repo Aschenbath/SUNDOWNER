@@ -29,6 +29,18 @@ function todayFolderDate(now = new Date()) {
   return now.toISOString().slice(0, 10);
 }
 
+function normalizeMomentDate(value) {
+  const raw = normalizeText(value, 20);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+  if (!raw) {
+    return '';
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+}
+
 function extractFileIdFromSrc(src = '') {
   const normalized = String(src || '').trim();
   const marker = '/file/';
@@ -198,9 +210,10 @@ function collectExistingFileIds(form) {
 
 async function buildMomentMutationInput(context) {
   const now = resolveNow(context);
-  const uploadFolder = `Moments/${todayFolderDate(now)}`;
   const form = await context.request.formData();
   const body = normalizeText(form.get('body'), MAX_BODY_LENGTH);
+  const date = normalizeMomentDate(form.get('date')) || todayFolderDate(now);
+  const uploadFolder = `Moments/${date}`;
   const photos = collectPhotos(form);
   const existingFileIds = collectExistingFileIds(form);
 
@@ -222,6 +235,7 @@ async function buildMomentMutationInput(context) {
 
   return {
     body,
+    date,
     fileIds: [...existingFileIds, ...uploaded.map((item) => item.fileId)],
     now: now.toISOString(),
   };

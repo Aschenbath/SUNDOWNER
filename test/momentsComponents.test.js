@@ -157,17 +157,18 @@ describe('Moments components', () => {
     assert.match(html, /keep.jpg/);
   });
 
-  it('renders a Choose from Photos action and edit-mode controls', () => {
+  it('renders a Choose from Photos action and in-place edit controls', () => {
     const html = MomentsView({
       posts,
       isLoading: false,
       isPublishing: false,
       draftBody: 'hello',
+      draftDate: '2026-05-12',
       draftAttachments: [
         { name: 'photo-1.jpg', previewUrl: '/file/photo-1', source: 'existing', fileId: 'photo-1' },
         { name: 'photo-2.jpg', previewUrl: '/file/photo-2', source: 'existing', fileId: 'photo-2' },
       ],
-      isEditing: true,
+      editingPostId: 'moment-1',
       pickerOpen: true,
       pickerItems: [{ id: 'photo-1', sourceUrl: '/file/photo-1', thumbnailUrl: '/file/photo-1', label: 'photo-1', type: 'photo' }],
       pickerSelectedIds: ['photo-1'],
@@ -181,7 +182,10 @@ describe('Moments components', () => {
 
     assert.match(html, /Choose from Photos/);
     assert.match(html, /Save changes/);
-    assert.match(html, /Cancel edit/);
+    assert.match(html, /data-moment-editor/);
+    assert.match(html, /data-moments-edit-date/);
+    assert.match(html, /value="2026-05-12"/);
+    assert.match(html, /Cancel/);
     assert.match(html, /data-action="open-moments-photo-picker"/);
     assert.match(html, /data-action="toggle-moments-picker-photo"/);
     assert.match(html, /data-action="apply-moments-photo-picker"/);
@@ -192,6 +196,7 @@ describe('Moments components', () => {
     assert.match(html, /cml-moments-composer__drag-handle/);
     assert.match(html, /draggable="true"/);
     assert.match(html, /data-moment-draft-index="0"/);
+    assert.doesNotMatch(html, /data-moments-composer/);
   });
 
   it('renders Telegram-imported Moments images as images instead of generic photo labels', () => {

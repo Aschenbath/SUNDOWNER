@@ -85,10 +85,11 @@ export function normalizeMomentDraftAttachments(items = []) {
   }));
 }
 
-export function buildMomentMutationPayload({ body = '', attachments = [] } = {}) {
+export function buildMomentMutationPayload({ body = '', attachments = [], date = '' } = {}) {
   const normalized = normalizeMomentDraftAttachments(attachments);
   return {
     body: normalizeText(body),
+    date: normalizeMomentDate(date),
     existingFileIds: normalized
       .filter((item) => item.source === 'existing' && item.fileId)
       .map((item) => item.fileId),
@@ -142,6 +143,7 @@ export function normalizeMomentPosts(posts = []) {
     .map((post) => {
       const createdAt = normalizeText(post.createdAt || post.created_at || post.updatedAt || post.updated_at);
       const updatedAt = normalizeText(post.updatedAt || post.updated_at || createdAt);
+      const momentDate = normalizeMomentDate(post.momentDate || post.moment_date || post.date || createdAt || updatedAt);
       const attachments = Array.isArray(post.attachments)
         ? post.attachments.map((attachment) => {
             const metadata = readAttachmentMetadata(attachment);
@@ -159,15 +161,16 @@ export function normalizeMomentPosts(posts = []) {
         ...post,
         id: normalizeText(post.id),
         body: normalizeText(post.body),
+        momentDate,
         createdAt,
         updatedAt,
-        date: normalizeMomentDate(post.date || createdAt || updatedAt),
+        date: momentDate,
         attachments,
       };
     })
     .sort((left, right) => {
-      const rightTime = Date.parse(right.createdAt || right.updatedAt || '') || 0;
-      const leftTime = Date.parse(left.createdAt || left.updatedAt || '') || 0;
+      const rightTime = Date.parse(`${right.date || ''}T23:59:59.999Z`) || Date.parse(right.createdAt || right.updatedAt || '') || 0;
+      const leftTime = Date.parse(`${left.date || ''}T23:59:59.999Z`) || Date.parse(left.createdAt || left.updatedAt || '') || 0;
       if (rightTime !== leftTime) {
         return rightTime - leftTime;
       }

@@ -307,6 +307,77 @@ describe('manage moments route', () => {
     ]);
   });
 
+  it('creates uploaded photos under the selected Moment date', async () => {
+    const d1 = new SqliteD1(':memory:');
+    const form = new FormData();
+    form.set('body', 'historic');
+    form.set('date', '2026-04-30');
+    form.append('photos[]', new File(['fake image'], 'historic.jpg', { type: 'image/jpeg' }));
+
+    let receivedFolder = '';
+    const response = await onRequest(createContext({
+      env: { img_d1: d1 },
+      now: '2026-05-16T20:15:00.000Z',
+      request: new Request('https://example.com/api/manage/moments', { method: 'POST', body: form }),
+      uploadFile: async ({ uploadFolder }) => {
+        receivedFolder = uploadFolder;
+        await seedFile(d1, `${uploadFolder}/historic.jpg`, { FileName: 'historic.jpg', FileType: 'image/jpeg' });
+        return { fileId: `${uploadFolder}/historic.jpg`, src: `/file/${uploadFolder}/historic.jpg` };
+      },
+    }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(receivedFolder, 'Moments/2026-04-30');
+    assert.equal(payload.post.date, '2026-04-30');
+    assert.equal(payload.post.attachments[0].fileId, 'Moments/2026-04-30/historic.jpg');
+  });
+
+  it('lists posts by the stored Moment date instead of creation time when available', async () => {
+    const d1 = new SqliteD1(':memory:');
+    await seedFile(d1, 'Moments/2026-04-30/old.jpg', { FileName: 'old.jpg', FileType: 'image/jpeg' });
+    await seedFile(d1, 'Moments/2026-05-16/new.jpg', { FileName: 'new.jpg', FileType: 'image/jpeg' });
+
+    const createOldForm = new FormData();
+    createOldForm.set('body', 'old');
+    createOldForm.set('date', '2026-04-30');
+    createOldForm.append('photos[]', new File(['fake image'], 'old.jpg', { type: 'image/jpeg' }));
+    const createOldResponse = await onRequest(createContext({
+      env: { img_d1: d1 },
+      now: '2026-05-16T20:15:00.000Z',
+      request: new Request('https://example.com/api/manage/moments', { method: 'POST', body: createOldForm }),
+      uploadFile: async () => ({ fileId: 'Moments/2026-04-30/old.jpg', src: '/file/Moments/2026-04-30/old.jpg' }),
+    }));
+    const oldPayload = await createOldResponse.json();
+
+    const createNewForm = new FormData();
+    createNewForm.set('body', 'new');
+    createNewForm.append('photos[]', new File(['fake image'], 'new.jpg', { type: 'image/jpeg' }));
+    await onRequest(createContext({
+      env: { img_d1: d1 },
+      now: '2026-05-16T20:20:00.000Z',
+      request: new Request('https://example.com/api/manage/moments', { method: 'POST', body: createNewForm }),
+      uploadFile: async () => ({ fileId: 'Moments/2026-05-16/new.jpg', src: '/file/Moments/2026-05-16/new.jpg' }),
+    }));
+
+    const listOldResponse = await onRequest(createContext({
+      env: { img_d1: d1 },
+      request: new Request('https://example.com/api/manage/moments?date=2026-04-30'),
+    }));
+    const listOldPayload = await listOldResponse.json();
+    const listNewResponse = await onRequest(createContext({
+      env: { img_d1: d1 },
+      request: new Request('https://example.com/api/manage/moments?date=2026-05-16'),
+    }));
+    const listNewPayload = await listNewResponse.json();
+
+    assert.equal(oldPayload.post.date, '2026-04-30');
+    assert.equal(listOldPayload.posts.length, 1);
+    assert.equal(listOldPayload.posts[0].date, '2026-04-30');
+    assert.equal(listNewPayload.posts.length, 1);
+    assert.equal(listNewPayload.posts[0].date, '2026-05-16');
+  });
+
   it('patches an existing Moments post with mixed existing and uploaded attachments', async () => {
     const d1 = new SqliteD1(':memory:');
     await seedFile(d1, 'Photos/2026-05-16/existing.jpg', { FileName: 'existing.jpg', FileType: 'image/jpeg' });
@@ -325,6 +396,7 @@ describe('manage moments route', () => {
 
     const patchForm = new FormData();
     patchForm.set('body', 'after');
+    patchForm.set('date', '2026-04-30');
     patchForm.append('existingFileIds[]', 'Photos/2026-05-16/existing.jpg');
     patchForm.append('photos[]', new File(['fake image'], 'replacement.jpg', { type: 'image/jpeg' }));
     const patchResponse = await onRequest(createContext({
@@ -340,9 +412,25 @@ describe('manage moments route', () => {
 
     assert.equal(patchResponse.status, 200);
     assert.equal(patched.post.body, 'after');
+    assert.equal(patched.post.date, '2026-04-30');
     assert.deepEqual(patched.post.attachments.map((attachment) => attachment.fileId), [
       'Photos/2026-05-16/existing.jpg',
-      'Moments/2026-05-16/replacement.jpg',
+      'Moments/2026-04-30/replacement.jpg',
     ]);
+
+    const oldDateResponse = await onRequest(createContext({
+      env: { img_d1: d1 },
+      request: new Request('https://example.com/api/manage/moments?date=2026-05-16'),
+    }));
+    const oldDatePayload = await oldDateResponse.json();
+    assert.equal(oldDatePayload.posts.length, 0);
+
+    const newDateResponse = await onRequest(createContext({
+      env: { img_d1: d1 },
+      request: new Request('https://example.com/api/manage/moments?date=2026-04-30'),
+    }));
+    const newDatePayload = await newDateResponse.json();
+    assert.equal(newDatePayload.posts.length, 1);
+    assert.equal(newDatePayload.posts[0].id, created.post.id);
   });
 });

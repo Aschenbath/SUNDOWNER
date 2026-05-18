@@ -1092,14 +1092,14 @@ function renderMomentDraftGrid(draftAttachments = [], { isPublishing = false } =
   `;
 }
 
-function renderMomentsComposer({ draftBody = '', draftAttachments = [], isPublishing = false, isEditing = false, error = '' } = {}) {
-  const publishIcon = isEditing ? icon('save') : icon('plus');
+function renderMomentsComposer({ draftBody = '', draftAttachments = [], isPublishing = false, error = '' } = {}) {
+  const publishIcon = icon('plus');
   return `
     <section class="cml-moments-composer" data-moments-composer>
       <input type="file" data-moment-file-input accept="image/*" multiple hidden>
       <div class="cml-moments-composer__toolbar">
         <div class="cml-moments-composer__toolbar-copy">
-          <strong>${isEditing ? '编辑这一刻' : '说说此刻'}</strong>
+          <strong>说说此刻</strong>
         </div>
         <span class="cml-moments-composer__count">${draftAttachments.length}/9</span>
       </div>
@@ -1112,10 +1112,7 @@ function renderMomentsComposer({ draftBody = '', draftAttachments = [], isPublis
           <button type="button" class="cml-moments-composer__secondary cml-moments-composer__existing" data-action="open-moments-photo-picker" aria-label="Choose from Photos" ${isPublishing ? 'disabled' : ''}>${icon('photos')}<span>Photos</span></button>
         </div>
         <div class="cml-moments-composer__submit-group">
-          ${isEditing
-            ? `<button type="button" class="cml-moments-composer__ghost" data-action="cancel-moment-edit" ${isPublishing ? 'disabled' : ''}>Cancel edit</button>
-               <button type="button" class="cml-moments-composer__publish" data-action="save-moment" ${isPublishing ? 'disabled' : ''}>${publishIcon}<span>${isPublishing ? '保存中...' : 'Save changes'}</span></button>`
-            : `<button type="button" class="cml-moments-composer__publish" data-action="publish-moment" ${isPublishing ? 'disabled' : ''}>${publishIcon}<span>${isPublishing ? '发布中...' : '发布'}</span></button>`}
+          <button type="button" class="cml-moments-composer__publish" data-action="publish-moment" ${isPublishing ? 'disabled' : ''}>${publishIcon}<span>${isPublishing ? '发布中...' : '发布'}</span></button>
         </div>
       </footer>
     </section>
@@ -1149,7 +1146,45 @@ function renderMomentImageGrid(attachments = []) {
   `;
 }
 
-function renderMomentsFeed({ posts = [], authorName = 'Aschenbath', authorAvatarData = '' } = {}) {
+function renderMomentInlineEditor({ post = {}, draftBody = '', draftDate = '', draftAttachments = [], isPublishing = false, error = '' } = {}) {
+  return `
+    <div class="cml-moment-card__editor" data-moment-editor data-id="${escapeHtml(post.id || '')}">
+      <input type="file" data-moment-file-input accept="image/*" multiple hidden>
+      <div class="cml-moment-card__editor-row">
+        <label class="cml-moment-card__date-field">
+          <span>Date</span>
+          <input type="date" data-moments-edit-date value="${escapeHtml(draftDate || post.date || '')}" required ${isPublishing ? 'disabled' : ''}>
+        </label>
+        <span class="cml-moments-composer__count">${draftAttachments.length}/9</span>
+      </div>
+      <textarea class="cml-moments-composer__input cml-moment-card__edit-input" data-moments-draft-input placeholder="记录此刻的想法..." maxlength="2000" ${isPublishing ? 'disabled' : ''}>${escapeHtml(draftBody)}</textarea>
+      ${renderMomentDraftGrid(draftAttachments, { isPublishing })}
+      ${error ? `<p class="cml-moments-composer__error" role="alert">${escapeHtml(error)}</p>` : ''}
+      <footer class="cml-moments-composer__actions cml-moment-card__editor-actions">
+        <div class="cml-moments-composer__action-group">
+          <button type="button" class="cml-moments-composer__secondary" data-action="choose-moment-photos" ${isPublishing ? 'disabled' : ''}>${icon('image')}<span>图片</span></button>
+          <button type="button" class="cml-moments-composer__secondary cml-moments-composer__existing" data-action="open-moments-photo-picker" aria-label="Choose from Photos" ${isPublishing ? 'disabled' : ''}>${icon('photos')}<span>Photos</span></button>
+        </div>
+        <div class="cml-moments-composer__submit-group">
+          <button type="button" class="cml-moments-composer__ghost" data-action="cancel-moment-edit" ${isPublishing ? 'disabled' : ''}>Cancel</button>
+          <button type="button" class="cml-moments-composer__publish" data-action="save-moment" ${isPublishing ? 'disabled' : ''}>${icon('save')}<span>${isPublishing ? '保存中...' : 'Save changes'}</span></button>
+        </div>
+      </footer>
+    </div>
+  `;
+}
+
+export function renderMomentsFeed({
+  posts = [],
+  authorName = 'Aschenbath',
+  authorAvatarData = '',
+  editingPostId = '',
+  draftBody = '',
+  draftDate = '',
+  draftAttachments = [],
+  isPublishing = false,
+  error = ''
+} = {}) {
   if (!posts.length) {
     return `
       <section class="cml-moments-feed">
@@ -1160,8 +1195,10 @@ function renderMomentsFeed({ posts = [], authorName = 'Aschenbath', authorAvatar
 
   return `
     <section class="cml-moments-feed">
-      ${posts.map((post) => `
-        <article class="cml-moment-card" data-moment-id="${escapeHtml(post.id)}">
+      ${posts.map((post) => {
+        const isEditing = editingPostId && String(post.id) === String(editingPostId);
+        return `
+        <article class="cml-moment-card ${isEditing ? 'is-editing' : ''}" data-moment-id="${escapeHtml(post.id)}">
           <header class="cml-moment-card__header">
             <div class="cml-moment-card__identity">
               ${renderAvatarVisual({ displayName: authorName, avatarData: authorAvatarData })}
@@ -1174,13 +1211,16 @@ function renderMomentsFeed({ posts = [], authorName = 'Aschenbath', authorAvatar
               <button type="button" class="cml-moment-card__delete" data-action="delete-moment" data-id="${escapeHtml(post.id)}" aria-label="Delete Moment">${icon('trash')}</button>
             </div>
           </header>
-          ${post.body ? `<p class="cml-moment-card__body">${escapeHtml(post.body)}</p>` : ''}
-          ${(post.attachments && post.attachments.length) ? renderMomentImageGrid(post.attachments) : ''}
-          <footer class="cml-moment-card__footer">
-            <time class="cml-moment-card__stamp" datetime="${escapeHtml(post.createdAt || '')}">${escapeHtml(formatFileDate(post.createdAt))}</time>
-          </footer>
+          ${isEditing
+            ? renderMomentInlineEditor({ post, draftBody, draftDate, draftAttachments, isPublishing, error })
+            : `${post.body ? `<p class="cml-moment-card__body">${escapeHtml(post.body)}</p>` : ''}
+              ${(post.attachments && post.attachments.length) ? renderMomentImageGrid(post.attachments) : ''}
+              <footer class="cml-moment-card__footer">
+                <time class="cml-moment-card__stamp" datetime="${escapeHtml(post.date || post.createdAt || '')}">${escapeHtml(post.date || formatFileDate(post.createdAt))}</time>
+              </footer>`}
         </article>
-      `).join('')}
+      `;
+      }).join('')}
     </section>
   `;
 }
@@ -1300,9 +1340,10 @@ export function MomentsView({
   posts = [],
   isLoading = false,
   isPublishing = false,
-  isEditing = false,
   draftBody = '',
+  draftDate = '',
   draftAttachments = [],
+  editingPostId = '',
   pickerOpen = false,
   pickerItems = [],
   pickerSelectedIds = [],
@@ -1331,11 +1372,11 @@ export function MomentsView({
             <span data-moments-stat="selected-date"><strong>${escapeHtml(formatMomentSelectedDate(selectedDate))}</strong><em>${selectedDayPhotos} selected</em></span>
           </div>
         </header>
-        ${renderMomentsComposer({ draftBody, draftAttachments, isPublishing, isEditing, error })}
+        ${editingPostId ? '' : renderMomentsComposer({ draftBody, draftAttachments, isPublishing, error })}
         ${renderMomentsPicker({ open: pickerOpen, items: pickerItems, selectedIds: pickerSelectedIds })}
         ${isLoading
     ? '<div class="cml-moments-loading">Loading Moments...</div>'
-    : renderMomentsFeed({ posts, authorName, authorAvatarData })}
+    : renderMomentsFeed({ posts, authorName, authorAvatarData, editingPostId, draftBody, draftDate, draftAttachments, isPublishing, error })}
       </div>
       <aside class="cml-moments__rail">
         ${renderMomentsCalendar({ selectedDate, calendarMonth, datesWithPhotos })}

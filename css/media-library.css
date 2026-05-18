@@ -12001,6 +12001,55 @@ body.codex-media-library-active #app {
   color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.62));
 }
 
+#codex-media-library-root .cml-moment-card.is-editing {
+  border-color: rgba(var(--cml-theme-accent-rgb, 120, 170, 248), 0.32);
+}
+
+#codex-media-library-root .cml-moment-card__editor {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+#codex-media-library-root .cml-moment-card__editor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#codex-media-library-root .cml-moment-card__date-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--cml-theme-card-border, rgba(255, 255, 255, 0.1));
+  border-radius: 999px;
+  background: var(--cml-theme-hover, rgba(255, 255, 255, 0.06));
+  color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.68));
+  font-size: 13px;
+}
+
+#codex-media-library-root .cml-moment-card__date-field input {
+  width: 142px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--cml-theme-text, rgba(245, 247, 251, 0.92));
+  font: inherit;
+}
+
+#codex-media-library-root .cml-moment-card__edit-input {
+  min-height: 82px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+#codex-media-library-root .cml-moment-card__editor-actions {
+  margin-top: 2px;
+}
+
 #codex-media-library-root .cml-moments-picker {
   position: fixed;
   inset: 0;

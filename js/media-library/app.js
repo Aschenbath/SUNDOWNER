@@ -49,8 +49,9 @@ import {
   buildJustifiedRows,
   formatMomentSelectedDate,
   renderMomentsCalendar,
-  renderMomentsDayWall
-} from './components.js?v=104';
+  renderMomentsDayWall,
+  renderMomentsFeed
+} from './components.js?v=105';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -64,7 +65,7 @@ import {
   deriveMomentCalendarMonth,
   normalizeMomentDraftAttachments,
   normalizeMomentPosts,
-} from './moments-state.js?v=2';
+} from './moments-state.js?v=3';
 import {
   buildPickerPreserveFlags,
   canUseDistinctAlbumPicker,
@@ -697,6 +698,7 @@ const state = {
   momentsHydrated: false,
   momentsPublishing: false,
   momentsDraftBody: '',
+  momentsDraftDate: '',
   momentsDraftAttachments: [],
   momentsEditingPostId: '',
   momentsPickerOpen: false,
@@ -4847,6 +4849,7 @@ function clearMomentsError({ shouldRender = false } = {}) {
 function clearMomentDraft({ shouldRender = true } = {}) {
   revokeMomentDraftPreviews(state.momentsDraftAttachments);
   state.momentsDraftBody = '';
+  state.momentsDraftDate = '';
   state.momentsDraftAttachments = [];
   state.momentsEditingPostId = '';
   state.momentsPickerOpen = false;
@@ -5034,6 +5037,34 @@ function patchMomentsSelectedDateView() {
   return calendarPatched && dayWallPatched && summaryPatched;
 }
 
+function patchMomentsPostCard(postId = '') {
+  if (!(refs.root instanceof HTMLElement)) {
+    return false;
+  }
+  const normalizedId = normalizeText(postId);
+  if (!normalizedId) {
+    return false;
+  }
+  const current = refs.root.querySelector(`[data-moment-id="${escapeCssIdentifier(normalizedId)}"]`);
+  const post = getMomentPostById(normalizedId);
+  if (!(current instanceof HTMLElement) || !post) {
+    return false;
+  }
+  const nextHtml = renderMomentsFeed({
+    posts: [post],
+    authorName: state.adminDisplayName || state.adminUsername || 'Aschenbath',
+    authorAvatarData: state.adminAvatarData,
+  });
+  const template = document.createElement('template');
+  template.innerHTML = String(nextHtml || '').trim();
+  const next = template.content.querySelector('[data-moment-id]');
+  if (!(next instanceof HTMLElement)) {
+    return false;
+  }
+  current.replaceWith(next);
+  return true;
+}
+
 function toggleMomentPickerPhoto(itemId) {
   const normalizedId = normalizeText(itemId);
   if (!normalizedId) {
@@ -5163,6 +5194,7 @@ function startEditingMoment(post) {
   }
   state.momentsEditingPostId = post.id;
   state.momentsDraftBody = post.body || '';
+  state.momentsDraftDate = normalizeText(post.date) || new Date().toISOString().slice(0, 10);
   state.momentsDraftAttachments = normalizeMomentDraftAttachments((post.attachments || []).map((attachment) => ({
     source: 'existing',
     fileId: attachment.fileId,
@@ -5177,11 +5209,15 @@ function startEditingMoment(post) {
 function buildMomentFormData() {
   const payload = buildMomentMutationPayload({
     body: state.momentsDraftBody,
+    date: state.momentsDraftDate || state.momentsSelectedDate,
     attachments: state.momentsDraftAttachments,
   });
   const formData = new FormData();
   if (payload.body) {
     formData.set('body', payload.body);
+  }
+  if (payload.date) {
+    formData.set('date', payload.date);
   }
   payload.existingFileIds.forEach((fileId) => {
     formData.append('existingFileIds[]', fileId);
@@ -5195,6 +5231,7 @@ function buildMomentFormData() {
 }
 
 async function publishMoment() {
+  const editingPostId = state.momentsEditingPostId;
   const { payload, formData } = buildMomentFormData();
   if (!payload.body && payload.existingFileIds.length === 0 && payload.uploadFiles.length === 0) {
     state.momentsError = 'Moment body or at least one photo is required';
@@ -5224,7 +5261,13 @@ async function publishMoment() {
     clearMomentDraft({ shouldRender: false });
     state.momentsPublishing = false;
     state.momentsHydrated = true;
-    render();
+    if (editingPostId && createdPost && patchMomentsPostCard(createdPost.id)) {
+      if (!patchMomentsSelectedDateView()) {
+        render();
+      }
+    } else {
+      render();
+    }
     void performSyncLiveMedia({ forceRender: false });
   } catch (error) {
     state.momentsPublishing = false;
@@ -14562,8 +14605,9 @@ function render() {
                     isLoading: state.momentsLoading && !state.momentsHydrated,
                     isPublishing: state.momentsPublishing,
                     draftBody: state.momentsDraftBody,
+                    draftDate: state.momentsDraftDate,
                     draftAttachments: state.momentsDraftAttachments,
-                    isEditing: Boolean(state.momentsEditingPostId),
+                    editingPostId: state.momentsEditingPostId,
                     pickerOpen: state.momentsPickerOpen,
                     pickerItems: state.momentsPickerOpen ? getMomentPickerItems() : [],
                     pickerSelectedIds: [...state.momentsPickerSelection],
@@ -18252,6 +18296,11 @@ function handleInput(event) {
   }
   if (input instanceof HTMLTextAreaElement && input.hasAttribute('data-moments-draft-input')) {
     state.momentsDraftBody = input.value;
+    clearMomentsError();
+    return;
+  }
+  if (input instanceof HTMLInputElement && input.hasAttribute('data-moments-edit-date')) {
+    state.momentsDraftDate = input.value;
     clearMomentsError();
     return;
   }

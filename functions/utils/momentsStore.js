@@ -2,6 +2,7 @@ const MOMENTS_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS moments_posts (
     id TEXT PRIMARY KEY,
     body TEXT NOT NULL DEFAULT '',
+    moment_date TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
@@ -112,12 +113,14 @@ function mapAttachmentRow(row, metadata = {}) {
 }
 
 function mapPostRow(row, attachments = []) {
+  const momentDate = normalizeMomentDate(row.moment_date || row.created_at);
   return {
     id: row.id,
     body: row.body || '',
+    momentDate,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    date: normalizeMomentDate(row.created_at),
+    date: momentDate,
     attachments,
   };
 }
@@ -139,6 +142,17 @@ export class MomentsStore {
         for (const sql of MOMENTS_SCHEMA) {
           await this.db.prepare(sql).run();
         }
+        const columns = await this.db.prepare('PRAGMA table_info(moments_posts)').all();
+        const hasMomentDate = (columns.results || []).some((column) => column.name === 'moment_date');
+        if (!hasMomentDate) {
+          await this.db.prepare('ALTER TABLE moments_posts ADD COLUMN moment_date TEXT').run();
+        }
+        await this.db.prepare(
+          "UPDATE moments_posts SET moment_date = substr(created_at, 1, 10) WHERE moment_date IS NULL OR moment_date = ''",
+        ).run();
+        await this.db.prepare(
+          'CREATE INDEX IF NOT EXISTS idx_moments_posts_moment_date ON moments_posts(moment_date DESC, created_at DESC, id ASC)',
+        ).run();
       })();
     }
 
@@ -191,7 +205,7 @@ export class MomentsStore {
     return attachments;
   }
 
-  async createPost({ id = '', body = '', fileIds = [], now = new Date().toISOString() } = {}) {
+  async createPost({ id = '', body = '', fileIds = [], date = '', now = new Date().toISOString() } = {}) {
     await this.ensureSchema();
 
     const normalizedBody = normalizeText(body, MAX_BODY_LENGTH);
@@ -204,11 +218,12 @@ export class MomentsStore {
     await this.validateAttachments(normalizedFileIds);
 
     const createdAt = new Date(now).toISOString();
+    const momentDate = normalizeMomentDate(date) || normalizeMomentDate(createdAt);
     const postId = normalizeText(id, 240) || createMomentId(createdAt);
 
     await this.db.prepare(
-      'INSERT INTO moments_posts (id, body, created_at, updated_at) VALUES (?, ?, ?, ?)',
-    ).bind(postId, normalizedBody, createdAt, createdAt).run();
+      'INSERT INTO moments_posts (id, body, moment_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+    ).bind(postId, normalizedBody, momentDate, createdAt, createdAt).run();
 
     try {
       for (let index = 0; index < normalizedFileIds.length; index += 1) {
@@ -231,7 +246,7 @@ export class MomentsStore {
     return this.getPost(postId);
   }
 
-  async updatePost(postId, { body = '', fileIds = [], now = new Date().toISOString() } = {}) {
+  async updatePost(postId, { body = '', fileIds = [], date = '', now = new Date().toISOString() } = {}) {
     await this.ensureSchema();
 
     const normalizedId = normalizeText(postId, 240);
@@ -252,10 +267,11 @@ export class MomentsStore {
 
     await this.validateAttachments(normalizedFileIds);
     const updatedAt = new Date(now).toISOString();
+    const momentDate = normalizeMomentDate(date) || existingPost.momentDate || normalizeMomentDate(existingPost.createdAt) || normalizeMomentDate(updatedAt);
 
     await this.db.prepare(
-      'UPDATE moments_posts SET body = ?, updated_at = ? WHERE id = ?'
-    ).bind(normalizedBody, updatedAt, normalizedId).run();
+      'UPDATE moments_posts SET body = ?, moment_date = ?, updated_at = ? WHERE id = ?'
+    ).bind(normalizedBody, momentDate, updatedAt, normalizedId).run();
 
     try {
       await this.db.prepare('DELETE FROM moment_attachments WHERE post_id = ?').bind(normalizedId).run();
@@ -285,8 +301,8 @@ export class MomentsStore {
         ).run();
       }
       await this.db.prepare(
-        'UPDATE moments_posts SET body = ?, updated_at = ? WHERE id = ?'
-      ).bind(existingPost.body || '', existingPost.updatedAt || existingPost.createdAt, normalizedId).run();
+        'UPDATE moments_posts SET body = ?, moment_date = ?, updated_at = ? WHERE id = ?'
+      ).bind(existingPost.body || '', existingPost.momentDate || normalizeMomentDate(existingPost.createdAt), existingPost.updatedAt || existingPost.createdAt, normalizedId).run();
       throw error;
     }
 
@@ -330,7 +346,7 @@ export class MomentsStore {
     await this.ensureSchema();
 
     const postRow = await this.db.prepare(
-      'SELECT id, body, created_at, updated_at FROM moments_posts WHERE id = ?',
+      'SELECT id, body, moment_date, created_at, updated_at FROM moments_posts WHERE id = ?',
     ).bind(postId).first();
 
     if (!postRow) {
@@ -348,13 +364,13 @@ export class MomentsStore {
     const normalizedPage = normalizePage(page);
     const normalizedPageSize = normalizePageSize(pageSize);
     const offset = (normalizedPage - 1) * normalizedPageSize;
-    const whereClause = normalizedDate ? ' WHERE substr(created_at, 1, 10) = ?' : '';
+    const whereClause = normalizedDate ? ' WHERE COALESCE(NULLIF(moment_date, \'\'), substr(created_at, 1, 10)) = ?' : '';
     const params = normalizedDate ? [normalizedDate] : [];
 
     const postRows = await this.db.prepare(
-      `SELECT id, body, created_at, updated_at
+      `SELECT id, body, moment_date, created_at, updated_at
        FROM moments_posts${whereClause}
-       ORDER BY created_at DESC, id ASC
+       ORDER BY COALESCE(NULLIF(moment_date, ''), substr(created_at, 1, 10)) DESC, created_at DESC, id ASC
        LIMIT ? OFFSET ?`,
     ).bind(...params, normalizedPageSize, offset).all();
 
@@ -368,10 +384,10 @@ export class MomentsStore {
     ).bind(...params).first();
 
     const dateRows = await this.db.prepare(
-      `SELECT substr(p.created_at, 1, 10) AS date, COUNT(a.id) AS photo_count
+      `SELECT COALESCE(NULLIF(p.moment_date, ''), substr(p.created_at, 1, 10)) AS date, COUNT(a.id) AS photo_count
        FROM moments_posts p
        JOIN moment_attachments a ON a.post_id = p.id
-       GROUP BY substr(p.created_at, 1, 10)`,
+       GROUP BY COALESCE(NULLIF(p.moment_date, ''), substr(p.created_at, 1, 10))`,
     ).all();
 
     const datesWithPhotos = {};
