@@ -193,9 +193,9 @@ describe('Moments components', () => {
     assert.match(html, />Add 1<\/button>/);
     assert.match(html, /cml-moments-composer__preview-grid/);
     assert.match(html, /cml-moment-card__photos--double/);
-    assert.match(html, /cml-moments-composer__drag-handle/);
     assert.match(html, /draggable="true"/);
     assert.match(html, /data-moment-draft-index="0"/);
+    assert.doesNotMatch(html, /cml-moments-composer__drag-handle/);
     assert.doesNotMatch(html, /data-moments-composer/);
   });
 

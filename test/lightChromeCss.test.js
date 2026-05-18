@@ -107,7 +107,8 @@ describe('light chrome CSS', () => {
     assert.match(css, /#codex-media-library-root \.cml-moment-card__body \{[\s\S]*font-size: 18px;/);
     assert.match(css, /#codex-media-library-root \.cml-moment-card__photos--single \.cml-moment-card__photo \{[\s\S]*aspect-ratio: 1\.08;/);
     assert.match(css, /#codex-media-library-root \.cml-moments-composer__preview-grid \{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
-    assert.match(css, /#codex-media-library-root \.cml-moments-composer__drag-handle/);
+    assert.match(css, /#codex-media-library-root \.cml-moments-composer__preview \{[\s\S]*cursor: grab;/);
+    assert.doesNotMatch(css, /#codex-media-library-root \.cml-moments-composer__drag-handle/);
   });
 
   it('hides native browser cancel icons inside the Films library search', () => {

@@ -51,7 +51,7 @@ import {
   renderMomentsCalendar,
   renderMomentsDayWall,
   renderMomentsFeed
-} from './components.js?v=106';
+} from './components.js?v=107';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,

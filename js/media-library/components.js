@@ -1084,10 +1084,9 @@ function renderMomentDraftGrid(draftAttachments = [], { isPublishing = false } =
   return `
     <div class="${gridClass}">
       ${draftAttachments.map((file, index) => `
-        <figure class="cml-moment-card__photo cml-moments-composer__preview" data-moment-draft-index="${index}" data-drag-handle="moment-preview" draggable="true">
+        <figure class="cml-moment-card__photo cml-moments-composer__preview" data-moment-draft-index="${index}" draggable="true">
           <img class="cml-moment-card__image" src="${escapeHtml(file.previewUrl || '')}" alt="${escapeHtml(file.name || `Photo ${index + 1}`)}" loading="lazy" decoding="async">
           <div class="cml-moments-composer__preview-actions">
-            <span class="cml-moments-composer__drag-handle" aria-hidden="true">${icon('drag')}</span>
             <button type="button" class="cml-moments-composer__remove" data-action="remove-moment-draft-file" data-index="${index}" aria-label="Remove photo" ${isPublishing ? 'disabled' : ''}>${icon('close')}</button>
           </div>
         </figure>

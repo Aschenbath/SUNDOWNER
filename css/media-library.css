@@ -11928,8 +11928,7 @@ body.codex-media-library-active #app {
   gap: 6px;
 }
 
-#codex-media-library-root .cml-moments-composer__remove,
-#codex-media-library-root .cml-moments-composer__drag-handle {
+#codex-media-library-root .cml-moments-composer__remove {
   display: grid;
   width: 24px;
   height: 24px;
