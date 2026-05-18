@@ -9,6 +9,14 @@ import {
   normalizeMomentPosts,
 } from '../js/media-library/moments-state.js';
 
+let mediaCacheMergeModule = {};
+let mediaCacheMergeImportError = null;
+try {
+  mediaCacheMergeModule = await import('../js/media-library/media-cache-merge.js');
+} catch (error) {
+  mediaCacheMergeImportError = error;
+}
+
 const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
 describe('Moments app helpers', () => {
@@ -189,7 +197,7 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /const seenFileIds = new Set/);
     assert.match(appSource, /addedCount === 0/);
     assert.match(appSource, /persistMediaPayload\(/);
-    assert.match(appSource, /state\.mediaItems = fullItems/);
+    assert.match(appSource, /state\.mediaItems = mergedFullItems/);
     assert.match(appSource, /state\.librarySyncMeta = \{/);
     assert.match(appSource, /render\(\);/);
     assert.match(appSource, /const INITIAL_PHOTOS_PAGE_SIZE = 200/);
@@ -209,6 +217,69 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /const shouldKeepLoading = !hasFallbackItems/);
   });
 
+  it('keeps fuller cached Photos when the live index only has an initial page', () => {
+    assert.ifError(mediaCacheMergeImportError);
+    const {
+      mergeIndexedMediaResultWithCache,
+      mergeIndexedMediaWithCachedItems,
+      removeMediaCacheItems,
+    } = mediaCacheMergeModule;
+    assert.equal(typeof mergeIndexedMediaWithCachedItems, 'function');
+    assert.equal(typeof mergeIndexedMediaResultWithCache, 'function');
+    assert.equal(typeof removeMediaCacheItems, 'function');
+
+    const livePageItems = [
+      { id: 'managed-new', sourceId: 'Photos/2026-05-18/new.jpg', label: 'new live' },
+      { id: 'managed-shared-live', sourceId: 'Photos/2026-05-17/shared.jpg', label: 'shared live' },
+    ];
+    const cachedItems = [
+      { id: 'managed-old', sourceId: 'Photos/2026-05-16/old.jpg', label: 'old cached' },
+      { id: 'managed-shared-cache', sourceId: 'Photos/2026-05-17/shared.jpg', label: 'shared cached' },
+      { id: 'managed-older', sourceId: 'Photos/2026-05-15/older.jpg', label: 'older cached' },
+    ];
+
+    const mergedItems = mergeIndexedMediaWithCachedItems(livePageItems, cachedItems);
+    assert.deepEqual(mergedItems.map((item) => item.sourceId), [
+      'Photos/2026-05-18/new.jpg',
+      'Photos/2026-05-17/shared.jpg',
+      'Photos/2026-05-16/old.jpg',
+      'Photos/2026-05-15/older.jpg',
+    ]);
+    assert.equal(mergedItems[1].label, 'shared live');
+
+    const mergedResult = mergeIndexedMediaResultWithCache({
+      items: livePageItems,
+      loadedCount: livePageItems.length,
+      totalCount: livePageItems.length,
+      isTruncated: false,
+    }, {
+      items: cachedItems,
+      librarySyncMeta: { totalCount: cachedItems.length },
+    });
+    assert.equal(mergedResult.loadedCount, 4);
+    assert.equal(mergedResult.totalCount, 4);
+    assert.equal(mergedResult.source, 'indexed-cache');
+    assert.equal(mergedResult.cacheSupplementedCount, 2);
+
+    const prunedItems = removeMediaCacheItems(mergedItems, new Set(['Photos/2026-05-16/old.jpg']));
+    assert.deepEqual(prunedItems.map((item) => item.sourceId), [
+      'Photos/2026-05-18/new.jpg',
+      'Photos/2026-05-17/shared.jpg',
+      'Photos/2026-05-15/older.jpg',
+    ]);
+  });
+
+  it('applies cached Photos supplements to both first-page hydration and background backfill', () => {
+    assert.match(appSource, /mergeIndexedMediaResultWithCache\(\s*await fetchIndexedMediaItems\(domItems, cachedMediaPayload\),\s*cachedMediaPayload\s*\)/);
+    assert.match(appSource, /fetchIndexedMediaItems\(domItems, cachedMediaPayload\)/);
+    assert.match(appSource, /const mergedFullItems = mergeIndexedMediaWithCachedItems\(fullItems, \[\.\.\.state\.mediaItems, \.\.\.safeArray\(cachedMediaPayload\?\.items\)\]\);/);
+    assert.match(appSource, /items: mergedFullItems,\s*librarySyncMeta: nextLibrarySyncMeta/);
+    assert.match(appSource, /state\.mediaItems = mergedFullItems;/);
+    assert.match(appSource, /function pruneMediaPayloadCache\(removedKeys = \[\]\) \{/);
+    assert.match(appSource, /const nextItems = removeMediaCacheItems\(cached\?\.items \|\| \[\], removedKeys\);/);
+    assert.match(appSource, /pruneMediaPayloadCache\(deletedKeys\);/);
+  });
+
   it('keeps the topbar storage summary aligned with loaded Photos when quota metadata is empty', () => {
     assert.match(appSource, /function buildLoadedMediaStorageSummaryFallback\(baseSummary = state\.storageSummary\) \{/);
     assert.match(appSource, /const loadedItems = safeArray\(state\.mediaItems\);/);
@@ -226,7 +297,7 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /state\.storageSummary = nextSummary;/);
     assert.match(appSource, /const topbarPatched = patchTopbarStorageTrigger\(\);/);
     assert.match(appSource, /state\.mediaItems = items;\s*changed = true;\s*primeStorageSummaryFromLoadedMedia\(\);\s*void syncStorageSummary\(\);/);
-    assert.match(appSource, /state\.mediaItems = fullItems;\s*state\.librarySyncMeta = nextLibrarySyncMeta;\s*state\.isLibraryLoading = false;\s*primeStorageSummaryFromLoadedMedia\(\);\s*void syncStorageSummary\(\{ forceRender: false \}\);/);
+    assert.match(appSource, /state\.mediaItems = mergedFullItems;\s*state\.librarySyncMeta = nextLibrarySyncMeta;\s*state\.isLibraryLoading = false;\s*primeStorageSummaryFromLoadedMedia\(\);\s*void syncStorageSummary\(\{ forceRender: false \}\);/);
   });
 
   it('shows loaded Telegram previews clearly while the full photo keeps loading', () => {

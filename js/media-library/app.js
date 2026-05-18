@@ -67,6 +67,11 @@ import {
   normalizeMomentPosts,
 } from './moments-state.js?v=3';
 import {
+  mergeIndexedMediaResultWithCache,
+  mergeIndexedMediaWithCachedItems,
+  removeMediaCacheItems,
+} from './media-cache-merge.js?v=2';
+import {
   buildPickerPreserveFlags,
   canUseDistinctAlbumPicker,
   getAlbumSelectionTarget,
@@ -4917,6 +4922,31 @@ function persistMediaPayload(payload = {}) {
   });
 }
 
+function pruneMediaPayloadCache(removedKeys = []) {
+  const cached = readCachedMediaPayload();
+  const nextItems = removeMediaCacheItems(cached?.items || [], removedKeys);
+  if (!cached || nextItems.length === (cached.items || []).length) {
+    return;
+  }
+  if (!nextItems.length) {
+    try {
+      window.localStorage.removeItem(MEDIA_PAYLOAD_CACHE_KEY);
+    } catch {
+      // Ignore local cache cleanup failures; live state has already been updated.
+    }
+    return;
+  }
+  persistMediaPayload({
+    items: nextItems,
+    librarySyncMeta: {
+      ...(cached.librarySyncMeta || {}),
+      loadedCount: Math.min(Number(cached.librarySyncMeta?.loadedCount) || nextItems.length, nextItems.length),
+      totalCount: Math.min(Number(cached.librarySyncMeta?.totalCount) || nextItems.length, nextItems.length),
+    },
+    cachedAt: cached.cachedAt || Date.now(),
+  });
+}
+
 function getMomentPostById(postId = '') {
   const normalizedId = normalizeText(postId);
   if (!normalizedId) {
@@ -5779,7 +5809,7 @@ async function fetchListPage(start, count = API_PAGE_SIZE) {
   return response.json();
 }
 
-async function fetchIndexedMediaItems(domItems) {
+async function fetchIndexedMediaItems(domItems, cachedMediaPayload = null) {
   const domLookup = buildDomLookup(domItems);
   const firstPayload = await fetchListPage(0, INITIAL_PHOTOS_PAGE_SIZE);
   const firstFiles = safeArray(firstPayload?.files);
@@ -5849,21 +5879,23 @@ async function fetchIndexedMediaItems(domItems) {
         return left.label.localeCompare(right.label);
       })
       .map(({ sortOrder, domIndex, ...item }) => item);
+    const mergedFullItems = mergeIndexedMediaWithCachedItems(fullItems, [...state.mediaItems, ...safeArray(cachedMediaPayload?.items)]);
 
     const nextLibrarySyncMeta = {
-      source: 'indexed',
-      totalCount: Math.max(totalCount, fullItems.length),
-      loadedCount: fullItems.length,
-      isTruncated: Math.max(totalCount, fullItems.length) > fullItems.length,
+      source: mergedFullItems.length > fullItems.length ? 'indexed-cache' : 'indexed',
+      totalCount: Math.max(totalCount, mergedFullItems.length),
+      loadedCount: mergedFullItems.length,
+      isTruncated: Math.max(totalCount, mergedFullItems.length) > mergedFullItems.length,
+      ...(mergedFullItems.length > fullItems.length ? { cacheSupplementedCount: mergedFullItems.length - fullItems.length } : {}),
     };
 
     persistMediaPayload({
-      items: fullItems,
+      items: mergedFullItems,
       librarySyncMeta: nextLibrarySyncMeta,
       cachedAt: Date.now(),
     });
 
-    state.mediaItems = fullItems;
+    state.mediaItems = mergedFullItems;
     state.librarySyncMeta = nextLibrarySyncMeta;
     state.isLibraryLoading = false;
     primeStorageSummaryFromLoadedMedia();
@@ -8064,6 +8096,7 @@ async function deleteSelectedItems(options = {}) {
   }
 
   if (deletedIds.size) {
+    pruneMediaPayloadCache(deletedKeys);
     void syncStorageSummary({ forceRender: false });
     showToast(
       permanent
@@ -15489,12 +15522,16 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
   const cachedMediaPayload = readCachedMediaPayload();
 
   try {
-    const indexedResult = await fetchIndexedMediaItems(domItems);
+    const indexedResult = mergeIndexedMediaResultWithCache(
+      await fetchIndexedMediaItems(domItems, cachedMediaPayload),
+      cachedMediaPayload
+    );
     state.librarySyncMeta = {
-      source: 'indexed',
+      source: indexedResult.source || 'indexed',
       totalCount: indexedResult.totalCount,
       loadedCount: indexedResult.loadedCount,
-      isTruncated: indexedResult.isTruncated
+      isTruncated: indexedResult.isTruncated,
+      ...(indexedResult.cacheSupplementedCount ? { cacheSupplementedCount: indexedResult.cacheSupplementedCount } : {}),
     };
     if (indexedResult.items.length) {
       items = indexedResult.items;
