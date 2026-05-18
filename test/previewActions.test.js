@@ -2401,6 +2401,26 @@ describe('media library download actions', () => {
     assert.match(appSource, /markup bytes/);
   });
 
+  it('labels sitewide perf actions for search resize sync bin and moments picker', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const binLoadStart = appSource.indexOf('async function fetchBinItems()');
+    const binLoadEnd = appSource.indexOf('function snapshotBinMutationState', binLoadStart);
+    const binLoadSource = appSource.slice(binLoadStart, binLoadEnd);
+    const syncStart = appSource.indexOf('async function performSyncLiveMedia');
+    const syncEnd = appSource.indexOf('function syncLiveMedia', syncStart);
+    const syncSource = appSource.slice(syncStart, syncEnd);
+
+    assert.match(appSource, /startPerfAction\('search query apply'\)/);
+    assert.match(appSource, /startPerfAction\('window resize'\)/);
+    assert.match(appSource, /startPerfAction\('bin load'\)/);
+    assert.match(appSource, /startPerfAction\('moments picker open'\)/);
+    assert.match(appSource, /startPerfAction\('library sync'\)/);
+    assert.match(binLoadSource, /if \(state\.isBinLoading\) \{\s*return;\s*\}\s*const perfToken = startPerfAction\('bin load'\);/);
+    assert.match(syncSource, /try \{[\s\S]*markPerf\('library-sync-end'\);[\s\S]*measurePerf\('library-sync', 'library-sync-start', 'library-sync-end'\);[\s\S]*\} finally \{/);
+    assert.match(syncSource, /const finishLibrarySyncPerfAction = \(\) => \{[\s\S]*if \(didFinishPerfAction\) \{[\s\S]*return;[\s\S]*didFinishPerfAction = true;[\s\S]*finishPerfActionAfterPaint\(perfToken\);[\s\S]*finishPerfAction\(perfToken\);[\s\S]*\};/);
+    assert.match(syncSource, /finally \{[\s\S]*if \(!didFinishPerfAction\) \{[\s\S]*finishLibrarySyncPerfAction\(\);[\s\S]*\}/);
+  });
+
   it('renders a desktop sidebar audio dock for non-music routes', () => {
     const dockHtml = SidebarAudioPlayer({
       currentItem: {

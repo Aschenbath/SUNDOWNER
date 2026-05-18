@@ -3640,6 +3640,7 @@ function restoreSearchInputFocus(selectionStart = null, selectionEnd = null) {
 }
 
 function applySearchQuery(nextQuery, { preserveFocus = false, selectionStart = null, selectionEnd = null } = {}) {
+  const perfToken = startPerfAction('search query apply');
   if (pendingSearchApplyTimer) {
     window.clearTimeout(pendingSearchApplyTimer);
     pendingSearchApplyTimer = 0;
@@ -3657,7 +3658,10 @@ function applySearchQuery(nextQuery, { preserveFocus = false, selectionStart = n
   if (preserveFocus) {
     window.requestAnimationFrame(() => {
       restoreSearchInputFocus(selectionStart, selectionEnd);
+      finishPerfAction(perfToken);
     });
+  } else {
+    finishPerfActionAfterPaint(perfToken);
   }
 }
 
@@ -5185,6 +5189,14 @@ function openMomentDraftPicker() {
   }
 }
 
+function openMomentsPhotoPicker() {
+  const perfToken = startPerfAction('moments picker open');
+  state.momentsPickerOpen = true;
+  state.momentsPickerSelection = new Set();
+  render();
+  finishPerfActionAfterPaint(perfToken);
+}
+
 function getMomentsPickerItemsSignature() {
   const mediaHeadSignature = safeArray(state.mediaItems)
     .slice(0, 180)
@@ -6301,6 +6313,7 @@ async function fetchBinItems() {
   if (state.isBinLoading) {
     return;
   }
+  const perfToken = startPerfAction('bin load');
   state.isBinLoading = true;
   render();
   try {
@@ -6321,6 +6334,7 @@ async function fetchBinItems() {
   } finally {
     state.isBinLoading = false;
     render();
+    finishPerfActionAfterPaint(perfToken);
   }
 }
 
@@ -15712,126 +15726,149 @@ function renderPreviewTransientLayers({ animateDirection = 0 } = {}) {
 }
 
 async function performSyncLiveMedia({ forceRender = false } = {}) {
-  markPerf('library-sync-start');
-  state.liveSyncAttempts += 1;
-
-  const domItems = extractLiveMediaItems();
-  let items = domItems;
-  let surfaceReady = hasUnderlyingSurface();
-  const cachedMediaPayload = readCachedMediaPayload();
-
-  try {
-    const indexedResult = mergeIndexedMediaResultWithCache(
-      await fetchIndexedMediaItems(domItems, cachedMediaPayload),
-      cachedMediaPayload
-    );
-    state.librarySyncMeta = {
-      source: indexedResult.source || 'indexed',
-      totalCount: indexedResult.totalCount,
-      loadedCount: indexedResult.loadedCount,
-      isTruncated: indexedResult.isTruncated,
-      ...(indexedResult.cacheSupplementedCount ? { cacheSupplementedCount: indexedResult.cacheSupplementedCount } : {}),
-    };
-    if (indexedResult.items.length) {
-      items = indexedResult.items;
-      surfaceReady = true;
+  const perfToken = startPerfAction('library sync');
+  markPerfNetworkAwait(perfToken, true);
+  let didUpdateVisibleUi = false;
+  let didFinishPerfAction = false;
+  const finishLibrarySyncPerfAction = () => {
+    if (didFinishPerfAction) {
+      return;
     }
-  } catch (error) {
-    console.warn('[media-library] falling back to DOM extraction', error);
-    if (cachedMediaPayload?.items?.length && !state.mediaItems.length) {
-      items = cachedMediaPayload.items;
-      surfaceReady = true;
-      state.librarySyncMeta = {
-        ...cachedMediaPayload.librarySyncMeta,
-        source: 'cache',
-        loadedCount: cachedMediaPayload.items.length,
-        totalCount: Math.max(
-          Number(cachedMediaPayload.librarySyncMeta?.totalCount) || 0,
-          cachedMediaPayload.items.length
-        ),
-      };
-    } else if (state.mediaItems.length && !domItems.length) {
-      items = state.mediaItems;
-      surfaceReady = true;
-      state.librarySyncMeta = {
-        ...state.librarySyncMeta,
-        source: state.librarySyncMeta?.source || 'stale',
-        loadedCount: state.mediaItems.length,
-        totalCount: Math.max(Number(state.librarySyncMeta?.totalCount) || 0, state.mediaItems.length),
-      };
+    didFinishPerfAction = true;
+    if (didUpdateVisibleUi) {
+      finishPerfActionAfterPaint(perfToken);
     } else {
+      finishPerfAction(perfToken);
+    }
+  };
+  markPerf('library-sync-start');
+  try {
+    state.liveSyncAttempts += 1;
+
+    const domItems = extractLiveMediaItems();
+    let items = domItems;
+    let surfaceReady = hasUnderlyingSurface();
+    const cachedMediaPayload = readCachedMediaPayload();
+
+    try {
+      const indexedResult = mergeIndexedMediaResultWithCache(
+        await fetchIndexedMediaItems(domItems, cachedMediaPayload),
+        cachedMediaPayload
+      );
       state.librarySyncMeta = {
-        source: error?.message === 'Request timed out' ? 'timeout' : 'dom',
-        totalCount: domItems.length,
-        loadedCount: domItems.length,
-        isTruncated: false
+        source: indexedResult.source || 'indexed',
+        totalCount: indexedResult.totalCount,
+        loadedCount: indexedResult.loadedCount,
+        isTruncated: indexedResult.isTruncated,
+        ...(indexedResult.cacheSupplementedCount ? { cacheSupplementedCount: indexedResult.cacheSupplementedCount } : {}),
       };
+      if (indexedResult.items.length) {
+        items = indexedResult.items;
+        surfaceReady = true;
+      }
+    } catch (error) {
+      console.warn('[media-library] falling back to DOM extraction', error);
+      if (cachedMediaPayload?.items?.length && !state.mediaItems.length) {
+        items = cachedMediaPayload.items;
+        surfaceReady = true;
+        state.librarySyncMeta = {
+          ...cachedMediaPayload.librarySyncMeta,
+          source: 'cache',
+          loadedCount: cachedMediaPayload.items.length,
+          totalCount: Math.max(
+            Number(cachedMediaPayload.librarySyncMeta?.totalCount) || 0,
+            cachedMediaPayload.items.length
+          ),
+        };
+      } else if (state.mediaItems.length && !domItems.length) {
+        items = state.mediaItems;
+        surfaceReady = true;
+        state.librarySyncMeta = {
+          ...state.librarySyncMeta,
+          source: state.librarySyncMeta?.source || 'stale',
+          loadedCount: state.mediaItems.length,
+          totalCount: Math.max(Number(state.librarySyncMeta?.totalCount) || 0, state.mediaItems.length),
+        };
+      } else {
+        state.librarySyncMeta = {
+          source: error?.message === 'Request timed out' ? 'timeout' : 'dom',
+          totalCount: domItems.length,
+          loadedCount: domItems.length,
+          isTruncated: false
+        };
+      }
     }
-  }
 
-  const visibleSecondaryFilters = getVisibleSecondaryFilters(items);
-  if (state.secondaryFilter && !visibleSecondaryFilters.includes(state.secondaryFilter)) {
-    state.secondaryFilter = '';
-  }
-
-  const signature = items.map((item) => `${item.id}:${item.takenAt}:${item.thumbnailUrl}:${item.width}x${item.height}`).join('|');
-  const validIds = new Set(items.map((item) => item.id));
-  let changed = false;
-
-  if (signature !== state.liveMediaSignature) {
-    state.liveMediaSignature = signature;
-    state.mediaItems = items;
-    changed = true;
-    primeStorageSummaryFromLoadedMedia();
-    void syncStorageSummary();
-  }
-
-  if (syncAlbumCovers(items.map((item) => applyAlbumOverride(item)))) {
-    changed = true;
-  }
-
-  const nextSelectedIds = new Set([...state.selectedIds].filter((id) => validIds.has(id)));
-  if (nextSelectedIds.size !== state.selectedIds.size) {
-    state.selectedIds = nextSelectedIds;
-    if (state.lastSelectedId && !nextSelectedIds.has(state.lastSelectedId)) {
-      state.lastSelectedId = [...nextSelectedIds].pop() || null;
+    const visibleSecondaryFilters = getVisibleSecondaryFilters(items);
+    if (state.secondaryFilter && !visibleSecondaryFilters.includes(state.secondaryFilter)) {
+      state.secondaryFilter = '';
     }
-    changed = true;
-  }
 
-  if (state.previewId) {
-    const nextPreviewItem = resolvePreviewItem(items, {
-      id: state.previewId,
-      sourceHint: state.previewSourceHint
-    });
-    if (!nextPreviewItem) {
-      state.previewId = null;
+    const signature = items.map((item) => `${item.id}:${item.takenAt}:${item.thumbnailUrl}:${item.width}x${item.height}`).join('|');
+    const validIds = new Set(items.map((item) => item.id));
+    let changed = false;
+
+    if (signature !== state.liveMediaSignature) {
+      state.liveMediaSignature = signature;
+      state.mediaItems = items;
       changed = true;
-    } else if (nextPreviewItem.id !== state.previewId) {
-      state.previewId = nextPreviewItem.id;
+      primeStorageSummaryFromLoadedMedia();
+      void syncStorageSummary();
+    }
+
+    if (syncAlbumCovers(items.map((item) => applyAlbumOverride(item)))) {
       changed = true;
     }
-  }
 
-  const hasFallbackItems = items.length > 0;
-  const timedOutWithoutFallback = !hasFallbackItems
-    && state.librarySyncMeta?.source === 'timeout'
-    && state.liveSyncAttempts >= 3;
-  const shouldKeepLoading = !hasFallbackItems
-    && !timedOutWithoutFallback
-    && (!surfaceReady || state.liveSyncAttempts < 4);
-  if (state.isLibraryLoading !== shouldKeepLoading) {
-    state.isLibraryLoading = shouldKeepLoading;
-    changed = true;
-  }
+    const nextSelectedIds = new Set([...state.selectedIds].filter((id) => validIds.has(id)));
+    if (nextSelectedIds.size !== state.selectedIds.size) {
+      state.selectedIds = nextSelectedIds;
+      if (state.lastSelectedId && !nextSelectedIds.has(state.lastSelectedId)) {
+        state.lastSelectedId = [...nextSelectedIds].pop() || null;
+      }
+      changed = true;
+    }
 
-  if ((changed || forceRender) && refs.root) {
-    if (!(state.previewId && renderPreviewTransientLayers())) {
-      render();
+    if (state.previewId) {
+      const nextPreviewItem = resolvePreviewItem(items, {
+        id: state.previewId,
+        sourceHint: state.previewSourceHint
+      });
+      if (!nextPreviewItem) {
+        state.previewId = null;
+        changed = true;
+      } else if (nextPreviewItem.id !== state.previewId) {
+        state.previewId = nextPreviewItem.id;
+        changed = true;
+      }
+    }
+
+    const hasFallbackItems = items.length > 0;
+    const timedOutWithoutFallback = !hasFallbackItems
+      && state.librarySyncMeta?.source === 'timeout'
+      && state.liveSyncAttempts >= 3;
+    const shouldKeepLoading = !hasFallbackItems
+      && !timedOutWithoutFallback
+      && (!surfaceReady || state.liveSyncAttempts < 4);
+    if (state.isLibraryLoading !== shouldKeepLoading) {
+      state.isLibraryLoading = shouldKeepLoading;
+      changed = true;
+    }
+
+    if ((changed || forceRender) && refs.root) {
+      if (!(state.previewId && renderPreviewTransientLayers())) {
+        render();
+      }
+      didUpdateVisibleUi = true;
+    }
+    markPerf('library-sync-end');
+    measurePerf('library-sync', 'library-sync-start', 'library-sync-end');
+    finishLibrarySyncPerfAction();
+  } finally {
+    if (!didFinishPerfAction) {
+      finishLibrarySyncPerfAction();
     }
   }
-  markPerf('library-sync-end');
-  measurePerf('library-sync', 'library-sync-start', 'library-sync-end');
 }
 
 function syncLiveMedia(options = {}) {
@@ -16783,7 +16820,9 @@ function getScrollableResultCount() {
 }
 
 function handleWindowResize() {
+  const perfToken = startPerfAction('window resize');
   if (!document.body.classList.contains('codex-media-library-active')) {
+    finishPerfAction(perfToken);
     return;
   }
   syncViewportHeightVar();
@@ -16795,6 +16834,7 @@ function handleWindowResize() {
   if (isMobileMindComposerFocused()) {
     window.requestAnimationFrame(() => {
       scrollMindToBottom({ force: true });
+      finishPerfAction(perfToken);
     });
     return;
   }
@@ -16806,6 +16846,7 @@ function handleWindowResize() {
     });
   }
   render();
+  finishPerfActionAfterPaint(perfToken);
 }
 
 function handleVisualViewportResize() {
@@ -16909,9 +16950,7 @@ function handleAction(actionTarget, event = null) {
       openMomentDraftPicker();
       return true;
     case 'open-moments-photo-picker':
-      state.momentsPickerOpen = true;
-      state.momentsPickerSelection = new Set();
-      render();
+      openMomentsPhotoPicker();
       return true;
     case 'close-moments-photo-picker':
       state.momentsPickerOpen = false;
