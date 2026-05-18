@@ -215,7 +215,18 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /loadedItems\.reduce\(\(sum, item\) => sum \+ Math\.max\(0, Number\(item\?\.sizeMb\) \|\| 0\), 0\)/);
     assert.match(appSource, /const shouldUseLoadedFallback = loadedFallback\.totalCount > 0[\s\S]*?&& nextSummary\.totalCount === 0[\s\S]*?&& nextSummary\.usedMb === 0;/);
     assert.match(appSource, /nextSummary = shouldUseLoadedFallback \? loadedFallback : nextSummary;/);
-    assert.match(appSource, /state\.isLibraryLoading = false;\s*void syncStorageSummary\(\{ forceRender: false \}\);/);
+    assert.match(appSource, /state\.isLibraryLoading = false;\s*primeStorageSummaryFromLoadedMedia\(\);\s*void syncStorageSummary\(\{ forceRender: false \}\);/);
+  });
+
+  it('primes the storage topbar from loaded Photos before waiting on quota requests', () => {
+    assert.match(appSource, /function primeStorageSummaryFromLoadedMedia\(\) \{/);
+    assert.match(appSource, /const loadedSummary = buildLoadedMediaStorageSummaryFallback\(state\.storageSummary\);/);
+    assert.match(appSource, /const nextSummary = buildStorageSummaryUpdate\(\{[\s\S]*?usedMb: Math\.max\(state\.storageSummary\.usedMb, loadedSummary\.usedMb\),[\s\S]*?totalCount: Math\.max\(state\.storageSummary\.totalCount, loadedSummary\.totalCount\),/);
+    assert.match(appSource, /if \(sameStorageSummary\(state\.storageSummary, nextSummary\)\) \{/);
+    assert.match(appSource, /state\.storageSummary = nextSummary;/);
+    assert.match(appSource, /const topbarPatched = patchTopbarStorageTrigger\(\);/);
+    assert.match(appSource, /state\.mediaItems = items;\s*changed = true;\s*primeStorageSummaryFromLoadedMedia\(\);\s*void syncStorageSummary\(\);/);
+    assert.match(appSource, /state\.mediaItems = fullItems;\s*state\.librarySyncMeta = nextLibrarySyncMeta;\s*state\.isLibraryLoading = false;\s*primeStorageSummaryFromLoadedMedia\(\);\s*void syncStorageSummary\(\{ forceRender: false \}\);/);
   });
 
   it('shows loaded Telegram previews clearly while the full photo keeps loading', () => {

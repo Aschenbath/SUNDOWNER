@@ -3649,6 +3649,29 @@ function buildLoadedMediaStorageSummaryFallback(baseSummary = state.storageSumma
   });
 }
 
+function primeStorageSummaryFromLoadedMedia() {
+  const loadedSummary = buildLoadedMediaStorageSummaryFallback(state.storageSummary);
+  const nextSummary = buildStorageSummaryUpdate({
+    ...state.storageSummary,
+    usedMb: Math.max(state.storageSummary.usedMb, loadedSummary.usedMb),
+    totalCount: Math.max(state.storageSummary.totalCount, loadedSummary.totalCount),
+    isLoading: false
+  });
+  if (sameStorageSummary(state.storageSummary, nextSummary)) {
+    return false;
+  }
+  state.storageSummary = nextSummary;
+  if (refs.root) {
+    const topbarPatched = patchTopbarStorageTrigger();
+    if (state.adminPanelOpen || state.storagePanelOpen) {
+      patchAdminOverlays();
+    } else if (!topbarPatched) {
+      render();
+    }
+  }
+  return true;
+}
+
 function sameStorageSummary(left, right) {
   return left.usedMb === right.usedMb
     && left.totalQuotaGb === right.totalQuotaGb
@@ -5843,6 +5866,7 @@ async function fetchIndexedMediaItems(domItems) {
     state.mediaItems = fullItems;
     state.librarySyncMeta = nextLibrarySyncMeta;
     state.isLibraryLoading = false;
+    primeStorageSummaryFromLoadedMedia();
     void syncStorageSummary({ forceRender: false });
     if (refs.root && state.primaryFilter !== 'Moments') {
       render();
@@ -15522,6 +15546,7 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
     state.liveMediaSignature = signature;
     state.mediaItems = items;
     changed = true;
+    primeStorageSummaryFromLoadedMedia();
     void syncStorageSummary();
   }
 
