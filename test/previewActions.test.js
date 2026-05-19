@@ -2130,6 +2130,21 @@ describe('media library download actions', () => {
     assert.match(patchSource, /refreshTimelineSectionOffsetTops\(\);\s*updateActiveYear\(\);\s*updateScrubberThumb\(\);/);
   });
 
+  it('keeps collection-root scroll ticks from rebuilding album summaries until load-more is needed', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const scrollStart = appSource.indexOf('function handleScroll');
+    const scrollEnd = appSource.indexOf('function updateScrubberThumb', scrollStart);
+    assert.ok(scrollStart >= 0 && scrollEnd > scrollStart);
+    const scrollSource = appSource.slice(scrollStart, scrollEnd);
+    const nearBottomIndex = scrollSource.indexOf('const nearBottom =');
+    const resultCountIndex = scrollSource.indexOf('const resultCount = getScrollableResultCount();');
+
+    assert.ok(nearBottomIndex >= 0);
+    assert.ok(resultCountIndex > nearBottomIndex);
+    assert.match(scrollSource, /if \(!nearBottom\) \{\s*updateActiveYear\(\);\s*updateScrubberThumb\(\);\s*return;\s*\}/);
+    assert.match(scrollSource, /if \(state\.loadedCount < resultCount\) \{/);
+  });
+
   it('keeps collection cards on date-only metadata, uses clickable album titles, and omits the cover summary line', () => {
     const summaryHtml = CollectionSummary({
       activeAlbumName: 'scenery',

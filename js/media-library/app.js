@@ -17547,9 +17547,14 @@ function handleScroll() {
   state.virtualViewportHeight = refs.scrollRegion.clientHeight;
   const isCollectionRoot = state.primaryFilter === 'Collections' && !getActiveAlbumName();
   if (isCollectionRoot) {
-    const resultCount = getScrollableResultCount();
     const nearBottom = refs.scrollRegion.scrollTop + refs.scrollRegion.clientHeight >= refs.scrollRegion.scrollHeight - 720;
-    if (nearBottom && state.loadedCount < resultCount) {
+    if (!nearBottom) {
+      updateActiveYear();
+      updateScrubberThumb();
+      return;
+    }
+    const resultCount = getScrollableResultCount();
+    if (state.loadedCount < resultCount) {
       state.loadedCount = Math.min(resultCount, state.loadedCount + 18);
       render();
       return;
