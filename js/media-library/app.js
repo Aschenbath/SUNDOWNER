@@ -10161,7 +10161,48 @@ function getPhotosViewModel(context = getBaseViewModelContext()) {
 }
 
 function getSearchViewModel(context = getBaseViewModelContext()) {
-  return getLegacyViewModel(context);
+  const { accessibleItems } = context;
+  const filteredItems = getFilteredItems(accessibleItems);
+  const searchPhotoItems = filteredItems.filter((item) => item?.type === 'photo');
+  const searchVideoItems = filteredItems.filter((item) => item?.type === 'video');
+  const searchAudioItems = filteredItems.filter((item) => item?.type === 'audio');
+  const searchFileItems = filteredItems.filter((item) => item?.isDocumentLike);
+  const searchAlbumCards = buildCollectionSummaries(accessibleItems);
+  const searchPhotoSections = buildSearchTimelineSections(searchPhotoItems, 'search-photo');
+  const searchVideoSections = buildSearchTimelineSections(searchVideoItems, 'search-video');
+  const selectedItems = getSelectedItems(accessibleItems);
+  const musicPlaylists = buildMusicPlaylistSummaries(accessibleItems);
+  const currentAudioItem = getAudioItemById(state.audioCurrentId, accessibleItems)
+    || getAudioItemById(state.audioCurrentId, getAllItems());
+  const previewItems = filteredItems;
+  const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
+  const globalSearchResultCount = searchPhotoItems.length
+    + searchVideoItems.length
+    + searchAudioItems.length
+    + searchFileItems.length
+    + searchAlbumCards.length;
+
+  return buildViewModelResult(context, {
+    globalSearchResultCount,
+    filteredItems,
+    searchPhotoItems,
+    searchVideoItems,
+    searchAudioItems,
+    searchFileItems,
+    searchAlbumCards,
+    searchPhotoSections,
+    searchVideoSections,
+    musicPlaylists,
+    currentAudioItem,
+    audioQueueItems: getAudioQueueItems(accessibleItems),
+    previewItems,
+    previewIndex,
+    previewItem: previewIndex >= 0 ? previewItems[previewIndex] : null,
+    availableAlbums: getAvailableAlbumNames(accessibleItems),
+    previewAlbumEntries: buildPreviewAlbumEntries(accessibleItems),
+    canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
+    canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item))
+  });
 }
 
 function getFilmsViewModel(context = getBaseViewModelContext()) {

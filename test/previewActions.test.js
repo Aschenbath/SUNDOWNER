@@ -2429,6 +2429,22 @@ describe('media library download actions', () => {
     assert.match(appSource, /switch \(true\)/);
   });
 
+  it('keeps global search view-model construction out of the legacy timeline builder', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const searchStart = appSource.indexOf('function getSearchViewModel');
+    const filmsStart = appSource.indexOf('function getFilmsViewModel', searchStart);
+    assert.ok(searchStart >= 0 && filmsStart > searchStart);
+    const searchViewModelSource = appSource.slice(searchStart, filmsStart);
+
+    assert.doesNotMatch(searchViewModelSource, /getLegacyViewModel\(/);
+    assert.match(searchViewModelSource, /searchPhotoItems/);
+    assert.match(searchViewModelSource, /searchVideoItems/);
+    assert.match(searchViewModelSource, /searchAudioItems/);
+    assert.match(searchViewModelSource, /searchFileItems/);
+    assert.match(searchViewModelSource, /searchAlbumCards/);
+    assert.match(searchViewModelSource, /globalSearchResultCount/);
+  });
+
 
   it('records backend list timing rows in perf diagnostics', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
