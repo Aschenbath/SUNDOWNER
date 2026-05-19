@@ -2084,12 +2084,21 @@ describe('media library download actions', () => {
     const activeYearEnd = appSource.indexOf('function getScrollableResultCount', activeYearStart);
     assert.ok(activeYearStart >= 0 && activeYearEnd > activeYearStart);
     const activeYearSource = appSource.slice(activeYearStart, activeYearEnd);
+    const activeLookupStart = appSource.indexOf('function findActiveSectionByScrollTop');
+    const activeLookupEnd = appSource.indexOf('function updateActiveYear', activeLookupStart);
+    assert.ok(activeLookupStart >= 0 && activeLookupEnd > activeLookupStart);
+    const activeLookupSource = appSource.slice(activeLookupStart, activeLookupEnd);
 
     assert.match(appSource, /function findTimelineRowStartIndex\(/);
     assert.match(appSource, /function findTimelineRowEndIndex\(/);
     assert.match(appSource, /function findActiveSectionByScrollTop\(/);
+    assert.match(appSource, /timelineSectionOffsetTops: \[\]/);
     assert.doesNotMatch(rowRangeSource, /while \(startIndex < rows\.length\)/);
     assert.doesNotMatch(activeYearSource, /refs\.sectionAnchors\.forEach/);
+    assert.match(activeLookupSource, /refs\.timelineSectionOffsetTops/);
+    assert.match(activeLookupSource, /offsetTops\.length !== anchors\.length/);
+    assert.doesNotMatch(activeLookupSource, /refs\.sectionAnchors/);
+    assert.doesNotMatch(activeLookupSource, /\.offsetTop/);
   });
 
   it('reuses the scroll-computed virtual window when patching timeline rows', () => {
@@ -2109,6 +2118,8 @@ describe('media library download actions', () => {
     assert.match(patchSource, /const pendingVirtualWindow = refs\.timelinePendingVirtualWindow;/);
     assert.match(patchSource, /refs\.timelinePendingVirtualWindow = null;/);
     assert.match(patchSource, /const nextVirtualWindow = pendingVirtualWindow\s*\|\|\s*applyTimelineVirtualWindow/);
+    assert.match(appSource, /function refreshTimelineSectionOffsetTops\(\)/);
+    assert.match(patchSource, /refreshTimelineSectionOffsetTops\(\);\s*updateActiveYear\(\);\s*updateScrubberThumb\(\);/);
   });
 
   it('keeps collection cards on date-only metadata, uses clickable album titles, and omits the cover summary line', () => {

@@ -962,6 +962,7 @@ const refs = {
   scrubberTickRefs: [],
   scrubberTicksByAnchor: new Map(),
   timelineSectionRefs: [],
+  timelineSectionOffsetTops: [],
   timelineSectionsByAnchor: new Map(),
   timelineSectionHeadersByAnchor: new Map(),
   scrubberThumbStateSignature: ''
@@ -973,6 +974,7 @@ function resetScrubberTimelineRefs() {
   refs.scrubberTickRefs = [];
   refs.scrubberTicksByAnchor = new Map();
   refs.timelineSectionRefs = [];
+  refs.timelineSectionOffsetTops = [];
   refs.timelineSectionsByAnchor = new Map();
   refs.timelineSectionHeadersByAnchor = new Map();
   refs.scrubberThumbStateSignature = '';
@@ -998,6 +1000,7 @@ function populateScrubberTimelineRefs() {
     }
   });
   refs.timelineSectionRefs = (refs.sectionAnchors || []).filter((section) => section instanceof HTMLElement);
+  refreshTimelineSectionOffsetTops();
   refs.timelineSectionsByAnchor = new Map();
   refs.timelineSectionHeadersByAnchor = new Map();
   refs.timelineSectionRefs.forEach((section) => {
@@ -1010,6 +1013,10 @@ function populateScrubberTimelineRefs() {
     refs.timelineSectionHeadersByAnchor.set(anchor, header instanceof HTMLElement ? header : null);
   });
   refs.scrubberThumbStateSignature = '';
+}
+
+function refreshTimelineSectionOffsetTops() {
+  refs.timelineSectionOffsetTops = (refs.timelineSectionRefs || []).map((section) => Number(section.offsetTop) || 0);
 }
 
 function getScrubberThumbStateSignature() {
@@ -17324,6 +17331,9 @@ function patchTimelineContent() {
       currentRowEls.forEach((r) => r.remove());
     }
   });
+  refreshTimelineSectionOffsetTops();
+  updateActiveYear();
+  updateScrubberThumb();
 }
 
 function scheduleTimelineRender() {
@@ -17339,8 +17349,9 @@ function scheduleTimelineRender() {
 }
 
 function findActiveSectionByScrollTop(scrollTop = 0) {
-  const anchors = refs.sectionAnchors || [];
-  if (!anchors.length) {
+  const anchors = refs.timelineSectionRefs || [];
+  const offsetTops = refs.timelineSectionOffsetTops || [];
+  if (!anchors.length || offsetTops.length !== anchors.length) {
     return null;
   }
   let lo = 0;
@@ -17349,7 +17360,7 @@ function findActiveSectionByScrollTop(scrollTop = 0) {
   while (lo <= hi) {
     const mid = Math.floor((lo + hi) / 2);
     const section = anchors[mid];
-    const top = section instanceof HTMLElement ? section.offsetTop : 0;
+    const top = Number(offsetTops[mid] || 0);
     if (top - 40 <= scrollTop) {
       answer = section;
       lo = mid + 1;
