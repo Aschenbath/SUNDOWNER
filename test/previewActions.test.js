@@ -2485,6 +2485,38 @@ describe('media library download actions', () => {
   });
 
 
+  it('keeps closed preview overlay construction off the full-render hot path', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const helperStart = appSource.indexOf('function renderPreviewModalForViewModel');
+    const overlayModelStart = appSource.indexOf('function getPreviewOverlayModel', helperStart);
+    const animateStart = appSource.indexOf('function animatePreviewSwap', overlayModelStart);
+    const renderStart = appSource.indexOf('function render()');
+    const renderEnd = appSource.indexOf('function getPreviewItems', renderStart);
+    assert.ok(helperStart >= 0 && overlayModelStart > helperStart && animateStart > overlayModelStart);
+    assert.ok(renderStart >= 0 && renderEnd > renderStart);
+    const helperSource = appSource.slice(helperStart, overlayModelStart);
+    const overlayModelSource = appSource.slice(overlayModelStart, animateStart);
+    const renderSource = appSource.slice(renderStart, renderEnd);
+
+    assert.match(helperSource, /if \(!state\.previewId\) \{\s*return '';\s*\}/);
+    assert.match(helperSource, /previewItems: viewModel\?\.previewItems/);
+    assert.match(helperSource, /previewItem: viewModel\?\.previewItem/);
+    assert.match(helperSource, /previewIndex: viewModel\?\.previewIndex/);
+    assert.match(helperSource, /albumEntries: getPreviewAlbumEntriesForViewModel\(viewModel\)/);
+    assert.doesNotMatch(renderSource, /PreviewModal\(getPreviewOverlayModel\(\)\)/);
+    assert.match(renderSource, /renderPreviewModalForViewModel\(viewModel\)/);
+    assert.ok(!renderSource.includes('AlbumDialog({ state, albums: getDialogAlbumEntries(getAccessibleItems())'));
+    assert.match(renderSource, /renderAlbumDialogForViewModel\(viewModel\)/);
+    assert.match(
+      overlayModelSource,
+      /const shouldBuildAlbumEntries = state\.albumDialogOpen && state\.albumDialogOrigin === 'preview';/
+    );
+    assert.match(
+      overlayModelSource,
+      /albumEntries: shouldBuildAlbumEntries\s*\?\s*\(Array\.isArray\(albumEntries\) \? albumEntries : getDialogAlbumEntries\(\)\)\s*:\s*\[\]/
+    );
+  });
+
   it('records backend list timing rows in perf diagnostics', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const fetchStart = appSource.indexOf('async function fetchListPage');

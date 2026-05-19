@@ -15584,10 +15584,10 @@ function render() {
             })
           : ''}
       </div>
-      ${PreviewModal(getPreviewOverlayModel())}
+      ${renderPreviewModalForViewModel(viewModel)}
       ${AdminPanel({ state, storageSummary: state.storageSummary })}
       ${StoragePanel({ state, insights: storageInsights })}
-      ${AlbumDialog({ state, albums: getDialogAlbumEntries(getAccessibleItems()), target: state.albumDialogTarget })}
+      ${renderAlbumDialogForViewModel(viewModel)}
       ${renderPlaylistDialog()}
       ${renderRenameItemDialog()}
       ${ConfirmDialog({ state })}
@@ -15919,6 +15919,34 @@ function syncPreviewFavoriteButton(itemId) {
   return true;
 }
 
+function getPreviewAlbumEntriesForViewModel(viewModel = null) {
+  const entries = viewModel?.previewAlbumEntries;
+  return Array.isArray(entries) && entries.length ? entries : null;
+}
+
+function renderPreviewModalForViewModel(viewModel = null) {
+  if (!state.previewId) {
+    return '';
+  }
+  return PreviewModal(getPreviewOverlayModel({
+    previewItems: viewModel?.previewItems,
+    previewItem: viewModel?.previewItem,
+    previewIndex: viewModel?.previewIndex,
+    albumEntries: getPreviewAlbumEntriesForViewModel(viewModel)
+  }));
+}
+
+function renderAlbumDialogForViewModel(viewModel = null) {
+  if (!state.albumDialogOpen || state.albumDialogOrigin === 'preview') {
+    return '';
+  }
+  return AlbumDialog({
+    state,
+    albums: getDialogAlbumEntries(getAccessibleItems()),
+    target: state.albumDialogTarget
+  });
+}
+
 function getPreviewOverlayModel({
   previewItems = null,
   previewItem = null,
@@ -15940,6 +15968,7 @@ function getPreviewOverlayModel({
     ? resolvedPreviewIndex
     : resolvedPreviewItems.findIndex((item) => item.id === resolvedPreviewItem?.id);
   const displayTotalCount = resolvedPreviewItems.length || (resolvedPreviewItem ? 1 : 0);
+  const shouldBuildAlbumEntries = state.albumDialogOpen && state.albumDialogOrigin === 'preview';
   return {
     item: resolvedPreviewItem,
     selected: resolvedPreviewItem ? state.selectedIds.has(resolvedPreviewItem.id) : false,
@@ -15950,7 +15979,9 @@ function getPreviewOverlayModel({
     infoOpen: state.infoOpen,
     immersive: state.previewImmersive,
     albumDrawerOpen: state.albumDialogOpen && state.albumDialogOrigin === 'preview',
-    albumEntries: Array.isArray(albumEntries) ? albumEntries : getDialogAlbumEntries(),
+    albumEntries: shouldBuildAlbumEntries
+      ? (Array.isArray(albumEntries) ? albumEntries : getDialogAlbumEntries())
+      : [],
     albumDraftName: state.albumDraftName,
     albumDialogError: state.albumDialogError,
     albumDrawerSearch: state.albumDrawerSearch,
