@@ -1967,12 +1967,16 @@ function captureDimension(img, tile) {
 
 function applyDimensionPatch() {
   if (state.dimensionCache.size === 0) return;
+  let changed = false;
+  const changedIds = new Set();
   state.dimensionCache.forEach(({ width, height }, id) => {
     const mediaIdx = state.mediaItems.findIndex((m) => m.id === id);
     if (mediaIdx !== -1) {
       const current = state.mediaItems[mediaIdx];
       if (current.width !== width || current.height !== height) {
         state.mediaItems[mediaIdx] = { ...current, width, height };
+        changed = true;
+        changedIds.add(id);
       }
     }
     const binIdx = state.binItems.findIndex((m) => m.id === id);
@@ -1980,10 +1984,75 @@ function applyDimensionPatch() {
       const current = state.binItems[binIdx];
       if (current.width !== width || current.height !== height) {
         state.binItems[binIdx] = { ...current, width, height };
+        changed = true;
+        changedIds.add(id);
       }
     }
   });
   state.dimensionCache.clear();
+  if (changed) {
+    refreshTimelineLayoutAfterDimensionPatch(changedIds);
+  }
+}
+
+function refreshTimelineLayoutAfterDimensionPatch(changedIds = new Set()) {
+  if (!(refs.root instanceof HTMLElement) || !(refs.scrollRegion instanceof HTMLElement)) {
+    return;
+  }
+  const context = getBaseViewModelContext();
+  if (
+    context.isMindView
+    || context.isMusicView
+    || context.isCollectionRoot
+    || context.isFilmsView
+    || context.isMomentsView
+    || context.isGlobalSearchView
+  ) {
+    return;
+  }
+  const filteredItems = getFilteredItems(context.accessibleItems);
+  const timelineItems = state.primaryFilter === 'Bin' ? state.binItems : filteredItems;
+  if (!timelineItems.length) {
+    return;
+  }
+  const baseSections = buildSections(timelineItems, state.primaryFilter === 'Bin'
+    ? {
+        anchorPrefix: 'bin',
+        getLabel: (item) => item.timelineLabel || createTimelineLabel(item.deletedAt || item.takenAt),
+        getYear: (item) => item.year || new Date(item.deletedAt || item.takenAt).getFullYear(),
+        getMetaLine: summarizeBinSection,
+        getScrubberLabel: (item) => formatScrubberLabel(item.deletedAt || item.takenAt)
+      }
+    : undefined);
+  const nextLayoutSections = buildTimelineLayoutSections(baseSections, {
+    sectionGap: state.primaryFilter === 'Bin' ? BIN_TIMELINE_SECTION_GAP : TIMELINE_SECTION_GAP
+  });
+  refs.timelineLayoutSections = nextLayoutSections;
+  state.virtualScrollTop = refs.scrollRegion.scrollTop;
+  state.virtualViewportHeight = refs.scrollRegion.clientHeight;
+  if (refs.timelineVirtualEnabled) {
+    refs.timelinePendingVirtualWindow = applyTimelineVirtualWindow(nextLayoutSections, {
+      scrollTop: state.virtualScrollTop,
+      viewportHeight: state.virtualViewportHeight
+    });
+    patchTimelineContent({ force: true, changedIds });
+    return;
+  }
+  patchTimelineContent({
+    force: true,
+    changedIds,
+    virtualWindow: {
+      sections: nextLayoutSections.map((section) => ({
+        ...section,
+        startIndex: section.rows.length ? 0 : -1,
+        endIndex: section.rows.length ? section.rows.length - 1 : -1,
+        topSpacerHeight: 0,
+        bottomSpacerHeight: 0,
+        visibleRows: section.rows
+      })),
+      signature: ''
+    }
+  });
 }
 
 function revealLoadedPreviewImage(img, tile) {
@@ -17216,16 +17285,16 @@ function scrollToYear(year) {
   }
 }
 
-function patchTimelineContent() {
-  if (!refs.root || !refs.timelineVirtualEnabled) return;
+function patchTimelineContent({ force = false, virtualWindow = null, changedIds = new Set() } = {}) {
+  if (!refs.root || (!refs.timelineVirtualEnabled && !force)) return;
   const layoutSections = refs.timelineLayoutSections || [];
-  const pendingVirtualWindow = refs.timelinePendingVirtualWindow;
+  const pendingVirtualWindow = virtualWindow || refs.timelinePendingVirtualWindow;
   refs.timelinePendingVirtualWindow = null;
   const nextVirtualWindow = pendingVirtualWindow || applyTimelineVirtualWindow(layoutSections, {
     scrollTop: state.virtualScrollTop,
     viewportHeight: state.virtualViewportHeight
   });
-  if (nextVirtualWindow.signature === refs.timelineVirtualSignature) return;
+  if (!force && nextVirtualWindow.signature === refs.timelineVirtualSignature) return;
   refs.timelineVirtualSignature = nextVirtualWindow.signature;
 
   const activeAlbumName = getActiveAlbumName();
@@ -17240,7 +17309,12 @@ function patchTimelineContent() {
     const prev = sectionRangeCache.get(section.anchorId);
     const nextStart = section.startIndex;
     const nextEnd = section.endIndex;
-    if (prev && prev.startIndex === nextStart && prev.endIndex === nextEnd) return;
+    const sectionHasChangedItem = changedIds instanceof Set
+      && section.items.some((item) => changedIds.has(item.id));
+    if (force && changedIds.size && !sectionHasChangedItem && !refs.timelineVirtualEnabled) return;
+    const forceSectionRefresh = force && (!changedIds.size || sectionHasChangedItem);
+    const forceSpacerRefresh = force && refs.timelineVirtualEnabled;
+    if (!forceSectionRefresh && !forceSpacerRefresh && prev && prev.startIndex === nextStart && prev.endIndex === nextEnd) return;
     sectionRangeCache.set(section.anchorId, { startIndex: nextStart, endIndex: nextEnd });
 
     const el = refs.root.querySelector(`#${CSS.escape(section.anchorId)}`);
@@ -17275,7 +17349,7 @@ function patchTimelineContent() {
     const prevEnd = prev ? prev.endIndex : -1;
     const currentRowEls = grid.querySelectorAll('.cml-media-row');
 
-    if (prevStart < 0 || prevEnd < 0 || !currentRowEls.length) {
+    if (forceSectionRefresh || prevStart < 0 || prevEnd < 0 || !currentRowEls.length) {
       // No previous rows or empty — full replace of row content only
       const rowHtml = renderMediaRows(visibleRows, state, coverItemId, { priorityItemLimit: 0 });
       // Remove existing rows

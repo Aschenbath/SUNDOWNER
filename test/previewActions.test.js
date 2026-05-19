@@ -2045,6 +2045,14 @@ describe('media library download actions', () => {
     assert.ok(applyPatch, 'applyDimensionPatch should still exist');
     assert.doesNotMatch(applyPatch[0], /\brender\(\)/);
     assert.doesNotMatch(applyPatch[0], /requestAnimationFrame/);
+    assert.match(appSource, /function refreshTimelineLayoutAfterDimensionPatch\(/);
+    assert.match(applyPatch[0], /refreshTimelineLayoutAfterDimensionPatch\(changedIds\)/);
+    assert.match(appSource, /buildTimelineLayoutSections\(baseSections/);
+    assert.match(appSource, /refs\.timelineLayoutSections = nextLayoutSections;/);
+    assert.match(appSource, /refs\.timelinePendingVirtualWindow = applyTimelineVirtualWindow\(nextLayoutSections/);
+    assert.match(appSource, /patchTimelineContent\(\{ force: true, changedIds \}\)/);
+    assert.match(appSource, /if \(force && changedIds\.size && !sectionHasChangedItem && !refs\.timelineVirtualEnabled\) return;/);
+    assert.match(appSource, /const forceSpacerRefresh = force && refs\.timelineVirtualEnabled;/);
 
     const rowHtml = MediaGrid({
       rows: [{
@@ -2115,7 +2123,7 @@ describe('media library download actions', () => {
     assert.match(appSource, /timelinePendingVirtualWindow: null/);
     assert.match(scrollSource, /refs\.timelinePendingVirtualWindow = nextVirtualWindow;/);
     assert.match(scrollSource, /refs\.timelinePendingVirtualWindow = null;/);
-    assert.match(patchSource, /const pendingVirtualWindow = refs\.timelinePendingVirtualWindow;/);
+    assert.match(patchSource, /const pendingVirtualWindow = virtualWindow \|\| refs\.timelinePendingVirtualWindow;/);
     assert.match(patchSource, /refs\.timelinePendingVirtualWindow = null;/);
     assert.match(patchSource, /const nextVirtualWindow = pendingVirtualWindow\s*\|\|\s*applyTimelineVirtualWindow/);
     assert.match(appSource, /function refreshTimelineSectionOffsetTops\(\)/);
