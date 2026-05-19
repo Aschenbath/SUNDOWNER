@@ -53,7 +53,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=110';
+} from './components.js?v=111';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -1822,6 +1822,59 @@ function _tzReset(el) {
   window.setTimeout(() => { el.style.transition = ''; }, 290);
 }
 
+function upgradePreviewImageToOriginal(img, fullSrc) {
+  if (!(img instanceof HTMLImageElement) || !fullSrc || img.dataset.fullLoaded === '1') {
+    return;
+  }
+  const currentPreview = refs.root?.querySelector('.cml-preview');
+  const previewId = normalizeText(currentPreview?.dataset?.previewId || state.previewId);
+  img.dataset.fullLoaded = '1';
+
+  const applyOriginal = () => {
+    const activePreview = refs.root?.querySelector('.cml-preview');
+    const activePreviewId = normalizeText(activePreview?.dataset?.previewId || state.previewId);
+    if (!refs.root || !img.isConnected || activePreviewId !== previewId || normalizeText(img.dataset.fullSrc) !== normalizeText(fullSrc)) {
+      return;
+    }
+    img.src = fullSrc;
+    img.classList.remove('is-blur-placeholder');
+    img.classList.add('is-full-loaded');
+  };
+
+  const full = new Image();
+  full.decoding = 'async';
+  full.addEventListener('load', () => {
+    const decoded = typeof full.decode === 'function'
+      ? full.decode().catch(() => {})
+      : Promise.resolve();
+    decoded.then(applyOriginal);
+  }, { once: true });
+  full.addEventListener('error', () => {
+    delete img.dataset.fullLoaded;
+  }, { once: true });
+  full.src = fullSrc;
+  if (full.complete && full.naturalWidth > 0) {
+    applyOriginal();
+  }
+}
+
+function setupPreviewProgressiveImage() {
+  if (!refs.root || !state.previewId) {
+    return;
+  }
+  const img = refs.root.querySelector('.cml-preview__media[data-full-src]');
+  if (!(img instanceof HTMLImageElement)) {
+    return;
+  }
+  const fullSrc = img.dataset.fullSrc || '';
+  if (!fullSrc || img.src === fullSrc) {
+    img.classList.remove('is-blur-placeholder');
+    img.classList.add('is-full-loaded');
+    return;
+  }
+  upgradePreviewImageToOriginal(img, fullSrc);
+}
+
 function setupPreviewTouchHandlers() {
   if (!refs.root || !state.previewId) {
     return;
@@ -1831,6 +1884,8 @@ function setupPreviewTouchHandlers() {
   if (!stage || !mediaEl) {
     return;
   }
+
+  setupPreviewProgressiveImage();
 
   stage.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
@@ -16298,7 +16353,8 @@ function getPreviewMediaSignature(node) {
   if (!(mediaNode instanceof HTMLElement)) {
     return '';
   }
-  const source = mediaNode.getAttribute('src')
+  const source = mediaNode.getAttribute('data-full-src')
+    || mediaNode.getAttribute('src')
     || mediaNode.getAttribute('data-src')
     || mediaNode.getAttribute('poster')
     || mediaNode.currentSrc

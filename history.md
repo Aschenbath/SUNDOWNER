@@ -455,3 +455,9 @@ Known-good local test pattern:
 - open-loop: full authenticated live-app hand test is still not assumed; component-level browser smoke is documented for My Notes active heading cases.
 - source-truth: exact retired history prose is in git history; current operational truth should be updated here after meaningful tasks.
 - next-write-rule: append compact Work Log, add Decision Capsule only for reusable reasoning, then update this Tail Capsule.
+
+## 2026-May-19 Work Log
+
+- Preview progressive originals: photo preview now can render a lightweight preview/thumbnail first, preload and decode the `/file/...` original in the background, then swap the same `<img>` to the original with stale-preview guards so zoom/pan state is not rebuilt. Integrated cache versions: `app.js?v=331`, `components.js?v=111`, `media-library.css?v=278`.
+- Root-cause note: Telegram `photo` imports remain `telegram-photo-variant` quality, while image `document` imports are `original-likely`; progressive preview guarantees the highest stored `/file/...` route, but cannot recover pixels lost before storage.
+- Validation: Node 22 syntax checks for `app.js` and `components.js`; focused progressive/original-source preview regressions 2 passing; full `previewActions.test.js` 141 passing / 1 pending; full Mocha under `D:\DevTools\nvm\v22.14.0\node.exe` 544 passing / 1 pending. Plain `npm test` under system Node v24.11.1 fails because `better-sqlite3` is compiled for Node 22 ABI.

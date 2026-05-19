@@ -1562,6 +1562,40 @@ describe('media library download actions', () => {
     assert.doesNotMatch(previewImage, /\swidth="225"/);
     assert.doesNotMatch(previewImage, /\sheight="300"/);
   });
+
+  it('renders photo previews with a progressive original source contract', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+    const html = PreviewModal({
+      item: {
+        id: 'managed-progressive-1',
+        type: 'photo',
+        label: 'river.jpg',
+        sourceId: 'photos/river.jpg',
+        sourceUrl: '/file/photos/river.jpg',
+        thumbnailUrl: '/file/photos/river.jpg?preview=1',
+        blurThumbUrl: '/file/photos/river.jpg?preview=tiny',
+        width: 1200,
+        height: 900,
+        mimeType: 'image/jpeg',
+      },
+      selected: false,
+      favorited: false,
+      currentIndex: 0,
+      totalCount: 1,
+      canSetAlbumCover: false,
+    });
+
+    assert.match(html, /class="cml-preview__media is-blur-placeholder"/);
+    assert.match(html, /src="\/file\/photos\/river\.jpg\?preview=tiny"/);
+    assert.match(html, /data-full-src="\/file\/photos\/river\.jpg"/);
+    assert.match(appSource, /function setupPreviewProgressiveImage\(\)/);
+    assert.match(appSource, /full\.decode\(\)/);
+    assert.match(appSource, /activePreviewId !== previewId/);
+    assert.match(appSource, /mediaNode\.getAttribute\('data-full-src'\)/);
+    assert.match(cssSource, /\.cml-preview__media\.is-blur-placeholder/);
+  });
+
   it('renders Bin preview with restore and delete-forever actions only', () => {
     const html = PreviewModal({
       item: {

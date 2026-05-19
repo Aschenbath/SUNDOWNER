@@ -4425,6 +4425,15 @@ body.codex-media-library-active #app {
   object-fit: contain;
 }
 
+#codex-media-library-root .cml-preview__media.is-blur-placeholder {
+  filter: blur(10px);
+}
+
+#codex-media-library-root .cml-preview__media.is-full-loaded {
+  filter: none;
+  transition: filter 240ms ease;
+}
+
 #codex-media-library-root .cml-preview__footer {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   color: #93a1b5;

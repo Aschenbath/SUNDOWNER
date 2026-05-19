@@ -359,7 +359,10 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
   const alt = escapeHtml(safeDisplayLabel(item));
   const imageLoading = withControls || priority ? 'eager' : 'lazy';
   const imagePriorityAttr = priority ? ' fetchpriority="high"' : '';
-  const originalPhotoUrl = item.type === 'photo' && sourceUrl && sourceUrl !== imageUrl
+  const previewProgressiveUrl = item.type === 'photo' && withControls && item.browserPreviewSupported !== false && sourceUrl && item.blurThumbUrl && item.blurThumbUrl !== sourceUrl
+    ? item.blurThumbUrl
+    : '';
+  const originalPhotoUrl = item.type === 'photo' && sourceUrl && (sourceUrl !== imageUrl || previewProgressiveUrl)
     ? escapeHtml(sourceUrl)
     : '';
   const previewActionAttr = (withControls || noAction)
@@ -425,6 +428,9 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
     ? `if(!this.dataset.retryOriginal&&this.dataset.originalSrc){this.dataset.retryOriginal='1';this.src=this.dataset.originalSrc;}`
     : '';
   const errorAttr = genericErrorHandler ? ` onerror="${escapeHtml(genericErrorHandler)}"` : '';
+  if (previewProgressiveUrl) {
+    return `<img class="${className} is-blur-placeholder" src="${escapeHtml(previewProgressiveUrl)}" alt="${alt}"${w}${h}${fallbackAttr} data-full-src="${escapeHtml(sourceUrl)}" loading="${imageLoading}"${imagePriorityAttr} decoding="async"${errorAttr} />`;
+  }
   // Blur-up: load tiny Telegram thumbnail first, then swap to full image
   const blurThumb = !preferFullImage && !withControls && item.blurThumbUrl && item.blurThumbUrl !== imageUrl
     ? item.blurThumbUrl : '';
