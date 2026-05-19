@@ -955,6 +955,7 @@ const refs = {
   sectionItemIds: new Map(),
   timelineLayoutSections: [],
   timelineVirtualSignature: '',
+  timelinePendingVirtualWindow: null,
   timelineVirtualEnabled: false,
   scrubberRef: null,
   scrubberBadgeRef: null,
@@ -6508,6 +6509,7 @@ function patchBinGridView({ perfToken = null } = {}) {
   ]));
   refs.timelineLayoutSections = viewModel.timelineLayoutSections || [];
   refs.timelineVirtualSignature = viewModel.timelineVirtualSignature || '';
+  refs.timelinePendingVirtualWindow = null;
   refs.timelineVirtualEnabled = Boolean(viewModel.timelineVirtualEnabled);
   populateScrubberTimelineRefs();
   countPerfRender('bin-grid-patch');
@@ -15681,6 +15683,7 @@ function render() {
   ]));
   refs.timelineLayoutSections = viewModel.timelineLayoutSections || [];
   refs.timelineVirtualSignature = viewModel.timelineVirtualSignature || '';
+  refs.timelinePendingVirtualWindow = null;
   refs.timelineVirtualEnabled = Boolean(viewModel.timelineVirtualEnabled);
   populateScrubberTimelineRefs();
   syncMobileMindInputIsolation();
@@ -16689,6 +16692,7 @@ function unmount() {
   refs.sectionItemIds = new Map();
   refs.timelineLayoutSections = [];
   refs.timelineVirtualSignature = '';
+  refs.timelinePendingVirtualWindow = null;
   refs.timelineVirtualEnabled = false;
   resetScrubberTimelineRefs();
 }
@@ -17208,7 +17212,9 @@ function scrollToYear(year) {
 function patchTimelineContent() {
   if (!refs.root || !refs.timelineVirtualEnabled) return;
   const layoutSections = refs.timelineLayoutSections || [];
-  const nextVirtualWindow = applyTimelineVirtualWindow(layoutSections, {
+  const pendingVirtualWindow = refs.timelinePendingVirtualWindow;
+  refs.timelinePendingVirtualWindow = null;
+  const nextVirtualWindow = pendingVirtualWindow || applyTimelineVirtualWindow(layoutSections, {
     scrollTop: state.virtualScrollTop,
     viewportHeight: state.virtualViewportHeight
   });
@@ -17469,7 +17475,10 @@ function handleScroll() {
       viewportHeight: state.virtualViewportHeight
     });
     if (nextVirtualWindow.signature !== refs.timelineVirtualSignature) {
+      refs.timelinePendingVirtualWindow = nextVirtualWindow;
       scheduleTimelineRender();
+    } else {
+      refs.timelinePendingVirtualWindow = null;
     }
   }
   updateActiveYear();

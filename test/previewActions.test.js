@@ -2092,6 +2092,25 @@ describe('media library download actions', () => {
     assert.doesNotMatch(activeYearSource, /refs\.sectionAnchors\.forEach/);
   });
 
+  it('reuses the scroll-computed virtual window when patching timeline rows', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const patchStart = appSource.indexOf('function patchTimelineContent');
+    const patchEnd = appSource.indexOf('function scheduleTimelineRender', patchStart);
+    const scrollStart = appSource.indexOf('function handleScroll');
+    const scrollEnd = appSource.indexOf('function updateScrubberThumb', scrollStart);
+    assert.ok(patchStart >= 0 && patchEnd > patchStart);
+    assert.ok(scrollStart >= 0 && scrollEnd > scrollStart);
+    const patchSource = appSource.slice(patchStart, patchEnd);
+    const scrollSource = appSource.slice(scrollStart, scrollEnd);
+
+    assert.match(appSource, /timelinePendingVirtualWindow: null/);
+    assert.match(scrollSource, /refs\.timelinePendingVirtualWindow = nextVirtualWindow;/);
+    assert.match(scrollSource, /refs\.timelinePendingVirtualWindow = null;/);
+    assert.match(patchSource, /const pendingVirtualWindow = refs\.timelinePendingVirtualWindow;/);
+    assert.match(patchSource, /refs\.timelinePendingVirtualWindow = null;/);
+    assert.match(patchSource, /const nextVirtualWindow = pendingVirtualWindow\s*\|\|\s*applyTimelineVirtualWindow/);
+  });
+
   it('keeps collection cards on date-only metadata, uses clickable album titles, and omits the cover summary line', () => {
     const summaryHtml = CollectionSummary({
       activeAlbumName: 'scenery',
