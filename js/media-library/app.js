@@ -1741,13 +1741,19 @@ function seekAudio(value) {
   scheduleAudioUiSync();
 }
 
+const PREVIEW_ZOOM_MIN = 1;
+const PREVIEW_ZOOM_MAX = 6;
+const PREVIEW_WHEEL_ZOOM_BASE = 1.06;
+const PREVIEW_WHEEL_DELTA_UNIT = 100;
+const PREVIEW_WHEEL_MAX_STEPS_PER_EVENT = 1.25;
+
 const touchZoom = {
   active: false,
   isPinch: false,
   isPan: false,
   startDist: 0,
-  startScale: 1,
-  currentScale: 1,
+  startScale: PREVIEW_ZOOM_MIN,
+  currentScale: PREVIEW_ZOOM_MIN,
   startMidX: 0,
   startMidY: 0,
   startTx: 0,
@@ -1756,6 +1762,33 @@ const touchZoom = {
   ty: 0,
   lastTap: 0
 };
+
+function normalizePreviewWheelDelta(event) {
+  const rawDelta = Number(event?.deltaY) || 0;
+  const mode = Number(event?.deltaMode) || 0;
+  if (mode === 1) {
+    return rawDelta * 16;
+  }
+  if (mode === 2) {
+    return rawDelta * window.innerHeight;
+  }
+  return rawDelta;
+}
+
+function getPreviewWheelZoomFactor(deltaY = 0) {
+  const direction = deltaY < 0 ? 1 : -1;
+  const normalizedSteps = Math.min(
+    PREVIEW_WHEEL_MAX_STEPS_PER_EVENT,
+    Math.abs(Number(deltaY) || 0) / PREVIEW_WHEEL_DELTA_UNIT
+  );
+  return Math.pow(PREVIEW_WHEEL_ZOOM_BASE, direction * normalizedSteps);
+}
+
+function getPreviewWheelZoomScale(currentScale = PREVIEW_ZOOM_MIN, deltaY = 0) {
+  const scale = Number(currentScale) || PREVIEW_ZOOM_MIN;
+  const nextScale = scale * getPreviewWheelZoomFactor(deltaY);
+  return Math.max(PREVIEW_ZOOM_MIN, Math.min(PREVIEW_ZOOM_MAX, nextScale));
+}
 
 function _tzDist(touches) {
   const dx = touches[0].clientX - touches[1].clientX;
@@ -1824,7 +1857,7 @@ function setupPreviewTouchHandlers() {
     if (touchZoom.isPinch && e.touches.length === 2) {
       e.preventDefault();
       const dist = _tzDist(e.touches);
-      const scale = Math.max(1, Math.min(6, touchZoom.startScale * (dist / touchZoom.startDist)));
+      const scale = Math.max(PREVIEW_ZOOM_MIN, Math.min(PREVIEW_ZOOM_MAX, touchZoom.startScale * (dist / touchZoom.startDist)));
       touchZoom.currentScale = scale;
       const mid = _tzMid(e.touches);
       touchZoom.tx = touchZoom.startTx + (mid.x - touchZoom.startMidX);
@@ -1872,11 +1905,11 @@ function setupPreviewTouchHandlers() {
     }
   }, { passive: true });
 
-  // Mouse wheel zoom — anchor to cursor position
+  // Mouse wheel zoom - anchor to cursor position
   stage.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
-    const next = Math.max(1, Math.min(6, touchZoom.currentScale * factor));
+    const deltaY = normalizePreviewWheelDelta(e);
+    const next = getPreviewWheelZoomScale(touchZoom.currentScale, deltaY);
     if (next === touchZoom.currentScale) return;
     const rect = stage.getBoundingClientRect();
     const cx = e.clientX - rect.left - rect.width / 2;

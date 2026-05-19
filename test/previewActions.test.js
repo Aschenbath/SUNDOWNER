@@ -3967,6 +3967,28 @@ describe('media library download actions', () => {
     assert.match(appSource, /mediaItem\.description = normalizePreviewDescription\(description\);/);
   });
 
+  it('keeps preview mouse-wheel zoom gradual instead of jumping by a fixed large step', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const wheelHandlerStart = appSource.indexOf("stage.addEventListener('wheel'");
+    const wheelHandlerEnd = appSource.indexOf("  // Double-click to toggle", wheelHandlerStart);
+    const wheelHandlerSource = wheelHandlerStart >= 0 && wheelHandlerEnd > wheelHandlerStart
+      ? appSource.slice(wheelHandlerStart, wheelHandlerEnd)
+      : '';
+
+    assert.match(appSource, /const PREVIEW_ZOOM_MIN = 1;/);
+    assert.match(appSource, /const PREVIEW_ZOOM_MAX = 6;/);
+    assert.match(appSource, /const PREVIEW_WHEEL_ZOOM_BASE = 1\.06;/);
+    assert.match(appSource, /const PREVIEW_WHEEL_DELTA_UNIT = 100;/);
+    assert.match(appSource, /const PREVIEW_WHEEL_MAX_STEPS_PER_EVENT = 1\.25;/);
+    assert.match(appSource, /function normalizePreviewWheelDelta\(event\) \{/);
+    assert.match(appSource, /function getPreviewWheelZoomFactor\(deltaY = 0\) \{/);
+    assert.match(appSource, /function getPreviewWheelZoomScale\(currentScale = PREVIEW_ZOOM_MIN, deltaY = 0\) \{/);
+    assert.match(wheelHandlerSource, /const deltaY = normalizePreviewWheelDelta\(e\);/);
+    assert.match(wheelHandlerSource, /const next = getPreviewWheelZoomScale\(touchZoom\.currentScale, deltaY\);/);
+    assert.doesNotMatch(wheelHandlerSource, /1\.15/);
+    assert.doesNotMatch(wheelHandlerSource, /deltaY < 0 \? 1\.15/);
+  });
+
 
   it('routes current-album picker confirm directly into the current album target', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
