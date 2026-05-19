@@ -10206,7 +10206,18 @@ function getSearchViewModel(context = getBaseViewModelContext()) {
 }
 
 function getFilmsViewModel(context = getBaseViewModelContext()) {
-  return getLegacyViewModel(context);
+  const { accessibleItems } = context;
+  const selectedItems = getSelectedItems(accessibleItems);
+  const currentAudioItem = getAudioItemById(state.audioCurrentId, accessibleItems)
+    || getAudioItemById(state.audioCurrentId, getAllItems());
+
+  return buildViewModelResult(context, {
+    currentAudioItem,
+    audioQueueItems: getAudioQueueItems(accessibleItems),
+    filmRecord: getActiveFilmRecord(),
+    canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
+    canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item))
+  });
 }
 
 function getMomentsViewModel(context = getBaseViewModelContext()) {
