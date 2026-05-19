@@ -3977,9 +3977,9 @@ describe('media library download actions', () => {
 
     assert.match(appSource, /const PREVIEW_ZOOM_MIN = 1;/);
     assert.match(appSource, /const PREVIEW_ZOOM_MAX = 6;/);
-    assert.match(appSource, /const PREVIEW_WHEEL_ZOOM_BASE = 1\.09;/);
-    assert.match(appSource, /const PREVIEW_WHEEL_DELTA_UNIT = 100;/);
-    assert.match(appSource, /const PREVIEW_WHEEL_MAX_STEPS_PER_EVENT = 1\.5;/);
+    assert.match(appSource, /const PREVIEW_WHEEL_ZOOM_BASE = 1\.11;/);
+    assert.match(appSource, /const PREVIEW_WHEEL_DELTA_UNIT = 72;/);
+    assert.match(appSource, /const PREVIEW_WHEEL_MAX_STEPS_PER_EVENT = 1\.6;/);
     assert.match(appSource, /function normalizePreviewWheelDelta\(event\) \{/);
     assert.match(appSource, /function getPreviewWheelZoomFactor\(deltaY = 0\) \{/);
     assert.match(appSource, /function getPreviewWheelZoomScale\(currentScale = PREVIEW_ZOOM_MIN, deltaY = 0\) \{/);
@@ -3990,6 +3990,45 @@ describe('media library download actions', () => {
   });
 
 
+  it('keeps preview zoom and pan transforms immediate while preserving animated reset gestures', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const touchMoveStart = appSource.indexOf("stage.addEventListener('touchmove'");
+    const touchMoveEnd = appSource.indexOf("  stage.addEventListener('touchend'", touchMoveStart);
+    const wheelHandlerStart = appSource.indexOf("stage.addEventListener('wheel'");
+    const wheelHandlerEnd = appSource.indexOf("  // Double-click to toggle", wheelHandlerStart);
+    const mouseMoveStart = appSource.indexOf("stage.addEventListener('mousemove'");
+    const mouseMoveEnd = appSource.indexOf("  stage.addEventListener('mouseup'", mouseMoveStart);
+    const touchMoveSource = touchMoveStart >= 0 && touchMoveEnd > touchMoveStart
+      ? appSource.slice(touchMoveStart, touchMoveEnd)
+      : '';
+    const wheelHandlerSource = wheelHandlerStart >= 0 && wheelHandlerEnd > wheelHandlerStart
+      ? appSource.slice(wheelHandlerStart, wheelHandlerEnd)
+      : '';
+    const mouseMoveSource = mouseMoveStart >= 0 && mouseMoveEnd > mouseMoveStart
+      ? appSource.slice(mouseMoveStart, mouseMoveEnd)
+      : '';
+
+    assert.match(appSource, /function _tzApplyImmediate\(el\) \{/);
+    assert.match(appSource, /el\.style\.transition = 'none';\s*_tzApply\(el\);/);
+    assert.match(touchMoveSource, /_tzApplyImmediate\(mediaEl\);/);
+    assert.doesNotMatch(touchMoveSource, /_tzApply\(mediaEl\);/);
+    assert.match(wheelHandlerSource, /_tzApplyImmediate\(mediaEl\);/);
+    assert.doesNotMatch(wheelHandlerSource, /_tzApply\(mediaEl\);/);
+    assert.match(mouseMoveSource, /_tzApplyImmediate\(mediaEl\);/);
+    assert.doesNotMatch(mouseMoveSource, /_tzApply\(mediaEl\);/);
+    assert.match(appSource, /el\.style\.transition = 'transform 280ms ease';/);
+    assert.match(appSource, /mediaEl\.style\.transition = 'transform 240ms ease';/);
+  });
+
+  it('lets preview photos and videos fill the stage with contain sizing instead of showing tiny natural pixels', () => {
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+    const mediaRule = cssSource.match(/#codex-media-library-root img\.cml-preview__media,\s*#codex-media-library-root video\.cml-preview__media \{[\s\S]*?\n\}/)?.[0] || '';
+
+    assert.match(mediaRule, /width: 100%;/);
+    assert.match(mediaRule, /height: 100%;/);
+    assert.match(mediaRule, /object-fit: contain;/);
+    assert.doesNotMatch(mediaRule, /object-fit: cover;/);
+  });
   it('routes current-album picker confirm directly into the current album target', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const topbarHtml = TopSearchBar({

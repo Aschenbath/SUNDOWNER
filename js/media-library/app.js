@@ -1743,9 +1743,9 @@ function seekAudio(value) {
 
 const PREVIEW_ZOOM_MIN = 1;
 const PREVIEW_ZOOM_MAX = 6;
-const PREVIEW_WHEEL_ZOOM_BASE = 1.09;
-const PREVIEW_WHEEL_DELTA_UNIT = 100;
-const PREVIEW_WHEEL_MAX_STEPS_PER_EVENT = 1.5;
+const PREVIEW_WHEEL_ZOOM_BASE = 1.11;
+const PREVIEW_WHEEL_DELTA_UNIT = 72;
+const PREVIEW_WHEEL_MAX_STEPS_PER_EVENT = 1.6;
 
 const touchZoom = {
   active: false,
@@ -1808,6 +1808,11 @@ function _tzApply(el) {
   el.style.cursor = touchZoom.currentScale > 1.05 ? 'zoom-out' : 'zoom-in';
 }
 
+function _tzApplyImmediate(el) {
+  el.style.transition = 'none';
+  _tzApply(el);
+}
+
 function _tzReset(el) {
   touchZoom.currentScale = 1;
   touchZoom.tx = 0;
@@ -1862,12 +1867,12 @@ function setupPreviewTouchHandlers() {
       const mid = _tzMid(e.touches);
       touchZoom.tx = touchZoom.startTx + (mid.x - touchZoom.startMidX);
       touchZoom.ty = touchZoom.startTy + (mid.y - touchZoom.startMidY);
-      _tzApply(mediaEl);
+      _tzApplyImmediate(mediaEl);
     } else if (touchZoom.isPan && e.touches.length === 1) {
       e.preventDefault();
       touchZoom.tx = touchZoom.startTx + (e.touches[0].clientX - touchZoom.startMidX);
       touchZoom.ty = touchZoom.startTy + (e.touches[0].clientY - touchZoom.startMidY);
-      _tzApply(mediaEl);
+      _tzApplyImmediate(mediaEl);
     }
   }, { passive: false });
 
@@ -1918,7 +1923,7 @@ function setupPreviewTouchHandlers() {
     touchZoom.tx = cx - d * (cx - touchZoom.tx);
     touchZoom.ty = cy - d * (cy - touchZoom.ty);
     touchZoom.currentScale = next;
-    _tzApply(mediaEl);
+    _tzApplyImmediate(mediaEl);
     if (touchZoom.currentScale < 1.05) _tzReset(mediaEl);
   }, { passive: false });
 
@@ -1953,7 +1958,7 @@ function setupPreviewTouchHandlers() {
     if (!isMousePan) return;
     touchZoom.tx = touchZoom.startTx + (e.clientX - touchZoom.startMidX);
     touchZoom.ty = touchZoom.startTy + (e.clientY - touchZoom.startMidY);
-    _tzApply(mediaEl);
+    _tzApplyImmediate(mediaEl);
   });
   stage.addEventListener('mouseup', () => { isMousePan = false; });
   stage.addEventListener('mouseleave', () => { isMousePan = false; });
