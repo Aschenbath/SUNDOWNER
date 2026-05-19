@@ -1530,6 +1530,38 @@ describe('media library download actions', () => {
     assert.doesNotMatch(html, /cml-preview__caption/);
   });
 
+  it('renders preview photos from the original source without thumbnail dimensions constraining display size', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'managed-thumbnail-preview',
+        type: 'photo',
+        label: 'sunset.jpg',
+        sourceId: 'photos/2026/sunset.jpg',
+        sourceUrl: '/file/photos/2026/sunset.jpg',
+        thumbnailUrl: '/file/photos/2026/sunset.jpg?preview=1',
+        width: 225,
+        height: 300,
+        takenAt: '2026-05-15T06:07:00.000Z',
+        displayTakenAt: 'May 15, 2026 14:07',
+        mimeType: 'image/jpeg',
+        sizeMb: 2.4,
+        exif: null,
+      },
+      selected: false,
+      favorited: false,
+      currentIndex: 3,
+      totalCount: 46,
+      infoOpen: false,
+      immersive: false,
+    });
+
+    const previewImage = html.match(/<img class="cml-preview__media"[^>]+>/)?.[0] || '';
+
+    assert.match(previewImage, /src="\/file\/photos\/2026\/sunset\.jpg"/);
+    assert.doesNotMatch(previewImage, /\?preview=1/);
+    assert.doesNotMatch(previewImage, /\swidth="225"/);
+    assert.doesNotMatch(previewImage, /\sheight="300"/);
+  });
   it('renders Bin preview with restore and delete-forever actions only', () => {
     const html = PreviewModal({
       item: {

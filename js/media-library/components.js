@@ -402,8 +402,9 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
     if (imgSrc) {
       // Try rendering — Safari supports HEIC natively; on failure, onerror
       // hides the broken img and reveals a CSS fallback label on the tile.
-      const w = item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
-      const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
+      const includeIntrinsicSize = !withControls;
+      const w = includeIntrinsicSize && item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
+      const h = includeIntrinsicSize && item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
       const mimeTag = String(item.mimeType || 'image').replace(/^image\//i, '').toUpperCase();
       const errorHandler = `this.style.display='none';this.parentElement.classList.add('is-heic-fallback');this.parentElement.dataset.mimeTag='${escapeHtml(mimeTag)}'`;
       return `<img class="${className}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}"${w}${h}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
@@ -416,8 +417,9 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
     const poster = item.posterUrl ? ` poster="${escapeHtml(item.posterUrl)}"` : '';
     return `<video class="${className}" src="${mediaUrl}"${poster} controls playsinline preload="metadata"></video>`;
   }
-  const w = item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
-  const h = item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
+  const includeIntrinsicSize = !withControls;
+  const w = includeIntrinsicSize && item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
+  const h = includeIntrinsicSize && item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
   const fallbackAttr = originalPhotoUrl ? ` data-original-src="${originalPhotoUrl}"` : '';
   const genericErrorHandler = item.type === 'photo'
     ? `if(!this.dataset.retryOriginal&&this.dataset.originalSrc){this.dataset.retryOriginal='1';this.src=this.dataset.originalSrc;}`
