@@ -2464,6 +2464,26 @@ describe('media library download actions', () => {
     assert.match(filmsViewModelSource, /canDeleteSelection/);
   });
 
+  it('keeps Moments view-model construction out of the legacy timeline builder', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const momentsStart = appSource.indexOf('function getMomentsViewModel');
+    const musicStart = appSource.indexOf('function getMusicViewModel', momentsStart);
+    assert.ok(momentsStart >= 0 && musicStart > momentsStart);
+    const momentsViewModelSource = appSource.slice(momentsStart, musicStart);
+
+    assert.doesNotMatch(momentsViewModelSource, /getLegacyViewModel\(/);
+    assert.doesNotMatch(momentsViewModelSource, /buildSections\(/);
+    assert.doesNotMatch(momentsViewModelSource, /buildTimelineLayoutSections\(/);
+    assert.doesNotMatch(momentsViewModelSource, /applyTimelineVirtualWindow\(/);
+    assert.doesNotMatch(momentsViewModelSource, /buildSearchTimelineSections\(/);
+    assert.match(momentsViewModelSource, /const previewItems = getMomentAttachmentItems\(\)/);
+    assert.match(momentsViewModelSource, /previewItems,/);
+    assert.match(momentsViewModelSource, /currentAudioItem/);
+    assert.match(momentsViewModelSource, /audioQueueItems/);
+    assert.match(momentsViewModelSource, /canDownloadSelection/);
+    assert.match(momentsViewModelSource, /canDeleteSelection/);
+  });
+
 
   it('records backend list timing rows in perf diagnostics', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');

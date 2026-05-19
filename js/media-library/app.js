@@ -10221,7 +10221,22 @@ function getFilmsViewModel(context = getBaseViewModelContext()) {
 }
 
 function getMomentsViewModel(context = getBaseViewModelContext()) {
-  return getLegacyViewModel(context);
+  const { accessibleItems } = context;
+  const selectedItems = getSelectedItems(accessibleItems);
+  const currentAudioItem = getAudioItemById(state.audioCurrentId, accessibleItems)
+    || getAudioItemById(state.audioCurrentId, getAllItems());
+  const previewItems = getMomentAttachmentItems();
+  const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
+
+  return buildViewModelResult(context, {
+    currentAudioItem,
+    audioQueueItems: getAudioQueueItems(accessibleItems),
+    previewItems,
+    previewIndex,
+    previewItem: previewIndex >= 0 ? previewItems[previewIndex] : null,
+    canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
+    canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item))
+  });
 }
 
 function getMusicViewModel(context = getBaseViewModelContext()) {
