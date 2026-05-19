@@ -3977,9 +3977,9 @@ describe('media library download actions', () => {
 
     assert.match(appSource, /const PREVIEW_ZOOM_MIN = 1;/);
     assert.match(appSource, /const PREVIEW_ZOOM_MAX = 6;/);
-    assert.match(appSource, /const PREVIEW_WHEEL_ZOOM_BASE = 1\.06;/);
+    assert.match(appSource, /const PREVIEW_WHEEL_ZOOM_BASE = 1\.09;/);
     assert.match(appSource, /const PREVIEW_WHEEL_DELTA_UNIT = 100;/);
-    assert.match(appSource, /const PREVIEW_WHEEL_MAX_STEPS_PER_EVENT = 1\.25;/);
+    assert.match(appSource, /const PREVIEW_WHEEL_MAX_STEPS_PER_EVENT = 1\.5;/);
     assert.match(appSource, /function normalizePreviewWheelDelta\(event\) \{/);
     assert.match(appSource, /function getPreviewWheelZoomFactor\(deltaY = 0\) \{/);
     assert.match(appSource, /function getPreviewWheelZoomScale\(currentScale = PREVIEW_ZOOM_MIN, deltaY = 0\) \{/);

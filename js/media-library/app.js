@@ -1743,9 +1743,9 @@ function seekAudio(value) {
 
 const PREVIEW_ZOOM_MIN = 1;
 const PREVIEW_ZOOM_MAX = 6;
-const PREVIEW_WHEEL_ZOOM_BASE = 1.06;
+const PREVIEW_WHEEL_ZOOM_BASE = 1.09;
 const PREVIEW_WHEEL_DELTA_UNIT = 100;
-const PREVIEW_WHEEL_MAX_STEPS_PER_EVENT = 1.25;
+const PREVIEW_WHEEL_MAX_STEPS_PER_EVENT = 1.5;
 
 const touchZoom = {
   active: false,
