@@ -2387,6 +2387,24 @@ describe('media library download actions', () => {
     assert.match(queueItemRule, /contain-intrinsic-size: 58px;/);
   });
 
+  it('keeps the scrubber scroll tick on cached timeline refs', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const updateStart = appSource.indexOf('function updateScrubberThumb');
+    const actionStart = appSource.indexOf('function handleAction', updateStart);
+    assert.ok(updateStart >= 0 && actionStart > updateStart);
+    const updateScrubberThumbSource = appSource.slice(updateStart, actionStart);
+
+    assert.match(appSource, /scrubberTickRefs: \[\]/);
+    assert.match(appSource, /scrubberTicksByAnchor: new Map\(\)/);
+    assert.match(appSource, /timelineSectionsByAnchor: new Map\(\)/);
+    assert.match(appSource, /scrubberThumbStateSignature: ''/);
+    assert.match(appSource, /function populateScrubberTimelineRefs\(\)/);
+    assert.match(appSource, /function resetScrubberTimelineRefs\(\)/);
+    assert.match(updateScrubberThumbSource, /const signature = getScrubberThumbStateSignature\(\);/);
+    assert.match(updateScrubberThumbSource, /if \(signature === refs\.scrubberThumbStateSignature\) \{\s*return;\s*\}/);
+    assert.match(updateScrubberThumbSource, /refs\.scrubberTicksByAnchor\.get\(activeAnchor\)/);
+    assert.doesNotMatch(updateScrubberThumbSource, /querySelectorAll\(/);
+  });
   it('patches Music playback state without replacing the full library list', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const patchStart = appSource.indexOf('function patchAudioUi');

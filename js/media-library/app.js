@@ -955,8 +955,73 @@ const refs = {
   sectionItemIds: new Map(),
   timelineLayoutSections: [],
   timelineVirtualSignature: '',
-  timelineVirtualEnabled: false
+  timelineVirtualEnabled: false,
+  scrubberRef: null,
+  scrubberBadgeRef: null,
+  scrubberTickRefs: [],
+  scrubberTicksByAnchor: new Map(),
+  timelineSectionRefs: [],
+  timelineSectionsByAnchor: new Map(),
+  timelineSectionHeadersByAnchor: new Map(),
+  scrubberThumbStateSignature: ''
 };
+
+function resetScrubberTimelineRefs() {
+  refs.scrubberRef = null;
+  refs.scrubberBadgeRef = null;
+  refs.scrubberTickRefs = [];
+  refs.scrubberTicksByAnchor = new Map();
+  refs.timelineSectionRefs = [];
+  refs.timelineSectionsByAnchor = new Map();
+  refs.timelineSectionHeadersByAnchor = new Map();
+  refs.scrubberThumbStateSignature = '';
+}
+
+function populateScrubberTimelineRefs() {
+  if (!(refs.root instanceof HTMLElement)) {
+    resetScrubberTimelineRefs();
+    return;
+  }
+  const scroller = refs.root.querySelector('.cml-scrubber');
+  refs.scrubberRef = scroller instanceof HTMLElement ? scroller : null;
+  const badge = refs.scrubberRef?.querySelector('.cml-scrubber__badge') || null;
+  refs.scrubberBadgeRef = badge instanceof HTMLElement ? badge : null;
+  refs.scrubberTickRefs = refs.scrubberRef
+    ? [...refs.scrubberRef.querySelectorAll('.cml-scrubber__tick')].filter((tick) => tick instanceof HTMLElement)
+    : [];
+  refs.scrubberTicksByAnchor = new Map();
+  refs.scrubberTickRefs.forEach((tick) => {
+    const anchor = normalizeText(tick.dataset.anchor || '');
+    if (anchor && !refs.scrubberTicksByAnchor.has(anchor)) {
+      refs.scrubberTicksByAnchor.set(anchor, tick);
+    }
+  });
+  refs.timelineSectionRefs = (refs.sectionAnchors || []).filter((section) => section instanceof HTMLElement);
+  refs.timelineSectionsByAnchor = new Map();
+  refs.timelineSectionHeadersByAnchor = new Map();
+  refs.timelineSectionRefs.forEach((section) => {
+    const anchor = normalizeText(section.id || '');
+    if (!anchor) {
+      return;
+    }
+    refs.timelineSectionsByAnchor.set(anchor, section);
+    const header = section.querySelector('.cml-timeline-section__header');
+    refs.timelineSectionHeadersByAnchor.set(anchor, header instanceof HTMLElement ? header : null);
+  });
+  refs.scrubberThumbStateSignature = '';
+}
+
+function getScrubberThumbStateSignature() {
+  return [
+    String(state.activeSectionAnchor || ''),
+    state.activeScrubberLabel || '',
+    String(state.activeYear || ''),
+    state.scrubberVisible ? '1' : '0',
+    state.isYearScrubbing ? '1' : '0',
+    refs.scrubberTickRefs.length,
+    refs.timelineSectionRefs.length
+  ].join('|');
+}
 
 function getThemeState() {
   return {
@@ -2222,10 +2287,10 @@ function setScrubberVisible(isVisible) {
   if (!refs.root) {
     return;
   }
-  const scroller = refs.root.querySelector('.cml-scrubber');
-  if (scroller) {
-    scroller.classList.toggle('is-visible', state.scrubberVisible);
+  if (!(refs.scrubberRef instanceof HTMLElement) || !refs.root.contains(refs.scrubberRef)) {
+    populateScrubberTimelineRefs();
   }
+  refs.scrubberRef?.classList.toggle('is-visible', state.scrubberVisible);
 }
 
 function revealScrubber({ keepAlive = false } = {}) {
@@ -6444,6 +6509,7 @@ function patchBinGridView({ perfToken = null } = {}) {
   refs.timelineLayoutSections = viewModel.timelineLayoutSections || [];
   refs.timelineVirtualSignature = viewModel.timelineVirtualSignature || '';
   refs.timelineVirtualEnabled = Boolean(viewModel.timelineVirtualEnabled);
+  populateScrubberTimelineRefs();
   countPerfRender('bin-grid-patch');
   setupImageLoadAnimations();
   finishPerfActionAfterPaint(perfToken);
@@ -15549,6 +15615,7 @@ function render() {
   refs.timelineLayoutSections = viewModel.timelineLayoutSections || [];
   refs.timelineVirtualSignature = viewModel.timelineVirtualSignature || '';
   refs.timelineVirtualEnabled = Boolean(viewModel.timelineVirtualEnabled);
+  populateScrubberTimelineRefs();
   syncMobileMindInputIsolation();
 
   if (shouldAnimateContentView || filmRouteTransition) {
@@ -16525,6 +16592,7 @@ function unmount() {
   refs.timelineLayoutSections = [];
   refs.timelineVirtualSignature = '';
   refs.timelineVirtualEnabled = false;
+  resetScrubberTimelineRefs();
 }
 
 function syncMount() {
@@ -17314,28 +17382,41 @@ function updateScrubberThumb() {
   if (!refs.root || !refs.scrollRegion) {
     return;
   }
-  const scroller = refs.root.querySelector('.cml-scrubber');
-  const badge = refs.root.querySelector('.cml-scrubber__badge');
+  if (
+    !(refs.scrubberRef instanceof HTMLElement)
+    || !(refs.scrubberBadgeRef instanceof HTMLElement)
+    || !refs.root.contains(refs.scrubberRef)
+    || !refs.root.contains(refs.scrubberBadgeRef)
+  ) {
+    populateScrubberTimelineRefs();
+  }
+  const scroller = refs.scrubberRef;
+  const badge = refs.scrubberBadgeRef;
   if (!scroller || !badge) {
     return;
   }
-  if (refs.root) {
-    refs.root.querySelectorAll('.cml-scrubber__tick').forEach((tick) => {
-      tick.classList.toggle('is-active', tick.dataset.anchor === String(state.activeSectionAnchor));
-    });
-    refs.root.querySelectorAll('.cml-timeline-section').forEach((section) => {
-      const isActive = section.id === String(state.activeSectionAnchor || '');
-      section.classList.toggle('is-active', isActive);
-      const header = section.querySelector('.cml-timeline-section__header');
-      if (header instanceof HTMLElement) {
-        header.classList.toggle('is-active', isActive);
-        header.setAttribute('aria-current', isActive ? 'true' : 'false');
-      }
-    });
+  const signature = getScrubberThumbStateSignature();
+  if (signature === refs.scrubberThumbStateSignature) {
+    return;
   }
+  refs.scrubberThumbStateSignature = signature;
+
+  const activeAnchor = String(state.activeSectionAnchor || '');
+  refs.scrubberTickRefs.forEach((tick) => {
+    tick.classList.toggle('is-active', tick.dataset.anchor === activeAnchor);
+  });
+  refs.timelineSectionRefs.forEach((section) => {
+    const isActive = section.id === activeAnchor;
+    section.classList.toggle('is-active', isActive);
+    const header = refs.timelineSectionHeadersByAnchor.get(section.id);
+    if (header instanceof HTMLElement) {
+      header.classList.toggle('is-active', isActive);
+      header.setAttribute('aria-current', isActive ? 'true' : 'false');
+    }
+  });
+
   badge.textContent = state.activeScrubberLabel || String(state.activeYear || '');
-  const activeTick = [...refs.root.querySelectorAll('.cml-scrubber__tick')]
-    .find((tick) => tick.dataset.anchor === String(state.activeSectionAnchor || ''));
+  const activeTick = refs.scrubberTicksByAnchor.get(activeAnchor);
   const topPct = activeTick instanceof HTMLElement
     ? Number(activeTick.dataset.pct || '0')
     : 0;
