@@ -1004,6 +1004,40 @@ describe('D1 metadata migration path', () => {
         assert.equal(payload.files.length, 3);
     });
 
+    it('list route hides raw internal error messages from 500 responses while logging detail', async () => {
+        const internalMessage = 'D1 shard failed: private table files_2026_token';
+        const env = {
+            img_d1: {
+                prepare() {
+                    throw new Error(internalMessage);
+                },
+            },
+        };
+        const originalConsoleError = console.error;
+        const consoleErrors = [];
+        console.error = (...args) => {
+            consoleErrors.push(args);
+        };
+
+        try {
+            const response = await listRoute(createContext(
+                env,
+                new Request('https://example.com/api/manage/list?recursive=true&page=1&pageSize=10', {
+                    method: 'GET',
+                }),
+            ));
+
+            assert.equal(response.status, 500);
+            const payload = await response.json();
+            assert.equal(payload.error, 'Internal server error');
+            assert.equal(payload.message, 'Unable to list media items');
+            assert.ok(!JSON.stringify(payload).includes(internalMessage));
+            assert.ok(consoleErrors.some((args) => args.some((arg) => arg?.message === internalMessage)));
+        } finally {
+            console.error = originalConsoleError;
+        }
+    });
+
     it('list route fails closed when the KV index is unavailable instead of scanning KV directly', async () => {
         const env = {
             img_url: new MemoryKV(),

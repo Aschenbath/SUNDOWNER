@@ -10235,9 +10235,153 @@ function getLegacyViewModel(context = getBaseViewModelContext()) {
 
 
 function getPhotosViewModel(context = getBaseViewModelContext()) {
-  return getLegacyViewModel(context);
-}
+  const {
+    accessibleItems,
+    parsedSearch,
+    isMindView,
+    activeAlbumName,
+    albumSelectionTarget,
+    videoAlbumSelectionTarget,
+    isCollectionRoot,
+    isAlbumPickerMode
+  } = context;
+  const filteredItems = isMindView ? [] : getFilteredItems(accessibleItems);
+  const videoCategoryScopeItems = state.secondaryFilter === 'Videos'
+    ? getFilteredItems(accessibleItems, { ignoreVideoCategoryFilter: true })
+    : [];
+  const activeVideoAlbumItemCount = state.secondaryFilter === 'Videos' && state.videoCategoryFilter
+    ? accessibleItems.filter((item) => itemMatchesVideoAlbum(item, state.videoCategoryFilter)).length
+    : 0;
+  const videoAlbumCards = state.secondaryFilter === 'Videos'
+    ? buildVideoAlbumSummaries(videoCategoryScopeItems)
+    : [];
+  const videoAlbumGroupedItemCount = videoAlbumCards.reduce((sum, group) => sum + group.itemCount, 0);
+  const isVideoAlbumRoot = isVideoAlbumRootView(parsedSearch);
+  const videoCategoryOptions = state.secondaryFilter === 'Videos'
+    ? buildVideoCategoryOptions(videoCategoryScopeItems, state.videoCategoryFilter)
+    : [];
+  const selectedItems = getSelectedItems(accessibleItems);
+  const activeAlbumItems = activeAlbumName
+    ? accessibleItems.filter((item) => itemBelongsToAlbum(item, activeAlbumName))
+    : [];
+  const activeAlbumCover = activeAlbumName
+    ? findAlbumCoverItem(activeAlbumName, activeAlbumItems)
+    : { item: null, isCustom: false };
+  const allCollections = state.primaryFilter === 'Collections' && !activeAlbumName
+    ? buildCollectionSummaries(accessibleItems)
+    : [];
+  const collectionCards = allCollections.slice(0, state.loadedCount);
+  const currentAudioItem = getAudioItemById(state.audioCurrentId, accessibleItems)
+    || getAudioItemById(state.audioCurrentId, getAllItems());
+  const timelineItems = isMindView
+    ? []
+    : state.primaryFilter === 'Bin'
+    ? state.binItems
+    : filteredItems;
+  const baseSections = isMindView || isCollectionRoot
+    ? []
+    : buildSections(timelineItems, state.primaryFilter === 'Bin'
+      ? {
+          anchorPrefix: 'bin',
+          getLabel: (item) => item.timelineLabel || createTimelineLabel(item.deletedAt || item.takenAt),
+          getYear: (item) => item.year || new Date(item.deletedAt || item.takenAt).getFullYear(),
+          getMetaLine: summarizeBinSection,
+          getScrubberLabel: (item) => formatScrubberLabel(item.deletedAt || item.takenAt)
+        }
+      : undefined);
+  const laidOutSections = isMindView || isCollectionRoot
+    ? []
+    : buildTimelineLayoutSections(baseSections, {
+        sectionGap: state.primaryFilter === 'Bin' ? BIN_TIMELINE_SECTION_GAP : TIMELINE_SECTION_GAP
+      });
+  const shouldVirtualizeTimeline = !isMindView && !isCollectionRoot && timelineItems.length > TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD;
+  const virtualWindow = !shouldVirtualizeTimeline
+    ? {
+        sections: laidOutSections.map((section) => ({
+          ...section,
+          startIndex: section.rows.length ? 0 : -1,
+          endIndex: section.rows.length ? section.rows.length - 1 : -1,
+          topSpacerHeight: 0,
+          bottomSpacerHeight: 0,
+          visibleRows: section.rows
+        })),
+        signature: ''
+      }
+    : applyTimelineVirtualWindow(laidOutSections, {
+        scrollTop: state.virtualScrollTop,
+        viewportHeight: state.virtualViewportHeight
+      });
+  const sections = virtualWindow.sections;
+  const years = isMindView || isCollectionRoot
+    ? []
+    : [...new Set(timelineItems.map((item) => String(item.year)))]
+      .sort((left, right) => Number(right) - Number(left));
+  const scrubberSections = sections.map((section, index) => ({
+    anchorId: section.anchorId,
+    year: section.year,
+    scrubberLabel: section.scrubberLabel || section.year,
+    isYearBoundary: index === 0 || sections[index - 1].year !== section.year
+  }));
+  const previewItems = state.primaryFilter === 'Bin' || isMindView
+    ? []
+    : filteredItems;
+  const previewIndex = previewItems.findIndex((item) => item.id === state.previewId);
+  const previewItem = previewIndex >= 0 ? previewItems[previewIndex] : null;
+  const canSetAlbumCover = Boolean(
+    activeAlbumName
+    && selectedItems.length === 1
+    && itemBelongsToAlbum(selectedItems[0], activeAlbumName)
+  );
 
+  if (years.length && !years.some((year) => String(year) === String(state.activeYear))) {
+    state.activeYear = years[0];
+  }
+  if (scrubberSections.length && !scrubberSections.some((section) => section.anchorId === state.activeSectionAnchor)) {
+    state.activeSectionAnchor = scrubberSections[0].anchorId;
+  }
+
+  const shouldBuildPreviewAlbumEntries = Boolean(state.previewId)
+    || (state.albumDialogOpen && state.albumDialogOrigin === 'preview');
+
+  return buildViewModelResult(context, {
+    activeAlbumCoverId: activeAlbumCover.item?.id || '',
+    activeAlbumCoverLabel: activeAlbumCover.item?.label || activeAlbumCover.item?.displayTakenAt || '',
+    hasCustomAlbumCover: activeAlbumCover.isCustom,
+    albumSelectionTarget,
+    videoAlbumSelectionTarget,
+    isAlbumPickerMode,
+    collectionCards,
+    totalCollectionCount: allCollections.length,
+    filteredItems,
+    currentAudioItem,
+    audioQueueItems: getAudioQueueItems(accessibleItems),
+    isVideoAlbumRoot,
+    videoAlbumCards,
+    videoAlbumCount: videoAlbumCards.length,
+    videoAlbumGroupedItemCount,
+    videoAlbumUngroupedCount: Math.max(0, videoCategoryScopeItems.length - videoAlbumGroupedItemCount),
+    activeVideoAlbumItemCount,
+    videoCategoryOptions,
+    videoCategoryScopeCount: videoCategoryScopeItems.length,
+    sections,
+    timelineLayoutSections: laidOutSections,
+    timelineVirtualSignature: virtualWindow.signature,
+    timelineVirtualEnabled: shouldVirtualizeTimeline,
+    years,
+    scrubberSections,
+    previewItems,
+    previewIndex,
+    previewItem,
+    previewAlbumEntries: shouldBuildPreviewAlbumEntries ? buildPreviewAlbumEntries(accessibleItems) : [],
+    filmRecord: getActiveFilmRecord(),
+    canSetAlbumCover,
+    canDownloadSelection: state.primaryFilter !== 'Bin' && getDownloadableItems(selectedItems).length > 0,
+    canDeleteSelection: state.primaryFilter !== 'Bin' && selectedItems.length > 0 && selectedItems.every((item) => canDeleteItem(item)),
+    binItems: state.binItems,
+    isBinLoading: state.isBinLoading,
+    binSelectedIds: state.binSelectedIds
+  });
+}
 function getSearchViewModel(context = getBaseViewModelContext()) {
   const { accessibleItems } = context;
   const filteredItems = getFilteredItems(accessibleItems);

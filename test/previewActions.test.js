@@ -2498,6 +2498,21 @@ describe('media library download actions', () => {
     assert.match(searchViewModelSource, /globalSearchResultCount/);
   });
 
+  it('keeps Photos view-model construction out of the legacy catch-all builder', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const photosStart = appSource.indexOf('function getPhotosViewModel');
+    const searchStart = appSource.indexOf('function getSearchViewModel', photosStart);
+    assert.ok(photosStart >= 0 && searchStart > photosStart);
+    const photosViewModelSource = appSource.slice(photosStart, searchStart);
+
+    assert.doesNotMatch(photosViewModelSource, /getLegacyViewModel\(/);
+    assert.match(photosViewModelSource, /buildSections\(/);
+    assert.match(photosViewModelSource, /buildTimelineLayoutSections\(/);
+    assert.match(photosViewModelSource, /applyTimelineVirtualWindow\(/);
+    assert.match(photosViewModelSource, /timelineVirtualEnabled/);
+    assert.match(photosViewModelSource, /scrubberSections/);
+    assert.match(photosViewModelSource, /previewItems/);
+  });
   it('keeps Films view-model construction out of the legacy timeline builder', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const filmsStart = appSource.indexOf('function getFilmsViewModel');
