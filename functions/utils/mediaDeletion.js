@@ -5,6 +5,18 @@ import { HuggingFaceAPI } from "./huggingfaceAPI.js";
 import { getDatabase } from './databaseAdapter.js';
 import { resolveDiscordAccess, resolveHuggingFaceAccess, resolveS3Access } from './mediaSecurity.js';
 
+let createS3Client = (options) => new S3Client(options);
+
+export function __setS3ClientFactoryForTests(factory) {
+    createS3Client = typeof factory === 'function'
+        ? factory
+        : (options) => new S3Client(options);
+}
+
+export function __resetS3ClientFactoryForTests() {
+    createS3Client = (options) => new S3Client(options);
+}
+
 export async function permanentlyDeleteFileRecord(context, fileId, options = {}) {
     const { env } = context;
     const db = getDatabase(env);
@@ -23,7 +35,7 @@ export async function permanentlyDeleteFileRecord(context, fileId, options = {})
         }
 
         if (img.metadata?.Channel === 'S3') {
-            await deleteS3File(env, img);
+            await deleteS3File(env, img, fileId);
         }
 
         if (img.metadata?.Channel === 'Discord') {
@@ -48,25 +60,31 @@ export async function permanentlyDeleteFileRecord(context, fileId, options = {})
     }
 }
 
-async function deleteS3File(env, img) {
+async function deleteS3File(env, img, fileId) {
     const s3Access = await resolveS3Access(env, img.metadata || {});
     if (!s3Access?.accessKeyId || !s3Access?.secretAccessKey) {
         throw new Error('S3 channel credentials not available for deletion');
     }
 
-    const s3Client = new S3Client({
-        region: img.metadata?.S3Region || "auto",
-        endpoint: img.metadata?.S3Endpoint,
+    const bucketName = img.metadata?.S3BucketName || s3Access.bucketName;
+    const key = img.metadata?.S3FileKey || fileId;
+    if (!bucketName || !key) {
+        throw new Error('S3 file info not found for deletion');
+    }
+
+    const s3Client = createS3Client({
+        region: img.metadata?.S3Region || s3Access.region || "auto",
+        endpoint: img.metadata?.S3Endpoint || s3Access.endpoint,
         credentials: {
             accessKeyId: s3Access.accessKeyId,
             secretAccessKey: s3Access.secretAccessKey
         },
-        forcePathStyle: img.metadata?.S3PathStyle || false
+        forcePathStyle: img.metadata?.S3PathStyle ?? s3Access.pathStyle ?? false
     });
 
     await s3Client.send(new DeleteObjectCommand({
-        Bucket: img.metadata?.S3BucketName,
-        Key: img.metadata?.S3FileKey,
+        Bucket: bucketName,
+        Key: key,
     }));
 }
 

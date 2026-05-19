@@ -52,6 +52,40 @@ export function normalizeExternalUploadUrl(rawUrl) {
     }
 }
 
+const INFERRED_MIME_TYPES = new Map([
+    ['jpg', 'image/jpeg'],
+    ['jpeg', 'image/jpeg'],
+    ['png', 'image/png'],
+    ['gif', 'image/gif'],
+    ['webp', 'image/webp'],
+    ['svg', 'image/svg+xml'],
+    ['mp4', 'video/mp4'],
+    ['webm', 'video/webm'],
+    ['mov', 'video/quicktime'],
+    ['mp3', 'audio/mpeg'],
+    ['wav', 'audio/wav'],
+    ['flac', 'audio/flac'],
+    ['pdf', 'application/pdf'],
+]);
+
+function inferMimeTypeFromFileName(fileName = '') {
+    const ext = String(fileName || '').split('.').pop()?.toLowerCase();
+    return INFERRED_MIME_TYPES.get(ext) || 'application/octet-stream';
+}
+
+function inferExternalFileName(rawUrl) {
+    const normalizedUrl = normalizeExternalUploadUrl(rawUrl);
+    if (!normalizedUrl) {
+        return 'external-link.url';
+    }
+
+    const segment = new URL(normalizedUrl).pathname.split('/').filter(Boolean).pop() || 'external-link.url';
+    try {
+        return decodeURIComponent(segment) || 'external-link.url';
+    } catch {
+        return segment || 'external-link.url';
+    }
+}
 
 export async function onRequest(context) {  // Contents of context object
     const { request, env, params, waitUntil, next, data } = context;
@@ -176,9 +210,17 @@ export async function processFileUpload(context, formdata = null) {
     // 获取文件信息
     const time = new Date().getTime();
     const file = formdata.get('file');
-    const fileType = file.type;
-    let fileName = file.name;
-    const fileSizeBytes = file.size; // 文件大小，单位字节
+    const hasUploadFile = file
+        && typeof file === 'object'
+        && typeof file.name === 'string'
+        && typeof file.type === 'string'
+        && typeof file.size === 'number';
+    if (!hasUploadFile && uploadChannel !== 'External') {
+        return createResponse('Error: No file provided', { status: 400 });
+    }
+    let fileName = hasUploadFile ? file.name : inferExternalFileName(formdata.get('url'));
+    const fileType = hasUploadFile ? (file.type || 'application/octet-stream') : inferMimeTypeFromFileName(fileName);
+    const fileSizeBytes = hasUploadFile ? file.size : 0; // 文件大小，单位字节
     const fileSize = (fileSizeBytes / 1024 / 1024).toFixed(2); // 文件大小，单位MB
 
     // 检查fileType和fileName是否存在
@@ -189,7 +231,7 @@ export async function processFileUpload(context, formdata = null) {
     // 提取图片尺寸和 EXIF 元数据
     let imageDimensions = null;
     let exifData = null;
-    if (fileType.startsWith('image/')) {
+    if (hasUploadFile && fileType.startsWith('image/')) {
         try {
             // 统一读取 64KB，足以覆盖 JPEG 的 EXIF 数据和其他格式
             const headerBuffer = await file.slice(0, 65536).arrayBuffer();

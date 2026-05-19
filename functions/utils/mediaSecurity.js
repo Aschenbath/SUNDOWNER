@@ -23,6 +23,10 @@ function normalizeChannelKey(value = '') {
     .replace(/^_+|_+$/g, '');
 }
 
+function normalizeS3PathStyle(value) {
+  return value === true || value === 'true';
+}
+
 function findChannelByName(section, channelName) {
   if (!section || !Array.isArray(section.channels) || !channelName) {
     return null;
@@ -129,6 +133,12 @@ export async function resolveS3Access(env, metadata = {}) {
     return {
       accessKeyId: metadata.S3AccessKeyId,
       secretAccessKey: metadata.S3SecretAccessKey,
+      endpoint: metadata.S3Endpoint || undefined,
+      bucketName: metadata.S3BucketName || undefined,
+      region: metadata.S3Region || 'auto',
+      pathStyle: normalizeS3PathStyle(metadata.S3PathStyle),
+      cdnDomain: metadata.S3CdnDomain || undefined,
+      channelName: metadata.ChannelName || undefined,
     };
   }
 
@@ -138,6 +148,12 @@ export async function resolveS3Access(env, metadata = {}) {
     return {
       accessKeyId: channel.accessKeyId,
       secretAccessKey: channel.secretAccessKey,
+      endpoint: channel.endpoint || undefined,
+      bucketName: channel.bucketName || undefined,
+      region: channel.region || 'auto',
+      pathStyle: normalizeS3PathStyle(channel.pathStyle),
+      cdnDomain: channel.cdnDomain || undefined,
+      channelName: channel.name || metadata.ChannelName || undefined,
     };
   }
 
@@ -145,6 +161,12 @@ export async function resolveS3Access(env, metadata = {}) {
     return {
       accessKeyId: env.S3_ACCESS_KEY_ID,
       secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+      endpoint: env.S3_ENDPOINT || undefined,
+      bucketName: env.S3_BUCKET_NAME || undefined,
+      region: env.S3_REGION || 'auto',
+      pathStyle: normalizeS3PathStyle(env.S3_PATH_STYLE),
+      cdnDomain: env.S3_CDN_DOMAIN || undefined,
+      channelName: 'S3_env',
     };
   }
 

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   onRequest,
   onRequestOptions,
+  __resetS3ClientFactoryForTests,
+  __setS3ClientFactoryForTests,
 } from '../functions/api/manage/migrate/recover-capture-times.js';
 import { D1Database } from '../functions/utils/d1Database.js';
 import { SqliteD1 } from '../server/sqliteD1.js';
@@ -270,6 +272,82 @@ describe('recover capture times route', () => {
     assert.equal(updated.metadata.Exif.dateTime, '2024-01-05T06:07:08.000Z');
   });
 
+  it('backfills S3 image records using channel locator config when metadata was trimmed', async () => {
+    const env = {
+      img_url: new MemoryKV({
+        'manage@sysConfig@upload': JSON.stringify({
+          s3: {
+            channels: [
+              {
+                name: 'Archive S3',
+                accessKeyId: 'config-access',
+                secretAccessKey: 'config-secret',
+                bucketName: 'media',
+                endpoint: 'https://s3.example.com',
+                region: 'auto',
+                pathStyle: false,
+                enabled: true,
+              },
+            ],
+          },
+        }),
+      }),
+      img_d1: new SqliteD1(':memory:'),
+    };
+    const db = new D1Database(env.img_d1);
+    await db.put('photos/s3-exif.jpg', '', {
+      metadata: {
+        Channel: 'S3',
+        ChannelName: 'Archive S3',
+        FileName: 's3-exif.jpg',
+        FileType: 'image/jpeg',
+        TimeStamp: 1775628424666,
+      },
+    });
+
+    const createdClients = [];
+    const sentCommands = [];
+    __setS3ClientFactoryForTests((options) => {
+      createdClients.push(options);
+      return {
+        async send(command) {
+          sentCommands.push(command.input);
+          return {
+            Body: new Uint8Array(buildExifJpegBuffer()),
+          };
+        },
+      };
+    });
+
+    try {
+      const response = await onRequest({
+        env,
+        request: new Request('https://example.com/api/manage/migrate/recover-capture-times', {
+          method: 'POST',
+          body: JSON.stringify({ keys: ['photos/s3-exif.jpg'] }),
+        }),
+        waitUntil(promise) {
+          return promise;
+        },
+      });
+
+      assert.equal(response.status, 200);
+      const payload = await response.json();
+      assert.equal(payload.success, true);
+      assert.equal(payload.recovered, 1);
+      assert.equal(createdClients[0].endpoint, 'https://s3.example.com');
+      assert.deepEqual(sentCommands[0], {
+        Bucket: 'media',
+        Key: 'photos/s3-exif.jpg',
+        Range: 'bytes=0-65535',
+      });
+
+      const updated = await db.getWithMetadata('photos/s3-exif.jpg');
+      assert.equal(updated.metadata.Exif.dateTime, '2025-03-14T08:09:10.000Z');
+    } finally {
+      __resetS3ClientFactoryForTests();
+    }
+  });
   it('returns CORS headers for OPTIONS', async () => {
     const response = onRequestOptions();
     assert.equal(response.status, 204);

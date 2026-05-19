@@ -68,7 +68,11 @@ export async function getIPAddress(ip) {
 
 // 处理文件名中的特殊字符
 export function sanitizeFileName(fileName) {
-    fileName = decodeURIComponent(fileName);
+    try {
+        fileName = decodeURIComponent(fileName);
+    } catch {
+        fileName = String(fileName || '');
+    }
     fileName = fileName.split('/').pop();
 
     const unsafeCharsRe = /[\\\/:\*\?"'<>\| \(\)\[\]\{\}#%\^`~;@&=\+\$,]/g;

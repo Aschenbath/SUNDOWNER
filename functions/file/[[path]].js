@@ -298,7 +298,7 @@ export async function onRequest(context) {  // Contents of context object
 
     /* S3渠道 */
     if (imgRecord.metadata?.Channel === "S3") {
-        return await handleS3File(context, imgRecord.metadata, encodedFileName, fileType);
+        return await handleS3File(context, imgRecord.metadata, encodedFileName, fileType, fileId);
     }
 
     /* Discord 渠道 */
@@ -847,7 +847,7 @@ async function handleR2File(context, fileId, encodedFileName, fileType) {
 }
 
 // 处理S3文件读取
-async function handleS3File(context, metadata, encodedFileName, fileType) {
+async function handleS3File(context, metadata, encodedFileName, fileType, fileId) {
     const { Referer, url, request } = context;
 
     // 检查是否配置了 CDN 文件完整路径
@@ -881,7 +881,7 @@ async function handleS3File(context, metadata, encodedFileName, fileType) {
             if (!response.ok && response.status !== 206) {
                 // CDN 读取失败，回退到 S3 API
                 console.warn(`CDN fetch failed (${response.status}), falling back to S3 API`);
-                return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType);
+                return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId);
             }
 
             // 构建响应头
@@ -904,16 +904,16 @@ async function handleS3File(context, metadata, encodedFileName, fileType) {
         } catch (error) {
             // CDN 读取出错，回退到 S3 API
             console.error(`CDN fetch error: ${error.message}, falling back to S3 API`);
-            return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType);
+            return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId);
         }
     }
 
     // 没有配置 CDN 文件路径，使用 S3 API
-    return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType);
+    return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId);
 }
 
 // 通过 S3 API 读取文件
-async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType) {
+async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId) {
     const { Referer, url, request } = context;
 
     const s3Access = await resolveS3Access(context.env, metadata || {});
@@ -921,18 +921,21 @@ async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType) 
         return new Response('Error: S3 channel credentials not available', { status: 500 });
     }
 
+    const bucketName = metadata?.S3BucketName || s3Access.bucketName;
+    const key = metadata?.S3FileKey || fileId;
+    if (!bucketName || !key) {
+        return new Response('Error: S3 file info not found', { status: 500 });
+    }
+
     const s3Client = createS3Client({
-        region: metadata?.S3Region || "auto",
-        endpoint: metadata?.S3Endpoint,
+        region: metadata?.S3Region || s3Access.region || "auto",
+        endpoint: metadata?.S3Endpoint || s3Access.endpoint,
         credentials: {
             accessKeyId: s3Access.accessKeyId,
             secretAccessKey: s3Access.secretAccessKey
         },
-        forcePathStyle: metadata?.S3PathStyle || false
+        forcePathStyle: metadata?.S3PathStyle ?? s3Access.pathStyle ?? false
     });
-
-    const bucketName = metadata?.S3BucketName;
-    const key = metadata?.S3FileKey;
 
     try {
         // 检查Range请求头

@@ -2,6 +2,7 @@ import { S3Client, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/clien
 import { purgeCFCache, purgeRandomFileListCache, purgePublicFileListCache } from "../../../utils/purgeCache.js";
 import { moveFileInIndex } from "../../../utils/indexManager.js";
 import { getDatabase } from '../../../utils/databaseAdapter.js';
+import { resolveS3Access, sanitizeExposedMetadata } from '../../../utils/mediaSecurity.js';
 import { sanitizeUploadFolder } from "../../../upload/uploadTools.js";
 
 // CORS 跨域响应头
@@ -11,6 +12,18 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
 };
+
+let createS3Client = (options) => new S3Client(options);
+
+export function __setS3ClientFactoryForTests(factory) {
+    createS3Client = typeof factory === 'function'
+        ? factory
+        : (options) => new S3Client(options);
+}
+
+export function __resetS3ClientFactoryForTests() {
+    createS3Client = (options) => new S3Client(options);
+}
 
 export async function onRequest(context) {
     const { request, env, params, waitUntil } = context;
@@ -126,15 +139,33 @@ export async function onRequest(context) {
 
         // S3 渠道的图片，需要移动 S3 中对应的图片
         if (metadata?.Channel === 'S3') {
-            const { success, newKey, error } = await moveS3File(fileData, newFileId);
+            const { success, newKey, oldKey, bucketName, endpoint, region, pathStyle, cdnFileUrl, error } = await moveS3File(env, fileData, newFileId, fileId);
             if (success) {
                 // 更新 metadata
+                const previousS3FileKey = metadata.S3FileKey || oldKey;
+                if (endpoint) {
+                    metadata.S3Endpoint = endpoint;
+                }
+                metadata.S3BucketName = bucketName;
+                metadata.S3PathStyle = pathStyle;
+                metadata.S3Region = region || "auto";
                 metadata.S3FileKey = newFileId;
 
-                const s3ServerDomain = metadata.S3Endpoint.replace(/https?:\/\//, "");
-                metadata.S3Location = `https://${metadata.S3BucketName}.${s3ServerDomain}/${newKey}`;
+                if (endpoint) {
+                    const s3ServerDomain = endpoint.replace(/https?:\/\//, "");
+                    metadata.S3Location = pathStyle
+                        ? `https://${s3ServerDomain}/${bucketName}/${newKey}`
+                        : `https://${bucketName}.${s3ServerDomain}/${newKey}`;
+                } else if (metadata.S3Location && previousS3FileKey && newKey && metadata.S3Location.endsWith(previousS3FileKey)) {
+                    metadata.S3Location = `${metadata.S3Location.slice(0, -previousS3FileKey.length)}${newKey}`;
+                }
+                if (metadata.S3CdnFileUrl && previousS3FileKey && newKey && metadata.S3CdnFileUrl.endsWith(previousS3FileKey)) {
+                    metadata.S3CdnFileUrl = `${metadata.S3CdnFileUrl.slice(0, -previousS3FileKey.length)}${newKey}`;
+                } else if (!metadata.S3CdnFileUrl && cdnFileUrl) {
+                    metadata.S3CdnFileUrl = cdnFileUrl;
+                }
             } else {
-                // do nothing
+                throw new Error(error || 'S3 move failed');
             }
         }
 
@@ -173,7 +204,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({
             success: true,
             newFileId,
-            metadata,
+            metadata: sanitizeExposedMetadata(metadata),
         }), {
             status: 200,
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -192,20 +223,31 @@ export async function onRequest(context) {
 }
 
 // 移动 S3 渠道的图片
-async function moveS3File(img, newFileId) {
-    const s3Client = new S3Client({
-        region: img.metadata?.S3Region || "auto",
-        endpoint: img.metadata?.S3Endpoint,
-        credentials: {
-            accessKeyId: img.metadata?.S3AccessKeyId,
-            secretAccessKey: img.metadata?.S3SecretAccessKey
-        },
-        forcePathStyle: img.metadata?.S3PathStyle || false
-    });
+async function moveS3File(env, img, newFileId, fileId) {
+    const s3Access = await resolveS3Access(env, img.metadata || {});
+    if (!s3Access?.accessKeyId || !s3Access?.secretAccessKey) {
+        return { success: false, error: 'S3 channel credentials not available for move' };
+    }
 
-    const bucketName = img.metadata?.S3BucketName;
-    const oldKey = img.metadata?.S3FileKey;
+    const bucketName = img.metadata?.S3BucketName || s3Access.bucketName;
+    const endpoint = img.metadata?.S3Endpoint || s3Access.endpoint;
+    const region = img.metadata?.S3Region || s3Access.region || "auto";
+    const pathStyle = img.metadata?.S3PathStyle ?? s3Access.pathStyle ?? false;
+    const oldKey = img.metadata?.S3FileKey || fileId;
     const newKey = newFileId;
+    if (!bucketName || !oldKey) {
+        return { success: false, error: 'S3 file info not found for move' };
+    }
+
+    const s3Client = createS3Client({
+        region,
+        endpoint,
+        credentials: {
+            accessKeyId: s3Access.accessKeyId,
+            secretAccessKey: s3Access.secretAccessKey
+        },
+        forcePathStyle: pathStyle
+    });
 
     try {
         // 复制文件到新位置
@@ -222,7 +264,8 @@ async function moveS3File(img, newFileId) {
         }));
 
         // 返回新的 S3 文件信息
-        return { success: true, newKey };
+        const cdnFileUrl = s3Access.cdnDomain ? `${s3Access.cdnDomain.replace(/\/$/, '')}/${newKey}` : null;
+        return { success: true, newKey, oldKey, bucketName, endpoint, region, pathStyle, cdnFileUrl };
     } catch (error) {
         console.error("S3 Move Failed:", error);
         return { success: false, error: error.message };

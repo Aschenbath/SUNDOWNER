@@ -13,6 +13,17 @@ import {
 import { resolveStoredTelegramReadTarget } from '../../../utils/telegramFileId.js';
 import { resolveMediaCaptureTimestamp } from '../../../../js/media-library/time-resolution.js';
 import { loadLegacyKvIndexMetadataMap, mergeCaptureMetadata } from '../../../utils/captureTimeMetadata.js';
+let createS3Client = (options) => new S3Client(options);
+
+export function __setS3ClientFactoryForTests(factory) {
+    createS3Client = typeof factory === 'function'
+        ? factory
+        : (options) => new S3Client(options);
+}
+
+export function __resetS3ClientFactoryForTests() {
+    createS3Client = (options) => new S3Client(options);
+}
 
 const INDEX_META_KEY = 'manage@index@meta';
 const INDEX_KEY = 'manage@index';
@@ -261,25 +272,31 @@ async function fetchDiscordHeaderBuffer(env, metadata = {}) {
     });
 }
 
-async function fetchS3HeaderBuffer(env, metadata = {}) {
+async function fetchS3HeaderBuffer(env, metadata = {}, fileId = '') {
     const s3Access = await resolveS3Access(env, metadata);
-    if (!s3Access?.accessKeyId || !s3Access?.secretAccessKey || !metadata?.S3BucketName || !metadata?.S3FileKey) {
+    if (!s3Access?.accessKeyId || !s3Access?.secretAccessKey) {
         return null;
     }
 
-    const s3Client = new S3Client({
-        region: metadata?.S3Region || 'auto',
-        endpoint: metadata?.S3Endpoint,
+    const bucketName = metadata?.S3BucketName || s3Access.bucketName;
+    const key = metadata?.S3FileKey || fileId;
+    if (!bucketName || !key) {
+        return null;
+    }
+
+    const s3Client = createS3Client({
+        region: metadata?.S3Region || s3Access.region || 'auto',
+        endpoint: metadata?.S3Endpoint || s3Access.endpoint,
         credentials: {
             accessKeyId: s3Access.accessKeyId,
             secretAccessKey: s3Access.secretAccessKey,
         },
-        forcePathStyle: metadata?.S3PathStyle || false,
+        forcePathStyle: metadata?.S3PathStyle ?? s3Access.pathStyle ?? false,
     });
 
     const response = await s3Client.send(new GetObjectCommand({
-        Bucket: metadata.S3BucketName,
-        Key: metadata.S3FileKey,
+        Bucket: bucketName,
+        Key: key,
         Range: `bytes=0-${MAX_HEADER_BYTES - 1}`,
     }));
 
@@ -328,7 +345,7 @@ async function fetchSourceHeaderBuffer(env, candidate) {
         case 'Discord':
             return fetchDiscordHeaderBuffer(env, metadata);
         case 'S3':
-            return fetchS3HeaderBuffer(env, metadata);
+            return fetchS3HeaderBuffer(env, metadata, fileId);
         case 'HuggingFace':
             return fetchHuggingFaceHeaderBuffer(env, metadata);
         default:

@@ -161,4 +161,115 @@ describe('public file metadata parsing', () => {
     assert.equal(response.status, 404);
     assert.equal(await response.text(), 'Error: Image Not Found');
   });
+
+  it('reads S3 files using channel locator config when file metadata was trimmed', async () => {
+    const createdClients = [];
+    const sentCommands = [];
+    __setS3ClientFactoryForTests((options) => {
+      createdClients.push(options);
+      return {
+        async send(command) {
+          sentCommands.push(command.input);
+          return {
+            Body: new Uint8Array([1, 2, 3]),
+            ContentLength: 3,
+          };
+        },
+      };
+    });
+
+    const response = await onRequest({
+      env: {
+        img_url: new MemoryKV(new Map([
+          ['manage@sysConfig@upload', {
+            value: JSON.stringify({
+              s3: {
+                channels: [
+                  {
+                    name: 'Archive S3',
+                    accessKeyId: 'config-access',
+                    secretAccessKey: 'config-secret',
+                    bucketName: 'media',
+                    endpoint: 'https://s3.example.com',
+                    region: 'auto',
+                    pathStyle: false,
+                    enabled: true,
+                  },
+                ],
+              },
+            }),
+          }],
+          ['s3/trimmed.jpg', {
+            value: '',
+            metadata: {
+              Channel: 'S3',
+              ChannelName: 'Archive S3',
+              FileName: 'trimmed.jpg',
+              FileType: 'image/jpeg',
+              ListType: 'None',
+              Label: 'safe',
+            },
+          }],
+        ])),
+      },
+      params: { path: 's3/trimmed.jpg' },
+      request: new Request('http://localhost/file/s3/trimmed.jpg'),
+      waitUntil() {},
+      next() {},
+      data: {},
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(createdClients[0].endpoint, 'https://s3.example.com');
+    assert.deepEqual(sentCommands[0], { Bucket: 'media', Key: 's3/trimmed.jpg' });
+    assert.equal((await response.arrayBuffer()).byteLength, 3);
+  });
+
+  it('omits the S3 endpoint option when env fallback uses the default AWS endpoint', async () => {
+    const createdClients = [];
+    const sentCommands = [];
+    __setS3ClientFactoryForTests((options) => {
+      createdClients.push(options);
+      return {
+        async send(command) {
+          sentCommands.push(command.input);
+          return {
+            Body: new Uint8Array([1]),
+            ContentLength: 1,
+          };
+        },
+      };
+    });
+
+    const response = await onRequest({
+      env: {
+        img_url: new MemoryKV(new Map([
+          ['s3/default-endpoint.jpg', {
+            value: '',
+            metadata: {
+              Channel: 'S3',
+              ChannelName: 'S3_env',
+              FileName: 'default-endpoint.jpg',
+              FileType: 'image/jpeg',
+              ListType: 'None',
+              Label: 'safe',
+            },
+          }],
+        ])),
+        S3_ACCESS_KEY_ID: 'env-access',
+        S3_SECRET_ACCESS_KEY: 'env-secret',
+        S3_BUCKET_NAME: 'media',
+        S3_REGION: 'us-east-1',
+      },
+      params: { path: 's3/default-endpoint.jpg' },
+      request: new Request('http://localhost/file/s3/default-endpoint.jpg'),
+      waitUntil() {},
+      next() {},
+      data: {},
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(createdClients[0].endpoint, undefined);
+    assert.deepEqual(sentCommands[0], { Bucket: 'media', Key: 's3/default-endpoint.jpg' });
+  });
 });

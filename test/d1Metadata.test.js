@@ -200,6 +200,62 @@ describe('D1 metadata migration path', () => {
         assert.equal(stored.metadata.Exif, undefined);
     });
 
+    it('keeps non-sensitive storage locator metadata in KV-only mode', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+        };
+        const db = getDatabase(env);
+
+        await db.put('photos/storage-locators.jpg', 'kv-value', {
+            metadata: {
+                FileName: 'storage-locators.jpg',
+                FileType: 'image/jpeg',
+                TimeStamp: 300,
+                Directory: 'photos/',
+                Channel: 'S3',
+                ChannelName: 'Archive S3',
+                ExternalLink: 'https://cdn.example.com/storage-locators.jpg',
+                S3Endpoint: 'https://s3.example.com',
+                S3PathStyle: true,
+                S3Region: 'auto',
+                S3BucketName: 'media',
+                S3FileKey: 'photos/storage-locators.jpg',
+                S3Location: 'https://media.s3.example.com/photos/storage-locators.jpg',
+                DiscordChannelId: 'discord-channel',
+                DiscordMessageId: 'discord-message',
+                HfRepo: 'owner/repo',
+                HfFilePath: 'photos/storage-locators.jpg',
+                HfFileUrl: 'https://huggingface.co/owner/repo/blob/main/photos/storage-locators.jpg',
+                HfIsPrivate: true,
+                TgBotToken: 'telegram-secret',
+                DiscordBotToken: 'discord-secret',
+                S3AccessKeyId: 's3-secret',
+                S3SecretAccessKey: 's3-secret',
+                HfToken: 'hf-secret',
+            },
+        });
+
+        const stored = await env.img_url.getWithMetadata('photos/storage-locators.jpg');
+        assert.equal(stored.metadata.ExternalLink, 'https://cdn.example.com/storage-locators.jpg');
+        assert.equal(stored.metadata.S3Endpoint, 'https://s3.example.com');
+        assert.equal(stored.metadata.S3PathStyle, true);
+        assert.equal(stored.metadata.S3Region, 'auto');
+        assert.equal(stored.metadata.S3BucketName, 'media');
+        assert.equal(stored.metadata.S3FileKey, 'photos/storage-locators.jpg');
+        assert.equal(stored.metadata.S3Location, 'https://media.s3.example.com/photos/storage-locators.jpg');
+        assert.equal(stored.metadata.DiscordChannelId, 'discord-channel');
+        assert.equal(stored.metadata.DiscordMessageId, 'discord-message');
+        assert.equal(stored.metadata.HfRepo, 'owner/repo');
+        assert.equal(stored.metadata.HfFilePath, 'photos/storage-locators.jpg');
+        assert.equal(stored.metadata.HfFileUrl, 'https://huggingface.co/owner/repo/blob/main/photos/storage-locators.jpg');
+        assert.equal(stored.metadata.HfIsPrivate, true);
+        assert.equal(stored.metadata.TgBotToken, undefined);
+        assert.equal(stored.metadata.DiscordBotToken, undefined);
+        assert.equal(stored.metadata.S3AccessKeyId, undefined);
+        assert.equal(stored.metadata.S3SecretAccessKey, undefined);
+        assert.equal(stored.metadata.HfToken, undefined);
+    });
+
     it('migrates existing KV metadata into D1', async () => {
         const env = {
             img_url: new MemoryKV(),

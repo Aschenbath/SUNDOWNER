@@ -36,7 +36,14 @@ const KV_METADATA_CORE_KEYS = [
     'FileName', 'FileType', 'FileSize', 'TimeStamp', 'Label', 'Directory',
     'Channel', 'ChannelName', 'ListType', 'Width', 'Height',
     'TgFileId', 'TgChatId', 'TgMessageId', 'TgFileUniqueId',
+    'TgThumbnailFileId', 'TgThumbnailFileType', 'TgThumbnailFileUniqueId',
+    'TgThumbnailWidth', 'TgThumbnailHeight', 'TgThumbnailFileSize',
     'Album', 'TgAlbumPath', 'Description', 'DateTaken',
+    'ExternalLink',
+    'S3Endpoint', 'S3PathStyle', 'S3Region', 'S3BucketName', 'S3FileKey', 'S3Location', 'S3CdnFileUrl',
+    'DiscordChannelId', 'DiscordMessageId',
+    'HfRepo', 'HfFilePath', 'HfFileUrl', 'HfIsPrivate',
+    'IsChunked', 'ChunkCount', 'ChunkIds', 'ChunkSize', 'TotalSize',
 ];
 
 function trimMetadataForKV(metadata) {
