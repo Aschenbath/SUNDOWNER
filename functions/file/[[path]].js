@@ -175,7 +175,7 @@ async function resolveTelegramSourceUrl(env, metadata = {}, fileId = '', options
 }
 
 async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fileType) {
-    if (!context.wantsPreview || !supportsEmbeddedPreviewExtraction(fileType)) {
+    if (!context.wantsEmbeddedPreview || !supportsEmbeddedPreviewExtraction(fileType)) {
         return null;
     }
 
@@ -195,11 +195,6 @@ async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fil
             case 'Telegram':
             case 'TelegramNew': {
                 if (metadata?.IsChunked === true) {
-                    return null;
-                }
-
-                const previewReadTarget = resolveStoredTelegramReadTarget(fileId, metadata, { preview: true });
-                if (previewReadTarget?.isPreview) {
                     return null;
                 }
 
@@ -253,8 +248,11 @@ export async function onRequest(context) {  // Contents of context object
 
     const url = new URL(request.url);
     context.url = url;
-    const wantsPreview = ['1', 'true', 'yes'].includes(String(url.searchParams.get('preview') || '').trim().toLowerCase());
+    const previewMode = String(url.searchParams.get('preview') || '').trim().toLowerCase();
+    const wantsPreview = ['1', 'true', 'yes', 'embedded'].includes(previewMode);
+    const wantsEmbeddedPreview = previewMode === 'embedded';
     context.wantsPreview = wantsPreview;
+    context.wantsEmbeddedPreview = wantsEmbeddedPreview;
 
     const Referer = request.headers.get('Referer')
     context.Referer = Referer;

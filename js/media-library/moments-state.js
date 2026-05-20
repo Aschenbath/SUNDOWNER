@@ -118,6 +118,7 @@ export function buildMomentAttachmentItem(attachment = {}) {
   const mimeType = normalizeText(readMetadataValue(metadata, ['FileType', 'fileType', 'file_type'])).toLowerCase();
   const browserPreviewSupported = !mimeType || supportsMomentBrowserImagePreview(mimeType);
   const thumbnailUrl = browserPreviewSupported ? sourceUrl : buildMomentFileUrl(fileId, { preview: '1' });
+  const fullPreviewUrl = browserPreviewSupported ? '' : buildMomentFileUrl(fileId, { preview: 'embedded' });
 
   return {
     ...(attachment.item && typeof attachment.item === 'object' ? attachment.item : {}),
@@ -127,6 +128,7 @@ export function buildMomentAttachmentItem(attachment = {}) {
     label,
     sourceUrl,
     thumbnailUrl,
+    fullPreviewUrl,
     browserPreviewSupported,
     ...(width ? { width } : {}),
     ...(height ? { height } : {}),

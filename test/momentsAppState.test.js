@@ -83,6 +83,7 @@ describe('Moments app helpers', () => {
 
     assert.equal(item.sourceUrl, '/file/Moments/2026-05-17/flower.heic');
     assert.equal(item.thumbnailUrl, '/file/Moments/2026-05-17/flower.heic?preview=1');
+    assert.equal(item.fullPreviewUrl, '/file/Moments/2026-05-17/flower.heic?preview=embedded');
     assert.equal(item.browserPreviewSupported, false);
   });
 

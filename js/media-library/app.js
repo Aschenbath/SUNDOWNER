@@ -53,7 +53,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=111';
+} from './components.js?v=112';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -67,7 +67,7 @@ import {
   deriveMomentCalendarMonth,
   normalizeMomentDraftAttachments,
   normalizeMomentPosts,
-} from './moments-state.js?v=3';
+} from './moments-state.js?v=4';
 import {
   mergeIndexedMediaResultWithCache,
   mergeIndexedMediaWithCachedItems,
@@ -1217,6 +1217,7 @@ function getMomentAttachmentItems(posts = state.momentsPosts) {
       sourceId: normalizeText(item?.sourceId || attachment?.fileId),
       sourceUrl: normalizeText(item?.sourceUrl || ''),
       thumbnailUrl: normalizeText(item?.thumbnailUrl || item?.sourceUrl || ''),
+      fullPreviewUrl: normalizeText(item?.fullPreviewUrl || ''),
       posterUrl: normalizeText(item?.posterUrl || ''),
       type: 'photo',
       label: normalizeText(item?.label || attachment?.metadata?.FileName || 'Moment photo'),
@@ -6222,6 +6223,12 @@ function resolvePhotoPreviewUrl(fileId, mimeType, fallbackUrl = '') {
   return sourceUrl;
 }
 
+function resolvePhotoFullPreviewUrl(fileId, mimeType) {
+  return supportsBrowserImagePreview(mimeType)
+    ? ''
+    : buildFileRoute(fileId, { preview: 'embedded' });
+}
+
 function buildIndexedMediaItem(record, domLookup, index) {
   const metadata = record && typeof record === 'object' ? (record.metadata || {}) : {};
   const fileId = normalizeText(record?.name || record?.id || '');
@@ -6272,6 +6279,9 @@ function buildIndexedMediaItem(record, domLookup, index) {
   const thumbnailUrl = type === 'photo'
     ? resolvePhotoPreviewUrl(fileId, mimeType, domMatch?.thumbnailUrl || '')
     : (type === 'document' || type === 'audio' ? '' : (domMatch?.thumbnailUrl || videoThumbUrl || sourceUrl));
+  const fullPreviewUrl = type === 'photo'
+    ? resolvePhotoFullPreviewUrl(fileId, mimeType)
+    : '';
   const posterUrl = type === 'video'
     ? (thumbnailUrl !== sourceUrl ? thumbnailUrl : '')
     : (thumbnailUrl !== sourceUrl ? thumbnailUrl : '');
@@ -6281,6 +6291,7 @@ function buildIndexedMediaItem(record, domLookup, index) {
     sourceId: fileId,
     sourceUrl,
     thumbnailUrl,
+    fullPreviewUrl,
     posterUrl,
     type,
     mimeType,
@@ -6613,6 +6624,9 @@ function buildBinItem(record) {
   const thumbnailUrl = type === 'photo'
     ? resolvePhotoPreviewUrl(fileId, mimeType)
     : ((type === 'document' || type === 'audio') ? '' : sourceUrl);
+  const fullPreviewUrl = type === 'photo'
+    ? resolvePhotoFullPreviewUrl(fileId, mimeType)
+    : '';
   const deletedAt = Number(record.deletedAt) || Date.now();
   const deletedDate = new Date(deletedAt);
   const deletedDateParts = createDatePartsFromDate(deletedDate);
@@ -6622,6 +6636,7 @@ function buildBinItem(record) {
     sourceId: fileId,
     label: fileName,
     thumbnailUrl,
+    fullPreviewUrl,
     sourceUrl,
     posterUrl: thumbnailUrl !== sourceUrl ? thumbnailUrl : '',
     type,

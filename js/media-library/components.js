@@ -397,9 +397,11 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
     </div>`;
   }
   if (item.type === 'photo' && item.browserPreviewSupported === false) {
-    // HEIC/HEIF: prefer separate thumbnail (JPEG) when available
-    const fallbackUrl = item.thumbnailUrl && item.thumbnailUrl !== item.sourceUrl
-      ? item.thumbnailUrl
+    // HEIC/HEIF: prefer the full preview route in the modal, keep tiles on the lighter thumbnail
+    const fallbackUrl = withControls && item.fullPreviewUrl
+      ? item.fullPreviewUrl
+      : item.thumbnailUrl && item.thumbnailUrl !== item.sourceUrl
+        ? item.thumbnailUrl
       : (item.posterUrl || '');
     const imgSrc = escapeHtml(fallbackUrl || (item.sourceUrl || ''));
     if (imgSrc) {

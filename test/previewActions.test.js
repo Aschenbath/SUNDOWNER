@@ -1940,7 +1940,7 @@ describe('media library download actions', () => {
     assert.match(previewHtml, /New video album/);
   });
 
-  it('renders HEIC originals with a stable inline-preview fallback instead of a broken image tag', () => {
+  it('renders HEIC originals with a full-preview route instead of only the small tile thumbnail', () => {
     const html = PreviewModal({
       item: {
         id: 'managed-6',
@@ -1949,6 +1949,7 @@ describe('media library download actions', () => {
         sourceId: 'telegram-import/Telegram_env/IMG_2038.HEIC',
         sourceUrl: '/file/telegram-import/Telegram_env/IMG_2038.HEIC',
         thumbnailUrl: '/file/telegram-import/Telegram_env/IMG_2038.HEIC?preview=1',
+        fullPreviewUrl: '/file/telegram-import/Telegram_env/IMG_2038.HEIC?preview=embedded',
         width: 3024,
         height: 4032,
         displayTakenAt: 'April 8, 2026 21:10',
@@ -1972,6 +1973,8 @@ describe('media library download actions', () => {
     });
 
     assert.match(html, /<img class="cml-preview__media"/);
+    assert.match(html, /src="\/file\/telegram-import\/Telegram_env\/IMG_2038\.HEIC\?preview=embedded"/);
+    assert.doesNotMatch(html, /src="\/file\/telegram-import\/Telegram_env\/IMG_2038\.HEIC\?preview=1"/);
     assert.match(html, /HEIC original/);
     assert.match(html, /onerror=/);
     assert.match(html, /23\.1291掳N, 113\.2644掳E/);
@@ -1998,6 +2001,7 @@ describe('media library download actions', () => {
 
     assert.match(html, /data-action="open-preview"/);
     assert.match(html, /IMG_2038\.HEIC\?preview=1/);
+    assert.doesNotMatch(html, /preview=embedded/);
     assert.match(html, /<img class="cml-media-tile__image"/);
   });
 
