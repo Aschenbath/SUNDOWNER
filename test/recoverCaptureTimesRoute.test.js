@@ -124,8 +124,111 @@ function buildExifJpegBuffer(dateTime = '2025:03:14 08:09:10') {
   return toArrayBuffer(bytes);
 }
 
+function buildCameraExifJpegBuffer() {
+  const encoder = new TextEncoder();
+  const tiffBytes = new Uint8Array(4096);
+  const view = new DataView(tiffBytes.buffer);
+  let dataOffset = 0;
+
+  const make = asciiEntry(0x010F, 'Apple');
+  const model = asciiEntry(0x0110, 'iPhone 15 Pro Max');
+  const pointer = longEntry(0x8769, 0);
+  const ifd0Entries = [make, model, pointer];
+  const ifd0Offset = 8;
+  const ifd0Size = 2 + ifd0Entries.length * 12 + 4;
+  const exifEntries = [
+    asciiEntry(0x9003, '2025:03:14 08:09:10'),
+    asciiEntry(0xA434, 'iPhone 15 Pro Max back triple camera 6.765mm f/1.78'),
+    rationalEntry(0x829D, 178, 100),
+    rationalEntry(0x829A, 1, 121),
+    shortEntry(0x8827, 64),
+    rationalEntry(0x920A, 6764, 1000),
+  ];
+  const exifIfdOffset = ifd0Offset + ifd0Size;
+  pointer.value = exifIfdOffset;
+  const exifIfdSize = 2 + exifEntries.length * 12 + 4;
+  dataOffset = exifIfdOffset + exifIfdSize;
+
+  tiffBytes.set([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00], 0);
+  writeIfd(view, tiffBytes, ifd0Offset, ifd0Entries);
+  writeIfd(view, tiffBytes, exifIfdOffset, exifEntries);
+
+  const tiff = tiffBytes.slice(0, dataOffset);
+  const segmentLength = 2 + 6 + tiff.length;
+  const bytes = new Uint8Array(2 + 2 + 2 + 6 + tiff.length + 2);
+  let offset = 0;
+  bytes[offset++] = 0xFF;
+  bytes[offset++] = 0xD8;
+  bytes[offset++] = 0xFF;
+  bytes[offset++] = 0xE1;
+  bytes[offset++] = (segmentLength >> 8) & 0xFF;
+  bytes[offset++] = segmentLength & 0xFF;
+  bytes.set([0x45, 0x78, 0x69, 0x66, 0x00, 0x00], offset);
+  offset += 6;
+  bytes.set(tiff, offset);
+  bytes[bytes.length - 2] = 0xFF;
+  bytes[bytes.length - 1] = 0xD9;
+  return toArrayBuffer(bytes);
+
+  function asciiEntry(tag, value) {
+    return { tag, type: 2, count: encoder.encode(`${value}\0`).length, bytes: encoder.encode(`${value}\0`) };
+  }
+
+  function shortEntry(tag, value) {
+    return { tag, type: 3, count: 1, value };
+  }
+
+  function longEntry(tag, value) {
+    return { tag, type: 4, count: 1, value };
+  }
+
+  function rationalEntry(tag, numerator, denominator) {
+    const bytes = new Uint8Array(8);
+    const rationalView = new DataView(bytes.buffer);
+    rationalView.setUint32(0, numerator, true);
+    rationalView.setUint32(4, denominator, true);
+    return { tag, type: 5, count: 1, bytes };
+  }
+
+  function writeIfd(targetView, targetBytes, offset, entries) {
+    targetView.setUint16(offset, entries.length, true);
+    let entryOffset = offset + 2;
+    for (const entry of entries) {
+      targetView.setUint16(entryOffset, entry.tag, true);
+      targetView.setUint16(entryOffset + 2, entry.type, true);
+      targetView.setUint32(entryOffset + 4, entry.count, true);
+
+      const valueBytes = entry.bytes || encodeInlineEntry(entry);
+      targetBytes.fill(0, entryOffset + 8, entryOffset + 12);
+      if (valueBytes.length <= 4) {
+        targetBytes.set(valueBytes, entryOffset + 8);
+      } else {
+        targetView.setUint32(entryOffset + 8, dataOffset, true);
+        targetBytes.set(valueBytes, dataOffset);
+        dataOffset += valueBytes.length;
+      }
+      entryOffset += 12;
+    }
+    targetView.setUint32(entryOffset, 0, true);
+  }
+
+  function encodeInlineEntry(entry) {
+    if (entry.type === 3) {
+      const bytes = new Uint8Array(2);
+      new DataView(bytes.buffer).setUint16(0, entry.value, true);
+      return bytes;
+    }
+    if (entry.type === 4) {
+      const bytes = new Uint8Array(4);
+      new DataView(bytes.buffer).setUint32(0, entry.value, true);
+      return bytes;
+    }
+    return new Uint8Array(0);
+  }
+}
+
 describe('recover capture times route', () => {
-  it('dry-run scans only images that still lack a recoverable capture time', async () => {
+  it('dry-run scans images missing capture time or structured camera EXIF', async () => {
     const env = {
       img_url: new MemoryKV({
         'manage@index@meta': JSON.stringify({ chunkCount: 1 }),
@@ -175,9 +278,116 @@ describe('recover capture times route', () => {
     assert.equal(response.status, 200);
     const payload = await response.json();
     assert.equal(payload.success, true);
+    assert.equal(payload.total, 2);
+    assert.equal(payload.processed, 2);
+    assert.deepEqual(payload.skipped.map((entry) => entry.id), [
+      'photos/no-exif.jpg',
+      'photos/legacy-exif.jpg',
+    ]);
+  });
+
+  it('includes date-only EXIF images so camera metadata can be backfilled', async () => {
+    const env = {
+      img_url: new MemoryKV({
+        'manage@index@meta': JSON.stringify({ chunkCount: 1 }),
+        'manage@index_0': createIndexChunk([
+          {
+            id: 'photos/date-only-exif.jpg',
+            metadata: {
+              Channel: 'CloudflareR2',
+              FileName: 'date-only-exif.jpg',
+              FileType: 'image/jpeg',
+              Exif: {
+                dateTime: '2025-03-14T08:09:10.000Z',
+              },
+              TimeStamp: 1775628424666,
+            },
+          },
+          {
+            id: 'photos/full-exif.jpg',
+            metadata: {
+              Channel: 'CloudflareR2',
+              FileName: 'full-exif.jpg',
+              FileType: 'image/jpeg',
+              Exif: {
+                dateTime: '2025-03-14T08:09:10.000Z',
+                camera: { make: 'Apple', model: 'iPhone 15 Pro Max' },
+              },
+              TimeStamp: 1775628424777,
+            },
+          },
+        ]),
+      }),
+    };
+
+    const response = await onRequest({
+      env,
+      request: new Request('https://example.com/api/manage/migrate/recover-capture-times', {
+        method: 'POST',
+        body: JSON.stringify({ dryRun: true, limit: 10 }),
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.success, true);
     assert.equal(payload.total, 1);
-    assert.equal(payload.processed, 1);
-    assert.equal(payload.skipped[0].id, 'photos/no-exif.jpg');
+    assert.equal(payload.skipped[0].id, 'photos/date-only-exif.jpg');
+  });
+
+  it('backfills camera EXIF for images that already have capture time metadata', async () => {
+    const env = {
+      img_d1: new SqliteD1(':memory:'),
+      img_r2: {
+        async get(key) {
+          assert.equal(key, 'photos/date-only-exif.jpg');
+          return {
+            async arrayBuffer() {
+              return buildCameraExifJpegBuffer();
+            },
+          };
+        },
+      },
+    };
+    const db = new D1Database(env.img_d1);
+    await db.put('photos/date-only-exif.jpg', '', {
+      metadata: {
+        Channel: 'CloudflareR2',
+        FileName: 'date-only-exif.jpg',
+        FileType: 'image/jpeg',
+        Exif: {
+          dateTime: '2025-03-14T08:09:10.000Z',
+        },
+        TimeStamp: 1775628424666,
+      },
+    });
+
+    const response = await onRequest({
+      env,
+      request: new Request('https://example.com/api/manage/migrate/recover-capture-times', {
+        method: 'POST',
+        body: JSON.stringify({ keys: ['photos/date-only-exif.jpg'] }),
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.success, true);
+    assert.equal(payload.recovered, 1);
+
+    const updated = await db.getWithMetadata('photos/date-only-exif.jpg');
+    assert.deepEqual(updated.metadata.Exif.camera, {
+      make: 'Apple',
+      model: 'iPhone 15 Pro Max',
+      lens: 'iPhone 15 Pro Max back triple camera 6.765mm f/1.78',
+    });
+    assert.deepEqual(updated.metadata.Exif.shooting, {
+      fNumber: 1.78,
+      exposureTime: '1/121',
+      iso: 64,
+      focalLength: 6.764,
+    });
+    assert.equal(updated.metadata.Exif.dateTime, '2025-03-14T08:09:10.000Z');
   });
 
   it('backfills Exif.dateTime for D1 image records when EXIF can be extracted from source bytes', async () => {

@@ -75,7 +75,39 @@ function isImageCandidate(file) {
         return false;
     }
 
-    return !Number.isFinite(resolveMediaCaptureTimestamp(metadata, metadata.FileName || fileId));
+    return needsCaptureMetadataRecovery(metadata, metadata.FileName || fileId);
+}
+
+function hasStructuredCameraExif(metadata = {}) {
+    const exif = metadata?.Exif && typeof metadata.Exif === 'object' ? metadata.Exif : null;
+    if (!exif) {
+        return false;
+    }
+
+    const camera = exif.camera && typeof exif.camera === 'object' ? exif.camera : null;
+    const shooting = exif.shooting && typeof exif.shooting === 'object' ? exif.shooting : null;
+    return Boolean(
+        camera?.make
+        || camera?.model
+        || camera?.lens
+        || shooting?.fNumber != null
+        || shooting?.exposureTime
+        || shooting?.iso != null
+        || shooting?.focalLength != null,
+    );
+}
+
+function hasCaptureTimestamp(metadata = {}, reference = '') {
+    return Number.isFinite(resolveMediaCaptureTimestamp(metadata, reference));
+}
+
+function needsCaptureMetadataRecovery(metadata = {}, reference = '') {
+    if (!hasCaptureTimestamp(metadata, reference)) {
+        return true;
+    }
+
+    const exif = metadata?.Exif && typeof metadata.Exif === 'object' ? metadata.Exif : null;
+    return Boolean(exif && !hasStructuredCameraExif(metadata));
 }
 
 function resolveImageFileType(metadata = {}, fileId = '') {
@@ -120,6 +152,40 @@ function matchesFilters(file, filters = {}) {
     }
 
     return true;
+}
+
+function mergeExtractedExifMetadata(metadata = {}, exifData = null, reference = '') {
+    if (!exifData || typeof exifData !== 'object') {
+        return null;
+    }
+
+    const currentExif = metadata.Exif && typeof metadata.Exif === 'object' ? metadata.Exif : {};
+    const nextExif = {
+        ...currentExif,
+        ...exifData,
+    };
+    const patchedMetadata = {
+        ...metadata,
+        Exif: nextExif,
+    };
+
+    const currentHasCaptureTime = hasCaptureTimestamp(metadata, reference);
+    const patchedHasCaptureTime = hasCaptureTimestamp(patchedMetadata, reference);
+    if (!currentHasCaptureTime && patchedHasCaptureTime) {
+        return patchedMetadata;
+    }
+
+    if (!needsCaptureMetadataRecovery(patchedMetadata, reference)) {
+        return patchedMetadata;
+    }
+
+    const gainedStructuredExif = !hasStructuredCameraExif(metadata) && hasStructuredCameraExif(patchedMetadata);
+    const hasCaptureTime = hasCaptureTimestamp(patchedMetadata, reference);
+    if (gainedStructuredExif && hasCaptureTime) {
+        return patchedMetadata;
+    }
+
+    return null;
 }
 
 async function scanIndexCandidates(db, filters = {}) {
@@ -434,12 +500,16 @@ export async function onRequestPost(context) {
             const record = await db.getWithMetadata(candidate.id);
             const currentMetadata = record?.metadata || candidate.metadata || {};
             const legacyMetadata = legacyIndexMetadataMap.get(candidate.id) || {};
+            const reference = currentMetadata.FileName || candidate.id;
+            const currentHasCaptureTime = hasCaptureTimestamp(currentMetadata, reference);
             const legacyPatchedMetadata = mergeCaptureMetadata(
                 currentMetadata,
                 legacyMetadata,
-                currentMetadata.FileName || candidate.id,
+                reference,
             );
-            if (Number.isFinite(resolveMediaCaptureTimestamp(legacyPatchedMetadata, legacyPatchedMetadata.FileName || candidate.id))) {
+            const legacyHasCaptureTime = hasCaptureTimestamp(legacyPatchedMetadata, legacyPatchedMetadata.FileName || candidate.id);
+            const gainedCaptureFromLegacy = !currentHasCaptureTime && legacyHasCaptureTime;
+            if (!needsCaptureMetadataRecovery(legacyPatchedMetadata, legacyPatchedMetadata.FileName || candidate.id)) {
                 await db.put(candidate.id, record?.value ?? '', { metadata: legacyPatchedMetadata });
                 await addFileToIndex(context, candidate.id, legacyPatchedMetadata);
                 results.recovered += 1;
@@ -449,6 +519,12 @@ export async function onRequestPost(context) {
             const fileType = resolveImageFileType(candidate.metadata || {}, candidate.id);
             const headerBuffer = await fetchSourceHeaderBuffer(env, candidate);
             if (!headerBuffer?.byteLength) {
+                if (gainedCaptureFromLegacy) {
+                    await db.put(candidate.id, record?.value ?? '', { metadata: legacyPatchedMetadata });
+                    await addFileToIndex(context, candidate.id, legacyPatchedMetadata);
+                    results.recovered += 1;
+                    continue;
+                }
                 results.skipped.push({ id: candidate.id, reason: 'source header unavailable for this channel or file' });
                 continue;
             }
@@ -457,18 +533,22 @@ export async function onRequestPost(context) {
                 headerBuffer.byteOffset,
                 headerBuffer.byteOffset + headerBuffer.byteLength
             ), fileType);
-            if (!exifData?.dateTime) {
-                results.skipped.push({ id: candidate.id, reason: 'no EXIF capture time found in source image' });
+
+            const patchedMetadata = mergeExtractedExifMetadata(
+                legacyPatchedMetadata,
+                exifData,
+                legacyPatchedMetadata.FileName || candidate.id,
+            );
+            if (!patchedMetadata) {
+                if (gainedCaptureFromLegacy) {
+                    await db.put(candidate.id, record?.value ?? '', { metadata: legacyPatchedMetadata });
+                    await addFileToIndex(context, candidate.id, legacyPatchedMetadata);
+                    results.recovered += 1;
+                    continue;
+                }
+                results.skipped.push({ id: candidate.id, reason: 'no recoverable EXIF metadata found in source image' });
                 continue;
             }
-
-            const patchedMetadata = {
-                ...legacyPatchedMetadata,
-                Exif: {
-                    ...(legacyPatchedMetadata.Exif && typeof legacyPatchedMetadata.Exif === 'object' ? legacyPatchedMetadata.Exif : {}),
-                    ...exifData,
-                },
-            };
 
             await db.put(candidate.id, record?.value ?? '', { metadata: patchedMetadata });
             await addFileToIndex(context, candidate.id, patchedMetadata);
