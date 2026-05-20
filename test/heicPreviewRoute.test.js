@@ -114,6 +114,73 @@ describe('/file HEIC preview responses', () => {
     assert.equal((await response.arrayBuffer()).byteLength, 4);
   });
 
+  it('serves an extracted JPEG for HEIC thumbnail preview reads without stored thumbnails', async () => {
+    const previewBytes = new Uint8Array([0xFF, 0xD8, 0xFE, 0xD9]);
+    __setEmbeddedThumbnailExtractorForTests(async () => previewBytes);
+
+    const records = new Map([
+      ['telegram-import/Telegram_env/IMG_2038.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_2038.HEIC',
+          FileType: 'image/heic',
+          Channel: 'TelegramNew',
+          ChannelName: 'Telegram_env',
+          TgFileId: 'original-file-id',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      TG_BOT_TOKEN: 'env-token',
+      TG_CHAT_ID: '-100123',
+    };
+    const fetchCalls = [];
+
+    await withFetchStub(async (url) => {
+      const normalized = String(url);
+      fetchCalls.push(normalized);
+      if (normalized.includes('/getFile?')) {
+        const fileId = new URL(normalized).searchParams.get('file_id');
+        return new Response(JSON.stringify({
+          ok: true,
+          result: {
+            file_path: `documents/${fileId}.heic`,
+          },
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (normalized.includes('/file/botenv-token/documents/original-file-id.heic')) {
+        return new Response(new Uint8Array([0x00, 0x01, 0x02]), { status: 200 });
+      }
+      throw new Error(`Unexpected fetch: ${normalized}`);
+    }, async () => {
+      const response = await onRequest({
+        request: new Request('https://example.com/file/telegram-import/Telegram_env/IMG_2038.HEIC?preview=1', {
+          headers: {
+            Referer: 'https://example.com/dashboard',
+          },
+        }),
+        env,
+        params: { path: 'telegram-import/Telegram_env/IMG_2038.HEIC' },
+        waitUntil() {},
+        next() {},
+        data: {},
+      });
+
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('Content-Type'), 'image/jpeg');
+      assert.deepEqual(Array.from(new Uint8Array(await response.arrayBuffer())), Array.from(previewBytes));
+    });
+
+    assert.ok(fetchCalls.some((call) => call.includes('file_id=original-file-id')));
+  });
+
   it('prefers an embedded preview from the Telegram original for full preview reads', async () => {
     const previewBytes = new Uint8Array([0xFF, 0xD8, 0xFE, 0xD9]);
     __setEmbeddedThumbnailExtractorForTests(async () => previewBytes);

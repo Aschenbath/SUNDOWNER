@@ -15,7 +15,7 @@ import {
     resolveS3Access,
     resolveTelegramAccess,
 } from '../utils/mediaSecurity.js';
-import { resolveStoredTelegramReadTarget } from '../utils/telegramFileId.js';
+import { resolveStoredTelegramReadTarget, resolveStoredTelegramThumbnail } from '../utils/telegramFileId.js';
 import { resolveMimeType } from '../utils/mimeTypes.js';
 
 let createS3Client = (options) => new S3Client(options);
@@ -140,6 +140,24 @@ async function fetchBinaryBufferFromUrl(targetUrl) {
     return new Uint8Array(await response.arrayBuffer());
 }
 
+function shouldAttemptEmbeddedPreview(context, metadata = {}, fileType = '') {
+    if (!supportsEmbeddedPreviewExtraction(fileType)) {
+        return false;
+    }
+    if (context.wantsEmbeddedPreview) {
+        return true;
+    }
+    if (!context.wantsPreview) {
+        return false;
+    }
+
+    if (metadata?.Channel === 'Telegram' || metadata?.Channel === 'TelegramNew') {
+        return !resolveStoredTelegramThumbnail(metadata)?.fileId;
+    }
+
+    return metadata?.Channel === 'CloudflareR2';
+}
+
 async function resolveTelegramSourceUrl(env, metadata = {}, fileId = '', options = {}) {
     const telegramReadTarget = resolveStoredTelegramReadTarget(fileId, metadata, options);
     let telegramFileId = telegramReadTarget.fileId;
@@ -176,11 +194,11 @@ async function resolveTelegramSourceUrl(env, metadata = {}, fileId = '', options
 }
 
 async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fileType) {
-    if (!context.wantsEmbeddedPreview || !supportsEmbeddedPreviewExtraction(fileType)) {
+    const metadata = imgRecord?.metadata || {};
+    if (!shouldAttemptEmbeddedPreview(context, metadata, fileType)) {
         return null;
     }
 
-    const metadata = imgRecord?.metadata || {};
     let sourceBuffer = null;
 
     try {

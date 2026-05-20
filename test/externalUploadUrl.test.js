@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import { normalizeExternalUploadUrl, processFileUpload } from '../functions/upload/index.js';
+import {
+  __resetEmbeddedThumbnailExtractorForTests,
+  __setEmbeddedThumbnailExtractorForTests,
+} from '../functions/upload/exifExtractor.js';
 
 class MemoryKV {
   constructor() {
@@ -61,6 +65,10 @@ class MemoryR2 {
 }
 
 describe('external upload URL normalization', () => {
+  afterEach(() => {
+    __resetEmbeddedThumbnailExtractorForTests();
+  });
+
   it('normalizes valid HTTP(S) URLs before they are stored as metadata', () => {
     assert.equal(
       normalizeExternalUploadUrl('  https://cdn.example.com/photo.jpg?x=1  '),
@@ -172,4 +180,119 @@ describe('external upload URL normalization', () => {
     assert.match(source, /fileType === 'image\/heif'/);
     assert.match(source, /sendFunction = \{ 'url': 'sendDocument', 'type': 'document' \}/);
   });
+
+  it('creates a stored preview thumbnail for ordinary Telegram HEIC uploads when Telegram omits one', async () => {
+    const originalFetch = globalThis.fetch;
+    const telegramCalls = [];
+    __setEmbeddedThumbnailExtractorForTests(async () => new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9]));
+
+    globalThis.fetch = async (url) => {
+      const requestUrl = String(url);
+      telegramCalls.push(requestUrl);
+
+      if (requestUrl.includes('/sendDocument')) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              ok: true,
+              result: {
+                document: {
+                  file_id: 'original-heic-file-id',
+                  file_unique_id: 'original-heic-unique-id',
+                  file_name: 'IMG_2038.HEIC',
+                  file_size: 1024 * 1024,
+                  mime_type: 'image/heic',
+                },
+              },
+            };
+          },
+        };
+      }
+
+      if (requestUrl.includes('/sendPhoto')) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              ok: true,
+              result: {
+                photo: [
+                  {
+                    file_id: 'embedded-preview-file-id',
+                    file_unique_id: 'embedded-preview-unique-id',
+                    file_size: 4,
+                  },
+                ],
+              },
+            };
+          },
+        };
+      }
+
+      if (requestUrl.includes('/getFile')) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              ok: true,
+              result: {
+                file_path: 'documents/IMG_2038.HEIC',
+              },
+            };
+          },
+        };
+      }
+
+      return {
+        ok: false,
+        async json() {
+          return {};
+        },
+      };
+    };
+
+    try {
+      const formdata = new FormData();
+      formdata.set('file', new File([new Uint8Array([0x00, 0x01, 0x02])], 'IMG_2038.HEIC', { type: '' }));
+
+      const env = {
+        dev_mode: 'true',
+        img_url: new MemoryKV(),
+      };
+      const waitUntilPromises = [];
+      const requestUrl = new URL('https://sundowner.example/upload?uploadChannel=telegram&uploadFolder=photos&uploadNameType=origin');
+      const response = await processFileUpload({
+        env,
+        request: new Request(requestUrl, { method: 'POST' }),
+        url: requestUrl,
+        uploadConfig: {
+          telegram: {
+            loadBalance: { enabled: false },
+            channels: [{ name: 'Telegram_env', botToken: '123:test-token', chatId: 'chat-id', proxyUrl: '' }],
+          },
+        },
+        waitUntil(promise) {
+          waitUntilPromises.push(Promise.resolve(promise));
+        },
+      }, formdata);
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), [{ src: '/file/photos/IMG_2038.HEIC' }]);
+
+      const stored = await env.img_url.getWithMetadata('photos/IMG_2038.HEIC');
+      assert.equal(stored.metadata.Channel, 'TelegramNew');
+      assert.equal(stored.metadata.FileType, 'image/heic');
+      assert.equal(stored.metadata.TgFileId, 'original-heic-file-id');
+      assert.equal(stored.metadata.TgThumbnailFileId, 'embedded-preview-file-id');
+      assert.equal(stored.metadata.TgThumbnailFileType, 'image/jpeg');
+      assert.ok(telegramCalls.some((call) => call.includes('/sendDocument')));
+      assert.ok(telegramCalls.some((call) => call.includes('/sendPhoto')));
+
+      await Promise.all(waitUntilPromises);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
 });

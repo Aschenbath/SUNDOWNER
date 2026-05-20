@@ -12,7 +12,7 @@ import { DiscordAPI, resolveDiscordFileUrl } from "../utils/discordAPI.js";
 import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getDatabase } from '../utils/databaseAdapter.js';
-import { extractExifData } from './exifExtractor.js';
+import { extractEmbeddedPreview, extractExifData, supportsEmbeddedPreviewExtraction } from './exifExtractor.js';
 import { resolveMimeType } from '../utils/mimeTypes.js';
 
 const corsHeaders = {
@@ -64,6 +64,36 @@ function inferExternalFileName(rawUrl) {
         return decodeURIComponent(segment) || 'external-link.url';
     } catch {
         return segment || 'external-link.url';
+    }
+}
+
+async function attachEmbeddedTelegramPreviewThumbnail(file, fileType, telegramAPI, tgChatId, metadata) {
+    if (!supportsEmbeddedPreviewExtraction(fileType) || !file || typeof file.arrayBuffer !== 'function') {
+        return;
+    }
+
+    try {
+        const previewBuffer = new Uint8Array(await file.slice(0, Math.min(file.size || 0, 1024 * 1024)).arrayBuffer());
+        const preview = await extractEmbeddedPreview(previewBuffer, fileType);
+        if (!preview?.bytes?.byteLength) {
+            return;
+        }
+
+        const previewFile = new File([preview.bytes], 'preview.jpg', { type: preview.mimeType || 'image/jpeg' });
+        const previewResponse = await telegramAPI.sendFile(previewFile, tgChatId, 'sendPhoto', 'photo');
+        const previewInfo = telegramAPI.getFileInfo(previewResponse);
+        if (previewInfo?.file_id) {
+            metadata.TgThumbnailFileId = previewInfo.file_id;
+            metadata.TgThumbnailFileType = preview.mimeType || 'image/jpeg';
+            if (previewInfo.file_unique_id) {
+                metadata.TgThumbnailFileUniqueId = previewInfo.file_unique_id;
+            }
+            if (Number.isFinite(Number(previewInfo.file_size)) && Number(previewInfo.file_size) > 0) {
+                metadata.TgThumbnailFileSize = Number(previewInfo.file_size);
+            }
+        }
+    } catch (error) {
+        console.warn('Embedded Telegram preview extraction failed:', error.message || error);
     }
 }
 
@@ -619,6 +649,7 @@ async function uploadFileToTelegram(context, fullId, metadata, fileExt, fileName
         }
 
         // 更新metadata，写入KV数据库
+        await attachEmbeddedTelegramPreviewThumbnail(formdata.get('file'), fileType, telegramAPI, tgChatId, metadata);
         try {
             metadata.Channel = "TelegramNew";
             metadata.ChannelName = tgChannel.name;
