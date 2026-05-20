@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import { normalizeExternalUploadUrl, processFileUpload } from '../functions/upload/index.js';
 
@@ -42,6 +43,20 @@ class MemoryKV {
       cursor: null,
       list_complete: true,
     };
+  }
+}
+
+class MemoryR2 {
+  constructor() {
+    this.objects = new Map();
+  }
+
+  async put(key, value) {
+    this.objects.set(key, value);
+  }
+
+  async get(key) {
+    return this.objects.get(key) || null;
   }
 }
 
@@ -101,5 +116,60 @@ describe('external upload URL normalization', () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it('infers HEIC file uploads when browsers omit the MIME type', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: false,
+      async json() {
+        return {};
+      },
+    });
+
+    try {
+      const formdata = new FormData();
+      formdata.set('file', new File([new Uint8Array([0x00, 0x01, 0x02])], 'IMG_2038.HEIC', { type: '' }));
+
+      const env = {
+        dev_mode: 'true',
+        img_url: new MemoryKV(),
+        img_r2: new MemoryR2(),
+      };
+      const waitUntilPromises = [];
+      const requestUrl = new URL('https://sundowner.example/upload?uploadChannel=cfr2&uploadFolder=photos&uploadNameType=origin');
+      const response = await processFileUpload({
+        env,
+        request: new Request(requestUrl, { method: 'POST' }),
+        url: requestUrl,
+        uploadConfig: {
+          cfr2: {
+            channels: [{ name: 'R2_env', publicUrl: 'https://cdn.example.com' }],
+          },
+        },
+        waitUntil(promise) {
+          waitUntilPromises.push(Promise.resolve(promise));
+        },
+      }, formdata);
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), [{ src: '/file/photos/IMG_2038.HEIC' }]);
+
+      const stored = await env.img_url.getWithMetadata('photos/IMG_2038.HEIC');
+      assert.equal(stored.metadata.FileName, 'IMG_2038.HEIC');
+      assert.equal(stored.metadata.FileType, 'image/heic');
+
+      await Promise.all(waitUntilPromises);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('keeps HEIC uploads on Telegram document transport instead of photo transport', () => {
+    const source = fs.readFileSync(new URL('../functions/upload/index.js', import.meta.url), 'utf8');
+
+    assert.match(source, /fileType === 'image\/heic'/);
+    assert.match(source, /fileType === 'image\/heif'/);
+    assert.match(source, /sendFunction = \{ 'url': 'sendDocument', 'type': 'document' \}/);
   });
 });

@@ -13,6 +13,7 @@ import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getDatabase } from '../utils/databaseAdapter.js';
 import { extractExifData } from './exifExtractor.js';
+import { resolveMimeType } from '../utils/mimeTypes.js';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -50,27 +51,6 @@ export function normalizeExternalUploadUrl(rawUrl) {
     } catch {
         return null;
     }
-}
-
-const INFERRED_MIME_TYPES = new Map([
-    ['jpg', 'image/jpeg'],
-    ['jpeg', 'image/jpeg'],
-    ['png', 'image/png'],
-    ['gif', 'image/gif'],
-    ['webp', 'image/webp'],
-    ['svg', 'image/svg+xml'],
-    ['mp4', 'video/mp4'],
-    ['webm', 'video/webm'],
-    ['mov', 'video/quicktime'],
-    ['mp3', 'audio/mpeg'],
-    ['wav', 'audio/wav'],
-    ['flac', 'audio/flac'],
-    ['pdf', 'application/pdf'],
-]);
-
-function inferMimeTypeFromFileName(fileName = '') {
-    const ext = String(fileName || '').split('.').pop()?.toLowerCase();
-    return INFERRED_MIME_TYPES.get(ext) || 'application/octet-stream';
 }
 
 function inferExternalFileName(rawUrl) {
@@ -219,7 +199,7 @@ export async function processFileUpload(context, formdata = null) {
         return createResponse('Error: No file provided', { status: 400 });
     }
     let fileName = hasUploadFile ? file.name : inferExternalFileName(formdata.get('url'));
-    const fileType = hasUploadFile ? (file.type || 'application/octet-stream') : inferMimeTypeFromFileName(fileName);
+    const fileType = resolveMimeType(hasUploadFile ? file.type : '', [fileName]);
     const fileSizeBytes = hasUploadFile ? file.size : 0; // 文件大小，单位字节
     const fileSize = (fileSizeBytes / 1024 / 1024).toFixed(2); // 文件大小，单位MB
 
@@ -595,7 +575,7 @@ async function uploadFileToTelegram(context, fullId, metadata, fileExt, fileName
     // GIF ICO 等发送接口特殊处理
     if (fileType === 'image/gif' || fileType === 'image/webp' || fileExt === 'gif' || fileExt === 'webp') {
         sendFunction = { 'url': 'sendAnimation', 'type': 'animation' };
-    } else if (fileType === 'image/svg+xml' || fileType === 'image/x-icon') {
+    } else if (fileType === 'image/svg+xml' || fileType === 'image/x-icon' || fileType === 'image/heic' || fileType === 'image/heif') {
         sendFunction = { 'url': 'sendDocument', 'type': 'document' };
     }
 

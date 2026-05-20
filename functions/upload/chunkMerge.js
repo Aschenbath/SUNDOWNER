@@ -2,6 +2,7 @@
 import { createResponse, getUploadIp, getIPAddress, selectConsistentChannel, buildUniqueFileId, endUpload, sanitizeUploadFolder } from './uploadTools.js';
 import { retryFailedChunks, cleanupFailedMultipartUploads, checkChunkUploadStatuses, cleanupChunkData, cleanupUploadSession } from './chunkUpload.js';
 import { S3Client, CompleteMultipartUploadCommand } from "@aws-sdk/client-s3";
+import { resolveMimeType } from '../utils/mimeTypes.js';
 
 const RECOVERABLE_CHUNK_STATUSES = new Set(['uploading', 'retrying', 'timeout', 'uncertain']);
 
@@ -58,7 +59,7 @@ export async function handleChunkMerge(context) {
         uploadId = formdata.get('uploadId');
         totalChunks = parseInt(formdata.get('totalChunks'));
         originalFileName = formdata.get('originalFileName');
-        originalFileType = formdata.get('originalFileType');
+        originalFileType = resolveMimeType(formdata.get('originalFileType') || '', [originalFileName]);
 
         if (!uploadId || !totalChunks || !originalFileName) {
             return createResponse('Error: Missing merge parameters', { status: 400 });
@@ -122,6 +123,7 @@ export async function handleChunkMerge(context) {
 
 export async function startMerge(context, uploadId, totalChunks, originalFileName, originalFileType, uploadChannel, deps = {}) {
     const { env } = context;
+    const resolvedOriginalFileType = resolveMimeType(originalFileType || '', [originalFileName]);
     const {
         handleChannelMerge = handleChannelBasedMerge,
         cleanupMultipart = cleanupFailedMultipartUploads,
@@ -137,7 +139,7 @@ export async function startMerge(context, uploadId, totalChunks, originalFileNam
             progress: 0,
             totalChunks,
             originalFileName,
-            originalFileType,
+            originalFileType: resolvedOriginalFileType,
             uploadChannel,
             createdAt: Date.now(),
             message: 'Starting merge process...'
@@ -145,7 +147,7 @@ export async function startMerge(context, uploadId, totalChunks, originalFileNam
         console.log(`Merge status: ${JSON.stringify(mergeStatus)}`);
 
         // 同步执行合并
-        const result = await handleChannelMerge(context, uploadId, totalChunks, originalFileName, originalFileType, uploadChannel);
+        const result = await handleChannelMerge(context, uploadId, totalChunks, originalFileName, resolvedOriginalFileType, uploadChannel);
 
         if (result.success) {
             // 清理临时分块数据

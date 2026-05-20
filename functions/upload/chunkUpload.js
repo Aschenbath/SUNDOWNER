@@ -5,6 +5,7 @@ import { DiscordAPI } from '../utils/discordAPI.js';
 import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, AbortMultipartUploadCommand } from "@aws-sdk/client-s3";
 import { getDatabase, checkDatabaseConfig } from '../utils/databaseAdapter.js';
 import { extractEmbeddedPreview, supportsEmbeddedPreviewExtraction } from './exifExtractor.js';
+import { resolveMimeType } from '../utils/mimeTypes.js';
 
 // 初始化分块上传
 export async function initializeChunkedUpload(context) {
@@ -16,7 +17,7 @@ export async function initializeChunkedUpload(context) {
         const formdata = await request.formData();
 
         const originalFileName = formdata.get('originalFileName');
-        const originalFileType = formdata.get('originalFileType');
+        const originalFileType = resolveMimeType(formdata.get('originalFileType') || '', [originalFileName]);
         const totalChunks = parseInt(formdata.get('totalChunks'));
 
         if (!originalFileName || !originalFileType || !totalChunks) {
@@ -94,7 +95,7 @@ export async function handleChunkUpload(context) {
         const totalChunks = parseInt(formdata.get('totalChunks'));
         const uploadId = formdata.get('uploadId');
         const originalFileName = formdata.get('originalFileName');
-        const originalFileType = formdata.get('originalFileType');
+        const originalFileType = resolveMimeType(formdata.get('originalFileType') || '', [originalFileName]);
 
         if (!chunk || chunkIndex === null || !totalChunks || !uploadId || !originalFileName || !originalFileType) {
             return createResponse('Error: Missing chunk upload parameters', { status: 400 });
@@ -849,7 +850,7 @@ async function retrySingleChunk(context, chunk, uploadChannel, maxRetries = 5, r
 
         const chunkData = chunkRecord.value;
         const originalFileName = chunkRecord.metadata?.originalFileName || 'unknown';
-        const originalFileType = chunkRecord.metadata?.originalFileType || 'application/octet-stream';
+        const originalFileType = resolveMimeType(chunkRecord.metadata?.originalFileType || '', [originalFileName]);
         const uploadId = chunkRecord.metadata?.uploadId;
         const totalChunks = chunkRecord.metadata?.totalChunks || 1;
 

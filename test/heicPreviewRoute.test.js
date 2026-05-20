@@ -223,4 +223,48 @@ describe('/file HEIC preview responses', () => {
     assert.equal(response.status, 404);
     assert.equal(await response.text(), 'Error: Image Not Found');
   });
+
+  it('serves an embedded HEIC preview even when stored metadata only has octet-stream', async () => {
+    const previewBytes = new Uint8Array([0xFF, 0xD8, 0xFE, 0xD9]);
+    __setEmbeddedThumbnailExtractorForTests(async () => previewBytes);
+
+    const records = new Map([
+      ['photos/IMG_2038.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_2038.HEIC',
+          FileType: 'application/octet-stream',
+          Channel: 'CloudflareR2',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      img_r2: {
+        async get() {
+          return new MockR2Object(new Uint8Array([0x00, 0x01, 0x02]));
+        },
+      },
+    };
+
+    const response = await onRequest({
+      request: new Request('https://example.com/file/photos/IMG_2038.HEIC?preview=embedded', {
+        headers: {
+          Referer: 'https://example.com/dashboard',
+        },
+      }),
+      env,
+      params: { path: 'photos/IMG_2038.HEIC' },
+      waitUntil() {},
+      next() {},
+      data: {},
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('Content-Type'), 'image/jpeg');
+    assert.deepEqual(Array.from(new Uint8Array(await response.arrayBuffer())), Array.from(previewBytes));
+  });
 });

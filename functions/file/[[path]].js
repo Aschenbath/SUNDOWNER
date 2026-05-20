@@ -16,6 +16,7 @@ import {
     resolveTelegramAccess,
 } from '../utils/mediaSecurity.js';
 import { resolveStoredTelegramReadTarget } from '../utils/telegramFileId.js';
+import { resolveMimeType } from '../utils/mimeTypes.js';
 
 let createS3Client = (options) => new S3Client(options);
 
@@ -276,7 +277,7 @@ export async function onRequest(context) {  // Contents of context object
 
     const fileName = imgRecord.metadata?.FileName || fileId;
     const encodedFileName = encodeURIComponent(fileName);
-    const fileType = imgRecord.metadata?.FileType || null;
+    const fileType = resolveMimeType(imgRecord.metadata?.FileType || '', [fileName, fileId], imgRecord.metadata?.FileType || null);
 
     // 检查文件可访问状态
     let accessRes = await returnWithCheck(context, imgRecord);

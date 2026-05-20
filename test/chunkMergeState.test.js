@@ -86,4 +86,31 @@ describe('chunk merge state handling', () => {
     assert.deepEqual(await response.json(), [{ src: '/file/final.mp4' }]);
     assert.deepEqual(calls, ['cleanupChunks', 'cleanupSession']);
   });
+
+  it('infers HEIC mime type before handing chunked uploads to the final merge path', async () => {
+    let receivedFileType = '';
+    const response = await startMerge(
+      { env: {} },
+      'upload-1',
+      2,
+      'IMG_2038.HEIC',
+      'application/octet-stream',
+      'telegram',
+      {
+        handleChannelMerge: async (_context, _uploadId, _totalChunks, _originalFileName, originalFileType) => {
+          receivedFileType = originalFileType;
+          return {
+            success: true,
+            result: [{ src: '/file/IMG_2038.HEIC' }],
+          };
+        },
+        cleanupMultipart: async () => {},
+        cleanupChunks: async () => {},
+        cleanupSession: async () => {},
+      }
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(receivedFileType, 'image/heic');
+  });
 });

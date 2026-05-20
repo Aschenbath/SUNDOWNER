@@ -134,7 +134,7 @@ export function sanitizeUploadFolder(folder) {
 
 // 检查文件扩展名是否有效
 const VALID_EXTENSIONS = new Set([
-    'jpeg', 'jpg', 'png', 'gif', 'webp', 'ico', 'svg', 'eps', 'psd', 'ai', 'sketch', 'fig',
+    'jpeg', 'jpg', 'png', 'gif', 'webp', 'heic', 'heif', 'avif', 'ico', 'svg', 'eps', 'psd', 'ai', 'sketch', 'fig',
     'mp4', 'mp3', 'ogg', 'wav', 'flac', 'aac', 'opus',
     'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'pdf',
     'txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'ts', 'go', 'java', 'php', 'py', 'rb', 'sh', 'bat', 'cmd', 'ps1', 'psm1',
@@ -155,7 +155,7 @@ export function isExtValid(fileExt) {
  * @returns {string} 文件扩展名
  */
 export function resolveFileExt(fileName, fileType = 'application/octet-stream') {
-    let fileExt = fileName.split('.').pop();
+    let fileExt = String(fileName || '').split('.').pop()?.toLowerCase();
     if (fileExt && fileExt !== fileName && isExtValid(fileExt)) {
         return fileExt;
     }
