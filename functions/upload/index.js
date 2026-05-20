@@ -590,7 +590,7 @@ async function uploadFileToTelegram(context, fullId, metadata, fileExt, fileName
 
     // 选择对应的发送接口
     const fileTypeMap = {
-        'image/': { 'url': 'sendPhoto', 'type': 'photo' },
+        'image/': { 'url': 'sendDocument', 'type': 'document' },
         'video/': { 'url': 'sendVideo', 'type': 'video' },
         'audio/': { 'url': 'sendAudio', 'type': 'audio' },
         'application/pdf': { 'url': 'sendDocument', 'type': 'document' },

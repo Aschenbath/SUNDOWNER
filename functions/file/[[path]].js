@@ -257,6 +257,54 @@ async function tryFallbackTelegramPreview(context, imgRecord, fileId, fileName, 
     return await tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fileType, { force: true });
 }
 
+function shouldFallbackToTelegramOriginal(context, telegramReadTarget, fileType) {
+    const normalizedFileType = String(fileType || '').trim().toLowerCase();
+    return context.wantsPreview
+        && telegramReadTarget?.isPreview === true
+        && normalizedFileType.startsWith('image/')
+        && !supportsEmbeddedPreviewExtraction(normalizedFileType);
+}
+
+async function tryFallbackTelegramOriginal(context, imgRecord, fileId, fileName, fileType, telegramReadTarget) {
+    if (!shouldFallbackToTelegramOriginal(context, telegramReadTarget, fileType)) {
+        return null;
+    }
+
+    const originalTarget = await resolveTelegramSourceUrl(context.env, imgRecord?.metadata || {}, fileId, { preview: false });
+    if (!originalTarget?.targetUrl) {
+        return null;
+    }
+
+    const response = await getFileContent(context.request, originalTarget.targetUrl);
+    if (!response || response.status === 404) {
+        return null;
+    }
+
+    const headers = new Headers(response.headers);
+    setCommonHeaders(
+        headers,
+        encodeURIComponent(fileName),
+        originalTarget.fileType || fileType,
+        context.Referer,
+        context.url,
+    );
+
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+    });
+}
+
+async function tryFallbackTelegramPreviewRead(context, imgRecord, fileId, fileName, fileType, telegramReadTarget) {
+    const embeddedPreview = await tryFallbackTelegramPreview(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
+    if (embeddedPreview) {
+        return embeddedPreview;
+    }
+
+    return await tryFallbackTelegramOriginal(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
+}
+
 
 export async function onRequest(context) {  // Contents of context object
     const {
@@ -404,7 +452,7 @@ export async function onRequest(context) {  // Contents of context object
         const tgApi = new TelegramAPI(TgBotToken, TgProxyUrl);
         const filePath = await tgApi.getFilePath(TgFileID);
         if (filePath === null) {
-            const fallbackPreview = await tryFallbackTelegramPreview(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
+            const fallbackPreview = await tryFallbackTelegramPreviewRead(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
             if (fallbackPreview) {
                 return fallbackPreview;
             }
@@ -420,13 +468,13 @@ export async function onRequest(context) {  // Contents of context object
         const response = await getFileContent(request, targetUrl);
 
         if (response === null) {
-            const fallbackPreview = await tryFallbackTelegramPreview(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
+            const fallbackPreview = await tryFallbackTelegramPreviewRead(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
             if (fallbackPreview) {
                 return fallbackPreview;
             }
             return new Response('Error: Failed to fetch image', { status: 500 });
         } else if (response.status === 404) {
-            const fallbackPreview = await tryFallbackTelegramPreview(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
+            const fallbackPreview = await tryFallbackTelegramPreviewRead(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
             if (fallbackPreview) {
                 return fallbackPreview;
             }

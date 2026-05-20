@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 
+import { onRequest as listRoute } from '../functions/api/manage/list.js';
 import { importTelegramUpdate } from '../functions/utils/telegramSync.js';
+import { KV_TO_D1_MIGRATION_STATE_KEY } from '../functions/utils/databaseAdapter.js';
 import { MomentsStore } from '../functions/utils/momentsStore.js';
 import { D1Database } from '../functions/utils/d1Database.js';
 import { SqliteD1 } from '../server/sqliteD1.js';
@@ -23,6 +25,96 @@ async function seedUploadConfig(d1) {
 }
 
 describe('telegram webhook Moments album integration', () => {
+  it('imports ordinary Telegram document JPEGs into the Photos list', async () => {
+    const d1 = new SqliteD1(':memory:');
+    await seedUploadConfig(d1);
+
+    globalThis.fetch = async (url) => {
+      const normalized = String(url);
+      if (normalized.includes('/getFile?')) {
+        const fileId = new URL(normalized).searchParams.get('file_id');
+        assert.equal(fileId, 'doc-jpg');
+        return new Response(JSON.stringify({ ok: true, result: { file_path: 'documents/IMG_1422.JPG' } }), { status: 200 });
+      }
+      if (normalized.includes('/file/botbot-token/documents/IMG_1422.JPG')) {
+        return new Response(new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9]), { status: 200 });
+      }
+      throw new Error(`Unexpected fetch: ${normalized}`);
+    };
+
+    const context = {
+      env: { img_d1: d1 },
+      waitUntil() {},
+    };
+    const channel = {
+      name: 'SUNDOWNER',
+      enabled: true,
+      syncEnabled: true,
+      botToken: 'bot-token',
+      chatId: '100',
+      importDirectory: 'telegram-import/SUNDOWNER',
+      proxyUrl: '',
+    };
+
+    const result = await importTelegramUpdate(context, channel, {
+      update_id: 1,
+      channel_post: {
+        message_id: 70,
+        date: 1715930000,
+        caption: '',
+        chat: { id: '100' },
+        document: {
+          file_id: 'doc-jpg',
+          file_unique_id: 'uniq-doc-jpg',
+          file_name: 'IMG_1422.JPG',
+          mime_type: 'image/jpeg',
+          file_size: 1024 * 1024,
+          thumbnail: {
+            file_id: 'thumb-jpg',
+            file_unique_id: 'thumb-uniq-jpg',
+            width: 320,
+            height: 240,
+            file_size: 12000,
+          },
+        },
+      },
+    }, 'webhook');
+
+    assert.equal(result.imported, true);
+
+    const db = new D1Database(d1);
+    const fileId = 'tg_SUNDOWNER_70_uniq-doc-jpg.jpg';
+    const stored = await db.getWithMetadata(fileId);
+    assert.ok(stored);
+    assert.equal(stored.metadata.FileName, 'IMG_1422.JPG');
+    assert.equal(stored.metadata.FileType, 'image/jpeg');
+    assert.equal(stored.metadata.ListType, 'Photo');
+    assert.equal(stored.metadata.Channel, 'TelegramNew');
+    assert.equal(stored.metadata.TgFileId, 'doc-jpg');
+    assert.equal(stored.metadata.TgThumbnailFileId, 'thumb-jpg');
+    assert.equal(stored.metadata.TgPreservationHint, 'original-likely');
+
+    await db.put(KV_TO_D1_MIGRATION_STATE_KEY, JSON.stringify({
+      complete: true,
+      nextCursor: null,
+      updatedAt: Date.now(),
+    }));
+
+    const response = await listRoute({
+      env: { img_d1: d1 },
+      request: new Request('https://example.com/api/manage/list?type=image&page=1&pageSize=10&sortBy=timestamp&sortOrder=desc', {
+        method: 'GET',
+      }),
+      waitUntil() {},
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.isD1QueryResponse, true);
+    assert.deepEqual(payload.files.map((file) => file.name), [fileId]);
+    assert.equal(payload.files[0].metadata.FileType, 'image/jpeg');
+  });
+
   it('appends later media-group items into the same deterministic Moments post', async () => {
     const d1 = new SqliteD1(':memory:');
     await seedUploadConfig(d1);

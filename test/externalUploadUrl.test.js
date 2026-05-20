@@ -295,4 +295,106 @@ describe('external upload URL normalization', () => {
     }
   });
 
+  it('keeps ordinary JPEG uploads on Telegram document transport to preserve originals', async () => {
+    const originalFetch = globalThis.fetch;
+    const telegramCalls = [];
+
+    globalThis.fetch = async (url) => {
+      const requestUrl = String(url);
+      telegramCalls.push(requestUrl);
+
+      if (requestUrl.includes('/sendDocument')) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              ok: true,
+              result: {
+                document: {
+                  file_id: 'original-jpeg-file-id',
+                  file_unique_id: 'original-jpeg-unique-id',
+                  file_name: 'IMG_1422.JPG',
+                  file_size: 1024 * 1024,
+                  mime_type: 'image/jpeg',
+                  thumbnail: {
+                    file_id: 'jpeg-thumbnail-file-id',
+                    file_unique_id: 'jpeg-thumbnail-unique-id',
+                    file_size: 12000,
+                  },
+                },
+              },
+            };
+          },
+        };
+      }
+
+      if (requestUrl.includes('/sendPhoto')) {
+        throw new Error('JPEG uploads must not use Telegram sendPhoto');
+      }
+
+      if (requestUrl.includes('/getFile')) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              ok: true,
+              result: {
+                file_path: 'documents/IMG_1422.JPG',
+              },
+            };
+          },
+        };
+      }
+
+      return {
+        ok: false,
+        async json() {
+          return {};
+        },
+      };
+    };
+
+    try {
+      const formdata = new FormData();
+      formdata.set('file', new File([new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9])], 'IMG_1422.JPG', { type: 'image/jpeg' }));
+
+      const env = {
+        dev_mode: 'true',
+        img_url: new MemoryKV(),
+      };
+      const waitUntilPromises = [];
+      const requestUrl = new URL('https://sundowner.example/upload?uploadChannel=telegram&uploadFolder=photos&uploadNameType=origin');
+      const response = await processFileUpload({
+        env,
+        request: new Request(requestUrl, { method: 'POST' }),
+        url: requestUrl,
+        uploadConfig: {
+          telegram: {
+            loadBalance: { enabled: false },
+            channels: [{ name: 'Telegram_env', botToken: '123:test-token', chatId: 'chat-id', proxyUrl: '' }],
+          },
+        },
+        waitUntil(promise) {
+          waitUntilPromises.push(Promise.resolve(promise));
+        },
+      }, formdata);
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), [{ src: '/file/photos/IMG_1422.JPG' }]);
+
+      const stored = await env.img_url.getWithMetadata('photos/IMG_1422.JPG');
+      assert.equal(stored.metadata.Channel, 'TelegramNew');
+      assert.equal(stored.metadata.FileType, 'image/jpeg');
+      assert.equal(stored.metadata.TgFileId, 'original-jpeg-file-id');
+      assert.equal(stored.metadata.TgThumbnailFileId, 'jpeg-thumbnail-file-id');
+      assert.equal(stored.metadata.TgThumbnailFileType, 'image/jpeg');
+      assert.ok(telegramCalls.some((call) => call.includes('/sendDocument')));
+      assert.equal(telegramCalls.some((call) => call.includes('/sendPhoto')), false);
+
+      await Promise.all(waitUntilPromises);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
 });

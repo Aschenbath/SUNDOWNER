@@ -260,6 +260,86 @@ describe('/file HEIC preview responses', () => {
     assert.ok(fetchCalls.some((call) => call.includes('file_id=original-file-id')));
   });
 
+  it('falls back to the original Telegram JPEG when a stored document thumbnail cannot be read', async () => {
+    const originalBytes = new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9]);
+    const records = new Map([
+      ['telegram-import/SUNDOWNER/IMG_1422.JPG', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_1422.JPG',
+          FileType: 'image/jpeg',
+          Channel: 'TelegramNew',
+          ChannelName: 'SUNDOWNER',
+          TgFileId: 'original-jpeg-file-id',
+          TgThumbnailFileId: 'broken-thumbnail-file-id',
+          TgThumbnailFileType: 'image/jpeg',
+          ListType: 'Photo',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      TG_BOT_TOKEN: 'env-token',
+      TG_CHAT_ID: '-100123',
+    };
+    const fetchCalls = [];
+
+    await withFetchStub(async (url) => {
+      const normalized = String(url);
+      fetchCalls.push(normalized);
+      if (normalized.includes('/getFile?')) {
+        const fileId = new URL(normalized).searchParams.get('file_id');
+        if (fileId === 'broken-thumbnail-file-id') {
+          return new Response(JSON.stringify({
+            ok: false,
+            description: 'Bad Request: file not found',
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        return new Response(JSON.stringify({
+          ok: true,
+          result: {
+            file_path: `documents/${fileId}.jpg`,
+          },
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (normalized.includes('/file/botenv-token/documents/original-jpeg-file-id.jpg')) {
+        return new Response(originalBytes, {
+          status: 200,
+          headers: { 'Content-Type': 'image/jpeg' },
+        });
+      }
+      throw new Error(`Unexpected fetch: ${normalized}`);
+    }, async () => {
+      const response = await onRequest({
+        request: new Request('https://example.com/file/telegram-import/SUNDOWNER/IMG_1422.JPG?preview=1', {
+          headers: {
+            Referer: 'https://example.com/dashboard',
+          },
+        }),
+        env,
+        params: { path: 'telegram-import/SUNDOWNER/IMG_1422.JPG' },
+        waitUntil() {},
+        next() {},
+        data: {},
+      });
+
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('Content-Type'), 'image/jpeg');
+      assert.deepEqual(Array.from(new Uint8Array(await response.arrayBuffer())), Array.from(originalBytes));
+    });
+
+    assert.ok(fetchCalls.some((call) => call.includes('file_id=broken-thumbnail-file-id')));
+    assert.ok(fetchCalls.some((call) => call.includes('file_id=original-jpeg-file-id')));
+  });
+
   it('prefers an embedded preview from the Telegram original for full preview reads', async () => {
     const previewBytes = new Uint8Array([0xFF, 0xD8, 0xFE, 0xD9]);
     __setEmbeddedThumbnailExtractorForTests(async () => previewBytes);
