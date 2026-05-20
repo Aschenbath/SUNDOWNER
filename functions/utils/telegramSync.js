@@ -26,7 +26,7 @@ const TELEGRAM_ALLOWED_UPDATES = ['channel_post', 'edited_channel_post']
 const TELEGRAM_ALBUM_COMMAND_PREFIX = 'telegram-sync@album-command@'
 const TELEGRAM_ALBUM_COMMAND_TTL_MS = 10 * 60 * 1000
 const TELEGRAM_MOMENTS_COMMAND_PREFIX = 'telegram-sync@moments-command@'
-const TELEGRAM_MOMENTS_COMMAND_TTL_MS = 10 * 60 * 1000
+const TELEGRAM_MOMENTS_COMMAND_TTL_MS = 24 * 60 * 60 * 1000
 const TELEGRAM_SYNC_RESPONSE_HEADERS = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
@@ -395,6 +395,8 @@ async function resolveMomentsCommandStateForMessage(context, channel, update, me
         commandActive: true,
         commandMessageId: Number(state.commandMessageId || 0),
         createdAt: Number(state.createdAt || 0),
+        postId: state.postId || '',
+        stateKey: state.stateKey || '',
     }
 }
 
@@ -623,7 +625,7 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
     const importContext = await resolveAlbumPathForMessage(context, channel, update, message)
     const hasInlineMomentsCaption = String(message.caption || '').trim().toLowerCase().startsWith('/moments')
     const momentsContext = hasInlineMomentsCaption
-        ? { body: '', commandActive: false, commandMessageId: 0, createdAt: 0 }
+        ? { body: '', commandActive: false, commandMessageId: 0, createdAt: 0, postId: '', stateKey: '' }
         : await resolveMomentsCommandStateForMessage(context, channel, update, message)
     const { metadata, ext } = await buildImportedMetadata(context, channel, message, source, mediaInfo, filePath, importContext, telegramAPI)
     const directoryKey = sanitizeUploadFolder(importContext.importDirectory || '')
@@ -649,7 +651,7 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
     const effectiveMomentsMessageId = momentsContext.commandActive
         ? momentsContext.commandMessageId || message.message_id
         : message.message_id
-    const stateKey = buildTelegramMomentsStateKey({
+    const stateKey = momentsContext.stateKey || buildTelegramMomentsStateKey({
         chatId: message.chat?.id,
         messageId: effectiveMomentsMessageId,
         mediaGroupId: momentsContext.commandActive ? '' : mediaGroupId,
@@ -657,7 +659,7 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
     const rawMomentsState = await db.get(stateKey)
     const previousState = rawMomentsState ? JSON.parse(rawMomentsState) : null
     const momentsStore = new MomentsStore(context.env)
-    let postId = previousState?.postId || buildTelegramMomentsPostId({
+    let postId = previousState?.postId || momentsContext.postId || buildTelegramMomentsPostId({
         chatId: message.chat?.id,
         messageId: effectiveMomentsMessageId,
         mediaGroupId: momentsContext.commandActive ? '' : mediaGroupId,
@@ -726,6 +728,22 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
             createdAt,
             lastTouchedAt: Date.now(),
         }))
+
+        if (hasInlineMomentsCaption) {
+            const now = Date.now()
+            await saveMomentsCommandState(db, channel.name, {
+                body: postBody,
+                commandUpdateId: Number(update.update_id || 0),
+                commandMessageId: effectiveMomentsMessageId,
+                createdAt,
+                expiresAt: now + TELEGRAM_MOMENTS_COMMAND_TTL_MS,
+                consumedMessageId: mediaGroupId ? 0 : messageId,
+                consumedMediaGroupId: mediaGroupId || '',
+                lastTouchedAt: now,
+                postId,
+                stateKey,
+            })
+        }
     }
 
     return {

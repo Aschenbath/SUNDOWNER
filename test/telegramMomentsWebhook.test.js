@@ -270,6 +270,82 @@ describe('telegram webhook Moments album integration', () => {
     ]);
   });
 
+  it('keeps a captioned /moments album open for following HEIC document uploads', async () => {
+    const d1 = new SqliteD1(':memory:');
+    await seedUploadConfig(d1);
+
+    const filePaths = new Map([
+      ['file-1', 'photos/file-1.jpg'],
+      ['doc-1', 'documents/IMG_1422.HEIC'],
+    ]);
+
+    globalThis.fetch = async (url) => {
+      const normalized = String(url);
+      if (normalized.includes('/getFile?')) {
+        const fileId = new URL(normalized).searchParams.get('file_id');
+        return new Response(JSON.stringify({ ok: true, result: { file_path: filePaths.get(fileId) } }), { status: 200 });
+      }
+      if (normalized.includes('/file/botbot-token/')) {
+        return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+      }
+      throw new Error(`Unexpected fetch: ${normalized}`);
+    };
+
+    const context = {
+      env: { img_d1: d1 },
+      waitUntil() {},
+    };
+    const channel = {
+      name: 'SUNDOWNER',
+      enabled: true,
+      syncEnabled: true,
+      botToken: 'bot-token',
+      chatId: '100',
+      importDirectory: 'telegram-import/SUNDOWNER',
+      proxyUrl: '',
+    };
+
+    await importTelegramUpdate(context, channel, {
+      update_id: 1,
+      channel_post: {
+        message_id: 30,
+        media_group_id: 'group-captioned',
+        date: 1715930000,
+        caption: '/moments',
+        chat: { id: '100' },
+        photo: [
+          { file_id: 'file-1', file_unique_id: 'uniq-file-1', file_size: 1000, width: 100, height: 100 },
+        ],
+      },
+    }, 'webhook');
+
+    await importTelegramUpdate(context, channel, {
+      update_id: 2,
+      channel_post: {
+        message_id: 31,
+        date: 1715937200,
+        caption: '',
+        chat: { id: '100' },
+        document: {
+          file_id: 'doc-1',
+          file_unique_id: 'uniq-doc-1',
+          file_name: 'IMG_1422.HEIC',
+          mime_type: '',
+          file_size: 1024 * 1024,
+        },
+      },
+    }, 'webhook');
+
+    const store = new MomentsStore({ img_d1: d1 });
+    const posts = await store.listPosts({ pageSize: 10 });
+
+    assert.equal(posts.posts.length, 1);
+    assert.deepEqual(posts.posts[0].attachments.map((attachment) => attachment.fileId), [
+      'tg_SUNDOWNER_30_uniq-file-1.jpg',
+      'tg_SUNDOWNER_31_uniq-doc-1.heic',
+    ]);
+  });
+
   it('keeps inline /moments captions separate from an active standalone command', async () => {
     const d1 = new SqliteD1(':memory:');
     await seedUploadConfig(d1);
@@ -355,6 +431,100 @@ describe('telegram webhook Moments album integration', () => {
     ]);
     assert.deepEqual(byBody.get('inline')?.attachments.map((attachment) => attachment.fileId), [
       'tg_SUNDOWNER_32_uniq-file-1.jpg',
+    ]);
+  });
+
+  it('keeps later inline /moments captions separate from an active captioned album session', async () => {
+    const d1 = new SqliteD1(':memory:');
+    await seedUploadConfig(d1);
+
+    const filePaths = new Map([
+      ['file-1', 'photos/file-1.jpg'],
+      ['doc-1', 'documents/IMG_1422.HEIC'],
+      ['file-2', 'photos/file-2.jpg'],
+    ]);
+
+    globalThis.fetch = async (url) => {
+      const normalized = String(url);
+      if (normalized.includes('/getFile?')) {
+        const fileId = new URL(normalized).searchParams.get('file_id');
+        return new Response(JSON.stringify({ ok: true, result: { file_path: filePaths.get(fileId) } }), { status: 200 });
+      }
+      if (normalized.includes('/file/botbot-token/')) {
+        return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+      }
+      throw new Error(`Unexpected fetch: ${normalized}`);
+    };
+
+    const context = {
+      env: { img_d1: d1 },
+      waitUntil() {},
+    };
+    const channel = {
+      name: 'SUNDOWNER',
+      enabled: true,
+      syncEnabled: true,
+      botToken: 'bot-token',
+      chatId: '100',
+      importDirectory: 'telegram-import/SUNDOWNER',
+      proxyUrl: '',
+    };
+
+    await importTelegramUpdate(context, channel, {
+      update_id: 1,
+      channel_post: {
+        message_id: 50,
+        media_group_id: 'group-captioned',
+        date: 1715930000,
+        caption: '/moments album',
+        chat: { id: '100' },
+        photo: [
+          { file_id: 'file-1', file_unique_id: 'uniq-file-1', file_size: 1000, width: 100, height: 100 },
+        ],
+      },
+    }, 'webhook');
+
+    await importTelegramUpdate(context, channel, {
+      update_id: 2,
+      channel_post: {
+        message_id: 51,
+        date: 1715937200,
+        caption: '',
+        chat: { id: '100' },
+        document: {
+          file_id: 'doc-1',
+          file_unique_id: 'uniq-doc-1',
+          file_name: 'IMG_1422.HEIC',
+          mime_type: '',
+          file_size: 1024 * 1024,
+        },
+      },
+    }, 'webhook');
+
+    await importTelegramUpdate(context, channel, {
+      update_id: 3,
+      channel_post: {
+        message_id: 52,
+        date: 1715940800,
+        caption: '/moments new inline',
+        chat: { id: '100' },
+        photo: [
+          { file_id: 'file-2', file_unique_id: 'uniq-file-2', file_size: 1000, width: 100, height: 100 },
+        ],
+      },
+    }, 'webhook');
+
+    const store = new MomentsStore({ img_d1: d1 });
+    const posts = await store.listPosts({ pageSize: 10 });
+    const byBody = new Map(posts.posts.map((post) => [post.body, post]));
+
+    assert.equal(posts.posts.length, 2);
+    assert.deepEqual(byBody.get('album')?.attachments.map((attachment) => attachment.fileId), [
+      'tg_SUNDOWNER_50_uniq-file-1.jpg',
+      'tg_SUNDOWNER_51_uniq-doc-1.heic',
+    ]);
+    assert.deepEqual(byBody.get('new inline')?.attachments.map((attachment) => attachment.fileId), [
+      'tg_SUNDOWNER_52_uniq-file-2.jpg',
     ]);
   });
 
