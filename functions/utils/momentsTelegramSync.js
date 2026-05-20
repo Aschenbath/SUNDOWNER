@@ -34,11 +34,21 @@ export function buildTelegramMomentsStateKey({ chatId = '', mediaGroupId = '', m
   return `${buildTelegramMomentsDedupeKey({ chatId, mediaGroupId, messageId })}:state`;
 }
 
-export function shouldUpsertTelegramMomentsPost({ caption = '', photoFileIds = [], mediaGroupId = '', previousState = null, existingPost = null } = {}) {
+export function shouldUpsertTelegramMomentsPost({
+  caption = '',
+  photoFileIds = [],
+  mediaGroupId = '',
+  previousState = null,
+  existingPost = null,
+  commandActive = false,
+} = {}) {
   if (!Array.isArray(photoFileIds) || photoFileIds.length === 0) {
     return false;
   }
   if (shouldCreateMomentsFromTelegramMessage({ caption, photoFileIds })) {
+    return true;
+  }
+  if (commandActive) {
     return true;
   }
   return Boolean(normalizeText(mediaGroupId) && (previousState?.postId || previousState?.body || existingPost?.id));

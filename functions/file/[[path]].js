@@ -140,9 +140,12 @@ async function fetchBinaryBufferFromUrl(targetUrl) {
     return new Uint8Array(await response.arrayBuffer());
 }
 
-function shouldAttemptEmbeddedPreview(context, metadata = {}, fileType = '') {
+function shouldAttemptEmbeddedPreview(context, metadata = {}, fileType = '', options = {}) {
     if (!supportsEmbeddedPreviewExtraction(fileType)) {
         return false;
+    }
+    if (options.force === true) {
+        return true;
     }
     if (context.wantsEmbeddedPreview) {
         return true;
@@ -193,9 +196,9 @@ async function resolveTelegramSourceUrl(env, metadata = {}, fileId = '', options
     };
 }
 
-async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fileType) {
+async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fileType, options = {}) {
     const metadata = imgRecord?.metadata || {};
-    if (!shouldAttemptEmbeddedPreview(context, metadata, fileType)) {
+    if (!shouldAttemptEmbeddedPreview(context, metadata, fileType, options)) {
         return null;
     }
 
@@ -239,6 +242,19 @@ async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fil
     }
 
     return buildEmbeddedPreviewResponse(context, fileName, preview);
+}
+
+function shouldFallbackFromTelegramPreview(context, telegramReadTarget, fileType) {
+    return context.wantsPreview
+        && telegramReadTarget?.isPreview === true
+        && supportsEmbeddedPreviewExtraction(fileType);
+}
+
+async function tryFallbackTelegramPreview(context, imgRecord, fileId, fileName, fileType, telegramReadTarget) {
+    if (!shouldFallbackFromTelegramPreview(context, telegramReadTarget, fileType)) {
+        return null;
+    }
+    return await tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fileType, { force: true });
 }
 
 
@@ -347,9 +363,10 @@ export async function onRequest(context) {  // Contents of context object
     // 构建目标 URL
     let targetUrl = '';
     let responseFileType = fileType;
+    let telegramReadTarget = null;
 
     if (isTgChannel(imgRecord)) {
-        const telegramReadTarget = resolveStoredTelegramReadTarget(fileId, imgRecord.metadata || {}, {
+        telegramReadTarget = resolveStoredTelegramReadTarget(fileId, imgRecord.metadata || {}, {
             preview: wantsPreview,
         });
         responseFileType = telegramReadTarget.fileType || fileType;
@@ -387,6 +404,10 @@ export async function onRequest(context) {  // Contents of context object
         const tgApi = new TelegramAPI(TgBotToken, TgProxyUrl);
         const filePath = await tgApi.getFilePath(TgFileID);
         if (filePath === null) {
+            const fallbackPreview = await tryFallbackTelegramPreview(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
+            if (fallbackPreview) {
+                return fallbackPreview;
+            }
             return new Response('Error: Failed to fetch image path', { status: 500 });
         }
         // 使用代理域名或官方域名
@@ -399,8 +420,16 @@ export async function onRequest(context) {  // Contents of context object
         const response = await getFileContent(request, targetUrl);
 
         if (response === null) {
+            const fallbackPreview = await tryFallbackTelegramPreview(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
+            if (fallbackPreview) {
+                return fallbackPreview;
+            }
             return new Response('Error: Failed to fetch image', { status: 500 });
         } else if (response.status === 404) {
+            const fallbackPreview = await tryFallbackTelegramPreview(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
+            if (fallbackPreview) {
+                return fallbackPreview;
+            }
             return await return404(url);
         }
 
