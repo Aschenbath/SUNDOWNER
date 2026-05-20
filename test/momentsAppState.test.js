@@ -302,6 +302,28 @@ describe('Moments app helpers', () => {
     ]);
   });
 
+  it('keeps cached Photos supplements in capture-time order so timeline years do not loop', () => {
+    assert.ifError(mediaCacheMergeImportError);
+    const { mergeIndexedMediaWithCachedItems } = mediaCacheMergeModule;
+
+    const livePageItems = [
+      { id: 'managed-2026-live', sourceId: 'Photos/live-2026.jpg', takenAt: '2026-05-18T12:00:00.000Z', label: '2026 live' },
+      { id: 'managed-2025-live', sourceId: 'Photos/live-2025.jpg', takenAt: '2025-05-18T12:00:00.000Z', label: '2025 live' },
+      { id: 'managed-2024-live', sourceId: 'Photos/live-2024.jpg', takenAt: '2024-05-18T12:00:00.000Z', label: '2024 live' },
+    ];
+    const cachedItems = [
+      { id: 'managed-2026-cache', sourceId: 'Photos/cached-2026.jpg', takenAt: '2026-05-17T12:00:00.000Z', label: '2026 cached' },
+    ];
+
+    const mergedItems = mergeIndexedMediaWithCachedItems(livePageItems, cachedItems);
+    assert.deepEqual(mergedItems.map((item) => item.label), [
+      '2026 live',
+      '2026 cached',
+      '2025 live',
+      '2024 live',
+    ]);
+  });
+
   it('applies cached Photos supplements to both first-page hydration and background backfill', () => {
     assert.match(appSource, /mergeIndexedMediaResultWithCache\(\s*await fetchIndexedMediaItems\(domItems, cachedMediaPayload\),\s*cachedMediaPayload\s*\)/);
     assert.match(appSource, /fetchIndexedMediaItems\(domItems, cachedMediaPayload\)/);

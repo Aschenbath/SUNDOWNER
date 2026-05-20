@@ -2,6 +2,15 @@ function normalizeMergeText(value) {
   return String(value ?? '').trim();
 }
 
+function getMediaCacheSortTimestamp(item) {
+  const directValue = Number(item?.sortOrder || item?.timestamp || item?.TimeStamp || 0);
+  if (Number.isFinite(directValue) && directValue > 0) {
+    return directValue < 1000000000000 ? directValue * 1000 : directValue;
+  }
+  const parsed = Date.parse(item?.takenAt || item?.deletedAt || item?.createdAt || item?.updatedAt || '');
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export function getMediaCacheMergeKey(item) {
   return normalizeMergeText(item?.sourceId || item?.id || '');
 }
@@ -19,12 +28,17 @@ export function mergeIndexedMediaWithCachedItems(indexedItems = [], cachedItems 
       return;
     }
     seenKeys.add(key);
-    merged.push(item);
+    merged.push({ item, order: merged.length });
   };
 
   indexedItems.forEach(pushItem);
   cachedItems.forEach(pushItem);
-  return merged;
+  return merged
+    .sort((left, right) => {
+      const delta = getMediaCacheSortTimestamp(right.item) - getMediaCacheSortTimestamp(left.item);
+      return delta || left.order - right.order;
+    })
+    .map((entry) => entry.item);
 }
 
 export function removeMediaCacheItems(items = [], removedKeys = []) {

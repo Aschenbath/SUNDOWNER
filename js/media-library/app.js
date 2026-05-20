@@ -72,7 +72,7 @@ import {
   mergeIndexedMediaResultWithCache,
   mergeIndexedMediaWithCachedItems,
   removeMediaCacheItems,
-} from './media-cache-merge.js?v=2';
+} from './media-cache-merge.js?v=3';
 import {
   buildPickerPreserveFlags,
   canUseDistinctAlbumPicker,
