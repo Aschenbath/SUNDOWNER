@@ -1887,7 +1887,7 @@ function upgradePreviewImageToHeicDecoded(img, heicUrl) {
   (async () => {
     let objectUrl = '';
     try {
-      const { decodeHeicUrlToObjectUrl } = await import('./heic-decoder.js?v=1');
+      const { decodeHeicUrlToObjectUrl } = await import('./heic-decoder.js?v=2');
       objectUrl = await decodeHeicUrlToObjectUrl(heicUrl);
       const activePreview = refs.root?.querySelector('.cml-preview');
       const activePreviewId = normalizeText(activePreview?.dataset?.previewId || state.previewId);

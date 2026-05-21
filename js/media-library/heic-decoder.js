@@ -58,7 +58,19 @@ async function getDecoder() {
     });
   }
   const moduleNamespace = await libheifModulePromise;
-  const libheif = moduleNamespace?.default || moduleNamespace;
+  const exported = moduleNamespace?.default || moduleNamespace;
+
+  // The libheif-js wasm-bundle CJS entry (`libheif-js/wasm-bundle`) auto-invokes
+  // the underlying factory, but the raw ESM `.mjs` file we vendor exports the
+  // bare factory and expects the caller to invoke (and possibly await) it
+  // before HeifDecoder is reachable. Cover both shapes so the helper stays
+  // robust if the vendor file is later swapped for the CJS variant or a
+  // pre-instantiated module.
+  let libheif = exported;
+  if (typeof exported === 'function') {
+    libheif = await exported();
+  }
+
   if (!libheif || typeof libheif.HeifDecoder !== 'function') {
     decoderInitFailed = true;
     throw new Error('libheif module did not expose HeifDecoder');
