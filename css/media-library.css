@@ -4408,6 +4408,7 @@ body.codex-media-library-active #app {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
   overflow: hidden;
+  position: relative;
 }
 
 #codex-media-library-root .cml-preview__media {
@@ -4429,14 +4430,40 @@ body.codex-media-library-active #app {
   filter: blur(10px);
 }
 
-#codex-media-library-root .cml-preview__media.is-heic-blur-placeholder {
-  /* HEIC lightbox starts from a tiny EXIF IFD1 thumbnail (~240x320) that gets
-   * stretched to fill the stage, so use a heavier blur than the JPEG
-   * progressive placeholder and a slight scale to keep blurred edges from
-   * revealing the dark stage behind the image. */
-  filter: blur(22px);
-  transform: scale(1.04);
-  transition: filter 320ms ease, transform 320ms ease, opacity 320ms ease;
+#codex-media-library-root .cml-preview__media.is-heic-decode-pending {
+  /* The HEIC fallback served by /file?preview=embedded is a tiny EXIF IFD1
+   * thumbnail (~240x320) which never scales gracefully to the lightbox stage,
+   * regardless of how much we blur it. Hide the placeholder entirely and let
+   * the stage show a spinner overlay instead, so the user never sees an out
+   * of focus frame and gets a single clean fade-in when the WASM-decoded
+   * full-resolution blob is ready. */
+  opacity: 0;
+  transition: opacity 360ms ease;
+}
+
+#codex-media-library-root .cml-preview__media.is-heic-decoded {
+  opacity: 1;
+  transition: opacity 420ms ease;
+}
+
+#codex-media-library-root .cml-preview__stage:has(.cml-preview__media.is-heic-decode-pending)::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border: 3px solid rgba(255, 255, 255, 0.16);
+  border-top-color: rgba(255, 255, 255, 0.82);
+  border-radius: 50%;
+  animation: cml-heic-decode-spin 0.9s linear infinite;
+  z-index: 2;
+  pointer-events: none;
+}
+
+@keyframes cml-heic-decode-spin {
+  to { transform: rotate(360deg); }
 }
 
 #codex-media-library-root .cml-preview__media.is-full-loaded {

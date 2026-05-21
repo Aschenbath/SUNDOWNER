@@ -419,12 +419,12 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       const heicDecodeAttr = withControls && item.sourceUrl
         ? ` data-heic-decode-src="${escapeHtml(item.sourceUrl)}"`
         : '';
-      // Apply the same blur-up class JPEG progressive previews use, so the
-      // visible IFD1 thumbnail looks like an intentional blurred placeholder
-      // instead of a jarring low-resolution flash. setupPreviewHeicDecoder
-      // swaps to is-full-loaded once the WASM-decoded blob is ready.
+      // Apply the HEIC decode-pending class so CSS can hide the IFD1
+      // placeholder thumbnail and show a spinner on the stage while libheif
+      // decodes the full-resolution image. setupPreviewHeicDecoder swaps to
+      // is-heic-decoded once the blob URL lands, fading the real image in.
       const heicClassNames = withControls && item.sourceUrl
-        ? `${className} is-blur-placeholder is-heic-blur-placeholder`
+        ? `${className} is-heic-decode-pending`
         : className;
       return `<img class="${heicClassNames}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}"${w}${h}${heicDecodeAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
     }
