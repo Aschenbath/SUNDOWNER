@@ -1,6 +1,6 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { fetchSecurityConfig } from "../utils/sysConfig.js";
-import { TelegramAPI, buildTelegramFileUrl } from "../utils/telegramAPI.js";
+import { TelegramAPI, buildTelegramFileUrl, resolveTelegramFilePathCached } from "../utils/telegramAPI.js";
 import { DiscordAPI, resolveDiscordFileUrl } from "../utils/discordAPI.js";
 import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
 import {
@@ -184,7 +184,7 @@ async function resolveTelegramSourceUrl(env, metadata = {}, fileId = '', options
     }
 
     const tgApi = new TelegramAPI(telegramAccess.botToken, telegramAccess.proxyUrl || '');
-    const filePath = await tgApi.getFilePath(telegramFileId);
+    const filePath = await resolveTelegramFilePathCached(tgApi, telegramFileId, getWorkerEdgeCache());
     if (!filePath) {
         return null;
     }
@@ -512,7 +512,7 @@ export async function onRequest(context) {  // Contents of context object
         const TgBotToken = telegramAccess.botToken;
         const TgProxyUrl = telegramAccess.proxyUrl || '';
         const tgApi = new TelegramAPI(TgBotToken, TgProxyUrl);
-        const filePath = await tgApi.getFilePath(TgFileID);
+        const filePath = await resolveTelegramFilePathCached(tgApi, TgFileID, getWorkerEdgeCache());
         if (filePath === null) {
             const fallbackPreview = await tryFallbackTelegramPreviewRead(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
             if (fallbackPreview) {
