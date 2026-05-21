@@ -345,3 +345,57 @@ export class TelegramAPI {
         })
     }
 }
+
+// Telegram 官方 file_path 在 getFile 之后 ~60min 内有效，重复浏览同一张图片每次
+// 都打一次 getFile 太重（TG 全局 30 RPS 容易触顶，30万次/月配额也吃紧）。这里
+// 用 Cloudflare Worker edge cache 做 ~50min 的薄缓存，按 file_id 唯一定位；
+// 不传 cache 时调用退化成直连 TelegramAPI.getFilePath，所以测试侧、upload/sync
+// 这种低频调用可以选择不带缓存。
+const TELEGRAM_FILE_PATH_CACHE_TTL_SECONDS = 3000;
+const TELEGRAM_FILE_PATH_CACHE_KEY_PREFIX = 'https://internal.cache/tg-file-path/v1/';
+
+function buildTelegramFilePathCacheKey(fileId) {
+    return new Request(
+        `${TELEGRAM_FILE_PATH_CACHE_KEY_PREFIX}${encodeURIComponent(fileId)}`,
+        { method: 'GET' },
+    );
+}
+
+export async function resolveTelegramFilePathCached(telegramAPI, fileId, cache = null) {
+    if (!telegramAPI || !fileId) {
+        return null;
+    }
+
+    let cacheKey = null;
+    if (cache) {
+        cacheKey = buildTelegramFilePathCacheKey(fileId);
+        try {
+            const cached = await cache.match(cacheKey);
+            if (cached) {
+                const cachedPath = (await cached.text()).trim();
+                if (cachedPath) {
+                    return cachedPath;
+                }
+            }
+        } catch (error) {
+            console.warn('Telegram file_path cache lookup failed:', error?.message || error);
+        }
+    }
+
+    const filePath = await telegramAPI.getFilePath(fileId);
+
+    if (filePath && cache && cacheKey) {
+        try {
+            await cache.put(cacheKey, new Response(filePath, {
+                headers: {
+                    'Cache-Control': `public, max-age=${TELEGRAM_FILE_PATH_CACHE_TTL_SECONDS}`,
+                    'Content-Type': 'text/plain',
+                },
+            }));
+        } catch (error) {
+            console.warn('Telegram file_path cache write failed:', error?.message || error);
+        }
+    }
+
+    return filePath;
+}

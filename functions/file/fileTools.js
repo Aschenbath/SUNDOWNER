@@ -50,7 +50,7 @@ export function isFromPublicBrowse(Referer, origin) {
 }
 
 // 公共响应头设置函数
-export function setCommonHeaders(headers, encodedFileName, fileType, Referer, url) {
+export function setCommonHeaders(headers, encodedFileName, fileType, Referer, url, options = {}) {
     headers.set('Content-Disposition', `inline; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`);
     headers.set('Access-Control-Allow-Origin', '*');
     headers.set('Accept-Ranges', 'bytes');
@@ -61,11 +61,45 @@ export function setCommonHeaders(headers, encodedFileName, fileType, Referer, ur
     }
 
     // 根据Referer设置CDN缓存策略（排除公开图库页面的请求）
+    let cacheControl;
     if (Referer && Referer.includes(url.origin) && !isFromPublicBrowse(Referer, url.origin)) {
-        headers.set('Cache-Control', 'private, max-age=86400'); // 本地缓存 1天
+        cacheControl = 'private, max-age=86400'; // 本地缓存 1天
     } else {
-        headers.set('Cache-Control', 'public, max-age=2592000'); // CDN缓存 30天
+        cacheControl = 'public, max-age=2592000'; // CDN缓存 30天
     }
+
+    // 内容寻址的 /file/{id} 路径写入后不可变（同一 id 永远指向同一比特流），
+    // 加上 immutable 后浏览器在 max-age 窗口内不会触发 revalidation 请求，
+    // 显著减少回源跟 TG getFile 调用。
+    if (options.immutable) {
+        cacheControl = `${cacheControl}, immutable`;
+    }
+    headers.set('Cache-Control', cacheControl);
+
+    if (options.etag) {
+        headers.set('ETag', options.etag);
+    }
+}
+
+// 内容寻址的 /file/{id} 响应头封装：从 context 上取 Referer/url/responseEtag，
+// 默认带 immutable，所有 channel handler 共用同一缓存契约。
+export function applyFileResponseHeaders(context, headers, encodedFileName, fileType) {
+    setCommonHeaders(headers, encodedFileName, fileType, context?.Referer, context?.url, {
+        immutable: true,
+        etag: context?.responseEtag || null,
+    });
+}
+
+// Cloudflare Worker 默认缓存的安全访问器：测试环境 / 本地 dev 没有全局 caches 时
+// 退化成 no-op，让上层逻辑可以无脑调用 match/put 不需要在每处加 typeof 判断。
+export function getWorkerEdgeCache() {
+    if (typeof caches !== 'undefined' && caches?.default) {
+        return caches.default;
+    }
+    return {
+        async match() { return undefined; },
+        async put() {},
+    };
 }
 
 // 设置Range请求相关头部

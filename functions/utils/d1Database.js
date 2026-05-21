@@ -20,6 +20,7 @@ const SCHEMA_STATEMENTS = [
         tg_chat_id TEXT,
         tg_message_id TEXT,
         is_chunked INTEGER DEFAULT 0,
+        file_type_bucket TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -44,12 +45,78 @@ const SCHEMA_STATEMENTS = [
     )`,
     'CREATE INDEX IF NOT EXISTS idx_index_operations_timestamp ON index_operations(timestamp ASC, id ASC)',
     'CREATE INDEX IF NOT EXISTS idx_index_operations_expires_at ON index_operations(expires_at)',
+    // file_type_bucket 列由 repairLegacySchema 在 idx_index_operations_timestamp 触发点补齐，
+    // 所以这条 CREATE INDEX 必须排在该触发点之后，否则在没跑过 ALTER TABLE 的旧 D1 上
+    // 会因为列不存在而直接报错。
+    'CREATE INDEX IF NOT EXISTS idx_files_type_bucket ON files(file_type_bucket, timestamp DESC, id ASC)',
 ];
 
 const SCHEMA_REPAIR_COLUMNS = [
     { table: 'index_operations', column: 'expires_at', sql: 'ALTER TABLE index_operations ADD COLUMN expires_at INTEGER' },
     { table: 'index_operations', column: 'updated_at', sql: 'ALTER TABLE index_operations ADD COLUMN updated_at TEXT' },
+    { table: 'files', column: 'file_type_bucket', sql: 'ALTER TABLE files ADD COLUMN file_type_bucket TEXT' },
 ];
+
+// Settings sentinel that records when the file_type_bucket backfill has run, so
+// repeat cold starts skip the expensive UPDATE over the whole files table.
+const FILE_TYPE_BUCKET_BACKFILL_KEY = 'schema@d1@file_type_bucket_v1';
+const FILE_TYPE_BUCKETS = new Set(['image', 'video', 'audio', 'other']);
+
+function normalizeFileTypeBucketCandidate(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return FILE_TYPE_BUCKETS.has(normalized) ? normalized : null;
+}
+
+// 与 d1Database 中 IMAGE_TYPE_SQL / VIDEO_TYPE_SQL / AUDIO_TYPE_SQL 等价的 JS 版本，
+// 让 putFile 在写入时直接落桶，查询时优先用 file_type_bucket 索引而不是
+// JSON 抽取 + LIKE 全表扫描。SQL 与 JS 必须保持同步。
+function computeFileTypeBucket(metadata = {}, fileId = '') {
+    const explicit = normalizeFileTypeBucketCandidate(metadata?.FileTypeBucket || metadata?.file_type_bucket);
+    if (explicit) {
+        return explicit;
+    }
+
+    const rawType = String(
+        metadata?.FileType
+        || metadata?.file_type
+        || ''
+    ).trim().toLowerCase();
+
+    if (rawType.startsWith('image/') || rawType === 'image' || rawType === 'photo') {
+        return 'image';
+    }
+    if (rawType.startsWith('video/') || rawType === 'video') {
+        return 'video';
+    }
+    if (rawType.startsWith('audio/') || rawType === 'audio') {
+        return 'audio';
+    }
+
+    const isGeneric = !rawType || [
+        'application/octet-stream',
+        'binary/octet-stream',
+        'application/x-binary',
+        'application/unknown',
+        'unknown',
+        'none',
+        'null',
+    ].includes(rawType);
+
+    if (isGeneric) {
+        const reference = `${String(metadata?.FileName || metadata?.file_name || '').toLowerCase()} ${String(fileId || '').toLowerCase()}`;
+        if (/\.(jpg|jpeg|png|gif|webp|bmp|avif|heic|heif)(?:[^a-z0-9]|$)/.test(reference)) {
+            return 'image';
+        }
+        if (/\.(mp4|mov|m4v|webm|mkv|avi)(?:[^a-z0-9]|$)/.test(reference)) {
+            return 'video';
+        }
+        if (/\.(mp3|m4a|aac|wav|flac|ogg)(?:[^a-z0-9]|$)/.test(reference)) {
+            return 'audio';
+        }
+    }
+
+    return 'other';
+}
 
 function isIgnorableSchemaRepairError(error) {
     const message = String(error?.message || '').toLowerCase();
@@ -138,10 +205,65 @@ class D1Database {
                     }
                     await this.db.prepare(sql).run();
                 }
+                await this.backfillFileTypeBucket();
             })();
         }
 
         return this.schemaReady;
+    }
+
+    // 旧记录的 file_type_bucket 列在 ALTER TABLE 之后是 NULL，需要按 IMAGE/VIDEO/AUDIO 判定
+    // 一次性灌进来。用 settings 表的哨兵 key 防止每次 cold start 都重跑 UPDATE，避免大表
+    // 触发 worker timeout。手动想强制重跑可以删掉 schema@d1@file_type_bucket_v1 设置。
+    async backfillFileTypeBucket() {
+        try {
+            const sentinel = await this.db
+                .prepare('SELECT value FROM settings WHERE key = ?')
+                .bind(FILE_TYPE_BUCKET_BACKFILL_KEY)
+                .first();
+            if (sentinel?.value) {
+                return;
+            }
+
+            const fileTypeLookup = "LOWER(COALESCE(NULLIF(file_type, ''), json_extract(metadata, '$.FileType'), json_extract(metadata, '$.file_type'), ''))";
+            const referenceLookup = "LOWER(COALESCE(NULLIF(file_name, ''), json_extract(metadata, '$.FileName'), json_extract(metadata, '$.file_name'), '') || ' ' || id)";
+            const genericPredicate = `(${fileTypeLookup} IN ('', 'application/octet-stream', 'binary/octet-stream', 'application/x-binary', 'application/unknown', 'unknown', 'none', 'null'))`;
+            const imageExtPredicate = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'heic', 'heif']
+                .map((ext) => `${referenceLookup} LIKE '%.${ext}%'`)
+                .join(' OR ');
+            const videoExtPredicate = ['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi']
+                .map((ext) => `${referenceLookup} LIKE '%.${ext}%'`)
+                .join(' OR ');
+            const audioExtPredicate = ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg']
+                .map((ext) => `${referenceLookup} LIKE '%.${ext}%'`)
+                .join(' OR ');
+
+            const updateSql = `
+                UPDATE files SET file_type_bucket = (
+                    CASE
+                        WHEN ${fileTypeLookup} LIKE 'image/%' THEN 'image'
+                        WHEN ${fileTypeLookup} IN ('image', 'photo') THEN 'image'
+                        WHEN ${fileTypeLookup} LIKE 'video/%' THEN 'video'
+                        WHEN ${fileTypeLookup} = 'video' THEN 'video'
+                        WHEN ${fileTypeLookup} LIKE 'audio/%' THEN 'audio'
+                        WHEN ${fileTypeLookup} = 'audio' THEN 'audio'
+                        WHEN ${genericPredicate} AND (${imageExtPredicate}) THEN 'image'
+                        WHEN ${genericPredicate} AND (${videoExtPredicate}) THEN 'video'
+                        WHEN ${genericPredicate} AND (${audioExtPredicate}) THEN 'audio'
+                        ELSE 'other'
+                    END
+                )
+                WHERE file_type_bucket IS NULL
+            `;
+            await this.db.prepare(updateSql).run();
+            await this.db
+                .prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
+                .bind(FILE_TYPE_BUCKET_BACKFILL_KEY, new Date().toISOString())
+                .run();
+        } catch (error) {
+            // Backfill 不是请求关键路径，失败时打日志继续，queryFiles 仍可以走 fallback 分支
+            console.warn('file_type_bucket backfill failed:', error?.message || error);
+        }
     }
 
     async repairLegacySchema() {
@@ -176,7 +298,7 @@ class D1Database {
     async putFile(fileId, value, options = {}) {
         await this.ensureSchema();
         const metadata = stripSensitiveMetadata(options.metadata || {});
-        const extractedFields = this.extractMetadataFields(metadata);
+        const extractedFields = this.extractMetadataFields(metadata, fileId);
 
         return this.db.prepare(
             `INSERT OR REPLACE INTO files (
@@ -184,8 +306,9 @@ class D1Database {
                 upload_ip, upload_address, list_type, timestamp,
                 label, directory, channel, channel_name,
                 tg_file_id, tg_chat_id, tg_message_id, is_chunked,
+                file_type_bucket,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM files WHERE id = ?), CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM files WHERE id = ?), CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)`
         ).bind(
             fileId,
             value ?? '',
@@ -205,6 +328,7 @@ class D1Database {
             extractedFields.tgChatId,
             extractedFields.tgMessageId,
             normalizeBoolean(extractedFields.isChunked),
+            extractedFields.fileTypeBucket,
             fileId,
         ).run();
     }
@@ -344,21 +468,57 @@ class D1Database {
         }
 
         if (typeFilters.length > 0) {
-            const typeClauses = [];
+            // 优先用 file_type_bucket 索引；老记录（NULL 桶）仍走原本的 LIKE/JSON
+            // fallback，保证未 backfill 数据库的查询正确。两条分支用 OR 组合，
+            // 让 SQLite 在大多数行上吃 idx_files_type_bucket 索引。
+            const bucketTargets = new Set();
+            let wantsOther = false;
             for (const type of typeFilters) {
                 if (type === 'image') {
-                    typeClauses.push(IMAGE_TYPE_SQL);
+                    bucketTargets.add('image');
                 } else if (type === 'video') {
-                    typeClauses.push(VIDEO_TYPE_SQL);
+                    bucketTargets.add('video');
                 } else if (type === 'audio') {
-                    typeClauses.push(AUDIO_TYPE_SQL);
+                    bucketTargets.add('audio');
                 } else if (type === 'document' || type === 'other') {
-                    typeClauses.push(`NOT ${MEDIA_TYPE_SQL}`);
+                    bucketTargets.add('other');
+                    wantsOther = true;
                 }
             }
 
-            if (typeClauses.length > 0) {
-                whereClauses.push(`(${typeClauses.join(' OR ')})`);
+            const orClauses = [];
+            if (bucketTargets.size > 0) {
+                const bucketList = Array.from(bucketTargets);
+                const placeholders = bucketList.map(() => '?').join(',');
+                orClauses.push(`file_type_bucket IN (${placeholders})`);
+                params.push(...bucketList);
+            }
+
+            const fallbackClauses = [];
+            for (const type of typeFilters) {
+                if (type === 'image') {
+                    fallbackClauses.push(IMAGE_TYPE_SQL);
+                } else if (type === 'video') {
+                    fallbackClauses.push(VIDEO_TYPE_SQL);
+                } else if (type === 'audio') {
+                    fallbackClauses.push(AUDIO_TYPE_SQL);
+                } else if (type === 'document' || type === 'other') {
+                    fallbackClauses.push(`NOT ${MEDIA_TYPE_SQL}`);
+                }
+            }
+            if (fallbackClauses.length > 0) {
+                orClauses.push(`(file_type_bucket IS NULL AND (${fallbackClauses.join(' OR ')}))`);
+            }
+
+            // 'other' 桶天然包含 application/pdf 等真实非媒体；同时也覆盖了
+            // 未 backfill 老记录里非 media 的情况，所以查 'other' 时 NULL 桶
+            // 也允许走 fallback 路径（NOT MEDIA_TYPE_SQL）以匹配真实 document。
+            if (wantsOther && !fallbackClauses.some((clause) => clause.startsWith('NOT'))) {
+                orClauses.push(`(file_type_bucket IS NULL AND NOT ${MEDIA_TYPE_SQL})`);
+            }
+
+            if (orClauses.length > 0) {
+                whereClauses.push(`(${orClauses.join(' OR ')})`);
             }
         }
 
@@ -565,7 +725,7 @@ class D1Database {
         };
     }
 
-    extractMetadataFields(metadata) {
+    extractMetadataFields(metadata, fileId = '') {
         return {
             fileName: metadata.FileName || null,
             fileType: metadata.FileType || null,
@@ -582,6 +742,7 @@ class D1Database {
             tgChatId: metadata.TgChatId || null,
             tgMessageId: metadata.TgMessageId || null,
             isChunked: isTruthyMetadataValue(metadata.IsChunked),
+            fileTypeBucket: computeFileTypeBucket(metadata, fileId),
         };
     }
 

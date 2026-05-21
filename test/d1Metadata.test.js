@@ -1123,4 +1123,94 @@ describe('D1 metadata migration path', () => {
         const remaining = [...env.img_url.store.keys()].filter((key) => key.startsWith('manage@index@operation_'));
         assert.deepEqual(remaining, []);
     });
+
+    describe('file_type_bucket indexing', () => {
+        it('populates file_type_bucket on new writes for image/video/audio/other', async () => {
+            const d1 = new D1Database(new SqliteD1(':memory:'));
+            await d1.putFile('photos/IMG_1.HEIC', '', {
+                metadata: { FileName: 'IMG_1.HEIC', FileType: 'image/heic', TimeStamp: 1 },
+            });
+            await d1.putFile('clips/movie.mp4', '', {
+                metadata: { FileName: 'movie.mp4', FileType: 'video/mp4', TimeStamp: 2 },
+            });
+            await d1.putFile('music/track.mp3', '', {
+                metadata: { FileName: 'track.mp3', FileType: 'audio/mpeg', TimeStamp: 3 },
+            });
+            await d1.putFile('docs/manual.pdf', '', {
+                metadata: { FileName: 'manual.pdf', FileType: 'application/pdf', TimeStamp: 4 },
+            });
+            await d1.putFile('mystery/IMG_2.HEIC', '', {
+                metadata: { FileName: 'IMG_2.HEIC', FileType: 'application/octet-stream', TimeStamp: 5 },
+            });
+
+            const rows = await d1.db.prepare('SELECT id, file_type_bucket FROM files ORDER BY id').all();
+            const bucketByPath = Object.fromEntries(
+                (rows.results || []).map((row) => [row.id, row.file_type_bucket]),
+            );
+            assert.equal(bucketByPath['photos/IMG_1.HEIC'], 'image');
+            assert.equal(bucketByPath['clips/movie.mp4'], 'video');
+            assert.equal(bucketByPath['music/track.mp3'], 'audio');
+            assert.equal(bucketByPath['docs/manual.pdf'], 'other');
+            assert.equal(
+                bucketByPath['mystery/IMG_2.HEIC'],
+                'image',
+                'generic octet-stream HEIC should still bucket as image via filename fallback',
+            );
+        });
+
+        it('queryFiles uses file_type_bucket index for the image filter', async () => {
+            const d1 = new D1Database(new SqliteD1(':memory:'));
+            await d1.putFile('photos/a.jpg', '', {
+                metadata: { FileName: 'a.jpg', FileType: 'image/jpeg', TimeStamp: 10 },
+            });
+            await d1.putFile('clips/v.mp4', '', {
+                metadata: { FileName: 'v.mp4', FileType: 'video/mp4', TimeStamp: 20 },
+            });
+            await d1.putFile('docs/d.pdf', '', {
+                metadata: { FileName: 'd.pdf', FileType: 'application/pdf', TimeStamp: 30 },
+            });
+
+            const explain = await d1.db
+                .prepare("EXPLAIN QUERY PLAN SELECT id FROM files WHERE file_type_bucket IN ('image')")
+                .all();
+            const planDetail = (explain.results || []).map((row) => row.detail || '').join(' | ');
+            assert.match(
+                planDetail,
+                /idx_files_type_bucket/,
+                'query plan must use the new idx_files_type_bucket index',
+            );
+
+            const result = await d1.queryFiles({ types: ['image'] });
+            assert.equal(result.total, 1);
+            assert.equal(result.files[0].id, 'photos/a.jpg');
+        });
+
+        it('queryFiles still resolves legacy rows that pre-date the bucket column via fallback OR clause', async () => {
+            const d1 = new D1Database(new SqliteD1(':memory:'));
+            // Force schema so ALTER + index exist, then simulate a legacy row by
+            // wiping the freshly written bucket column back to NULL.
+            await d1.putFile('photos/legacy.jpg', '', {
+                metadata: { FileName: 'legacy.jpg', FileType: 'image/jpeg', TimeStamp: 1 },
+            });
+            await d1.db.prepare("UPDATE files SET file_type_bucket = NULL WHERE id = 'photos/legacy.jpg'").run();
+            await d1.db.prepare('DELETE FROM settings WHERE key = ?').bind('schema@d1@file_type_bucket_v1').run();
+
+            // Reset schemaReady so next queryFiles re-runs ensureSchema (which includes backfill).
+            d1.schemaReady = null;
+
+            const result = await d1.queryFiles({ types: ['image'] });
+            assert.equal(result.total, 1, 'legacy NULL-bucket row must still surface for image type filter');
+            assert.equal(result.files[0].id, 'photos/legacy.jpg');
+
+            const repaired = await d1.db
+                .prepare("SELECT file_type_bucket FROM files WHERE id = 'photos/legacy.jpg'")
+                .first();
+            assert.equal(repaired.file_type_bucket, 'image', 'ensureSchema backfill must repair the bucket');
+
+            const sentinel = await d1.db
+                .prepare("SELECT value FROM settings WHERE key = 'schema@d1@file_type_bucket_v1'")
+                .first();
+            assert.ok(sentinel?.value, 'backfill sentinel must be written so cold start re-runs skip the UPDATE');
+        });
+    });
 });
