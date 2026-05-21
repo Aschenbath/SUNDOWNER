@@ -669,4 +669,168 @@ describe('/file HEIC preview responses', () => {
       }
     }
   });
+
+  it('stashes a public, GET-shaped response so CF caches.default does not reject the write', async () => {
+    const previewBytes = new Uint8Array([0xFF, 0xD8, 0xAB, 0xCD, 0xFF, 0xD9]);
+    __setEmbeddedThumbnailExtractorForTests(async () => previewBytes);
+
+    const records = new Map([
+      ['photos/IMG_PRIV.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_PRIV.HEIC',
+          FileType: 'image/heic',
+          Channel: 'CloudflareR2',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+    const env = {
+      img_url: new MemoryKV(records),
+      img_r2: {
+        async get(key) {
+          return key === 'photos/IMG_PRIV.HEIC'
+            ? new MockR2Object(new Uint8Array([0x20, 0x21]))
+            : null;
+        },
+      },
+    };
+
+    const cacheStore = new Map();
+    const stashedResponses = [];
+    const fakeCache = {
+      async match(request) {
+        const key = request instanceof Request ? request.url : String(request);
+        return cacheStore.get(key) || undefined;
+      },
+      async put(request, response) {
+        // 模拟 CF Cache API：private / no-store / no-cache 一律拒收，便于在测试里抓到回归。
+        const cc = (response.headers.get('Cache-Control') || '').toLowerCase();
+        if (/(\bprivate\b|\bno-store\b|\bno-cache\b)/.test(cc)) {
+          throw new TypeError('Cannot cache response with Cache-Control: private/no-store/no-cache');
+        }
+        const key = request instanceof Request ? request.url : String(request);
+        stashedResponses.push({ key, cacheControl: cc, status: response.status });
+        cacheStore.set(key, response);
+      },
+    };
+    const originalCaches = globalThis.caches;
+    globalThis.caches = { default: fakeCache };
+
+    const buildRequest = (init = {}) => ({
+      request: new Request('https://example.com/file/photos/IMG_PRIV.HEIC?preview=embedded', {
+        method: init.method || 'GET',
+        headers: { Referer: 'https://example.com/dashboard' },
+      }),
+      env,
+      params: { path: 'photos/IMG_PRIV.HEIC' },
+      waitUntil(promise) { return Promise.resolve(promise).catch(() => {}); },
+      next() {},
+      data: {},
+    });
+
+    try {
+      const first = await onRequest(buildRequest());
+      assert.equal(first.status, 200);
+      // 客户端响应保留原本的 private 语义，不把 cache 用的 public CC 漏出去。
+      assert.match((first.headers.get('Cache-Control') || '').toLowerCase(), /private/);
+      assert.equal(stashedResponses.length, 1, 'fake CF cache must accept the stash (public CC)');
+      assert.match(stashedResponses[0].cacheControl, /public/);
+      assert.match(stashedResponses[0].cacheControl, /immutable/);
+
+      const second = await onRequest(buildRequest());
+      assert.equal(second.status, 200);
+      // 缓存命中也要给客户端回 private，按当前 Referer 重建头。
+      assert.match((second.headers.get('Cache-Control') || '').toLowerCase(), /private/);
+      assert.deepEqual(Array.from(new Uint8Array(await second.arrayBuffer())), Array.from(previewBytes));
+    } finally {
+      if (originalCaches === undefined) {
+        delete globalThis.caches;
+      } else {
+        globalThis.caches = originalCaches;
+      }
+    }
+  });
+
+  it('does not poison the GET cache when a HEAD request lands first', async () => {
+    const previewBytes = new Uint8Array([0xFF, 0xD8, 0x12, 0x34, 0xFF, 0xD9]);
+    let extractorCalls = 0;
+    __setEmbeddedThumbnailExtractorForTests(async () => {
+      extractorCalls += 1;
+      return previewBytes;
+    });
+
+    const records = new Map([
+      ['photos/IMG_HEAD.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_HEAD.HEIC',
+          FileType: 'image/heic',
+          Channel: 'CloudflareR2',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+    const env = {
+      img_url: new MemoryKV(records),
+      img_r2: {
+        async get(key) {
+          return key === 'photos/IMG_HEAD.HEIC'
+            ? new MockR2Object(new Uint8Array([0x30, 0x31]))
+            : null;
+        },
+      },
+    };
+
+    const cacheStore = new Map();
+    const fakeCache = {
+      async match(request) {
+        const key = request instanceof Request ? request.url : String(request);
+        const cached = cacheStore.get(key);
+        if (!cached) return undefined;
+        return cached.clone();
+      },
+      async put(request, response) {
+        const key = request instanceof Request ? request.url : String(request);
+        cacheStore.set(key, response);
+      },
+    };
+    const originalCaches = globalThis.caches;
+    globalThis.caches = { default: fakeCache };
+
+    const buildRequest = (method) => ({
+      request: new Request('https://example.com/file/photos/IMG_HEAD.HEIC?preview=embedded', {
+        method,
+        headers: { Referer: 'https://example.com/dashboard' },
+      }),
+      env,
+      params: { path: 'photos/IMG_HEAD.HEIC' },
+      waitUntil(promise) { return Promise.resolve(promise).catch(() => {}); },
+      next() {},
+      data: {},
+    });
+
+    try {
+      const head = await onRequest(buildRequest('HEAD'));
+      assert.equal(head.status, 200);
+      // HEAD 响应不应带 body
+      const headBytes = await head.arrayBuffer();
+      assert.equal(headBytes.byteLength, 0, 'HEAD response keeps its bodyless contract');
+
+      const get = await onRequest(buildRequest('GET'));
+      assert.equal(get.status, 200);
+      const getBytes = new Uint8Array(await get.arrayBuffer());
+      assert.deepEqual(Array.from(getBytes), Array.from(previewBytes), 'subsequent GET must return the real preview bytes, not the bodyless HEAD cache');
+      // HEAD 那次抽过一次帧；GET 命中缓存不应再抽帧。
+      assert.equal(extractorCalls, 1, 'GET must hit the cache stashed by HEAD instead of re-extracting');
+    } finally {
+      if (originalCaches === undefined) {
+        delete globalThis.caches;
+      } else {
+        globalThis.caches = originalCaches;
+      }
+    }
+  });
 });

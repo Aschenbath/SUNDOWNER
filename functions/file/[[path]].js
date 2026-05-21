@@ -207,20 +207,39 @@ function buildEmbeddedPreviewCacheKey(context) {
     return new Request(canonical.toString(), { method: 'GET' });
 }
 
+function rebuildEmbeddedPreviewFromCache(context, cached, fileName) {
+    const headers = new Headers();
+    applyFileResponseHeaders(
+        context,
+        headers,
+        encodeURIComponent(buildPreviewFileName(fileName)),
+        cached.headers.get('Content-Type') || 'image/jpeg',
+    );
+    const contentLength = cached.headers.get('Content-Length');
+    if (contentLength) {
+        headers.set('Content-Length', contentLength);
+    }
+    if (context?.request?.method === 'HEAD') {
+        return handleHeadRequest(headers);
+    }
+    return new Response(cached.body, { status: 200, headers });
+}
+
 async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fileType, options = {}) {
     const metadata = imgRecord?.metadata || {};
     if (!shouldAttemptEmbeddedPreview(context, metadata, fileType, options)) {
         return null;
     }
 
-    // Worker edge cache 命中直接返回，跳过 TG 拉文件 + exifr 抽帧
+    // Worker edge cache 命中直接返回，跳过 TG 拉文件 + exifr 抽帧。
+    // 命中后按当前请求 method/Referer 重建头，避免缓存里 public Cache-Control 直接漏给浏览器。
     const cache = getWorkerEdgeCache();
     const cacheKey = buildEmbeddedPreviewCacheKey(context);
     if (cacheKey) {
         try {
             const cached = await cache.match(cacheKey);
             if (cached) {
-                return cached;
+                return rebuildEmbeddedPreviewFromCache(context, cached, fileName);
             }
         } catch (error) {
             console.warn(`Embedded preview cache lookup failed for ${fileId}:`, error.message || error);
@@ -266,13 +285,20 @@ async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fil
         return null;
     }
 
-    const response = buildEmbeddedPreviewResponse(context, fileName, preview);
-
-    // 把抽好的 preview 写回 edge cache，下一次同 file_id 命中直接拿来用
-    if (cacheKey && response && response.status === 200) {
+    // 写 cache 跟客户端响应必须用两个独立的 Response：
+    // 1) HEAD 请求下 buildEmbeddedPreviewResponse 返回空 body，直接 clone 会污染 GET 缓存键。
+    // 2) Dashboard 内部 Referer 触发 Cache-Control: private，CF caches.default 默认拒收 private 响应，
+    //    导致整条 HEIC 缓存在最热的路径上静默失效。
+    // 解决：缓存副本固定 GET 形状 + Cache-Control: public, immutable，客户端响应保持原本的 method/Referer 语义。
+    if (cacheKey && preview?.bytes?.byteLength) {
+        const cacheableHeaders = new Headers();
+        cacheableHeaders.set('Content-Type', preview.mimeType || 'image/jpeg');
+        cacheableHeaders.set('Content-Length', String(preview.bytes.byteLength));
+        cacheableHeaders.set('Cache-Control', 'public, max-age=86400, immutable');
+        const cacheableResponse = new Response(preview.bytes, { status: 200, headers: cacheableHeaders });
         const stash = (async () => {
             try {
-                await cache.put(cacheKey, response.clone());
+                await cache.put(cacheKey, cacheableResponse);
             } catch (error) {
                 console.warn(`Failed to stash embedded preview for ${fileId}:`, error.message || error);
             }
@@ -284,7 +310,7 @@ async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fil
         }
     }
 
-    return response;
+    return buildEmbeddedPreviewResponse(context, fileName, preview);
 }
 
 function shouldFallbackFromTelegramPreview(context, telegramReadTarget, fileType) {
