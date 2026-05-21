@@ -194,4 +194,41 @@ describe('heic-decoder', () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it('awaits a factory-shaped default export (raw ESM bundle) before reaching HeifDecoder', async () => {
+    // Raw libheif-bundle.mjs (which we vendor) exports a factory function as
+    // default, not a ready module with HeifDecoder. The helper must invoke and
+    // await that factory before reading HeifDecoder, otherwise it crashes with
+    // "libheif module did not expose HeifDecoder" — which is the production
+    // bug observed in commit b607fdb that this test pins down.
+    let factoryCalls = 0;
+    const readyModule = buildLibheifStub({ width: 4032, height: 3024 }).default;
+    __setLibheifLoaderForTests(async () => ({
+      default: async () => {
+        factoryCalls += 1;
+        return readyModule;
+      },
+    }));
+    __setCanvasFactoryForTests((w, h) => new FakeCanvas(w, h));
+
+    const blob = await decodeHeicBufferToBlob(new Uint8Array([1, 2, 3]));
+    assert.equal(factoryCalls, 1, 'factory must be invoked once to reach HeifDecoder');
+    assert.equal(blob.width, 4032);
+    assert.equal(blob.height, 3024);
+
+    // A second decode reuses the cached decoder without re-invoking the factory.
+    const blob2 = await decodeHeicBufferToBlob(new Uint8Array([4, 5, 6]));
+    assert.equal(factoryCalls, 1, 'factory must not be invoked again after the decoder is cached');
+    assert.equal(blob2.width, 4032);
+  });
+
+  it('still accepts a pre-instantiated module shape (CJS wasm-bundle style)', async () => {
+    const stub = buildLibheifStub({ width: 800, height: 600 });
+    __setLibheifLoaderForTests(async () => stub);
+    __setCanvasFactoryForTests((w, h) => new FakeCanvas(w, h));
+
+    const blob = await decodeHeicBufferToBlob(new Uint8Array([1, 2, 3]));
+    assert.equal(blob.width, 800);
+    assert.equal(blob.height, 600);
+  });
 });
