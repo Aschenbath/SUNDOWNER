@@ -53,7 +53,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=114';
+} from './components.js?v=115';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -1902,9 +1902,8 @@ function upgradePreviewImageToHeicDecoded(img, heicUrl) {
         return;
       }
       img.dataset.heicDecodeStatus = 'done';
-      img.classList.remove('is-blur-placeholder');
-      img.classList.remove('is-heic-blur-placeholder');
-      img.classList.add('is-full-loaded');
+      img.classList.remove('is-heic-decode-pending');
+      img.classList.add('is-heic-decoded');
       img.src = objectUrl;
     } catch (error) {
       console.warn('HEIC client decode failed:', error?.message || error);
