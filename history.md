@@ -409,6 +409,16 @@ Known-good local test pattern:
 - For visual regression, compare against accepted Films Detail anchor `353e771` before broad CSS changes.
 - Runtime/version truth in this file must be refreshed after app/css/module cache bumps.
 
+## 2026-May-21 Work Log
+
+- [perf][cache] perf/cache-immutable post-review fixes pushed (commit 0acbe9e). tryServeEmbeddedPreview previously reused one Response for both client return and edge-cache stash. Two bugs: (1) dashboard internal Referer set Cache-Control: private which CF caches.default.put silently rejects, so HEIC speedup never engaged on hot path; (2) HEAD-first requests stashed a bodyless Response under a GET cache key, breaking later GETs. Fix: stash a separate GET-shaped Response built from preview.bytes with Cache-Control: public, max-age=86400, immutable; on cache hit rebuildEmbeddedPreviewFromCache re-applies headers via applyFileResponseHeaders so client sees correct CC per current Referer and HEAD gets a bodyless reply.
+- Validation: targeted mocha heicPreviewRoute + telegramFilePathCache 18 passing including two new regressions; Node syntax checks clean. Full Mocha not rerun because worktree better-sqlite3 binding is mismatched to local Node 24 (env, not branch).
+
+### Decision Capsules
+
+- [edge-cache-private-rejection] CF Workers caches.default.put refuses Cache-Control private/no-store/no-cache. When stashing per-request derived assets that may carry private for internal Referers, build a separate cache-bound Response with public CC, then rebuild client-facing headers from the cached response on hit so private semantics do not leak to browser cache.
+- [head-poisoning] Worker routes that reuse one Response for both client return and cache.put will stash a bodyless Response under a GET cache key whenever a HEAD lands first, breaking later GETs. Build the cache-bound Response from raw payload bytes independent of request method.
+
 ## Tail Capsule
 
 - read-protocol: start with `Get-Content history.md -Tail 14`; then read latest day if the task touches active work.
