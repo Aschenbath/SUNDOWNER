@@ -493,4 +493,180 @@ describe('/file HEIC preview responses', () => {
     assert.equal(response.headers.get('Content-Type'), 'image/jpeg');
     assert.deepEqual(Array.from(new Uint8Array(await response.arrayBuffer())), Array.from(previewBytes));
   });
+
+  it('attaches an immutable Cache-Control directive plus a content-addressed ETag to embedded previews', async () => {
+    __setEmbeddedThumbnailExtractorForTests(async () => new Uint8Array([0xFF, 0xD8, 0xCA, 0xFE]));
+
+    const records = new Map([
+      ['photos/IMG_3000.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_3000.HEIC',
+          FileType: 'image/heic',
+          Channel: 'CloudflareR2',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      img_r2: {
+        async get(key) {
+          return key === 'photos/IMG_3000.HEIC'
+            ? new MockR2Object(new Uint8Array([0x00, 0x01]))
+            : null;
+        },
+      },
+    };
+
+    const response = await onRequest({
+      request: new Request('https://example.com/file/photos/IMG_3000.HEIC?preview=embedded', {
+        headers: { Referer: 'https://example.com/dashboard' },
+      }),
+      env,
+      params: { path: 'photos/IMG_3000.HEIC' },
+      waitUntil() {},
+      next() {},
+      data: {},
+    });
+
+    assert.equal(response.status, 200);
+    const cacheControl = response.headers.get('Cache-Control') || '';
+    assert.match(cacheControl, /immutable/, 'Cache-Control should declare immutable for content-addressed previews');
+    assert.match(cacheControl, /max-age=\d+/);
+    const etag = response.headers.get('ETag') || '';
+    assert.equal(etag, '"photos/IMG_3000.HEIC-embedded"', 'ETag must encode the file id and the variant');
+  });
+
+  it('short-circuits to 304 Not Modified when If-None-Match matches the file ETag', async () => {
+    let r2Calls = 0;
+    const records = new Map([
+      ['photos/IMG_3000.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_3000.HEIC',
+          FileType: 'image/heic',
+          Channel: 'CloudflareR2',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      img_r2: {
+        async get(key) {
+          r2Calls += 1;
+          return key === 'photos/IMG_3000.HEIC'
+            ? new MockR2Object(new Uint8Array([0x00, 0x01]))
+            : null;
+        },
+      },
+    };
+
+    const response = await onRequest({
+      request: new Request('https://example.com/file/photos/IMG_3000.HEIC?preview=embedded', {
+        headers: {
+          Referer: 'https://example.com/dashboard',
+          'If-None-Match': '"photos/IMG_3000.HEIC-embedded"',
+        },
+      }),
+      env,
+      params: { path: 'photos/IMG_3000.HEIC' },
+      waitUntil() {},
+      next() {},
+      data: {},
+    });
+
+    assert.equal(response.status, 304, 'matching If-None-Match must return 304');
+    assert.equal(response.headers.get('ETag'), '"photos/IMG_3000.HEIC-embedded"');
+    assert.match(response.headers.get('Cache-Control') || '', /immutable/);
+    assert.equal(r2Calls, 0, 'R2 must not be touched on a 304 short-circuit');
+  });
+
+  it('caches the embedded preview in caches.default so repeat requests skip the source fetch', async () => {
+    const previewBytes = new Uint8Array([0xFF, 0xD8, 0xCA, 0xC1, 0xFF, 0xD9]);
+    let extractorCalls = 0;
+    __setEmbeddedThumbnailExtractorForTests(async () => {
+      extractorCalls += 1;
+      return previewBytes;
+    });
+
+    const records = new Map([
+      ['photos/IMG_4000.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_4000.HEIC',
+          FileType: 'image/heic',
+          Channel: 'CloudflareR2',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    let r2Calls = 0;
+    const env = {
+      img_url: new MemoryKV(records),
+      img_r2: {
+        async get(key) {
+          r2Calls += 1;
+          return key === 'photos/IMG_4000.HEIC'
+            ? new MockR2Object(new Uint8Array([0x10, 0x11, 0x12]))
+            : null;
+        },
+      },
+    };
+
+    const cacheStore = new Map();
+    const cachePuts = [];
+    const fakeCache = {
+      async match(request) {
+        const key = request instanceof Request ? request.url : String(request);
+        return cacheStore.get(key) || undefined;
+      },
+      async put(request, response) {
+        const key = request instanceof Request ? request.url : String(request);
+        cachePuts.push(key);
+        cacheStore.set(key, response);
+      },
+    };
+    const originalCaches = globalThis.caches;
+    globalThis.caches = { default: fakeCache };
+
+    const buildRequest = () => ({
+      request: new Request('https://example.com/file/photos/IMG_4000.HEIC?preview=embedded', {
+        headers: { Referer: 'https://example.com/dashboard' },
+      }),
+      env,
+      params: { path: 'photos/IMG_4000.HEIC' },
+      waitUntil(promise) { return Promise.resolve(promise).catch(() => {}); },
+      next() {},
+      data: {},
+    });
+
+    try {
+      const first = await onRequest(buildRequest());
+      assert.equal(first.status, 200);
+      assert.deepEqual(Array.from(new Uint8Array(await first.arrayBuffer())), Array.from(previewBytes));
+      assert.equal(extractorCalls, 1, 'first request runs the extractor');
+      assert.equal(r2Calls, 1, 'first request loads the source from R2');
+      assert.equal(cachePuts.length, 1, 'first request stashes the response into caches.default');
+
+      const second = await onRequest(buildRequest());
+      assert.equal(second.status, 200);
+      assert.deepEqual(Array.from(new Uint8Array(await second.arrayBuffer())), Array.from(previewBytes));
+      assert.equal(extractorCalls, 1, 'second request must serve from cache without re-running the extractor');
+      assert.equal(r2Calls, 1, 'second request must not re-read the source from R2');
+    } finally {
+      if (originalCaches === undefined) {
+        delete globalThis.caches;
+      } else {
+        globalThis.caches = originalCaches;
+      }
+    }
+  });
 });

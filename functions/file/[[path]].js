@@ -4,7 +4,7 @@ import { TelegramAPI, buildTelegramFileUrl } from "../utils/telegramAPI.js";
 import { DiscordAPI, resolveDiscordFileUrl } from "../utils/discordAPI.js";
 import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
 import {
-    setCommonHeaders, setRangeHeaders, handleHeadRequest, getFileContent, isTgChannel,
+    applyFileResponseHeaders, getWorkerEdgeCache, setRangeHeaders, handleHeadRequest, getFileContent, isTgChannel,
     returnWithCheck, return404, returnBlockImg, isDomainAllowed
 } from './fileTools.js';
 import { getDatabase } from '../utils/databaseAdapter.js';
@@ -42,9 +42,9 @@ function buildPreviewFileName(fileName = 'preview.jpg') {
 }
 
 function buildEmbeddedPreviewResponse(context, fileName, preview) {
-    const { request, Referer, url } = context;
+    const { request } = context;
     const headers = new Headers();
-    setCommonHeaders(headers, encodeURIComponent(buildPreviewFileName(fileName)), preview.mimeType || 'image/jpeg', Referer, url);
+    applyFileResponseHeaders(context, headers, encodeURIComponent(buildPreviewFileName(fileName)), preview.mimeType || 'image/jpeg');
     headers.set('Content-Length', String(preview.bytes.byteLength || 0));
 
     if (request.method === 'HEAD') {
@@ -196,10 +196,35 @@ async function resolveTelegramSourceUrl(env, metadata = {}, fileId = '', options
     };
 }
 
+function buildEmbeddedPreviewCacheKey(context) {
+    if (!context?.url) {
+        return null;
+    }
+    const canonical = new URL(context.url.toString());
+    canonical.searchParams.set('preview', 'embedded');
+    canonical.searchParams.delete('range');
+    // file_id 在 path 里且内容寻址，所以 path + 规范化的 ?preview=embedded 足够唯一定位一条嵌入式预览
+    return new Request(canonical.toString(), { method: 'GET' });
+}
+
 async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fileType, options = {}) {
     const metadata = imgRecord?.metadata || {};
     if (!shouldAttemptEmbeddedPreview(context, metadata, fileType, options)) {
         return null;
+    }
+
+    // Worker edge cache 命中直接返回，跳过 TG 拉文件 + exifr 抽帧
+    const cache = getWorkerEdgeCache();
+    const cacheKey = buildEmbeddedPreviewCacheKey(context);
+    if (cacheKey) {
+        try {
+            const cached = await cache.match(cacheKey);
+            if (cached) {
+                return cached;
+            }
+        } catch (error) {
+            console.warn(`Embedded preview cache lookup failed for ${fileId}:`, error.message || error);
+        }
     }
 
     let sourceBuffer = null;
@@ -241,7 +266,25 @@ async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fil
         return null;
     }
 
-    return buildEmbeddedPreviewResponse(context, fileName, preview);
+    const response = buildEmbeddedPreviewResponse(context, fileName, preview);
+
+    // 把抽好的 preview 写回 edge cache，下一次同 file_id 命中直接拿来用
+    if (cacheKey && response && response.status === 200) {
+        const stash = (async () => {
+            try {
+                await cache.put(cacheKey, response.clone());
+            } catch (error) {
+                console.warn(`Failed to stash embedded preview for ${fileId}:`, error.message || error);
+            }
+        })();
+        if (typeof context.waitUntil === 'function') {
+            context.waitUntil(stash);
+        } else {
+            await stash;
+        }
+    }
+
+    return response;
 }
 
 function shouldFallbackFromTelegramPreview(context, telegramReadTarget, fileType) {
@@ -281,12 +324,11 @@ async function tryFallbackTelegramOriginal(context, imgRecord, fileId, fileName,
     }
 
     const headers = new Headers(response.headers);
-    setCommonHeaders(
+    applyFileResponseHeaders(
+        context,
         headers,
         encodeURIComponent(fileName),
         originalTarget.fileType || fileType,
-        context.Referer,
-        context.url,
     );
 
     return new Response(response.body, {
@@ -365,6 +407,26 @@ export async function onRequest(context) {  // Contents of context object
     let accessRes = await returnWithCheck(context, imgRecord);
     if (accessRes.status !== 200) {
         return accessRes; // 如果不可访问，直接返回
+    }
+
+    // 内容寻址 ETag：fileId 不变意味着内容不变，按 variant（原图/缩略图/嵌入式 preview）
+    // 区分，让浏览器把每条变体单独缓存。Range 请求保持透传，由各 chunked handler 自己处理。
+    const variantTag = wantsEmbeddedPreview ? 'embedded' : (wantsPreview ? 'preview' : 'original');
+    const safeFileIdToken = String(fileId).replace(/"/g, '');
+    context.responseEtag = `"${safeFileIdToken}-${variantTag}"`;
+
+    if (
+        (request.method === 'GET' || request.method === 'HEAD')
+        && !request.headers.get('Range')
+        && request.headers.get('If-None-Match') === context.responseEtag
+    ) {
+        const notModifiedHeaders = new Headers();
+        applyFileResponseHeaders(context, notModifiedHeaders, encodedFileName, fileType);
+        notModifiedHeaders.delete('Content-Length');
+        return new Response(null, {
+            status: 304,
+            headers: notModifiedHeaders,
+        });
     }
 
     /* Cloudflare R2渠道 */
@@ -482,7 +544,7 @@ export async function onRequest(context) {  // Contents of context object
         }
 
         const headers = new Headers(response.headers);
-        setCommonHeaders(headers, encodedFileName, responseFileType, Referer, url);
+        applyFileResponseHeaders(context, headers, encodedFileName, responseFileType);
 
         const newRes = new Response(response.body, {
             status: response.status,
@@ -521,7 +583,7 @@ async function handleTelegramChunkedFile(context, imgRecord, encodedFileName, fi
 
     // 构建响应头
     const headers = new Headers();
-    setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
+    applyFileResponseHeaders(context, headers, encodedFileName, fileType);
     headers.set('Content-Length', totalSize.toString());
 
     // 添加ETag支持
@@ -700,7 +762,7 @@ async function handleDiscordChunkedFile(context, imgRecord, encodedFileName, fil
 
     // 构建响应头
     const headers = new Headers();
-    setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
+    applyFileResponseHeaders(context, headers, encodedFileName, fileType);
     headers.set('Content-Length', totalSize.toString());
 
     // 添加ETag支持
@@ -911,7 +973,7 @@ async function handleR2File(context, fileId, encodedFileName, fileType) {
 
         const headers = new Headers();
         object.writeHttpMetadata(headers);
-        setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
+        applyFileResponseHeaders(context, headers, encodedFileName, fileType);
 
         // 处理HEAD请求
         if (request.method === 'HEAD') {
@@ -953,7 +1015,7 @@ async function handleS3File(context, metadata, encodedFileName, fileType, fileId
             // 处理 HEAD 请求
             if (request.method === 'HEAD') {
                 const headers = new Headers();
-                setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
+                applyFileResponseHeaders(context, headers, encodedFileName, fileType);
                 return handleHeadRequest(headers);
             }
 
@@ -980,7 +1042,7 @@ async function handleS3File(context, metadata, encodedFileName, fileType, fileId
 
             // 构建响应头
             const headers = new Headers();
-            setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
+            applyFileResponseHeaders(context, headers, encodedFileName, fileType);
 
             // 复制相关头部
             if (response.headers.get('Content-Length')) {
@@ -1049,7 +1111,7 @@ async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType, 
 
         // 设置响应头
         const headers = new Headers();
-        setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
+        applyFileResponseHeaders(context, headers, encodedFileName, fileType);
 
         // 设置Content-Length和Content-Range头
         if (response.ContentLength) {
@@ -1106,7 +1168,7 @@ async function handleDiscordFile(context, metadata, encodedFileName, fileType) {
         // 处理 HEAD 请求
         if (request.method === 'HEAD') {
             const headers = new Headers();
-            setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
+            applyFileResponseHeaders(context, headers, encodedFileName, fileType);
             return handleHeadRequest(headers);
         }
 
@@ -1128,7 +1190,7 @@ async function handleDiscordFile(context, metadata, encodedFileName, fileType) {
 
         // 构建响应头
         const headers = new Headers();
-        setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
+        applyFileResponseHeaders(context, headers, encodedFileName, fileType);
 
         // 复制相关头部
         if (response.headers.get('Content-Length')) {
@@ -1171,7 +1233,7 @@ async function handleHuggingFaceFile(context, metadata, encodedFileName, fileTyp
         // 处理 HEAD 请求
         if (request.method === 'HEAD') {
             const headers = new Headers();
-            setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
+            applyFileResponseHeaders(context, headers, encodedFileName, fileType);
             return handleHeadRequest(headers);
         }
 
@@ -1200,7 +1262,7 @@ async function handleHuggingFaceFile(context, metadata, encodedFileName, fileTyp
 
         // 构建响应头
         const headers = new Headers();
-        setCommonHeaders(headers, encodedFileName, fileType, Referer, url);
+        applyFileResponseHeaders(context, headers, encodedFileName, fileType);
 
         // 复制相关头部
         if (response.headers.get('Content-Length')) {
