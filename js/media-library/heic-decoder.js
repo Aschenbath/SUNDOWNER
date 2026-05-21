@@ -189,3 +189,78 @@ export async function decodeHeicUrlToObjectUrl(url, options) {
   }
   return URL.createObjectURL(blob);
 }
+
+// LRU cache of decoded HEIC blob URLs keyed by source URL. Prefetching the
+// neighbours of the active lightbox photo lets sideways navigation feel
+// instant once the bundle has been fetched once. Cache size is intentionally
+// small so total in-memory blob bytes stay bounded — a 12 MP HEIC decodes to a
+// ~5-8 MB JPEG blob, so 8 entries keep us under ~64 MB worst case.
+const HEIC_PREFETCH_CACHE_MAX_ENTRIES = 8;
+const heicPrefetchCache = new Map();
+const heicPrefetchInflight = new Map();
+
+function revokePrefetchEntry(url) {
+  const objectUrl = heicPrefetchCache.get(url);
+  if (objectUrl) {
+    try { URL.revokeObjectURL(objectUrl); } catch { /* ignore */ }
+  }
+  heicPrefetchCache.delete(url);
+}
+
+function trimPrefetchCacheTo(limit) {
+  while (heicPrefetchCache.size > limit) {
+    const oldestKey = heicPrefetchCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    revokePrefetchEntry(oldestKey);
+  }
+}
+
+export function getCachedHeicObjectUrl(url) {
+  if (!url) return null;
+  const objectUrl = heicPrefetchCache.get(url);
+  if (!objectUrl) return null;
+  heicPrefetchCache.delete(url);
+  heicPrefetchCache.set(url, objectUrl);
+  return objectUrl;
+}
+
+export function takeCachedHeicObjectUrl(url) {
+  if (!url) return null;
+  const objectUrl = heicPrefetchCache.get(url);
+  if (!objectUrl) return null;
+  heicPrefetchCache.delete(url);
+  return objectUrl;
+}
+
+export async function prefetchHeicObjectUrl(url, options) {
+  if (!url) return null;
+  if (heicPrefetchCache.has(url)) {
+    return getCachedHeicObjectUrl(url);
+  }
+  if (heicPrefetchInflight.has(url)) {
+    return heicPrefetchInflight.get(url);
+  }
+  const inflight = (async () => {
+    try {
+      const objectUrl = await decodeHeicUrlToObjectUrl(url, options);
+      heicPrefetchCache.set(url, objectUrl);
+      trimPrefetchCacheTo(HEIC_PREFETCH_CACHE_MAX_ENTRIES);
+      return objectUrl;
+    } finally {
+      heicPrefetchInflight.delete(url);
+    }
+  })();
+  heicPrefetchInflight.set(url, inflight);
+  return inflight;
+}
+
+export function clearHeicPrefetchCache() {
+  for (const key of Array.from(heicPrefetchCache.keys())) {
+    revokePrefetchEntry(key);
+  }
+  heicPrefetchInflight.clear();
+}
+
+export function __getHeicPrefetchCacheSnapshotForTests() {
+  return new Map(heicPrefetchCache);
+}

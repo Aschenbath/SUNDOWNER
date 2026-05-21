@@ -4429,9 +4429,20 @@ body.codex-media-library-active #app {
   filter: blur(10px);
 }
 
+#codex-media-library-root .cml-preview__media.is-heic-blur-placeholder {
+  /* HEIC lightbox starts from a tiny EXIF IFD1 thumbnail (~240x320) that gets
+   * stretched to fill the stage, so use a heavier blur than the JPEG
+   * progressive placeholder and a slight scale to keep blurred edges from
+   * revealing the dark stage behind the image. */
+  filter: blur(22px);
+  transform: scale(1.04);
+  transition: filter 320ms ease, transform 320ms ease, opacity 320ms ease;
+}
+
 #codex-media-library-root .cml-preview__media.is-full-loaded {
   filter: none;
-  transition: filter 240ms ease;
+  transform: none;
+  transition: filter 240ms ease, transform 320ms ease;
 }
 
 #codex-media-library-root .cml-preview__footer {

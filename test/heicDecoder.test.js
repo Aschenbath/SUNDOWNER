@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import {
   decodeHeicBufferToBlob,
   decodeHeicUrlToObjectUrl,
+  prefetchHeicObjectUrl,
+  getCachedHeicObjectUrl,
+  clearHeicPrefetchCache,
+  __getHeicPrefetchCacheSnapshotForTests,
   __setLibheifLoaderForTests,
   __setCanvasFactoryForTests,
   __resetHeicDecoderForTests,
@@ -230,5 +234,79 @@ describe('heic-decoder', () => {
     const blob = await decodeHeicBufferToBlob(new Uint8Array([1, 2, 3]));
     assert.equal(blob.width, 800);
     assert.equal(blob.height, 600);
+  });
+
+  describe('prefetch cache', () => {
+    let createdObjectUrls;
+    let revokedObjectUrls;
+
+    beforeEach(() => {
+      __setLibheifLoaderForTests(async () => buildLibheifStub({ width: 1200, height: 900 }));
+      __setCanvasFactoryForTests((w, h) => new FakeCanvas(w, h));
+      clearHeicPrefetchCache();
+      createdObjectUrls = [];
+      revokedObjectUrls = [];
+
+      globalThis.fetch = async () => new Response(new Uint8Array([0x01, 0x02, 0x03, 0x04]).buffer, { status: 200 });
+      globalThis.URL = globalThis.URL || class {};
+      globalThis.URL.createObjectURL = (blob) => {
+        const handle = `blob:test-${createdObjectUrls.length}`;
+        createdObjectUrls.push({ handle, blob });
+        return handle;
+      };
+      globalThis.URL.revokeObjectURL = (handle) => {
+        revokedObjectUrls.push(handle);
+      };
+    });
+
+    afterEach(() => {
+      clearHeicPrefetchCache();
+      delete globalThis.fetch;
+      delete globalThis.URL.createObjectURL;
+      delete globalThis.URL.revokeObjectURL;
+    });
+
+    it('caches the prefetched URL so the next request resolves without re-decoding', async () => {
+      const first = await prefetchHeicObjectUrl('https://example.com/a.heic');
+      assert.match(first, /^blob:test-/);
+      assert.equal(createdObjectUrls.length, 1);
+
+      const cached = getCachedHeicObjectUrl('https://example.com/a.heic');
+      assert.equal(cached, first, 'cached lookup must return the previously stored blob URL');
+      assert.equal(createdObjectUrls.length, 1, 'cache hit must not call the decoder again');
+    });
+
+    it('coalesces concurrent prefetches for the same URL into a single decode', async () => {
+      const [a, b, c] = await Promise.all([
+        prefetchHeicObjectUrl('https://example.com/x.heic'),
+        prefetchHeicObjectUrl('https://example.com/x.heic'),
+        prefetchHeicObjectUrl('https://example.com/x.heic'),
+      ]);
+      assert.equal(a, b);
+      assert.equal(b, c);
+      assert.equal(createdObjectUrls.length, 1, 'three concurrent prefetches must decode once');
+    });
+
+    it('evicts the oldest entry and revokes its blob URL once the LRU is full', async () => {
+      for (let i = 0; i < 9; i += 1) {
+        await prefetchHeicObjectUrl(`https://example.com/lru-${i}.heic`);
+      }
+      const snapshot = __getHeicPrefetchCacheSnapshotForTests();
+      assert.equal(snapshot.size, 8, 'cache must trim to its max entry count');
+      assert.equal(snapshot.has('https://example.com/lru-0.heic'), false, 'oldest URL must be evicted');
+      assert.equal(snapshot.has('https://example.com/lru-8.heic'), true, 'newest URL must remain');
+      assert.equal(revokedObjectUrls.length, 1, 'the evicted blob URL must be revoked');
+    });
+
+    it('clearHeicPrefetchCache drains every cached URL and revokes the blob URLs', async () => {
+      await prefetchHeicObjectUrl('https://example.com/d1.heic');
+      await prefetchHeicObjectUrl('https://example.com/d2.heic');
+      assert.equal(__getHeicPrefetchCacheSnapshotForTests().size, 2);
+
+      clearHeicPrefetchCache();
+
+      assert.equal(__getHeicPrefetchCacheSnapshotForTests().size, 0, 'cache must be empty after clear');
+      assert.equal(revokedObjectUrls.length, 2, 'all blob URLs must be revoked on clear');
+    });
   });
 });

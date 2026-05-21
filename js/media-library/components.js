@@ -419,7 +419,14 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       const heicDecodeAttr = withControls && item.sourceUrl
         ? ` data-heic-decode-src="${escapeHtml(item.sourceUrl)}"`
         : '';
-      return `<img class="${className}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}"${w}${h}${heicDecodeAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
+      // Apply the same blur-up class JPEG progressive previews use, so the
+      // visible IFD1 thumbnail looks like an intentional blurred placeholder
+      // instead of a jarring low-resolution flash. setupPreviewHeicDecoder
+      // swaps to is-full-loaded once the WASM-decoded blob is ready.
+      const heicClassNames = withControls && item.sourceUrl
+        ? `${className} is-blur-placeholder is-heic-blur-placeholder`
+        : className;
+      return `<img class="${heicClassNames}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}"${w}${h}${heicDecodeAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
     }
   }
   if (item.type === 'video' && item.thumbnailUrl === sourceUrl) {

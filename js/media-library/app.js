@@ -53,7 +53,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=113';
+} from './components.js?v=114';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -1885,48 +1885,59 @@ function upgradePreviewImageToHeicDecoded(img, heicUrl) {
   img.dataset.heicDecodeStatus = 'loading';
 
   (async () => {
-    let objectUrl = '';
     try {
-      const { decodeHeicUrlToObjectUrl } = await import('./heic-decoder.js?v=2');
-      objectUrl = await decodeHeicUrlToObjectUrl(heicUrl);
+      const { getCachedHeicObjectUrl, prefetchHeicObjectUrl } = await import('./heic-decoder.js?v=3');
+      // Cache hit (neighbor prefetch from a previous swipe) → instant swap with
+      // zero wait. Cache miss falls through to a real decode whose result is
+      // also stored in the cache so navigating back has the same instant feel.
+      let objectUrl = getCachedHeicObjectUrl(heicUrl);
+      if (!objectUrl) {
+        objectUrl = await prefetchHeicObjectUrl(heicUrl);
+      }
       const activePreview = refs.root?.querySelector('.cml-preview');
       const activePreviewId = normalizeText(activePreview?.dataset?.previewId || state.previewId);
       if (!refs.root || !img.isConnected || activePreviewId !== previewId || normalizeText(img.dataset.heicDecodeSrc) !== normalizeText(heicUrl)) {
-        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        // Stale preview state — leave the resolved URL in the cache so a later
+        // navigation back to this item still gets the instant path.
         return;
       }
       img.dataset.heicDecodeStatus = 'done';
       img.classList.remove('is-blur-placeholder');
+      img.classList.remove('is-heic-blur-placeholder');
       img.classList.add('is-full-loaded');
-      const previousObjectUrl = img.dataset.heicObjectUrl || '';
-      img.dataset.heicObjectUrl = objectUrl;
-      activeHeicObjectUrls.add(objectUrl);
       img.src = objectUrl;
-      if (previousObjectUrl) {
-        activeHeicObjectUrls.delete(previousObjectUrl);
-        try { URL.revokeObjectURL(previousObjectUrl); } catch { /* ignore */ }
-      }
     } catch (error) {
       console.warn('HEIC client decode failed:', error?.message || error);
       img.dataset.heicDecodeStatus = 'error';
-      if (objectUrl) {
-        try { URL.revokeObjectURL(objectUrl); } catch { /* ignore */ }
-      }
     }
   })();
 }
 
-// Module-level Set of HEIC-decoded blob URLs that are still attached to a live
-// preview image. Lightbox renders that swap the <img> for a sibling photo do
-// not get a chance to revoke the previous URL via dataset traversal, so we
-// keep an authoritative set and drain it on preview teardown.
-const activeHeicObjectUrls = new Set();
+function prefetchHeicNeighborsForPreview() {
+  if (!state.previewId) return;
+  const items = getPreviewItems();
+  if (!Array.isArray(items) || items.length < 2) return;
+  const currentIndex = items.findIndex((entry) => entry?.id === state.previewId);
+  if (currentIndex < 0) return;
 
-function releaseAllHeicObjectUrls() {
-  activeHeicObjectUrls.forEach((url) => {
-    try { URL.revokeObjectURL(url); } catch { /* ignore */ }
-  });
-  activeHeicObjectUrls.clear();
+  // Prefetch the immediate previous and next photos when they are HEIC/HEIF,
+  // so the lightbox swipe direction the user is most likely to take next
+  // resolves the blob URL from cache (zero wait) instead of starting decode
+  // only on demand.
+  const neighborIndices = [currentIndex - 1, currentIndex + 1];
+  const neighborHeicUrls = neighborIndices
+    .filter((idx) => idx >= 0 && idx < items.length)
+    .map((idx) => items[idx])
+    .filter((item) => item && item.type === 'photo' && item.browserPreviewSupported === false && item.sourceUrl)
+    .map((item) => item.sourceUrl);
+  if (neighborHeicUrls.length === 0) return;
+
+  import('./heic-decoder.js?v=3').then(({ prefetchHeicObjectUrl }) => {
+    neighborHeicUrls.forEach((url) => {
+      // fire and forget — failures stay inside the helper's inflight tracking
+      prefetchHeicObjectUrl(url).catch(() => {});
+    });
+  }).catch(() => {});
 }
 
 function setupPreviewHeicDecoder() {
@@ -1956,6 +1967,7 @@ function setupPreviewTouchHandlers() {
 
   setupPreviewProgressiveImage();
   setupPreviewHeicDecoder();
+  prefetchHeicNeighborsForPreview();
 
   stage.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
@@ -17201,22 +17213,11 @@ function restorePreviewPosition(itemId) {
 function closePreview() {
   const previewId = state.previewId;
   const previewAlbumFlow = state.albumDialogOrigin === 'preview';
-  // Release any blob URL that the HEIC client decoder may have parked on the
-  // preview image, so closing/reopening previews does not leak memory.
-  if (refs.root) {
-    const heicImgs = refs.root.querySelectorAll('.cml-preview__media[data-heic-object-url]');
-    heicImgs.forEach((node) => {
-      const url = node?.dataset?.heicObjectUrl || '';
-      if (url) {
-        activeHeicObjectUrls.delete(url);
-        try { URL.revokeObjectURL(url); } catch { /* ignore */ }
-        delete node.dataset.heicObjectUrl;
-      }
-    });
-  }
-  // Drain any HEIC blob URLs that escaped dataset cleanup because the lightbox
-  // re-rendered (e.g. neighbor-photo swipe) before this close fired.
-  releaseAllHeicObjectUrls();
+  // Drain the HEIC decode prefetch cache so the bounded LRU of blob URLs from
+  // the closed lightbox session does not linger in memory across sessions.
+  import('./heic-decoder.js?v=3')
+    .then(({ clearHeicPrefetchCache }) => clearHeicPrefetchCache())
+    .catch(() => { /* ignore */ });
   const finalizeClosePreview = () => {
     state.previewId = null;
     state.previewSourceHint = '';
