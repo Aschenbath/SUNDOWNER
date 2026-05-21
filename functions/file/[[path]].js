@@ -612,9 +612,13 @@ async function handleTelegramChunkedFile(context, imgRecord, encodedFileName, fi
     applyFileResponseHeaders(context, headers, encodedFileName, fileType);
     headers.set('Content-Length', totalSize.toString());
 
-    // 添加ETag支持
-    const etag = `"${metadata.TimeStamp || Date.now()}-${totalSize}"`;
-    headers.set('ETag', etag);
+    // ETag 沿用顶层 context.responseEtag（内容寻址，按 fileId+variant），
+    // 这样顶层 If-None-Match 短路对 chunked 文件也生效，且刷新不会因为 Date.now()
+    // 在缺 TimeStamp 时漂移失效。applyFileResponseHeaders 已经把它写到了 headers。
+    const etag = headers.get('ETag') || `"${metadata.TimeStamp || 'chunked'}-${totalSize}"`;
+    if (!headers.has('ETag')) {
+        headers.set('ETag', etag);
+    }
 
     // 检查If-None-Match头（304缓存）
     const ifNoneMatch = request.headers.get('If-None-Match');
@@ -791,9 +795,13 @@ async function handleDiscordChunkedFile(context, imgRecord, encodedFileName, fil
     applyFileResponseHeaders(context, headers, encodedFileName, fileType);
     headers.set('Content-Length', totalSize.toString());
 
-    // 添加ETag支持
-    const etag = `"${metadata.TimeStamp || Date.now()}-${totalSize}"`;
-    headers.set('ETag', etag);
+    // ETag 沿用顶层 context.responseEtag（内容寻址，按 fileId+variant），
+    // 这样顶层 If-None-Match 短路对 chunked 文件也生效，且刷新不会因为 Date.now()
+    // 在缺 TimeStamp 时漂移失效。applyFileResponseHeaders 已经把它写到了 headers。
+    const etag = headers.get('ETag') || `"${metadata.TimeStamp || 'chunked'}-${totalSize}"`;
+    if (!headers.has('ETag')) {
+        headers.set('ETag', etag);
+    }
 
     // 检查If-None-Match头（304缓存）
     const ifNoneMatch = request.headers.get('If-None-Match');
