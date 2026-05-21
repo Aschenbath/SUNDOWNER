@@ -1,6 +1,7 @@
 import { fetchSecurityConfig, fetchUploadConfig } from '../../utils/sysConfig.js';
 import { MomentsStore } from '../../utils/momentsStore.js';
 import { userAuthCheck } from '../../utils/userAuth.js';
+import { hasValidAdminSession } from '../../utils/dashboardAuth.js';
 import { processFileUpload } from '../../upload/index.js';
 import { getUploadIp, isBlockedUploadIp } from '../../upload/uploadTools.js';
 
@@ -97,10 +98,13 @@ async function assertUploadAllowed(context, uploadUrl, uploadRequest) {
     { allowCookieAuthCode: false },
   );
   if (!authorized) {
-    const error = new Error('Unauthorized');
-    error.status = 401;
-    error.expose = true;
-    throw error;
+    const adminAuthorized = await hasValidAdminSession(context.request, context.env);
+    if (!adminAuthorized) {
+      const error = new Error('Unauthorized');
+      error.status = 401;
+      error.expose = true;
+      throw error;
+    }
   }
 
   const uploadIp = getUploadIp(uploadRequest);

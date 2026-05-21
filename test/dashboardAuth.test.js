@@ -6,6 +6,7 @@ import { createAdminSessionToken } from '../functions/utils/adminSession.js';
 import { onRequest as manageMe } from '../functions/api/manage/me.js';
 import { onRequest as manageLogin } from '../functions/api/manage/login.js';
 import { onRequest as manageMiddleware } from '../functions/api/manage/_middleware.js';
+import { onRequest as uploadHandler } from '../functions/upload/index.js';
 import { SqliteD1 } from '../server/sqliteD1.js';
 
 class MemoryKV {
@@ -200,5 +201,57 @@ describe('dashboard auth gate', () => {
     const columns = db.db.prepare('PRAGMA table_info(index_operations)').all().map((column) => column.name);
     assert.ok(columns.includes('expires_at'));
     assert.ok(columns.includes('updated_at'));
+  });
+});
+
+describe('upload route admin session auth gate', () => {
+  it('rejects upload cleanup requests without any auth', async () => {
+    const env = createEnv();
+    const response = await uploadHandler({
+      env,
+      request: new Request('http://localhost/upload?cleanup=true&totalChunks='),
+    });
+
+    assert.equal(response.status, 401);
+  });
+
+  it('accepts upload cleanup requests with valid admin session cookie', async () => {
+    const env = createEnv();
+    const token = await createAdminSessionToken('admin', 'secret');
+    const response = await uploadHandler({
+      env,
+      request: new Request('http://localhost/upload?cleanup=true&totalChunks=', {
+        headers: { Cookie: `admin_auth=${token}` },
+      }),
+    });
+
+    assert.notEqual(response.status, 401, 'admin session should authorize upload route');
+  });
+
+  it('accepts upload cleanup requests with valid authCode header', async () => {
+    const env = {
+      img_url: new MemoryKV({
+        'manage@sysConfig@security': JSON.stringify({
+          auth: {
+            user: { authCode: 'test-code' },
+            admin: { adminUsername: 'admin', adminPassword: 'secret' },
+          },
+          upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+          access: { allowedDomains: '', whiteListMode: false },
+          apiTokens: { tokens: {} },
+        }),
+      }),
+      BASIC_USER: '',
+      BASIC_PASS: '',
+    };
+
+    const response = await uploadHandler({
+      env,
+      request: new Request('http://localhost/upload?cleanup=true&totalChunks=', {
+        headers: { authCode: 'test-code' },
+      }),
+    });
+
+    assert.notEqual(response.status, 401, 'authCode header should authorize upload route');
   });
 });
