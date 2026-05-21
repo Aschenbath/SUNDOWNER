@@ -1594,6 +1594,11 @@ describe('media library download actions', () => {
     assert.match(appSource, /activePreviewId !== previewId/);
     assert.match(appSource, /mediaNode\.getAttribute\('data-full-src'\)/);
     assert.match(cssSource, /\.cml-preview__media\.is-blur-placeholder/);
+    assert.match(appSource, /img\.classList\.contains\('is-full-loaded'\)/);
+    assert.match(appSource, /function prefetchPhotoNeighborsForPreview\(/);
+    assert.match(appSource, /photoPrefetchedFullSrc/);
+    assert.match(appSource, /PREVIEW_PHOTO_PREFETCH_CAP/);
+    assert.match(appSource, /prefetchPhotoNeighborsForPreview\(\)/);
   });
 
   it('renders Bin preview with restore and delete-forever actions only', () => {

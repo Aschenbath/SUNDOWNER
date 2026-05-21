@@ -1834,7 +1834,7 @@ function upgradePreviewImageToOriginal(img, fullSrc) {
   const applyOriginal = () => {
     const activePreview = refs.root?.querySelector('.cml-preview');
     const activePreviewId = normalizeText(activePreview?.dataset?.previewId || state.previewId);
-    if (!refs.root || !img.isConnected || activePreviewId !== previewId || normalizeText(img.dataset.fullSrc) !== normalizeText(fullSrc)) {
+    if (!refs.root || !img.isConnected || activePreviewId !== previewId) {
       return;
     }
     img.src = fullSrc;
@@ -1868,7 +1868,7 @@ function setupPreviewProgressiveImage() {
     return;
   }
   const fullSrc = img.dataset.fullSrc || '';
-  if (!fullSrc || img.src === fullSrc) {
+  if (!fullSrc || img.classList.contains('is-full-loaded')) {
     img.classList.remove('is-blur-placeholder');
     img.classList.add('is-full-loaded');
     return;
@@ -1939,6 +1939,56 @@ function prefetchHeicNeighborsForPreview() {
   }).catch(() => {});
 }
 
+const PREVIEW_PHOTO_PREFETCH_CAP = 8;
+const photoPrefetchedFullSrc = new Set();
+
+function rememberPhotoPrefetch(fullSrc) {
+  if (!fullSrc) return;
+  if (photoPrefetchedFullSrc.has(fullSrc)) {
+    photoPrefetchedFullSrc.delete(fullSrc);
+    photoPrefetchedFullSrc.add(fullSrc);
+    return;
+  }
+  photoPrefetchedFullSrc.add(fullSrc);
+  while (photoPrefetchedFullSrc.size > PREVIEW_PHOTO_PREFETCH_CAP) {
+    const oldest = photoPrefetchedFullSrc.values().next().value;
+    photoPrefetchedFullSrc.delete(oldest);
+  }
+}
+
+function prefetchPhotoNeighborsForPreview() {
+  if (!state.previewId || typeof Image === 'undefined') return;
+  const items = getPreviewItems();
+  if (!Array.isArray(items) || items.length < 2) return;
+  const currentIndex = items.findIndex((entry) => entry?.id === state.previewId);
+  if (currentIndex < 0) return;
+
+  // Prefetch the immediate previous and next photos when they have a full
+  // /file/... URL the browser can render natively. HEIC/HEIF neighbours go
+  // through prefetchHeicNeighborsForPreview and the decoder-side blob cache;
+  // this path only warms HTTP cache for plain JPEG/PNG/WebP so the next
+  // progressive blur->original swap on the neighbouring item completes near
+  // instantly without paying a second network round-trip.
+  const neighborIndices = [currentIndex - 1, currentIndex + 1];
+  neighborIndices
+    .filter((idx) => idx >= 0 && idx < items.length)
+    .map((idx) => items[idx])
+    .filter((item) => item
+      && item.type === 'photo'
+      && item.browserPreviewSupported !== false
+      && item.sourceUrl
+      && !photoPrefetchedFullSrc.has(item.sourceUrl))
+    .forEach((item) => {
+      rememberPhotoPrefetch(item.sourceUrl);
+      const warm = new Image();
+      warm.decoding = 'async';
+      if ('fetchPriority' in warm) {
+        warm.fetchPriority = 'low';
+      }
+      warm.src = item.sourceUrl;
+    });
+}
+
 function setupPreviewHeicDecoder() {
   if (!refs.root || !state.previewId) {
     return;
@@ -1967,6 +2017,7 @@ function setupPreviewTouchHandlers() {
   setupPreviewProgressiveImage();
   setupPreviewHeicDecoder();
   prefetchHeicNeighborsForPreview();
+  prefetchPhotoNeighborsForPreview();
 
   stage.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
