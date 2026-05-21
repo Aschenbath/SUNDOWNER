@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { onRequest } from '../functions/api/manage/moments.js';
 import { D1Database } from '../functions/utils/d1Database.js';
 import { SqliteD1 } from '../server/sqliteD1.js';
+import { createAdminSessionToken } from '../functions/utils/adminSession.js';
 
 async function seedFile(d1, id, metadata = {}) {
   const db = new D1Database(d1);
@@ -101,6 +102,50 @@ describe('manage moments route', () => {
     assert.equal(receivedFolder, 'Moments/2026-05-16');
     assert.equal(payload.post.body, '今天云很好看');
     assert.equal(payload.post.attachments[0].fileId, 'Moments/2026-05-16/cloud.jpg');
+  });
+
+  it('authorizes default internal upload path via outer admin session cookie', async () => {
+    const d1 = new SqliteD1(':memory:');
+    const db = new D1Database(d1);
+    await db.put('manage@sysConfig@security', JSON.stringify({
+      auth: {
+        user: { authCode: '' },
+        admin: { adminUsername: 'admin', adminPassword: 'secret' },
+      },
+      upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+      access: { allowedDomains: '', whiteListMode: false },
+      apiTokens: { tokens: {} },
+    }));
+
+    const token = await createAdminSessionToken('admin', 'secret');
+    const form = new FormData();
+    form.set('body', 'session upload');
+    form.append('photos[]', new File(['fake image'], 'session.jpg', { type: 'image/jpeg' }));
+
+    let processCalled = false;
+    const response = await onRequest(createContext({
+      env: { img_d1: d1 },
+      now: '2026-05-21T20:15:00.000Z',
+      request: new Request('https://example.com/api/manage/moments', {
+        method: 'POST',
+        headers: { Cookie: `admin_auth=${token}` },
+        body: form,
+      }),
+      processUploadFile: async (_ctx, uploadForm) => {
+        processCalled = true;
+        await seedFile(d1, 'Moments/2026-05-21/session.jpg', { FileName: 'session.jpg', FileType: 'image/jpeg' });
+        assert.equal(uploadForm.get('file').name, 'session.jpg');
+        return new Response(JSON.stringify([{ src: '/file/Moments/2026-05-21/session.jpg' }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      },
+    }));
+    const payload = await response.json();
+
+    assert.equal(processCalled, true, 'admin session should reach the upload processor');
+    assert.equal(response.status, 200);
+    assert.equal(payload.post.attachments[0].fileId, 'Moments/2026-05-21/session.jpg');
   });
 
   it('requires upload credentials on the default internal upload path', async () => {

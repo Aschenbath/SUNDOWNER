@@ -1,4 +1,5 @@
 import { userAuthCheck, UnauthorizedResponse } from "../utils/userAuth.js";
+import { hasValidAdminSession } from "../utils/dashboardAuth.js";
 import { fetchUploadConfig, fetchSecurityConfig } from "../utils/sysConfig.js";
 import {
     createResponse, getUploadIp, getIPAddress, resolveFileExt,
@@ -115,9 +116,12 @@ export async function onRequest(context) {  // Contents of context object
     context.securityConfig = securityConfig;
     context.uploadConfig = uploadConfig;
 
-    // 鉴权
+    // 鉴权：先尝试 user auth，否则尝试 admin session
     const requiredPermission = 'upload';
-    if (!await userAuthCheck(env, url, request, requiredPermission, { allowCookieAuthCode: false })) {
+    const hasUserAuth = await userAuthCheck(env, url, request, requiredPermission, { allowCookieAuthCode: false });
+    const hasAdminAuth = !hasUserAuth && await hasValidAdminSession(request, env);
+
+    if (!hasUserAuth && !hasAdminAuth) {
         return withCorsHeaders(UnauthorizedResponse('Unauthorized'));
     }
 
