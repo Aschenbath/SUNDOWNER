@@ -420,6 +420,17 @@ Known-good local test pattern:
 - [edge-cache-private-rejection] CF Workers caches.default.put refuses Cache-Control private/no-store/no-cache. When stashing per-request derived assets that may carry private for internal Referers, build a separate cache-bound Response with public CC, then rebuild client-facing headers from the cached response on hit so private semantics do not leak to browser cache.
 - [head-poisoning] Worker routes that reuse one Response for both client return and cache.put will stash a bodyless Response under a GET cache key whenever a HEAD lands first, breaking later GETs. Build the cache-bound Response from raw payload bytes independent of request method.
 
+## 2026-May-21 Work Log
+
+- [photos][heic][lightbox] Added client-side HEIC decode so document-path HEIC uploads render at real resolution in the lightbox. Vendored libheif-js@1.19.8 libheif-wasm/libheif-bundle.mjs (~1.4 MB) under js/vendor/libheif/, added js/media-library/heic-decoder.js that lazy-imports the module on first HEIC view and exposes decodeHeicBufferToBlob plus decodeHeicUrlToObjectUrl. components.js lightbox HEIC img now carries data-heic-decode-src pointing at the bare /file/{id} route; app.js setupPreviewHeicDecoder swaps the IFD1 thumbnail to a high-res JPEG blob once the WASM decode finishes, with stale-preview guards on previewId/heicDecodeSrc and a module-level activeHeicObjectUrls Set drained on closePreview. Cache bumps: app.js?v=334, components.js?v=113.
+- Root cause confirmed by reading code: media-support.js supportsBrowserImagePreview returns false only for image/heic|heif, so the lightbox img previously fell back to /file/{id}?preview=embedded which served the exifr-extracted EXIF IFD1 thumbnail (~240x320 for iPhone HEIC). The backend always stored the full HEIC; only the rendering path was misaligned with the stored fidelity.
+- Validation: targeted mocha test/heicDecoder.test.js (6 passing covering happy path, empty buffer, loader failure with caching, display-callback failure, fetch-then-decode, 404 short-circuit) plus test/heicPreviewRoute.test.js (12 passing including the CF private/HEAD fixes from 0acbe9e); Node syntax checks for heic-decoder.js, app.js, components.js. Live browser smoke not run from this worktree because the env-level better-sqlite3 binding stays Node 22.
+
+### Decision Capsules
+
+- [heic-document-vs-photo-path] HEIC channel uploads have two starkly different fidelity paths: Send as Photo lets Telegram re-encode to a JPEG photo variant (1280px max, q87, already lossy at storage time), while Send as File / sendDocument stores the original HEIC bytes intact. Lightbox apparent quality used to invert this: photo-variant renders looked OK because browsers natively display the already-lossy JPEG, while document-path HEIC fell back to a tiny EXIF IFD1 thumbnail because Chrome and Edge cannot natively decode HEIC.
+- [client-side-heic-decode] When Cloudflare Image Transformations cannot be enabled (Pages still on default *.pages.dev, no zone), client-side libheif-js WASM is the next-best path: ~1.4 MB lazy chunk fetched only on first HEIC view, browser-cached thereafter, all decode cost on the user's device, zero backend changes. Blob URLs must be tracked in a module-level Set and revoked on lightbox close to avoid memory leaks across multi-image swipes.
+
 ## Tail Capsule
 
 - read-protocol: start with `Get-Content history.md -Tail 14`; then read latest day if the task touches active work.

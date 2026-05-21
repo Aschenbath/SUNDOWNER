@@ -53,7 +53,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=112';
+} from './components.js?v=113';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -1876,6 +1876,74 @@ function setupPreviewProgressiveImage() {
   upgradePreviewImageToOriginal(img, fullSrc);
 }
 
+function upgradePreviewImageToHeicDecoded(img, heicUrl) {
+  if (!(img instanceof HTMLImageElement) || !heicUrl || img.dataset.heicDecodeStatus === 'loading' || img.dataset.heicDecodeStatus === 'done') {
+    return;
+  }
+  const currentPreview = refs.root?.querySelector('.cml-preview');
+  const previewId = normalizeText(currentPreview?.dataset?.previewId || state.previewId);
+  img.dataset.heicDecodeStatus = 'loading';
+
+  (async () => {
+    let objectUrl = '';
+    try {
+      const { decodeHeicUrlToObjectUrl } = await import('./heic-decoder.js?v=1');
+      objectUrl = await decodeHeicUrlToObjectUrl(heicUrl);
+      const activePreview = refs.root?.querySelector('.cml-preview');
+      const activePreviewId = normalizeText(activePreview?.dataset?.previewId || state.previewId);
+      if (!refs.root || !img.isConnected || activePreviewId !== previewId || normalizeText(img.dataset.heicDecodeSrc) !== normalizeText(heicUrl)) {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      img.dataset.heicDecodeStatus = 'done';
+      img.classList.remove('is-blur-placeholder');
+      img.classList.add('is-full-loaded');
+      const previousObjectUrl = img.dataset.heicObjectUrl || '';
+      img.dataset.heicObjectUrl = objectUrl;
+      activeHeicObjectUrls.add(objectUrl);
+      img.src = objectUrl;
+      if (previousObjectUrl) {
+        activeHeicObjectUrls.delete(previousObjectUrl);
+        try { URL.revokeObjectURL(previousObjectUrl); } catch { /* ignore */ }
+      }
+    } catch (error) {
+      console.warn('HEIC client decode failed:', error?.message || error);
+      img.dataset.heicDecodeStatus = 'error';
+      if (objectUrl) {
+        try { URL.revokeObjectURL(objectUrl); } catch { /* ignore */ }
+      }
+    }
+  })();
+}
+
+// Module-level Set of HEIC-decoded blob URLs that are still attached to a live
+// preview image. Lightbox renders that swap the <img> for a sibling photo do
+// not get a chance to revoke the previous URL via dataset traversal, so we
+// keep an authoritative set and drain it on preview teardown.
+const activeHeicObjectUrls = new Set();
+
+function releaseAllHeicObjectUrls() {
+  activeHeicObjectUrls.forEach((url) => {
+    try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+  });
+  activeHeicObjectUrls.clear();
+}
+
+function setupPreviewHeicDecoder() {
+  if (!refs.root || !state.previewId) {
+    return;
+  }
+  const img = refs.root.querySelector('.cml-preview__media[data-heic-decode-src]');
+  if (!(img instanceof HTMLImageElement)) {
+    return;
+  }
+  const heicUrl = img.dataset.heicDecodeSrc || '';
+  if (!heicUrl) {
+    return;
+  }
+  upgradePreviewImageToHeicDecoded(img, heicUrl);
+}
+
 function setupPreviewTouchHandlers() {
   if (!refs.root || !state.previewId) {
     return;
@@ -1887,6 +1955,7 @@ function setupPreviewTouchHandlers() {
   }
 
   setupPreviewProgressiveImage();
+  setupPreviewHeicDecoder();
 
   stage.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
@@ -17132,6 +17201,22 @@ function restorePreviewPosition(itemId) {
 function closePreview() {
   const previewId = state.previewId;
   const previewAlbumFlow = state.albumDialogOrigin === 'preview';
+  // Release any blob URL that the HEIC client decoder may have parked on the
+  // preview image, so closing/reopening previews does not leak memory.
+  if (refs.root) {
+    const heicImgs = refs.root.querySelectorAll('.cml-preview__media[data-heic-object-url]');
+    heicImgs.forEach((node) => {
+      const url = node?.dataset?.heicObjectUrl || '';
+      if (url) {
+        activeHeicObjectUrls.delete(url);
+        try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+        delete node.dataset.heicObjectUrl;
+      }
+    });
+  }
+  // Drain any HEIC blob URLs that escaped dataset cleanup because the lightbox
+  // re-rendered (e.g. neighbor-photo swipe) before this close fired.
+  releaseAllHeicObjectUrls();
   const finalizeClosePreview = () => {
     state.previewId = null;
     state.previewSourceHint = '';
