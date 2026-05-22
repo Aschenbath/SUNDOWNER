@@ -2,6 +2,7 @@
 :root {
   --cml-phone-break: 640px;
   --cml-phone-small-break: 420px;
+  --cml-mini-player-height: 64px;
 }
 
 html[data-ui-theme-mode='dark'].codex-media-library-active,
@@ -4943,6 +4944,11 @@ body.codex-media-library-active #app {
   #codex-media-library-root .cml-media-grid,
   #codex-media-library-root .cml-media-row {
     gap: 2px;
+  }
+
+  #codex-media-library-root:has(.cml-mobile-audio-player) .cml-media-grid,
+  #codex-media-library-root:has(.cml-mobile-audio-player) .cml-album-detail-page__body {
+    padding-bottom: calc(var(--cml-mini-player-height, 64px) + env(safe-area-inset-bottom, 0px));
   }
 
   #codex-media-library-root .cml-preview__header,

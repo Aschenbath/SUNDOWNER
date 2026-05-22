@@ -4310,3 +4310,15 @@ describe('mini-player avoidance under Preview', () => {
     assert.match(css, /:has\(\.cml-preview\)[^{}]*\.cml-mobile-audio-player[\s\S]*?display:\s*none/);
   });
 });
+
+describe('grid padding under mini-player', () => {
+  it('CSS reserves padding-bottom for grid containers when mini-player is present', () => {
+    const css = fs.readFileSync(path.resolve('css/media-library.css'), 'utf8');
+    assert.match(css, /:has\(\.cml-mobile-audio-player\)[^{}]*\.cml-media-grid[\s\S]*?padding-bottom:\s*calc\(\s*var\(--cml-mini-player-height/);
+  });
+
+  it('CSS defines --cml-mini-player-height fallback', () => {
+    const css = fs.readFileSync(path.resolve('css/media-library.css'), 'utf8');
+    assert.match(css, /--cml-mini-player-height:\s*64px/);
+  });
+});
