@@ -68,3 +68,30 @@ export const LONG_PRESS_MS = 450;
 export const LONG_PRESS_MOVE_TOLERANCE = 10;
 
 export const IDLE_FADE_MS = 3000;
+
+export const LAST_VIEWED_HASH_PREFIX = 'lvi-';
+
+/**
+ * Build the route-hash fragment for the last-viewed item.
+ *
+ * @param {string} itemId
+ * @returns {string} hash fragment without leading `#`
+ */
+export function lastViewedHashKey(itemId) {
+  if (!itemId) return '';
+  return `${LAST_VIEWED_HASH_PREFIX}${itemId}`;
+}
+
+/**
+ * Extract the item id from a route hash, stripping `#` and prefix.
+ *
+ * @param {string} hash
+ * @returns {string | null}
+ */
+export function parseLastViewedHash(hash) {
+  if (!hash) return null;
+  const cleaned = hash.startsWith('#') ? hash.slice(1) : hash;
+  if (!cleaned.startsWith(LAST_VIEWED_HASH_PREFIX)) return null;
+  const id = cleaned.slice(LAST_VIEWED_HASH_PREFIX.length);
+  return id || null;
+}

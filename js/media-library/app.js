@@ -89,6 +89,8 @@ import {
   LONG_PRESS_MS,
   LONG_PRESS_MOVE_TOLERANCE,
   IDLE_FADE_MS,
+  lastViewedHashKey,
+  parseLastViewedHash,
 } from './preview-overlay.js?v=2';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
@@ -17314,6 +17316,13 @@ function openPreview(itemId, sourceHint = '') {
     sourceHint
   });
   state.previewId = resolvedPreviewItem?.id || itemId;
+  if (typeof history !== 'undefined' && history.replaceState && state.previewId) {
+    try {
+      const url = new URL(window.location.href);
+      url.hash = lastViewedHashKey(state.previewId);
+      history.replaceState(history.state, '', url.toString());
+    } catch { /* hash write is best-effort */ }
+  }
   state.previewSourceHint = sourceHint || resolvedPreviewItem?.thumbnailUrl || resolvedPreviewItem?.sourceUrl || '';
   state.infoOpen = false;
   state.previewImmersive = false;
@@ -17402,6 +17411,13 @@ function closePreview() {
     .catch(() => { /* ignore */ });
   const finalizeClosePreview = () => {
     state.previewId = null;
+    if (typeof history !== 'undefined' && history.replaceState) {
+      try {
+        const url = new URL(window.location.href);
+        url.hash = '';
+        history.replaceState(history.state, '', url.toString());
+      } catch { /* hash clear is best-effort */ }
+    }
     state.previewSourceHint = '';
     state.infoOpen = false;
     if (previewAlbumFlow) {
@@ -17478,6 +17494,13 @@ function movePreview(direction) {
   }
   const nextItem = items[nextIndex];
   state.previewId = nextItem.id;
+  if (typeof history !== 'undefined' && history.replaceState && state.previewId) {
+    try {
+      const url = new URL(window.location.href);
+      url.hash = lastViewedHashKey(state.previewId);
+      history.replaceState(history.state, '', url.toString());
+    } catch { /* hash write is best-effort */ }
+  }
   state.previewRotation = 0;
   const sourceTile = refs.root?.querySelector(`.cml-media-tile[data-tile-id="${nextItem.id}"]`) || null;
   state.previewSourceHint = getMediaSourceFromTile(sourceTile);
@@ -21030,6 +21053,15 @@ function boot() {
   markPerf('route-restore-end');
   measurePerf('route-restore', 'route-restore-start', 'route-restore-end');
   syncMount();
+  const restoreId = parseLastViewedHash(window.location.hash);
+  if (restoreId) {
+    window.requestAnimationFrame(() => {
+      const tile = refs.root && refs.root.querySelector(`[data-tile-id="${CSS.escape(restoreId)}"]`);
+      if (tile && typeof tile.scrollIntoView === 'function') {
+        tile.scrollIntoView({ block: 'center', behavior: 'instant' });
+      }
+    });
+  }
   window.addEventListener('hashchange', () => {
     applyLocationRouteToMountedUi();
   });
