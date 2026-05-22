@@ -81,7 +81,12 @@ import {
   hasAnyPickerTarget,
   resetAddToTargetModes,
 } from './picker-state.js';
-import { PREVIEW_PANEL_SECTION_SELECTORS, isPhoneWidth } from './preview-overlay.js?v=2';
+import {
+  arbitrateGestureChannel,
+  shouldClosePullDismiss,
+  PULL_DISMISS_DISTANCE_THRESHOLD,
+  isPhoneWidth,
+} from './preview-overlay.js?v=2';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
 import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js';
@@ -2010,7 +2015,8 @@ function setupPreviewTouchHandlers() {
   }
   const stage = refs.root.querySelector('.cml-preview__stage');
   const mediaEl = stage ? stage.querySelector('.cml-preview__media') : null;
-  if (!stage || !mediaEl) {
+  const previewRoot = refs.root.querySelector('.cml-preview');
+  if (!stage || !mediaEl || !previewRoot) {
     return;
   }
 
@@ -2019,7 +2025,13 @@ function setupPreviewTouchHandlers() {
   prefetchHeicNeighborsForPreview();
   prefetchPhotoNeighborsForPreview();
 
+  let channel = 'idle';
+  let channelStartTs = 0;
+  let dragStartX = 0;
+  let dragStartY = 0;
+
   stage.addEventListener('touchstart', (e) => {
+    channel = 'idle';
     if (e.touches.length === 2) {
       e.preventDefault();
       touchZoom.isPinch = true;
@@ -2033,8 +2045,11 @@ function setupPreviewTouchHandlers() {
       touchZoom.startTy = touchZoom.ty;
     } else if (e.touches.length === 1) {
       touchZoom.isPinch = false;
-      touchZoom.startMidX = e.touches[0].clientX;
-      touchZoom.startMidY = e.touches[0].clientY;
+      dragStartX = e.touches[0].clientX;
+      dragStartY = e.touches[0].clientY;
+      channelStartTs = Date.now();
+      touchZoom.startMidX = dragStartX;
+      touchZoom.startMidY = dragStartY;
       if (touchZoom.currentScale > 1.05) {
         touchZoom.isPan = true;
         touchZoom.startTx = touchZoom.tx;
@@ -2055,11 +2070,29 @@ function setupPreviewTouchHandlers() {
       touchZoom.tx = touchZoom.startTx + (mid.x - touchZoom.startMidX);
       touchZoom.ty = touchZoom.startTy + (mid.y - touchZoom.startMidY);
       _tzApplyImmediate(mediaEl);
-    } else if (touchZoom.isPan && e.touches.length === 1) {
+      return;
+    }
+    if (touchZoom.isPan && e.touches.length === 1) {
       e.preventDefault();
       touchZoom.tx = touchZoom.startTx + (e.touches[0].clientX - touchZoom.startMidX);
       touchZoom.ty = touchZoom.startTy + (e.touches[0].clientY - touchZoom.startMidY);
       _tzApplyImmediate(mediaEl);
+      return;
+    }
+    if (e.touches.length === 1 && touchZoom.currentScale <= 1.05) {
+      const dx = e.touches[0].clientX - dragStartX;
+      const dy = e.touches[0].clientY - dragStartY;
+      if (channel === 'idle') {
+        channel = arbitrateGestureChannel({ dx, dy, touchCount: 1, isPinch: touchZoom.isPinch });
+      }
+      if (channel === 'dismiss') {
+        e.preventDefault();
+        const opacity = Math.max(0, 1 - dy / PULL_DISMISS_DISTANCE_THRESHOLD);
+        previewRoot.classList.add('is-dismissing');
+        mediaEl.style.transform = `translate(0, ${dy}px)`;
+        const backdrop = previewRoot.querySelector('.cml-preview__backdrop');
+        if (backdrop) backdrop.style.opacity = String(opacity);
+      }
     }
   }, { passive: false });
 
@@ -2070,12 +2103,12 @@ function setupPreviewTouchHandlers() {
         if (touchZoom.currentScale > 1.05) {
           _tzReset(mediaEl);
         } else {
-          touchZoom.currentScale = 2.5;
+          touchZoom.currentScale = 2;
           touchZoom.tx = 0;
           touchZoom.ty = 0;
-          mediaEl.style.transition = 'transform 240ms ease';
+          mediaEl.style.transition = 'transform 180ms ease-out';
           _tzApply(mediaEl);
-          window.setTimeout(() => { mediaEl.style.transition = ''; }, 250);
+          window.setTimeout(() => { mediaEl.style.transition = ''; }, 200);
         }
         touchZoom.lastTap = 0;
       } else {
@@ -2083,21 +2116,40 @@ function setupPreviewTouchHandlers() {
       }
     }
     if (e.touches.length === 0) {
-      touchZoom.isPinch = false;
-      if (touchZoom.currentScale < 1.05) {
-        _tzReset(mediaEl);
-        // swipe nav when not zoomed
-        const swipeX = e.changedTouches[0].clientX - touchZoom.startMidX;
-        const swipeY = Math.abs(e.changedTouches[0].clientY - touchZoom.startMidY);
-        if (Math.abs(swipeX) > 48 && Math.abs(swipeX) > swipeY * 1.5) {
-          movePreview(swipeX < 0 ? 1 : -1);
+      const dxEnd = e.changedTouches[0].clientX - dragStartX;
+      const dyEnd = e.changedTouches[0].clientY - dragStartY;
+      const elapsed = Math.max(1, Date.now() - channelStartTs);
+      const velocity = dyEnd / elapsed;
+
+      if (channel === 'swipe' && touchZoom.currentScale <= 1.05) {
+        if (Math.abs(dxEnd) > 48) {
+          movePreview(dxEnd < 0 ? 1 : -1);
         }
+      } else if (channel === 'dismiss') {
+        if (shouldClosePullDismiss({ dy: dyEnd, velocity })) {
+          mediaEl.style.transition = 'transform 220ms ease-out';
+          mediaEl.style.transform = `translate(0, ${window.innerHeight}px)`;
+          window.setTimeout(() => { closePreview(); }, 220);
+        } else {
+          mediaEl.style.transition = 'transform 220ms ease-out';
+          mediaEl.style.transform = '';
+          previewRoot.classList.remove('is-dismissing');
+          const backdrop = previewRoot.querySelector('.cml-preview__backdrop');
+          if (backdrop) backdrop.style.opacity = '';
+          window.setTimeout(() => {
+            mediaEl.style.transition = '';
+          }, 240);
+        }
+      } else if (touchZoom.currentScale < 1.05) {
+        _tzReset(mediaEl);
       }
+
+      channel = 'idle';
+      touchZoom.isPinch = false;
       touchZoom.isPan = false;
     }
-  }, { passive: true });
+  }, { passive: false });
 
-  // Mouse wheel zoom - anchor to cursor position
   stage.addEventListener('wheel', (e) => {
     e.preventDefault();
     const deltaY = normalizePreviewWheelDelta(e);
@@ -2114,13 +2166,13 @@ function setupPreviewTouchHandlers() {
     if (touchZoom.currentScale < 1.05) _tzReset(mediaEl);
   }, { passive: false });
 
-  // Double-click to toggle 2.5× zoom
+  // Double-click to toggle 2× zoom
   stage.addEventListener('dblclick', (e) => {
     if (e.target.closest('.cml-preview__nav')) return;
     if (touchZoom.currentScale > 1.05) {
       _tzReset(mediaEl);
     } else {
-      touchZoom.currentScale = 2.5;
+      touchZoom.currentScale = 2;
       touchZoom.tx = 0;
       touchZoom.ty = 0;
       mediaEl.style.transition = 'transform 240ms ease';
@@ -2129,7 +2181,6 @@ function setupPreviewTouchHandlers() {
     }
   });
 
-  // Mouse drag pan when zoomed
   let isMousePan = false;
   stage.addEventListener('mousedown', (e) => {
     if (touchZoom.currentScale > 1.05 && e.button === 0) {

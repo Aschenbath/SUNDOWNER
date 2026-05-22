@@ -3288,7 +3288,7 @@ export function PreviewModal({
           <div class="cml-preview__body">
             <button type="button" class="cml-preview__nav is-prev" data-action="preview-previous" aria-label="Previous item" ${canGoPrevious ? '' : 'disabled aria-disabled="true"'}>${icon('previous')}</button>
             <figure class="cml-preview__figure">
-              <div class="cml-preview__stage">
+              <div class="cml-preview__stage" data-cml-preview-dismiss-stage>
                 ${renderMediaAsset(item, 'cml-preview__media', true)}
               </div>
             </figure>

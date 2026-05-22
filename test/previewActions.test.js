@@ -4158,3 +4158,36 @@ describe('media library download actions', () => {
     assert.match(appSource, /clearPrivateViewState\(\);/);
   });
 });
+
+describe('preview lightbox pull-to-dismiss markup', () => {
+  it('renders the stage with data-cml-preview-dismiss-stage hook', () => {
+    const html = PreviewModal({
+      item: {
+        id: 'pull-1',
+        type: 'photo',
+        label: 'pull.jpg',
+        sourceId: 'photos/pull.jpg',
+        sourceUrl: '/file/photos/pull.jpg',
+        thumbnailUrl: '/file/photos/pull.jpg',
+        width: 1024,
+        height: 768,
+        mimeType: 'image/jpeg',
+        sizeMb: 1,
+        exif: null,
+      },
+      selected: false,
+      favorited: false,
+      currentIndex: 0,
+      totalCount: 1,
+      infoOpen: false,
+      immersive: false,
+      albumDrawerOpen: false,
+      albumEntries: [],
+      albumDraftName: '',
+      albumDialogError: '',
+      albumDrawerSearch: '',
+      albumDrawerCreateMode: false,
+    });
+    assert.match(html, /class="cml-preview__stage[^"]*"\s+data-cml-preview-dismiss-stage/);
+  });
+});

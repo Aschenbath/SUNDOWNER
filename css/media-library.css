@@ -4277,6 +4277,13 @@ body.codex-media-library-active #app {
   padding: var(--cml-preview-shell-padding);
 }
 
+#codex-media-library-root .cml-preview.is-dismissing .cml-preview__media {
+  will-change: transform;
+}
+#codex-media-library-root .cml-preview.is-dismissing .cml-preview__backdrop {
+  transition: none;
+}
+
 #codex-media-library-root .cml-preview__backdrop {
   position: absolute;
   inset: 0;
