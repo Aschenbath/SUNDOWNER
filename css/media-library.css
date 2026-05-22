@@ -25,6 +25,9 @@ body.codex-media-library-active #app {
   z-index: 2147483000;
   --cml-app-height: 100vh;
   --cml-keyboard-inset: 0px;
+  --cml-phone-break: 640px;
+  --cml-phone-small-break: 420px;
+  --cml-mini-player-height: 64px;
 }
 
 @supports (height: 100dvh) {
@@ -3507,7 +3510,7 @@ body.codex-media-library-active #app {
   flex: 1 1 0;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   #codex-media-library-root .cml-dialog__panel.cml-album-dialog--sheet {
     width: min(100vw - 16px, 100%);
     max-height: min(92vh, 100%);
@@ -4409,6 +4412,7 @@ body.codex-media-library-active #app {
   background: rgba(255, 255, 255, 0.03);
   overflow: hidden;
   position: relative;
+  touch-action: manipulation;
 }
 
 #codex-media-library-root .cml-preview__media {
@@ -4714,6 +4718,10 @@ body.codex-media-library-active #app {
 
   /* Hide bottom nav when preview is open */
   #codex-media-library-root:has(.cml-preview) .cml-mobile-nav {
+    display: none;
+  }
+
+  #codex-media-library-root:has(.cml-preview) .cml-mobile-audio-player {
     display: none;
   }
 
@@ -5238,7 +5246,7 @@ body.codex-media-library-active #app {
 /* ── Pinch-to-zoom touch support in preview ───────────────────── */
 
 #codex-media-library-root .cml-preview__stage {
-  touch-action: none;
+  touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -7280,7 +7288,7 @@ body.codex-media-library-active #app {
   line-height: 1.45;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   #codex-media-library-root .cml-private-access {
     margin-top: 8vh;
     padding: 22px;
@@ -10098,6 +10106,10 @@ body.codex-media-library-active #app {
     right: 12px;
     bottom: calc(74px + env(safe-area-inset-bottom, 0px));
     padding: 10px 12px;
+  }
+
+  #codex-media-library-root:has(.cml-mobile-audio-player) .cml-media-grid {
+    padding-bottom: calc(var(--cml-mini-player-height, 64px) + env(safe-area-inset-bottom, 0px));
   }
 
   #codex-media-library-root .cml-main-shell.has-mobile-audio-player .cml-main-content {
@@ -14704,7 +14716,7 @@ body.codex-media-library-active #app {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   #codex-media-library-root .cml-main-content-shell:has([data-film-detail-page]) {
     margin: 0;
     border-radius: 0;
