@@ -3512,7 +3512,7 @@ body.codex-media-library-active #app {
   flex: 1 1 0;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   #codex-media-library-root .cml-dialog__panel.cml-album-dialog--sheet {
     width: min(100vw - 16px, 100%);
     max-height: min(92vh, 100%);
@@ -7285,7 +7285,7 @@ body.codex-media-library-active #app {
   line-height: 1.45;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   #codex-media-library-root .cml-private-access {
     margin-top: 8vh;
     padding: 22px;
@@ -14709,7 +14709,7 @@ body.codex-media-library-active #app {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   #codex-media-library-root .cml-main-content-shell:has([data-film-detail-page]) {
     margin: 0;
     border-radius: 0;
