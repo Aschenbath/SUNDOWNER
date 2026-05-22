@@ -4191,3 +4191,39 @@ describe('preview lightbox pull-to-dismiss markup', () => {
     assert.match(html, /class="cml-preview__stage[^"]*"\s+data-cml-preview-dismiss-stage/);
   });
 });
+
+describe('preview lightbox immersive class', () => {
+  it('renders is-immersive when immersive flag is true', () => {
+    const item = {
+      id: 'imm-1', type: 'photo', label: 'imm.jpg',
+      sourceId: 'photos/imm.jpg', sourceUrl: '/file/photos/imm.jpg',
+      thumbnailUrl: '/file/photos/imm.jpg', width: 1024, height: 768,
+      mimeType: 'image/jpeg', sizeMb: 1, exif: null,
+    };
+    const html = PreviewModal({
+      item, selected: false, favorited: false,
+      currentIndex: 0, totalCount: 1, infoOpen: false,
+      immersive: true, albumDrawerOpen: false, albumEntries: [],
+      albumDraftName: '', albumDialogError: '', albumDrawerSearch: '',
+      albumDrawerCreateMode: false,
+    });
+    assert.match(html, /class="cml-preview[^"]*is-immersive/);
+  });
+
+  it('does not render is-immersive when immersive flag is false', () => {
+    const item = {
+      id: 'imm-2', type: 'photo', label: 'imm.jpg',
+      sourceId: 'photos/imm.jpg', sourceUrl: '/file/photos/imm.jpg',
+      thumbnailUrl: '/file/photos/imm.jpg', width: 1024, height: 768,
+      mimeType: 'image/jpeg', sizeMb: 1, exif: null,
+    };
+    const html = PreviewModal({
+      item, selected: false, favorited: false,
+      currentIndex: 0, totalCount: 1, infoOpen: false,
+      immersive: false, albumDrawerOpen: false, albumEntries: [],
+      albumDraftName: '', albumDialogError: '', albumDrawerSearch: '',
+      albumDrawerCreateMode: false,
+    });
+    assert.doesNotMatch(html, /is-immersive/);
+  });
+});

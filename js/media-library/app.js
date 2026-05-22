@@ -2141,6 +2141,23 @@ function setupPreviewTouchHandlers() {
         touchZoom.lastTap = 0;
       } else {
         touchZoom.lastTap = now;
+        // Single-tap inside tolerance → toggle immersive (controls fade)
+        // Defer to give double-tap window time to win
+        if (channel === 'idle' && touchZoom.currentScale <= 1.05) {
+          const dxTap = e.changedTouches[0].clientX - dragStartX;
+          const dyTap = e.changedTouches[0].clientY - dragStartY;
+          if (Math.abs(dxTap) < LONG_PRESS_MOVE_TOLERANCE && Math.abs(dyTap) < LONG_PRESS_MOVE_TOLERANCE) {
+            const tapStamp = now;
+            window.setTimeout(() => {
+              // If another tap landed within 280ms (double-tap), skip immersive toggle
+              if (touchZoom.lastTap !== 0 && touchZoom.lastTap !== tapStamp) return;
+              if (Date.now() - tapStamp >= 280) {
+                state.previewImmersive = !state.previewImmersive;
+                render();
+              }
+            }, 290);
+          }
+        }
       }
     }
     if (e.touches.length === 0) {
@@ -10319,6 +10336,7 @@ function buildViewModelResult(context = getBaseViewModelContext(), overrides = {
     scrubberSections: [],
     previewItems: [],
     previewIndex: -1,
+    previewImmersive: false,
     previewItem: null,
     availableAlbums: [],
     previewAlbumEntries: [],
