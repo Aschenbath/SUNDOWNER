@@ -978,7 +978,6 @@ export function MediaTimelineSection({ section, state, layoutWidth, coverItemId 
       class="cml-timeline-section ${isActiveSection ? 'is-active' : ''}"
       id="${escapeHtml(section.anchorId)}"
       data-year="${escapeHtml(section.year)}"
-      data-year-header="${escapeHtml(section.year)}"
       data-scrubber-label="${escapeHtml(section.scrubberLabel || section.year)}"
     >
       <header class="cml-timeline-section__header ${isActiveSection ? 'is-active' : ''}" aria-current="${isActiveSection ? 'true' : 'false'}">
@@ -2275,46 +2274,6 @@ export function MobileAudioMiniPlayer({ currentItem = null, isPlaying = false })
   `;
 }
 
-export function PhotosSecondarySegmented({ active }) {
-  const tabs = [
-    { value: '', label: 'Photos' },
-    { value: 'Videos', label: 'Videos' },
-    { value: 'Documents', label: 'Documents' },
-    { value: 'Favourites', label: 'Favourites' },
-    { value: 'TODO', label: 'TODO' },
-  ];
-  const safeActive = String(active || '');
-  const buttons = tabs.map((t) => {
-    const klass = `cml-photos-segmented__tab${t.value === safeActive ? ' is-active' : ''}`;
-    return `<button type="button" data-secondary="${t.value}" data-action="set-secondary-filter" class="${klass}">${t.label}</button>`;
-  }).join('');
-  return `<nav class="cml-photos-segmented" role="tablist">${buttons}</nav>`;
-}
-
-export function AlbumDetailMobilePage({ album, items, isPhone }) {
-  const safeName = String(album && album.name ? album.name : 'Album').replace(/</g, '&lt;');
-  const albumId = album && album.id ? album.id : '';
-  const bar = `
-    <header class="cml-mobile-albums-bar">
-      <button type="button" class="cml-mobile-albums-bar__back" data-action="album-detail-back" aria-label="Back to albums">
-        <span class="cml-mobile-albums-bar__icon" aria-hidden="true">‹</span>
-      </button>
-      <h1 class="cml-mobile-albums-bar__title">${safeName}</h1>
-      <div class="cml-mobile-albums-bar__actions">
-        <button type="button" data-action="album-detail-more" aria-label="More options">⋯</button>
-      </div>
-    </header>
-  `;
-  const hasItems = Array.isArray(items) && items.length > 0;
-  const body = hasItems
-    ? MediaGrid({
-        rows: buildJustifiedRows(items),
-        state: { selectedIds: new Set(), loadedMediaIds: new Set(), fullLoadedMediaIds: new Set() }
-      })
-    : `<div class="cml-empty-state"><p>No photos in this album.</p></div>`;
-  return `<section class="cml-album-detail-page" data-album-id="${albumId}">${bar}<div class="cml-album-detail-page__body">${body}</div></section>`;
-}
-
 export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, itemCount = 0, coverLabel = '', hasCustomCover = false, renameAlbumDialogOpen = false, renameAlbumDraftName = '', renameAlbumError = '', renameAlbumBusy = false }) {
   const hasActiveAlbum = Boolean(activeAlbumName);
   const title = hasActiveAlbum ? activeAlbumName : 'Albums';
@@ -2366,7 +2325,7 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
   `;
 }
 
-export function CollectionGrid({ collections, showBinEntry = false, showCreateEntry = false, isPhone = false }) {
+export function CollectionGrid({ collections, showBinEntry = false, showCreateEntry = false }) {
   return `
     <section class="cml-collection-grid" aria-label="Album collections">
       ${showCreateEntry ? `
@@ -2401,42 +2360,27 @@ export function CollectionGrid({ collections, showBinEntry = false, showCreateEn
           </span>
         </button>
       ` : ''}
-      ${collections.map((collection) => {
-        const covers = (Array.isArray(collection.coverItems) ? collection.coverItems : []).slice(0, 3);
-        const hasCoverStack = isPhone && covers.length >= 3;
-        const itemCount = collection.itemCount !== undefined ? collection.itemCount : (collection.count !== undefined ? collection.count : 0);
-        const coverNode = hasCoverStack
-          ? `<div class="cml-album-cover-stack">
-               <img src="${escapeHtml(covers[2].thumbnailUrl || '')}" alt="" class="cml-album-cover-stack__back" loading="lazy">
-               <img src="${escapeHtml(covers[1].thumbnailUrl || '')}" alt="" class="cml-album-cover-stack__mid" loading="lazy">
-               <img src="${escapeHtml(covers[0].thumbnailUrl || '')}" alt="" class="cml-album-cover-stack__front" loading="lazy">
-             </div>`
-          : collection.coverItem
-            ? renderMediaAsset(collection.coverItem, 'cml-collection-card__image', false, { noAction: true })
-            : covers.length > 0
-              ? `<img src="${escapeHtml(covers[0].thumbnailUrl || '')}" alt="" class="cml-collection-card__image" loading="lazy">`
-              : `<span class="cml-collection-card__placeholder">${icon('albums')}</span>`;
-        const isEmpty = !hasCoverStack && !collection.coverItem && covers.length === 0;
-        return `
+      ${collections.map((collection) => `
         <button
           type="button"
-          class="cml-collection-card ${isEmpty ? 'is-empty' : ''}"
+          class="cml-collection-card ${collection.coverItem ? '' : 'is-empty'}"
           data-action="open-collection"
           data-album-name="${escapeHtml(collection.name)}"
           aria-label="Open album ${escapeHtml(collection.name)}"
         >
-          <span class="cml-collection-card__cover ${isEmpty ? 'is-empty' : ''}">
-            ${coverNode}
+          <span class="cml-collection-card__cover ${collection.coverItem ? '' : 'is-empty'}">
+            ${collection.coverItem
+              ? renderMediaAsset(collection.coverItem, 'cml-collection-card__image', false, { noAction: true })
+              : `<span class="cml-collection-card__placeholder">${icon('albums')}</span>`}
             ${collection.coverItem?.type === 'video' ? `<span class="cml-collection-card__badge">${icon('play')}</span>` : ''}
           </span>
           <span class="cml-collection-card__body">
             <strong class="cml-collection-card__title">${escapeHtml(collection.name)}</strong>
-            <span class="cml-collection-card__meta">${itemCount} item${itemCount === 1 ? '' : 's'}</span>
+            <span class="cml-collection-card__meta">${collection.itemCount} item${collection.itemCount === 1 ? '' : 's'}</span>
             <span class="cml-collection-card__copy">${escapeHtml(formatAlbumDate(collection.createdAt || collection.lastModifiedAt) || 'Empty album')}</span>
           </span>
         </button>
-      `;
-      }).join('')}
+      `).join('')}
     </section>
   `;
 }
@@ -3344,7 +3288,7 @@ export function PreviewModal({
           <div class="cml-preview__body">
             <button type="button" class="cml-preview__nav is-prev" data-action="preview-previous" aria-label="Previous item" ${canGoPrevious ? '' : 'disabled aria-disabled="true"'}>${icon('previous')}</button>
             <figure class="cml-preview__figure">
-              <div class="cml-preview__stage" data-cml-preview-dismiss-stage>
+              <div class="cml-preview__stage">
                 ${renderMediaAsset(item, 'cml-preview__media', true)}
               </div>
             </figure>
@@ -4586,22 +4530,4 @@ export function StoragePanel({ state, insights }) {
       </div>
     </div>
   `;
-}
-
-export function YearBadge({ year }) {
-  const safeYear = Number.isInteger(year) ? year : '';
-  return `<button type="button" class="cml-year-badge" data-action="open-year-sheet" aria-label="Jump to year">${safeYear}</button>`;
-}
-
-export function YearSheet({ years, open }) {
-  const items = (years || []).map((y) => {
-    return `<li><button type="button" class="cml-year-sheet__row" data-action="jump-to-year" data-year="${y.year}">
-      <span class="cml-year-sheet__label">${y.year}</span>
-      <span class="cml-year-sheet__count">${y.count}</span>
-    </button></li>`;
-  }).join('');
-  const klass = `cml-year-sheet${open ? ' is-open' : ''}`;
-  return `<aside class="${klass}" aria-hidden="${open ? 'false' : 'true'}">
-    <ul class="cml-year-sheet__list">${items}</ul>
-  </aside>`;
 }

@@ -14,7 +14,6 @@ import {
 import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js?v=3';
 import {
   AdminPanel,
-  AlbumDetailMobilePage,
   AlbumDialog,
   AudioPlayerPanel,
   BinGrid,
@@ -30,7 +29,6 @@ import {
   MindLoadingView,
   MomentsView,
   MobileAudioMiniPlayer,
-  PhotosSecondarySegmented,
   MobileBottomNav,
   MusicListView,
   MusicQueuePanel,
@@ -48,16 +46,14 @@ import {
   VideoAlbumGrid,
   VideoAlbumSummary,
   VideoCategoryBar,
-  YearBadge,
   YearScroller,
-  YearSheet,
   buildJustifiedRows,
   formatMomentSelectedDate,
   renderMomentsCalendar,
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=116';
+} from './components.js?v=115';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -85,18 +81,7 @@ import {
   hasAnyPickerTarget,
   resetAddToTargetModes,
 } from './picker-state.js';
-import {
-  arbitrateGestureChannel,
-  shouldClosePullDismiss,
-  PULL_DISMISS_DISTANCE_THRESHOLD,
-  isPhoneWidth,
-  LONG_PRESS_MS,
-  LONG_PRESS_MOVE_TOLERANCE,
-  IDLE_FADE_MS,
-  lastViewedHashKey,
-  parseLastViewedHash,
-  resolveAlbumListScrollY,
-} from './preview-overlay.js?v=3';
+import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
 import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js';
@@ -723,7 +708,6 @@ const state = {
   primaryFilter: 'Photos',
   secondaryFilter: '',
   videoCategoryFilter: '',
-  yearSheetOpen: false,
   privateViewOpen: false,
   privateRouteUnlocked: false,
   privatePasswordDraft: '',
@@ -958,10 +942,7 @@ const state = {
   filmListScrollTop: 0,
   filmLastOpenedId: '',
   filmHighlightedId: '',
-  filmRouteTransition: '',
-  activeAlbumDetailId: null,
-  albumDetailScrollY: 0,
-  savedAlbumListScrollY: 0,
+  filmRouteTransition: ''
 };
 
 let dimensionPatchTimer = 0;
@@ -2029,8 +2010,7 @@ function setupPreviewTouchHandlers() {
   }
   const stage = refs.root.querySelector('.cml-preview__stage');
   const mediaEl = stage ? stage.querySelector('.cml-preview__media') : null;
-  const previewRoot = refs.root.querySelector('.cml-preview');
-  if (!stage || !mediaEl || !previewRoot) {
+  if (!stage || !mediaEl) {
     return;
   }
 
@@ -2039,47 +2019,7 @@ function setupPreviewTouchHandlers() {
   prefetchHeicNeighborsForPreview();
   prefetchPhotoNeighborsForPreview();
 
-  let longPressTimer = null;
-  const cancelLongPress = () => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
-  };
-
-  let idleFadeTimer = null;
-  const armIdleFade = () => {
-    if (idleFadeTimer) clearTimeout(idleFadeTimer);
-    if (touchZoom.currentScale > 1.05) {
-      if (!state.previewImmersive) {
-        state.previewImmersive = true;
-        render();
-      }
-      return;
-    }
-    idleFadeTimer = window.setTimeout(() => {
-      if (!state.previewImmersive) {
-        state.previewImmersive = true;
-        render();
-      }
-    }, IDLE_FADE_MS);
-  };
-  const restoreChrome = () => {
-    if (state.previewImmersive) {
-      state.previewImmersive = false;
-      render();
-    }
-    armIdleFade();
-  };
-
-  let channel = 'idle';
-  let channelStartTs = 0;
-  let dragStartX = 0;
-  let dragStartY = 0;
-
   stage.addEventListener('touchstart', (e) => {
-    restoreChrome();
-    channel = 'idle';
     if (e.touches.length === 2) {
       e.preventDefault();
       touchZoom.isPinch = true;
@@ -2093,25 +2033,8 @@ function setupPreviewTouchHandlers() {
       touchZoom.startTy = touchZoom.ty;
     } else if (e.touches.length === 1) {
       touchZoom.isPinch = false;
-      dragStartX = e.touches[0].clientX;
-      dragStartY = e.touches[0].clientY;
-      channelStartTs = Date.now();
-      touchZoom.startMidX = dragStartX;
-      touchZoom.startMidY = dragStartY;
-      cancelLongPress();
-      longPressTimer = window.setTimeout(() => {
-        if (channel !== 'idle') return;
-        const items = getPreviewItems();
-        const idx = items.findIndex((it) => it.id === state.previewId);
-        if (idx < 0) return;
-        const item = items[idx];
-        if (!item) return;
-        const event = new CustomEvent('cml-preview-long-press', {
-          bubbles: true,
-          detail: { itemId: item.id, item },
-        });
-        stage.dispatchEvent(event);
-      }, LONG_PRESS_MS);
+      touchZoom.startMidX = e.touches[0].clientX;
+      touchZoom.startMidY = e.touches[0].clientY;
       if (touchZoom.currentScale > 1.05) {
         touchZoom.isPan = true;
         touchZoom.startTx = touchZoom.tx;
@@ -2132,109 +2055,50 @@ function setupPreviewTouchHandlers() {
       touchZoom.tx = touchZoom.startTx + (mid.x - touchZoom.startMidX);
       touchZoom.ty = touchZoom.startTy + (mid.y - touchZoom.startMidY);
       _tzApplyImmediate(mediaEl);
-      return;
-    }
-    if (touchZoom.isPan && e.touches.length === 1) {
+    } else if (touchZoom.isPan && e.touches.length === 1) {
       e.preventDefault();
       touchZoom.tx = touchZoom.startTx + (e.touches[0].clientX - touchZoom.startMidX);
       touchZoom.ty = touchZoom.startTy + (e.touches[0].clientY - touchZoom.startMidY);
       _tzApplyImmediate(mediaEl);
-      return;
-    }
-    if (e.touches.length === 1 && touchZoom.currentScale <= 1.05) {
-      const dx = e.touches[0].clientX - dragStartX;
-      const dy = e.touches[0].clientY - dragStartY;
-      if (Math.abs(dx) > LONG_PRESS_MOVE_TOLERANCE || Math.abs(dy) > LONG_PRESS_MOVE_TOLERANCE) {
-        cancelLongPress();
-      }
-      if (channel === 'idle') {
-        channel = arbitrateGestureChannel({ dx, dy, touchCount: 1, isPinch: touchZoom.isPinch });
-      }
-      if (channel === 'dismiss') {
-        e.preventDefault();
-        const opacity = Math.max(0, 1 - dy / PULL_DISMISS_DISTANCE_THRESHOLD);
-        previewRoot.classList.add('is-dismissing');
-        mediaEl.style.transform = `translate(0, ${dy}px)`;
-        const backdrop = previewRoot.querySelector('.cml-preview__backdrop');
-        if (backdrop) backdrop.style.opacity = String(opacity);
-      }
     }
   }, { passive: false });
 
   stage.addEventListener('touchend', (e) => {
-    cancelLongPress();
     const now = Date.now();
     if (e.changedTouches.length === 1 && e.touches.length === 0) {
       if (now - touchZoom.lastTap < 280) {
         if (touchZoom.currentScale > 1.05) {
           _tzReset(mediaEl);
         } else {
-          touchZoom.currentScale = 2;
+          touchZoom.currentScale = 2.5;
           touchZoom.tx = 0;
           touchZoom.ty = 0;
-          mediaEl.style.transition = 'transform 180ms ease-out';
+          mediaEl.style.transition = 'transform 240ms ease';
           _tzApply(mediaEl);
-          window.setTimeout(() => { mediaEl.style.transition = ''; }, 200);
+          window.setTimeout(() => { mediaEl.style.transition = ''; }, 250);
         }
         touchZoom.lastTap = 0;
       } else {
         touchZoom.lastTap = now;
-        // Single-tap inside tolerance → toggle immersive (controls fade)
-        // Defer to give double-tap window time to win
-        if (channel === 'idle' && touchZoom.currentScale <= 1.05) {
-          const dxTap = e.changedTouches[0].clientX - dragStartX;
-          const dyTap = e.changedTouches[0].clientY - dragStartY;
-          if (Math.abs(dxTap) < LONG_PRESS_MOVE_TOLERANCE && Math.abs(dyTap) < LONG_PRESS_MOVE_TOLERANCE) {
-            const tapStamp = now;
-            window.setTimeout(() => {
-              // If another tap landed within 280ms (double-tap), skip immersive toggle
-              if (touchZoom.lastTap !== 0 && touchZoom.lastTap !== tapStamp) return;
-              if (Date.now() - tapStamp >= 280) {
-                state.previewImmersive = !state.previewImmersive;
-                render();
-              }
-            }, 290);
-          }
-        }
       }
     }
     if (e.touches.length === 0) {
-      const dxEnd = e.changedTouches[0].clientX - dragStartX;
-      const dyEnd = e.changedTouches[0].clientY - dragStartY;
-      const elapsed = Math.max(1, Date.now() - channelStartTs);
-      const velocity = dyEnd / elapsed;
-
-      if (channel === 'swipe' && touchZoom.currentScale <= 1.05) {
-        if (Math.abs(dxEnd) > 48) {
-          movePreview(dxEnd < 0 ? 1 : -1);
-        }
-      } else if (channel === 'dismiss') {
-        if (shouldClosePullDismiss({ dy: dyEnd, velocity })) {
-          mediaEl.style.transition = 'transform 220ms ease-out';
-          mediaEl.style.transform = `translate(0, ${window.innerHeight}px)`;
-          window.setTimeout(() => { closePreview(); }, 220);
-        } else {
-          mediaEl.style.transition = 'transform 220ms ease-out';
-          mediaEl.style.transform = '';
-          previewRoot.classList.remove('is-dismissing');
-          const backdrop = previewRoot.querySelector('.cml-preview__backdrop');
-          if (backdrop) backdrop.style.opacity = '';
-          window.setTimeout(() => {
-            mediaEl.style.transition = '';
-          }, 240);
-        }
-      } else if (touchZoom.currentScale < 1.05) {
-        _tzReset(mediaEl);
-      }
-
-      channel = 'idle';
       touchZoom.isPinch = false;
+      if (touchZoom.currentScale < 1.05) {
+        _tzReset(mediaEl);
+        // swipe nav when not zoomed
+        const swipeX = e.changedTouches[0].clientX - touchZoom.startMidX;
+        const swipeY = Math.abs(e.changedTouches[0].clientY - touchZoom.startMidY);
+        if (Math.abs(swipeX) > 48 && Math.abs(swipeX) > swipeY * 1.5) {
+          movePreview(swipeX < 0 ? 1 : -1);
+        }
+      }
       touchZoom.isPan = false;
     }
-  }, { passive: false });
+  }, { passive: true });
 
+  // Mouse wheel zoom - anchor to cursor position
   stage.addEventListener('wheel', (e) => {
-    restoreChrome();
     e.preventDefault();
     const deltaY = normalizePreviewWheelDelta(e);
     const next = getPreviewWheelZoomScale(touchZoom.currentScale, deltaY);
@@ -2250,14 +2114,13 @@ function setupPreviewTouchHandlers() {
     if (touchZoom.currentScale < 1.05) _tzReset(mediaEl);
   }, { passive: false });
 
-  // Double-click to toggle 2× zoom
+  // Double-click to toggle 2.5× zoom
   stage.addEventListener('dblclick', (e) => {
-    restoreChrome();
     if (e.target.closest('.cml-preview__nav')) return;
     if (touchZoom.currentScale > 1.05) {
       _tzReset(mediaEl);
     } else {
-      touchZoom.currentScale = 2;
+      touchZoom.currentScale = 2.5;
       touchZoom.tx = 0;
       touchZoom.ty = 0;
       mediaEl.style.transition = 'transform 240ms ease';
@@ -2266,6 +2129,7 @@ function setupPreviewTouchHandlers() {
     }
   });
 
+  // Mouse drag pan when zoomed
   let isMousePan = false;
   stage.addEventListener('mousedown', (e) => {
     if (touchZoom.currentScale > 1.05 && e.button === 0) {
@@ -2278,7 +2142,6 @@ function setupPreviewTouchHandlers() {
     }
   });
   stage.addEventListener('mousemove', (e) => {
-    restoreChrome();
     if (!isMousePan) return;
     touchZoom.tx = touchZoom.startTx + (e.clientX - touchZoom.startMidX);
     touchZoom.ty = touchZoom.startTy + (e.clientY - touchZoom.startMidY);
@@ -2286,7 +2149,6 @@ function setupPreviewTouchHandlers() {
   });
   stage.addEventListener('mouseup', () => { isMousePan = false; });
   stage.addEventListener('mouseleave', () => { isMousePan = false; });
-  armIdleFade();
 }
 
 async function fetchAdminIdentity() {
@@ -3193,27 +3055,6 @@ function getAvailableAlbumNames(items = getAccessibleItems(state.mediaItems)) {
   return names;
 }
 
-function computeYearsSummary(items) {
-  const counts = new Map();
-  (items || []).forEach((it) => {
-    const year = Number(it && it.year);
-    if (Number.isInteger(year) && year > 0) {
-      counts.set(year, (counts.get(year) || 0) + 1);
-      return;
-    }
-    const ts = Date.parse(it && it.takenAt);
-    if (Number.isFinite(ts)) {
-      const y = new Date(ts).getFullYear();
-      if (Number.isInteger(y)) {
-        counts.set(y, (counts.get(y) || 0) + 1);
-      }
-    }
-  });
-  return Array.from(counts.entries())
-    .sort((a, b) => b[0] - a[0])
-    .map(([year, count]) => ({ year, count }));
-}
-
 function buildMusicPlaylistSummaries(items = getAccessibleItems()) {
   const groups = new Map();
   const ensureGroup = (name) => {
@@ -3740,10 +3581,6 @@ function getViewportLayoutWidth() {
 
 function isMobileLayout() {
   return getViewportLayoutWidth() <= 960;
-}
-
-function isPhoneLayout() {
-  return isPhoneWidth(getViewportLayoutWidth());
 }
 
 function normalizeRoutePrimaryFilter(value) {
@@ -10399,7 +10236,6 @@ function buildViewModelResult(context = getBaseViewModelContext(), overrides = {
     scrubberSections: [],
     previewItems: [],
     previewIndex: -1,
-    previewImmersive: false,
     previewItem: null,
     availableAlbums: [],
     previewAlbumEntries: [],
@@ -15922,15 +15758,6 @@ function render() {
     return;
   }
 
-  if (state.activeAlbumDetailId) {
-    const albumName = state.activeAlbumDetailId;
-    const accessibleItems = getAccessibleItems();
-    const albumItems = accessibleItems.filter((it) => resolveCollectionAlbums(it).some((n) => n.toLowerCase() === albumName.toLowerCase()));
-    const album = { id: albumName, name: albumName, count: albumItems.length };
-    refs.root.innerHTML = AlbumDetailMobilePage({ album, items: albumItems, isPhone: isPhoneLayout() });
-    return;
-  }
-
   const previousScrollTop = refs.scrollRegion ? refs.scrollRegion.scrollTop : state.virtualScrollTop;
   const previousMindSettingsScrollTop = refs.root?.querySelector('.cml-mind__settings-card')?.scrollTop || 0;
   const searchWasFocused = document.activeElement instanceof HTMLInputElement
@@ -16140,10 +15967,7 @@ function render() {
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : state.privateViewOpen && !state.privateRouteUnlocked
                 ? PrivateAlbumGate({ error: state.privatePasswordError, value: state.privatePasswordDraft })
-                : `${isPhoneLayout() && state.primaryFilter === 'Photos' && !viewModel.activeAlbumName && !state.privateViewOpen ? PhotosSecondarySegmented({ active: state.secondaryFilter }) : ''}${isPhoneLayout() && state.primaryFilter === 'Photos' && !viewModel.activeAlbumName && !state.privateViewOpen
-                  ? YearBadge({ year: viewModel.filteredItems && viewModel.filteredItems[0] && Number(viewModel.filteredItems[0].year || new Date(viewModel.filteredItems[0].takenAt).getFullYear()) || 0 })
-                  + YearSheet({ years: computeYearsSummary(viewModel.filteredItems), open: Boolean(state.yearSheetOpen) })
-                  : ''}${state.primaryFilter === 'Collections' && (viewModel.activeAlbumName || isMobileLayout()) && !hideMobileCollectionSummary
+                : `${state.primaryFilter === 'Collections' && (viewModel.activeAlbumName || isMobileLayout()) && !hideMobileCollectionSummary
                   ? CollectionSummary({
                     activeAlbumName: viewModel.activeAlbumName,
                     collectionCount: viewModel.totalCollectionCount,
@@ -17358,13 +17182,6 @@ function openPreview(itemId, sourceHint = '') {
     sourceHint
   });
   state.previewId = resolvedPreviewItem?.id || itemId;
-  if (typeof history !== 'undefined' && history.replaceState && state.previewId) {
-    try {
-      const url = new URL(window.location.href);
-      url.hash = lastViewedHashKey(state.previewId);
-      history.replaceState(history.state, '', url.toString());
-    } catch { /* hash write is best-effort */ }
-  }
   state.previewSourceHint = sourceHint || resolvedPreviewItem?.thumbnailUrl || resolvedPreviewItem?.sourceUrl || '';
   state.infoOpen = false;
   state.previewImmersive = false;
@@ -17453,13 +17270,6 @@ function closePreview() {
     .catch(() => { /* ignore */ });
   const finalizeClosePreview = () => {
     state.previewId = null;
-    if (typeof history !== 'undefined' && history.replaceState) {
-      try {
-        const url = new URL(window.location.href);
-        url.hash = '';
-        history.replaceState(history.state, '', url.toString());
-      } catch { /* hash clear is best-effort */ }
-    }
     state.previewSourceHint = '';
     state.infoOpen = false;
     if (previewAlbumFlow) {
@@ -17536,13 +17346,6 @@ function movePreview(direction) {
   }
   const nextItem = items[nextIndex];
   state.previewId = nextItem.id;
-  if (typeof history !== 'undefined' && history.replaceState && state.previewId) {
-    try {
-      const url = new URL(window.location.href);
-      url.hash = lastViewedHashKey(state.previewId);
-      history.replaceState(history.state, '', url.toString());
-    } catch { /* hash write is best-effort */ }
-  }
   state.previewRotation = 0;
   const sourceTile = refs.root?.querySelector(`.cml-media-tile[data-tile-id="${nextItem.id}"]`) || null;
   state.previewSourceHint = getMediaSourceFromTile(sourceTile);
@@ -18479,25 +18282,11 @@ function handleAction(actionTarget, event = null) {
       return true;
     case 'open-collection':
       if (actionTarget.dataset.albumName) {
-        if (isPhoneLayout()) {
-          state.savedAlbumListScrollY = window.scrollY || document.documentElement.scrollTop || 0;
-          state.activeAlbumDetailId = actionTarget.dataset.albumName;
-          state.albumDetailScrollY = 0;
-          render();
-          return true;
-        }
         openCollection(actionTarget.dataset.albumName);
       }
       return true;
     case 'close-collection':
       closeCollection();
-      return true;
-    case 'album-detail-back':
-      state.activeAlbumDetailId = null;
-      render();
-      window.requestAnimationFrame(() => {
-        window.scrollTo({ top: resolveAlbumListScrollY(state), behavior: 'instant' });
-      });
       return true;
     case 'open-video-album':
       if (actionTarget.dataset.category) {
@@ -19189,21 +18978,6 @@ function handleAction(actionTarget, event = null) {
         scrollToSearchGroup(actionTarget.dataset.searchGroup);
       }
       return true;
-    case 'open-year-sheet':
-      state.yearSheetOpen = true;
-      render();
-      return true;
-    case 'jump-to-year': {
-      const yearAttr = actionTarget.getAttribute('data-year');
-      const yearNum = parseInt(yearAttr, 10);
-      if (Number.isInteger(yearNum)) {
-        const header = refs.root && refs.root.querySelector(`[data-year-header="${yearNum}"]`);
-        if (header) header.scrollIntoView({ block: 'start', behavior: 'instant' });
-        state.yearSheetOpen = false;
-        render();
-      }
-      return true;
-    }
     case 'toggle-avatar':
       state.avatarMenuOpen = !state.avatarMenuOpen;
       patchAvatarMenu();
@@ -19766,15 +19540,6 @@ function handleClick(event) {
         }
       }
       return;
-    }
-
-    if (actionTarget.dataset.action === 'set-secondary-filter') {
-      const next = actionTarget.getAttribute('data-secondary') || '';
-      if (next !== state.secondaryFilter) {
-        state.secondaryFilter = next;
-        render();
-      }
-      return true;
     }
 
     if (actionTarget.dataset.secondary) {
@@ -21133,15 +20898,6 @@ function boot() {
   markPerf('route-restore-end');
   measurePerf('route-restore', 'route-restore-start', 'route-restore-end');
   syncMount();
-  const restoreId = parseLastViewedHash(window.location.hash);
-  if (restoreId) {
-    window.requestAnimationFrame(() => {
-      const tile = refs.root && refs.root.querySelector(`[data-tile-id="${CSS.escape(restoreId)}"]`);
-      if (tile && typeof tile.scrollIntoView === 'function') {
-        tile.scrollIntoView({ block: 'center', behavior: 'instant' });
-      }
-    });
-  }
   window.addEventListener('hashchange', () => {
     applyLocationRouteToMountedUi();
   });
