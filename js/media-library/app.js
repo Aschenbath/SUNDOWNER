@@ -57,7 +57,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=115';
+} from './components.js?v=116';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -96,7 +96,7 @@ import {
   lastViewedHashKey,
   parseLastViewedHash,
   resolveAlbumListScrollY,
-} from './preview-overlay.js?v=2';
+} from './preview-overlay.js?v=3';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
 import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js';
