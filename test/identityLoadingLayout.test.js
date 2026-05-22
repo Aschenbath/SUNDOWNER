@@ -52,4 +52,10 @@ describe('identity and loading layout', () => {
     assert.match(headerRule, /align-items:\s*center;/);
     assert.match(identityRule, /align-items:\s*center;/);
   });
+
+  it('keeps Moments identity header separated from photos when body text is absent', () => {
+    const headerRule = getRule('#codex-media-library-root .cml-moment-card__header');
+
+    assert.match(headerRule, /margin-bottom:\s*16px;/);
+  });
 });
