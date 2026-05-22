@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaGrid, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PhotosSecondarySegmented, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar, AlbumDialog } from '../js/media-library/components.js';
+import { YearBadge, YearSheet } from '../js/media-library/components.js';
 import { FilmCard, FilmDetailPage, FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
 
 describe('media library download actions', () => {
@@ -4348,5 +4349,31 @@ describe('PhotosSecondarySegmented', () => {
     const html = PhotosSecondarySegmented({ active: 'Videos' });
     assert.match(html, /data-secondary="Videos"[^>]*class="[^"]*is-active/);
     assert.doesNotMatch(html, /data-secondary=""[^>]*class="[^"]*is-active/);
+  });
+});
+
+describe('YearBadge / YearSheet', () => {
+  it('YearBadge renders current year with data-action="open-year-sheet"', () => {
+    const html = YearBadge({ year: 2026 });
+    assert.match(html, /data-action="open-year-sheet"/);
+    assert.match(html, />2026</);
+  });
+
+  it('YearSheet lists each year with count', () => {
+    const html = YearSheet({
+      years: [
+        { year: 2026, count: 120 },
+        { year: 2025, count: 80 },
+      ],
+      open: true,
+    });
+    assert.match(html, /cml-year-sheet[^"]*is-open/);
+    assert.match(html, /data-year="2026"[^>]*>[\s\S]*?2026[\s\S]*?120/);
+    assert.match(html, /data-year="2025"[^>]*>[\s\S]*?2025[\s\S]*?80/);
+  });
+
+  it('YearSheet without open flag does not render is-open', () => {
+    const html = YearSheet({ years: [{ year: 2026, count: 10 }], open: false });
+    assert.doesNotMatch(html, /is-open/);
   });
 });

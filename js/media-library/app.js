@@ -48,7 +48,9 @@ import {
   VideoAlbumGrid,
   VideoAlbumSummary,
   VideoCategoryBar,
+  YearBadge,
   YearScroller,
+  YearSheet,
   buildJustifiedRows,
   formatMomentSelectedDate,
   renderMomentsCalendar,
@@ -721,6 +723,7 @@ const state = {
   primaryFilter: 'Photos',
   secondaryFilter: '',
   videoCategoryFilter: '',
+  yearSheetOpen: false,
   privateViewOpen: false,
   privateRouteUnlocked: false,
   privatePasswordDraft: '',
@@ -3188,6 +3191,27 @@ function getAvailableAlbumNames(items = getAccessibleItems(state.mediaItems)) {
     if (Array.isArray(value)) { value.forEach(pushAlbum); } else { pushAlbum(value); }
   });
   return names;
+}
+
+function computeYearsSummary(items) {
+  const counts = new Map();
+  (items || []).forEach((it) => {
+    const year = Number(it && it.year);
+    if (Number.isInteger(year) && year > 0) {
+      counts.set(year, (counts.get(year) || 0) + 1);
+      return;
+    }
+    const ts = Date.parse(it && it.takenAt);
+    if (Number.isFinite(ts)) {
+      const y = new Date(ts).getFullYear();
+      if (Number.isInteger(y)) {
+        counts.set(y, (counts.get(y) || 0) + 1);
+      }
+    }
+  });
+  return Array.from(counts.entries())
+    .sort((a, b) => b[0] - a[0])
+    .map(([year, count]) => ({ year, count }));
 }
 
 function buildMusicPlaylistSummaries(items = getAccessibleItems()) {
@@ -16116,7 +16140,10 @@ function render() {
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : state.privateViewOpen && !state.privateRouteUnlocked
                 ? PrivateAlbumGate({ error: state.privatePasswordError, value: state.privatePasswordDraft })
-                : `${isPhoneLayout() && state.primaryFilter === 'Photos' && !viewModel.activeAlbumName && !state.privateViewOpen ? PhotosSecondarySegmented({ active: state.secondaryFilter }) : ''}${state.primaryFilter === 'Collections' && (viewModel.activeAlbumName || isMobileLayout()) && !hideMobileCollectionSummary
+                : `${isPhoneLayout() && state.primaryFilter === 'Photos' && !viewModel.activeAlbumName && !state.privateViewOpen ? PhotosSecondarySegmented({ active: state.secondaryFilter }) : ''}${isPhoneLayout() && state.primaryFilter === 'Photos' && !viewModel.activeAlbumName && !state.privateViewOpen
+                  ? YearBadge({ year: viewModel.filteredItems && viewModel.filteredItems[0] && Number(viewModel.filteredItems[0].year || new Date(viewModel.filteredItems[0].takenAt).getFullYear()) || 0 })
+                  + YearSheet({ years: computeYearsSummary(viewModel.filteredItems), open: Boolean(state.yearSheetOpen) })
+                  : ''}${state.primaryFilter === 'Collections' && (viewModel.activeAlbumName || isMobileLayout()) && !hideMobileCollectionSummary
                   ? CollectionSummary({
                     activeAlbumName: viewModel.activeAlbumName,
                     collectionCount: viewModel.totalCollectionCount,
@@ -19162,6 +19189,21 @@ function handleAction(actionTarget, event = null) {
         scrollToSearchGroup(actionTarget.dataset.searchGroup);
       }
       return true;
+    case 'open-year-sheet':
+      state.yearSheetOpen = true;
+      render();
+      return true;
+    case 'jump-to-year': {
+      const yearAttr = actionTarget.getAttribute('data-year');
+      const yearNum = parseInt(yearAttr, 10);
+      if (Number.isInteger(yearNum)) {
+        const header = refs.root && refs.root.querySelector(`[data-year-header="${yearNum}"]`);
+        if (header) header.scrollIntoView({ block: 'start', behavior: 'instant' });
+        state.yearSheetOpen = false;
+        render();
+      }
+      return true;
+    }
     case 'toggle-avatar':
       state.avatarMenuOpen = !state.avatarMenuOpen;
       patchAvatarMenu();

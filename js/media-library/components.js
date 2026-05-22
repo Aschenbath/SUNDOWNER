@@ -978,6 +978,7 @@ export function MediaTimelineSection({ section, state, layoutWidth, coverItemId 
       class="cml-timeline-section ${isActiveSection ? 'is-active' : ''}"
       id="${escapeHtml(section.anchorId)}"
       data-year="${escapeHtml(section.year)}"
+      data-year-header="${escapeHtml(section.year)}"
       data-scrubber-label="${escapeHtml(section.scrubberLabel || section.year)}"
     >
       <header class="cml-timeline-section__header ${isActiveSection ? 'is-active' : ''}" aria-current="${isActiveSection ? 'true' : 'false'}">
@@ -4585,4 +4586,22 @@ export function StoragePanel({ state, insights }) {
       </div>
     </div>
   `;
+}
+
+export function YearBadge({ year }) {
+  const safeYear = Number.isInteger(year) ? year : '';
+  return `<button type="button" class="cml-year-badge" data-action="open-year-sheet" aria-label="Jump to year">${safeYear}</button>`;
+}
+
+export function YearSheet({ years, open }) {
+  const items = (years || []).map((y) => {
+    return `<li><button type="button" class="cml-year-sheet__row" data-action="jump-to-year" data-year="${y.year}">
+      <span class="cml-year-sheet__label">${y.year}</span>
+      <span class="cml-year-sheet__count">${y.count}</span>
+    </button></li>`;
+  }).join('');
+  const klass = `cml-year-sheet${open ? ' is-open' : ''}`;
+  return `<aside class="${klass}" aria-hidden="${open ? 'false' : 'true'}">
+    <ul class="cml-year-sheet__list">${items}</ul>
+  </aside>`;
 }
