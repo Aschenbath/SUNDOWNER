@@ -2274,6 +2274,30 @@ export function MobileAudioMiniPlayer({ currentItem = null, isPlaying = false })
   `;
 }
 
+export function AlbumDetailMobilePage({ album, items, isPhone }) {
+  const safeName = String(album && album.name ? album.name : 'Album').replace(/</g, '&lt;');
+  const albumId = album && album.id ? album.id : '';
+  const bar = `
+    <header class="cml-mobile-albums-bar">
+      <button type="button" class="cml-mobile-albums-bar__back" data-action="album-detail-back" aria-label="Back to albums">
+        <span class="cml-mobile-albums-bar__icon" aria-hidden="true">‹</span>
+      </button>
+      <h1 class="cml-mobile-albums-bar__title">${safeName}</h1>
+      <div class="cml-mobile-albums-bar__actions">
+        <button type="button" data-action="album-detail-more" aria-label="More options">⋯</button>
+      </div>
+    </header>
+  `;
+  const hasItems = Array.isArray(items) && items.length > 0;
+  const body = hasItems
+    ? MediaGrid({
+        rows: buildJustifiedRows(items),
+        state: { selectedIds: new Set(), loadedMediaIds: new Set(), fullLoadedMediaIds: new Set() }
+      })
+    : `<div class="cml-empty-state"><p>No photos in this album.</p></div>`;
+  return `<section class="cml-album-detail-page" data-album-id="${albumId}">${bar}<div class="cml-album-detail-page__body">${body}</div></section>`;
+}
+
 export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, itemCount = 0, coverLabel = '', hasCustomCover = false, renameAlbumDialogOpen = false, renameAlbumDraftName = '', renameAlbumError = '', renameAlbumBusy = false }) {
   const hasActiveAlbum = Boolean(activeAlbumName);
   const title = hasActiveAlbum ? activeAlbumName : 'Albums';

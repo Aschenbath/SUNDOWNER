@@ -4227,3 +4227,42 @@ describe('preview lightbox immersive class', () => {
     assert.doesNotMatch(html, /is-immersive/);
   });
 });
+
+import { AlbumDetailMobilePage } from '../js/media-library/components.js';
+
+describe('AlbumDetailMobilePage', () => {
+  it('renders mobile albums bar with back chevron and album name', () => {
+    const html = AlbumDetailMobilePage({
+      album: { id: 'al-1', name: 'Trip 2026', count: 12 },
+      items: [],
+      isPhone: true,
+    });
+    assert.match(html, /cml-mobile-albums-bar/);
+    assert.match(html, /data-action="album-detail-back"/);
+    assert.match(html, />Trip 2026</);
+  });
+
+  it('renders the media grid in the body when items present', () => {
+    const item = {
+      id: 'p-1', type: 'photo', label: 'a.jpg',
+      sourceId: 'photos/a.jpg', sourceUrl: '/file/photos/a.jpg',
+      thumbnailUrl: '/file/photos/a.jpg', width: 1024, height: 768,
+      mimeType: 'image/jpeg', sizeMb: 1, exif: null,
+    };
+    const html = AlbumDetailMobilePage({
+      album: { id: 'al-2', name: 'Album 2', count: 1 },
+      items: [item],
+      isPhone: true,
+    });
+    assert.match(html, /data-tile-id="p-1"/);
+  });
+
+  it('renders empty hint when items array empty', () => {
+    const html = AlbumDetailMobilePage({
+      album: { id: 'al-3', name: 'Empty', count: 0 },
+      items: [],
+      isPhone: true,
+    });
+    assert.match(html, /No photos in this album/);
+  });
+});

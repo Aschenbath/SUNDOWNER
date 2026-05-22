@@ -14,6 +14,7 @@ import {
 import { createTimelineLabel, navigationModel, storageSummary as defaultStorageSummary } from './data.js?v=3';
 import {
   AdminPanel,
+  AlbumDetailMobilePage,
   AlbumDialog,
   AudioPlayerPanel,
   BinGrid,
@@ -952,7 +953,9 @@ const state = {
   filmListScrollTop: 0,
   filmLastOpenedId: '',
   filmHighlightedId: '',
-  filmRouteTransition: ''
+  filmRouteTransition: '',
+  activeAlbumDetailId: null,
+  albumDetailScrollY: 0,
 };
 
 let dimensionPatchTimer = 0;
@@ -15892,6 +15895,15 @@ function render() {
     return;
   }
 
+  if (state.activeAlbumDetailId) {
+    const albumName = state.activeAlbumDetailId;
+    const accessibleItems = getAccessibleItems();
+    const albumItems = accessibleItems.filter((it) => resolveCollectionAlbums(it).some((n) => n.toLowerCase() === albumName.toLowerCase()));
+    const album = { id: albumName, name: albumName, count: albumItems.length };
+    refs.root.innerHTML = AlbumDetailMobilePage({ album, items: albumItems, isPhone: isPhoneLayout() });
+    return;
+  }
+
   const previousScrollTop = refs.scrollRegion ? refs.scrollRegion.scrollTop : state.virtualScrollTop;
   const previousMindSettingsScrollTop = refs.root?.querySelector('.cml-mind__settings-card')?.scrollTop || 0;
   const searchWasFocused = document.activeElement instanceof HTMLInputElement
@@ -18437,11 +18449,21 @@ function handleAction(actionTarget, event = null) {
       return true;
     case 'open-collection':
       if (actionTarget.dataset.albumName) {
+        if (isPhoneLayout()) {
+          state.activeAlbumDetailId = actionTarget.dataset.albumName;
+          state.albumDetailScrollY = 0;
+          render();
+          return true;
+        }
         openCollection(actionTarget.dataset.albumName);
       }
       return true;
     case 'close-collection':
       closeCollection();
+      return true;
+    case 'album-detail-back':
+      state.activeAlbumDetailId = null;
+      render();
       return true;
     case 'open-video-album':
       if (actionTarget.dataset.category) {
