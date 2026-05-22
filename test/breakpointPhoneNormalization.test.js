@@ -1,17 +1,15 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
-
-const cssPath = path.resolve('css/media-library.css');
-const css = fs.readFileSync(cssPath, 'utf8');
 
 describe('phone breakpoint tokens', () => {
+  const css = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+
   it('defines --cml-phone-break: 640px on :root', () => {
-    assert.match(css, /:root[^}]*--cml-phone-break:\s*640px/s);
+    assert.match(css, /:root[^}]*--cml-phone-break:\s*640px/);
   });
 
   it('defines --cml-phone-small-break: 420px on :root', () => {
-    assert.match(css, /:root[^}]*--cml-phone-small-break:\s*420px/s);
+    assert.match(css, /:root[^}]*--cml-phone-small-break:\s*420px/);
   });
 
   it('uses the 640px breakpoint as the primary phone media query', () => {
