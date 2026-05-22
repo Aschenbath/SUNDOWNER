@@ -974,29 +974,91 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-mind--loading {
   min-height: calc(100vh - 220px);
+  display: grid;
+  grid-template-rows: 1fr;
+  place-items: center;
+  padding: clamp(32px, 7vh, 72px) 24px;
 }
 
 #codex-media-library-root .cml-mind-loading {
   display: grid;
+  width: min(420px, 100%);
+  justify-items: center;
   gap: 18px;
-  padding: 36px 28px 12px;
+  padding: 0;
+  text-align: center;
+}
+
+#codex-media-library-root .cml-mind-loading__identity {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-mind-loading__avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(232, 235, 241, 0.88));
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+  color: #3d4b5c;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+#codex-media-library-root .cml-mind-loading__avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#codex-media-library-root .cml-mind-loading__copy {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+}
+
+#codex-media-library-root .cml-mind-loading__title {
+  margin: 0;
+  color: #f4f6f8;
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+#codex-media-library-root .cml-mind-loading__meta {
+  margin: 0;
+  color: rgba(220, 226, 233, 0.68);
+  font-size: 13px;
+}
+
+#codex-media-library-root .cml-mind-loading__bubbles {
+  display: grid;
+  width: min(300px, 100%);
+  justify-items: center;
+  gap: 12px;
 }
 
 #codex-media-library-root .cml-mind-loading__bubble {
-  height: 58px;
-  width: min(420px, 78%);
-  border-radius: 24px;
+  height: 12px;
+  width: min(220px, 78%);
+  border-radius: 999px;
   background: linear-gradient(90deg, rgba(86, 96, 118, 0.32) 25%, rgba(108, 119, 144, 0.52) 50%, rgba(86, 96, 118, 0.32) 75%);
   background-size: 200% 100%;
   animation: cml-shimmer 1.7s ease-in-out infinite;
 }
 
 #codex-media-library-root .cml-mind-loading__bubble--mid {
-  width: min(360px, 68%);
+  width: min(180px, 62%);
 }
 
 #codex-media-library-root .cml-mind-loading__bubble--wide {
-  width: min(520px, 88%);
+  width: min(260px, 88%);
 }
 
 #codex-media-library-root .cml-sidebar-audio-player__volume-input::-webkit-slider-runnable-track,
@@ -12363,14 +12425,14 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-moment-card__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
 
 #codex-media-library-root .cml-moment-card__identity {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   min-width: 0;
 }
