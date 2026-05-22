@@ -95,3 +95,15 @@ export function parseLastViewedHash(hash) {
   const id = cleaned.slice(LAST_VIEWED_HASH_PREFIX.length);
   return id || null;
 }
+
+/**
+ * Resolve the album list scroll position to restore, clamping invalid values.
+ *
+ * @param {{ savedAlbumListScrollY?: number }} state
+ * @returns {number}
+ */
+export function resolveAlbumListScrollY(state) {
+  const v = state && state.savedAlbumListScrollY;
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return 0;
+  return v;
+}

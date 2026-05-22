@@ -92,6 +92,7 @@ import {
   IDLE_FADE_MS,
   lastViewedHashKey,
   parseLastViewedHash,
+  resolveAlbumListScrollY,
 } from './preview-overlay.js?v=2';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
@@ -956,6 +957,7 @@ const state = {
   filmRouteTransition: '',
   activeAlbumDetailId: null,
   albumDetailScrollY: 0,
+  savedAlbumListScrollY: 0,
 };
 
 let dimensionPatchTimer = 0;
@@ -18450,6 +18452,7 @@ function handleAction(actionTarget, event = null) {
     case 'open-collection':
       if (actionTarget.dataset.albumName) {
         if (isPhoneLayout()) {
+          state.savedAlbumListScrollY = window.scrollY || document.documentElement.scrollTop || 0;
           state.activeAlbumDetailId = actionTarget.dataset.albumName;
           state.albumDetailScrollY = 0;
           render();
@@ -18464,6 +18467,9 @@ function handleAction(actionTarget, event = null) {
     case 'album-detail-back':
       state.activeAlbumDetailId = null;
       render();
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: resolveAlbumListScrollY(state), behavior: 'instant' });
+      });
       return true;
     case 'open-video-album':
       if (actionTarget.dataset.category) {
