@@ -4322,3 +4322,12 @@ describe('grid padding under mini-player', () => {
     assert.match(css, /--cml-mini-player-height:\s*64px/);
   });
 });
+
+describe('safe-area-inset on bottom-fixed chrome', () => {
+  it('cml-mobile-audio-player honors env(safe-area-inset-bottom)', () => {
+    const css = fs.readFileSync(path.resolve('css/media-library.css'), 'utf8');
+    const block = css.match(/#codex-media-library-root \.cml-mobile-audio-player \{[\s\S]{0,1000}\}/);
+    assert.ok(block, 'cml-mobile-audio-player rule must exist');
+    assert.match(block[0], /env\(safe-area-inset-bottom/);
+  });
+});
