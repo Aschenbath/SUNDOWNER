@@ -12428,6 +12428,7 @@ body.codex-media-library-active #app {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 16px;
 }
 
 #codex-media-library-root .cml-moment-card__identity {
