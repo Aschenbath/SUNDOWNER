@@ -31,3 +31,21 @@ export function arbitrateGestureChannel(input) {
   }
   return 'idle';
 }
+
+export const PULL_DISMISS_DISTANCE_THRESHOLD = 100;
+export const PULL_DISMISS_VELOCITY_THRESHOLD = 0.6;
+
+/**
+ * Decide whether a downward pull-to-dismiss gesture should close the preview.
+ * Pure function.
+ *
+ * @param {{ dy: number, velocity: number }} input dy = vertical pixels moved (positive = down). velocity = px/ms.
+ * @returns {boolean}
+ */
+export function shouldClosePullDismiss(input) {
+  const { dy = 0, velocity = 0 } = input || {};
+  if (dy <= 0) return false;
+  if (dy >= PULL_DISMISS_DISTANCE_THRESHOLD) return true;
+  if (velocity >= PULL_DISMISS_VELOCITY_THRESHOLD) return true;
+  return false;
+}

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { arbitrateGestureChannel, GESTURE_ARBITRATION_THRESHOLD } from '../js/media-library/preview-overlay.js';
+import { arbitrateGestureChannel, GESTURE_ARBITRATION_THRESHOLD, shouldClosePullDismiss, PULL_DISMISS_DISTANCE_THRESHOLD, PULL_DISMISS_VELOCITY_THRESHOLD } from '../js/media-library/preview-overlay.js';
 
 describe('arbitrateGestureChannel', () => {
   it('returns "zoom" when two fingers are down', () => {
@@ -28,5 +28,28 @@ describe('arbitrateGestureChannel', () => {
 
   it('locks swipe channel when isPinch flag is true regardless of vector', () => {
     assert.equal(arbitrateGestureChannel({ dx: 30, dy: 0, touchCount: 1, isPinch: true }), 'zoom');
+  });
+});
+
+describe('shouldClosePullDismiss', () => {
+  it('exposes the documented thresholds (100px / 0.6 px-per-ms)', () => {
+    assert.equal(PULL_DISMISS_DISTANCE_THRESHOLD, 100);
+    assert.equal(PULL_DISMISS_VELOCITY_THRESHOLD, 0.6);
+  });
+
+  it('closes when dy exceeds distance threshold regardless of velocity', () => {
+    assert.equal(shouldClosePullDismiss({ dy: 120, velocity: 0 }), true);
+  });
+
+  it('closes when velocity exceeds velocity threshold even at short distance', () => {
+    assert.equal(shouldClosePullDismiss({ dy: 40, velocity: 1.2 }), true);
+  });
+
+  it('does not close on small slow drag', () => {
+    assert.equal(shouldClosePullDismiss({ dy: 30, velocity: 0.1 }), false);
+  });
+
+  it('does not close on upward drag', () => {
+    assert.equal(shouldClosePullDismiss({ dy: -200, velocity: -2 }), false);
   });
 });
