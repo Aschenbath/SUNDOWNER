@@ -2230,21 +2230,23 @@ export function MindLoadingView({ settings = {}, wallpaperUrl = '' } = {}) {
     ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(wallpaperUrl)}');--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`
     : ` style="--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`;
   const avatarHtml = contactAvatarData
-    ? `<span class="cml-mind-header__avatar"><img src="${contactAvatarData}" alt="${contactName}" class="cml-mind-header__avatar-image"></span>`
-    : `<span class="cml-mind-header__avatar cml-mind-header__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`;
+    ? `<span class="cml-mind-loading__avatar"><img src="${contactAvatarData}" alt="${contactName}" class="cml-mind-loading__avatar-image"></span>`
+    : `<span class="cml-mind-loading__avatar cml-mind-loading__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`;
   return `
     <section class="cml-mind cml-mind--loading cml-mind--${backgroundPreset} cml-mind--send-${sendButtonColor}" aria-label="Loading Mind conversation"${wallpaperStyle}>
-      <header class="cml-mind-header">
-        ${avatarHtml}
-        <div class="cml-mind-header__copy">
-          <p class="cml-mind-header__title">${contactName}</p>
-          <p class="cml-mind-header__meta">Loading conversation…</p>
-        </div>
-      </header>
       <div class="cml-mind-loading">
-        <div class="cml-mind-loading__bubble cml-mind-loading__bubble--wide"></div>
-        <div class="cml-mind-loading__bubble"></div>
-        <div class="cml-mind-loading__bubble cml-mind-loading__bubble--mid"></div>
+        <div class="cml-mind-loading__identity">
+          ${avatarHtml}
+          <div class="cml-mind-loading__copy">
+            <p class="cml-mind-loading__title">${contactName}</p>
+            <p class="cml-mind-loading__meta">Loading conversation…</p>
+          </div>
+        </div>
+        <div class="cml-mind-loading__bubbles" aria-hidden="true">
+          <div class="cml-mind-loading__bubble cml-mind-loading__bubble--wide"></div>
+          <div class="cml-mind-loading__bubble"></div>
+          <div class="cml-mind-loading__bubble cml-mind-loading__bubble--mid"></div>
+        </div>
       </div>
     </section>
   `;
