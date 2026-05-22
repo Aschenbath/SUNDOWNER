@@ -49,3 +49,17 @@ export function shouldClosePullDismiss(input) {
   if (velocity >= PULL_DISMISS_VELOCITY_THRESHOLD) return true;
   return false;
 }
+
+export const PHONE_BREAK_PX = 640;
+
+/**
+ * Returns true if the given viewport width is in the phone segment.
+ * Pure function.
+ *
+ * @param {number} width
+ * @returns {boolean}
+ */
+export function isPhoneWidth(width) {
+  if (typeof width !== 'number' || !Number.isFinite(width)) return false;
+  return width <= PHONE_BREAK_PX;
+}

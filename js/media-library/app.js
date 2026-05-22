@@ -81,7 +81,7 @@ import {
   hasAnyPickerTarget,
   resetAddToTargetModes,
 } from './picker-state.js';
-import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
+import { PREVIEW_PANEL_SECTION_SELECTORS, isPhoneWidth } from './preview-overlay.js?v=2';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
 import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js';
@@ -3581,6 +3581,10 @@ function getViewportLayoutWidth() {
 
 function isMobileLayout() {
   return getViewportLayoutWidth() <= 960;
+}
+
+function isPhoneLayout() {
+  return isPhoneWidth(getViewportLayoutWidth());
 }
 
 function normalizeRoutePrimaryFilter(value) {
