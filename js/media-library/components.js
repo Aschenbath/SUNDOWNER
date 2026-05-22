@@ -2349,7 +2349,7 @@ export function CollectionSummary({ activeAlbumName = '', collectionCount = 0, i
   `;
 }
 
-export function CollectionGrid({ collections, showBinEntry = false, showCreateEntry = false }) {
+export function CollectionGrid({ collections, showBinEntry = false, showCreateEntry = false, isPhone = false }) {
   return `
     <section class="cml-collection-grid" aria-label="Album collections">
       ${showCreateEntry ? `
@@ -2384,27 +2384,42 @@ export function CollectionGrid({ collections, showBinEntry = false, showCreateEn
           </span>
         </button>
       ` : ''}
-      ${collections.map((collection) => `
+      ${collections.map((collection) => {
+        const covers = (Array.isArray(collection.coverItems) ? collection.coverItems : []).slice(0, 3);
+        const hasCoverStack = isPhone && covers.length >= 3;
+        const itemCount = collection.itemCount !== undefined ? collection.itemCount : (collection.count !== undefined ? collection.count : 0);
+        const coverNode = hasCoverStack
+          ? `<div class="cml-album-cover-stack">
+               <img src="${escapeHtml(covers[2].thumbnailUrl || '')}" alt="" class="cml-album-cover-stack__back" loading="lazy">
+               <img src="${escapeHtml(covers[1].thumbnailUrl || '')}" alt="" class="cml-album-cover-stack__mid" loading="lazy">
+               <img src="${escapeHtml(covers[0].thumbnailUrl || '')}" alt="" class="cml-album-cover-stack__front" loading="lazy">
+             </div>`
+          : collection.coverItem
+            ? renderMediaAsset(collection.coverItem, 'cml-collection-card__image', false, { noAction: true })
+            : covers.length > 0
+              ? `<img src="${escapeHtml(covers[0].thumbnailUrl || '')}" alt="" class="cml-collection-card__image" loading="lazy">`
+              : `<span class="cml-collection-card__placeholder">${icon('albums')}</span>`;
+        const isEmpty = !hasCoverStack && !collection.coverItem && covers.length === 0;
+        return `
         <button
           type="button"
-          class="cml-collection-card ${collection.coverItem ? '' : 'is-empty'}"
+          class="cml-collection-card ${isEmpty ? 'is-empty' : ''}"
           data-action="open-collection"
           data-album-name="${escapeHtml(collection.name)}"
           aria-label="Open album ${escapeHtml(collection.name)}"
         >
-          <span class="cml-collection-card__cover ${collection.coverItem ? '' : 'is-empty'}">
-            ${collection.coverItem
-              ? renderMediaAsset(collection.coverItem, 'cml-collection-card__image', false, { noAction: true })
-              : `<span class="cml-collection-card__placeholder">${icon('albums')}</span>`}
+          <span class="cml-collection-card__cover ${isEmpty ? 'is-empty' : ''}">
+            ${coverNode}
             ${collection.coverItem?.type === 'video' ? `<span class="cml-collection-card__badge">${icon('play')}</span>` : ''}
           </span>
           <span class="cml-collection-card__body">
             <strong class="cml-collection-card__title">${escapeHtml(collection.name)}</strong>
-            <span class="cml-collection-card__meta">${collection.itemCount} item${collection.itemCount === 1 ? '' : 's'}</span>
+            <span class="cml-collection-card__meta">${itemCount} item${itemCount === 1 ? '' : 's'}</span>
             <span class="cml-collection-card__copy">${escapeHtml(formatAlbumDate(collection.createdAt || collection.lastModifiedAt) || 'Empty album')}</span>
           </span>
         </button>
-      `).join('')}
+      `;
+      }).join('')}
     </section>
   `;
 }

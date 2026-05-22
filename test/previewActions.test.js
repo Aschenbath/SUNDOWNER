@@ -4266,3 +4266,39 @@ describe('AlbumDetailMobilePage', () => {
     assert.match(html, /No photos in this album/);
   });
 });
+
+describe('CollectionGrid mobile cover stack', () => {
+  it('renders three cover images stacked when ≥3 cover photos available', () => {
+    const html = CollectionGrid({
+      collections: [
+        {
+          id: 'col-1', name: 'Beach',
+          count: 24,
+          coverItems: [
+            { id: 'c1', thumbnailUrl: '/file/c1.jpg' },
+            { id: 'c2', thumbnailUrl: '/file/c2.jpg' },
+            { id: 'c3', thumbnailUrl: '/file/c3.jpg' },
+          ],
+        },
+      ],
+      isPhone: true,
+    });
+    assert.match(html, /cml-album-cover-stack/);
+    const imgMatches = html.match(/<img[^>]+>/g) || [];
+    assert.ok(imgMatches.length >= 3, `expected at least 3 cover imgs, got ${imgMatches.length}`);
+  });
+
+  it('falls back to single cover when fewer than 3 cover photos', () => {
+    const html = CollectionGrid({
+      collections: [
+        {
+          id: 'col-2', name: 'Single',
+          count: 1,
+          coverItems: [{ id: 'c1', thumbnailUrl: '/file/only.jpg' }],
+        },
+      ],
+      isPhone: true,
+    });
+    assert.doesNotMatch(html, /cml-album-cover-stack/);
+  });
+});

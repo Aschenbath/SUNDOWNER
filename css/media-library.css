@@ -4863,6 +4863,23 @@ body.codex-media-library-active #app {
     border-radius: 14px;
   }
 
+  #codex-media-library-root .cml-album-cover-stack {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+  #codex-media-library-root .cml-album-cover-stack img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+  #codex-media-library-root .cml-album-cover-stack__back  { transform: rotate(-4deg) translate(-4%, 4%); z-index: 1; opacity: 0.85; }
+  #codex-media-library-root .cml-album-cover-stack__mid   { transform: rotate( 2deg) translate( 3%, 3%); z-index: 2; opacity: 0.92; }
+  #codex-media-library-root .cml-album-cover-stack__front { transform: rotate( 0deg) translate( 0,   0); z-index: 3; }
+
   #codex-media-library-root .cml-collection-card__body {
     gap: 1px;
     padding-top: 10px;
