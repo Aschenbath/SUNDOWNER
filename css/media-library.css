@@ -1,4 +1,9 @@
 /* force pages static asset reupload */
+:root {
+  --cml-phone-break: 640px;
+  --cml-phone-small-break: 420px;
+}
+
 html[data-ui-theme-mode='dark'].codex-media-library-active,
 html[data-ui-theme-mode='dark'] body.codex-media-library-active {
   overflow: hidden !important;
