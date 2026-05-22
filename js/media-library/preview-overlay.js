@@ -66,3 +66,5 @@ export function isPhoneWidth(width) {
 
 export const LONG_PRESS_MS = 450;
 export const LONG_PRESS_MOVE_TOLERANCE = 10;
+
+export const IDLE_FADE_MS = 3000;

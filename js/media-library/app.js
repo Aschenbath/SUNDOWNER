@@ -88,6 +88,7 @@ import {
   isPhoneWidth,
   LONG_PRESS_MS,
   LONG_PRESS_MOVE_TOLERANCE,
+  IDLE_FADE_MS,
 } from './preview-overlay.js?v=2';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
@@ -2035,12 +2036,38 @@ function setupPreviewTouchHandlers() {
     }
   };
 
+  let idleFadeTimer = null;
+  const armIdleFade = () => {
+    if (idleFadeTimer) clearTimeout(idleFadeTimer);
+    if (touchZoom.currentScale > 1.05) {
+      if (!state.previewImmersive) {
+        state.previewImmersive = true;
+        render();
+      }
+      return;
+    }
+    idleFadeTimer = window.setTimeout(() => {
+      if (!state.previewImmersive) {
+        state.previewImmersive = true;
+        render();
+      }
+    }, IDLE_FADE_MS);
+  };
+  const restoreChrome = () => {
+    if (state.previewImmersive) {
+      state.previewImmersive = false;
+      render();
+    }
+    armIdleFade();
+  };
+
   let channel = 'idle';
   let channelStartTs = 0;
   let dragStartX = 0;
   let dragStartY = 0;
 
   stage.addEventListener('touchstart', (e) => {
+    restoreChrome();
     channel = 'idle';
     if (e.touches.length === 2) {
       e.preventDefault();
@@ -2196,6 +2223,7 @@ function setupPreviewTouchHandlers() {
   }, { passive: false });
 
   stage.addEventListener('wheel', (e) => {
+    restoreChrome();
     e.preventDefault();
     const deltaY = normalizePreviewWheelDelta(e);
     const next = getPreviewWheelZoomScale(touchZoom.currentScale, deltaY);
@@ -2213,6 +2241,7 @@ function setupPreviewTouchHandlers() {
 
   // Double-click to toggle 2× zoom
   stage.addEventListener('dblclick', (e) => {
+    restoreChrome();
     if (e.target.closest('.cml-preview__nav')) return;
     if (touchZoom.currentScale > 1.05) {
       _tzReset(mediaEl);
@@ -2238,6 +2267,7 @@ function setupPreviewTouchHandlers() {
     }
   });
   stage.addEventListener('mousemove', (e) => {
+    restoreChrome();
     if (!isMousePan) return;
     touchZoom.tx = touchZoom.startTx + (e.clientX - touchZoom.startMidX);
     touchZoom.ty = touchZoom.startTy + (e.clientY - touchZoom.startMidY);
@@ -2245,6 +2275,7 @@ function setupPreviewTouchHandlers() {
   });
   stage.addEventListener('mouseup', () => { isMousePan = false; });
   stage.addEventListener('mouseleave', () => { isMousePan = false; });
+  armIdleFade();
 }
 
 async function fetchAdminIdentity() {

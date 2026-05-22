@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { arbitrateGestureChannel, GESTURE_ARBITRATION_THRESHOLD, shouldClosePullDismiss, PULL_DISMISS_DISTANCE_THRESHOLD, PULL_DISMISS_VELOCITY_THRESHOLD, isPhoneWidth, PHONE_BREAK_PX, LONG_PRESS_MS, LONG_PRESS_MOVE_TOLERANCE } from '../js/media-library/preview-overlay.js';
+import { arbitrateGestureChannel, GESTURE_ARBITRATION_THRESHOLD, shouldClosePullDismiss, PULL_DISMISS_DISTANCE_THRESHOLD, PULL_DISMISS_VELOCITY_THRESHOLD, isPhoneWidth, PHONE_BREAK_PX, LONG_PRESS_MS, LONG_PRESS_MOVE_TOLERANCE, IDLE_FADE_MS } from '../js/media-library/preview-overlay.js';
 
 describe('arbitrateGestureChannel', () => {
   it('returns "zoom" when two fingers are down', () => {
@@ -83,5 +83,11 @@ describe('long-press constants', () => {
   });
   it('exposes LONG_PRESS_MOVE_TOLERANCE = 10', () => {
     assert.equal(LONG_PRESS_MOVE_TOLERANCE, 10);
+  });
+});
+
+describe('idle fade constant', () => {
+  it('exposes IDLE_FADE_MS = 3000', () => {
+    assert.equal(IDLE_FADE_MS, 3000);
   });
 });
