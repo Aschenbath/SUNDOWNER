@@ -63,3 +63,6 @@ export function isPhoneWidth(width) {
   if (typeof width !== 'number' || !Number.isFinite(width)) return false;
   return width <= PHONE_BREAK_PX;
 }
+
+export const LONG_PRESS_MS = 450;
+export const LONG_PRESS_MOVE_TOLERANCE = 10;

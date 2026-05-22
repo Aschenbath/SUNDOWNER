@@ -86,6 +86,8 @@ import {
   shouldClosePullDismiss,
   PULL_DISMISS_DISTANCE_THRESHOLD,
   isPhoneWidth,
+  LONG_PRESS_MS,
+  LONG_PRESS_MOVE_TOLERANCE,
 } from './preview-overlay.js?v=2';
 import { findPreviewMatch } from './preview-resolution.js';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
@@ -2025,6 +2027,14 @@ function setupPreviewTouchHandlers() {
   prefetchHeicNeighborsForPreview();
   prefetchPhotoNeighborsForPreview();
 
+  let longPressTimer = null;
+  const cancelLongPress = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  };
+
   let channel = 'idle';
   let channelStartTs = 0;
   let dragStartX = 0;
@@ -2050,6 +2060,20 @@ function setupPreviewTouchHandlers() {
       channelStartTs = Date.now();
       touchZoom.startMidX = dragStartX;
       touchZoom.startMidY = dragStartY;
+      cancelLongPress();
+      longPressTimer = window.setTimeout(() => {
+        if (channel !== 'idle') return;
+        const items = getPreviewItems();
+        const idx = items.findIndex((it) => it.id === state.previewId);
+        if (idx < 0) return;
+        const item = items[idx];
+        if (!item) return;
+        const event = new CustomEvent('cml-preview-long-press', {
+          bubbles: true,
+          detail: { itemId: item.id, item },
+        });
+        stage.dispatchEvent(event);
+      }, LONG_PRESS_MS);
       if (touchZoom.currentScale > 1.05) {
         touchZoom.isPan = true;
         touchZoom.startTx = touchZoom.tx;
@@ -2082,6 +2106,9 @@ function setupPreviewTouchHandlers() {
     if (e.touches.length === 1 && touchZoom.currentScale <= 1.05) {
       const dx = e.touches[0].clientX - dragStartX;
       const dy = e.touches[0].clientY - dragStartY;
+      if (Math.abs(dx) > LONG_PRESS_MOVE_TOLERANCE || Math.abs(dy) > LONG_PRESS_MOVE_TOLERANCE) {
+        cancelLongPress();
+      }
       if (channel === 'idle') {
         channel = arbitrateGestureChannel({ dx, dy, touchCount: 1, isPinch: touchZoom.isPinch });
       }
@@ -2097,6 +2124,7 @@ function setupPreviewTouchHandlers() {
   }, { passive: false });
 
   stage.addEventListener('touchend', (e) => {
+    cancelLongPress();
     const now = Date.now();
     if (e.changedTouches.length === 1 && e.touches.length === 0) {
       if (now - touchZoom.lastTap < 280) {
