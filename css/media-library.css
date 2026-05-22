@@ -14881,3 +14881,34 @@ body.codex-media-library-active #app {
 
 
 }
+
+@media (max-width: 640px) {
+  #codex-media-library-root .cml-photos-segmented {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  #codex-media-library-root .cml-photos-segmented::-webkit-scrollbar {
+    display: none;
+  }
+  #codex-media-library-root .cml-photos-segmented__tab {
+    flex: 0 0 auto;
+    padding: 6px 14px;
+    border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font-size: 13px;
+    line-height: 1.2;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  #codex-media-library-root .cml-photos-segmented__tab.is-active {
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    border-color: transparent;
+  }
+}

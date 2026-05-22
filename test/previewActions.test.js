@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaGrid, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar, AlbumDialog } from '../js/media-library/components.js';
+import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaGrid, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PhotosSecondarySegmented, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar, AlbumDialog } from '../js/media-library/components.js';
 import { FilmCard, FilmDetailPage, FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
 
 describe('media library download actions', () => {
@@ -4329,5 +4329,24 @@ describe('safe-area-inset on bottom-fixed chrome', () => {
     const block = css.match(/#codex-media-library-root \.cml-mobile-audio-player \{[\s\S]{0,1000}\}/);
     assert.ok(block, 'cml-mobile-audio-player rule must exist');
     assert.match(block[0], /env\(safe-area-inset-bottom/);
+  });
+});
+
+describe('PhotosSecondarySegmented', () => {
+  it('renders five buttons in the expected order', () => {
+    const html = PhotosSecondarySegmented({ active: '' });
+    const buttons = html.match(/<button[^>]*data-secondary="[^"]*"/g) || [];
+    assert.equal(buttons.length, 5);
+    assert.match(buttons[0], /data-secondary=""/);
+    assert.match(buttons[1], /data-secondary="Videos"/);
+    assert.match(buttons[2], /data-secondary="Documents"/);
+    assert.match(buttons[3], /data-secondary="Favourites"/);
+    assert.match(buttons[4], /data-secondary="TODO"/);
+  });
+
+  it('marks the active button with is-active', () => {
+    const html = PhotosSecondarySegmented({ active: 'Videos' });
+    assert.match(html, /data-secondary="Videos"[^>]*class="[^"]*is-active/);
+    assert.doesNotMatch(html, /data-secondary=""[^>]*class="[^"]*is-active/);
   });
 });

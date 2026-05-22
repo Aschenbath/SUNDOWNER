@@ -30,6 +30,7 @@ import {
   MindLoadingView,
   MomentsView,
   MobileAudioMiniPlayer,
+  PhotosSecondarySegmented,
   MobileBottomNav,
   MusicListView,
   MusicQueuePanel,
@@ -16115,7 +16116,7 @@ function render() {
                 ? DocumentsListView({ items: viewModel.filteredItems, state })
                 : state.privateViewOpen && !state.privateRouteUnlocked
                 ? PrivateAlbumGate({ error: state.privatePasswordError, value: state.privatePasswordDraft })
-                : `${state.primaryFilter === 'Collections' && (viewModel.activeAlbumName || isMobileLayout()) && !hideMobileCollectionSummary
+                : `${isPhoneLayout() && state.primaryFilter === 'Photos' && !viewModel.activeAlbumName && !state.privateViewOpen ? PhotosSecondarySegmented({ active: state.secondaryFilter }) : ''}${state.primaryFilter === 'Collections' && (viewModel.activeAlbumName || isMobileLayout()) && !hideMobileCollectionSummary
                   ? CollectionSummary({
                     activeAlbumName: viewModel.activeAlbumName,
                     collectionCount: viewModel.totalCollectionCount,
@@ -19723,6 +19724,15 @@ function handleClick(event) {
         }
       }
       return;
+    }
+
+    if (actionTarget.dataset.action === 'set-secondary-filter') {
+      const next = actionTarget.getAttribute('data-secondary') || '';
+      if (next !== state.secondaryFilter) {
+        state.secondaryFilter = next;
+        render();
+      }
+      return true;
     }
 
     if (actionTarget.dataset.secondary) {

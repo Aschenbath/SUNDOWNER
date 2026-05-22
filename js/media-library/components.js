@@ -2274,6 +2274,22 @@ export function MobileAudioMiniPlayer({ currentItem = null, isPlaying = false })
   `;
 }
 
+export function PhotosSecondarySegmented({ active }) {
+  const tabs = [
+    { value: '', label: 'Photos' },
+    { value: 'Videos', label: 'Videos' },
+    { value: 'Documents', label: 'Documents' },
+    { value: 'Favourites', label: 'Favourites' },
+    { value: 'TODO', label: 'TODO' },
+  ];
+  const safeActive = String(active || '');
+  const buttons = tabs.map((t) => {
+    const klass = `cml-photos-segmented__tab${t.value === safeActive ? ' is-active' : ''}`;
+    return `<button type="button" data-secondary="${t.value}" data-action="set-secondary-filter" class="${klass}">${t.label}</button>`;
+  }).join('');
+  return `<nav class="cml-photos-segmented" role="tablist">${buttons}</nav>`;
+}
+
 export function AlbumDetailMobilePage({ album, items, isPhone }) {
   const safeName = String(album && album.name ? album.name : 'Album').replace(/</g, '&lt;');
   const albumId = album && album.id ? album.id : '';
