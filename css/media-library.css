@@ -4729,6 +4729,10 @@ body.codex-media-library-active #app {
     display: none;
   }
 
+  #codex-media-library-root:has(.cml-preview) .cml-mobile-audio-player {
+    display: none;
+  }
+
   #codex-media-library-root:has(.cml-mind--mobile-fixed) .cml-mobile-nav {
     display: none;
   }

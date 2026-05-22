@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
 
 import { AudioPlayerPanel, BinGrid, CollectionGrid, CollectionSummary, DocumentsListView, MediaGrid, MediaTile, MindChatView, MobileAudioMiniPlayer, MobileBottomNav, MusicListView, MusicSummary, PreviewModal, PrivateAlbumGate, PrivateAlbumSummary, SearchResultsView, Sidebar, SidebarAudioPlayer, StorageCard, StorageTrigger, TopSearchBar, VideoAlbumGrid, VideoAlbumSummary, VideoCategoryBar, AlbumDialog } from '../js/media-library/components.js';
 import { FilmCard, FilmDetailPage, FilmSearchResults, FilmsPage } from '../js/media-library/films-components.js';
@@ -4300,5 +4301,12 @@ describe('CollectionGrid mobile cover stack', () => {
       isPhone: true,
     });
     assert.doesNotMatch(html, /cml-album-cover-stack/);
+  });
+});
+
+describe('mini-player avoidance under Preview', () => {
+  it('CSS hides .cml-mobile-audio-player when .cml-preview is in the tree', () => {
+    const css = fs.readFileSync(path.resolve('css/media-library.css'), 'utf8');
+    assert.match(css, /:has\(\.cml-preview\)[^{}]*\.cml-mobile-audio-player[\s\S]*?display:\s*none/);
   });
 });
