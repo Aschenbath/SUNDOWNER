@@ -1,4 +1,4 @@
-﻿import { shouldDisplayMediaItem } from './media-support.js';
+﻿import { shouldDisplayMediaItem } from './media-support.js?v=1';
 import { THEME_COLOR_OPTIONS, THEME_MODE_OPTIONS, formatThemeModeLabel } from '../theme-system.js?v=2';
 
 const icons = {

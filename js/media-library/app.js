@@ -53,14 +53,14 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=119';
+} from './components.js?v=120';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
   parseMediaSearchQuery,
   summarizeMediaSearch,
 } from './search-filters.js?v=4';
-import { loadJson, saveJson } from './storage.js';
+import { loadJson, saveJson } from './storage.js?v=1';
 import {
   buildMomentAttachmentItem,
   buildMomentMutationPayload,
@@ -80,12 +80,12 @@ import {
   getVideoAlbumSelectionTarget,
   hasAnyPickerTarget,
   resetAddToTargetModes,
-} from './picker-state.js';
-import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js';
-import { findPreviewMatch } from './preview-resolution.js';
-import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js';
-import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js';
-import { resolveMediaCaptureTimestamp } from './time-resolution.js';
+} from './picker-state.js?v=1';
+import { PREVIEW_PANEL_SECTION_SELECTORS } from './preview-overlay.js?v=1';
+import { findPreviewMatch } from './preview-resolution.js?v=1';
+import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js?v=1';
+import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js?v=1';
+import { resolveMediaCaptureTimestamp } from './time-resolution.js?v=1';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';

@@ -3499,7 +3499,7 @@ describe('media library download actions', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const storageSource = fs.readFileSync(new URL('../js/media-library/storage.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /import \{ loadJson, saveJson \} from '\.\/storage\.js';/);
+    assert.match(appSource, /import \{ loadJson, saveJson \} from '\.\/storage\.js(\?v=\d+)?';/);
     assert.match(storageSource, /const badJsonWarnedKeys = new Set\(\);/);
     assert.match(storageSource, /export function loadJson\(key, fallback\)/);
     assert.match(storageSource, /export function saveJson\(key, value\)/);
@@ -4154,7 +4154,7 @@ describe('media library download actions', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const pickerStateSource = fs.readFileSync(new URL('../js/media-library/picker-state.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /import \{[\s\S]*resetAddToTargetModes,[\s\S]*\} from '\.\/picker-state\.js';/);
+    assert.match(appSource, /import \{[\s\S]*resetAddToTargetModes,[\s\S]*\} from '\.\/picker-state\.js(\?v=\d+)?';/);
     assert.match(pickerStateSource, /export function resetAddToTargetModes\(state, \{[\s\S]*preserveAlbumSelectionTarget = false,[\s\S]*preserveVideoAlbumSelectionTarget = false,[\s\S]*preservePrivateSelectionMode = false,[\s\S]*preserveAlbumPickerDistinctOnly = false[\s\S]*\} = \{\}\) \{/);
     assert.match(pickerStateSource, /if \(!preserveAlbumSelectionTarget\) \{\s*state\.albumSelectionTarget = '';\s*\}/);
     assert.match(pickerStateSource, /if \(!preserveVideoAlbumSelectionTarget\) \{\s*state\.videoAlbumSelectionTarget = '';\s*\}/);
