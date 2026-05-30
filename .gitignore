@@ -10,3 +10,6 @@ wrangler.toml
 
 *.log
 *.gz
+
+# Build source maps (regenerated from the upstream Vue build; never served in prod).
+*.map
