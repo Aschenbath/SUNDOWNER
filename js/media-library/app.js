@@ -53,7 +53,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=116';
+} from './components.js?v=117';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -1385,6 +1385,90 @@ function patchMusicQueuePanel(viewModel) {
   return true;
 }
 
+function patchMusicSummary(viewModel) {
+  if (!refs.root || !viewModel?.isMusicView) {
+    return false;
+  }
+  const live = refs.root.querySelector('[data-music-hero]');
+  if (!(live instanceof HTMLElement)) {
+    return false;
+  }
+  const template = document.createElement('template');
+  template.innerHTML = MusicSummary({
+    totalCount: viewModel.musicItems.length,
+    isMobile: isMobileLayout(),
+    currentItem: viewModel.currentAudioItem,
+    queueItems: viewModel.audioQueueItems,
+    isPlaying: state.audioPlaying,
+    mode: state.audioMode,
+    playlists: viewModel.musicPlaylists,
+    activePlaylistName: viewModel.activePlaylistName
+  }).trim();
+  const next = template.content.firstElementChild;
+  if (!(next instanceof HTMLElement)) {
+    return false;
+  }
+
+  const syncNode = (selector, { withClass = false } = {}) => {
+    const liveNode = live.querySelector(selector);
+    const nextNode = next.querySelector(selector);
+    if (!(liveNode instanceof HTMLElement) || !(nextNode instanceof HTMLElement)) {
+      return;
+    }
+    if (liveNode.textContent !== nextNode.textContent) {
+      liveNode.textContent = nextNode.textContent;
+    }
+    if (withClass && liveNode.className !== nextNode.className) {
+      liveNode.className = nextNode.className;
+    }
+  };
+
+  syncNode('[data-music-kicker]', { withClass: true });
+  syncNode('[data-music-title]');
+  syncNode('[data-music-subtitle]');
+  syncNode('[data-music-meta]');
+
+  const liveButton = live.querySelector('[data-action="audio-toggle-play"]');
+  const nextButton = next.querySelector('[data-action="audio-toggle-play"]');
+  if (liveButton instanceof HTMLElement && nextButton instanceof HTMLElement) {
+    if (liveButton.innerHTML !== nextButton.innerHTML) {
+      liveButton.innerHTML = nextButton.innerHTML;
+    }
+    liveButton.setAttribute('aria-label', nextButton.getAttribute('aria-label') || '');
+    liveButton.disabled = nextButton.disabled;
+  }
+
+  const focusItem = viewModel.currentAudioItem || viewModel.audioQueueItems[0] || null;
+  const coverUrl = String(focusItem?.thumbnailUrl || focusItem?.posterUrl || '').trim();
+  if (coverUrl !== (live.dataset.musicCoverUrl || '')) {
+    live.dataset.musicCoverUrl = coverUrl;
+    const liveArt = live.querySelector('[data-music-cover]');
+    const nextArt = next.querySelector('[data-music-cover]');
+    if (liveArt instanceof HTMLElement && nextArt instanceof HTMLElement) {
+      liveArt.className = nextArt.className;
+      liveArt.innerHTML = nextArt.innerHTML;
+    }
+    const liveAmbient = live.querySelector('[data-music-ambient-cover]');
+    const nextAmbient = next.querySelector('[data-music-ambient-cover]');
+    if (liveAmbient instanceof HTMLElement && nextAmbient instanceof HTMLElement) {
+      liveAmbient.className = nextAmbient.className;
+      liveAmbient.setAttribute('style', nextAmbient.getAttribute('style') || '');
+    }
+  }
+
+  const currentId = normalizeText(viewModel.currentAudioItem?.id || '');
+  if (currentId !== (live.dataset.musicCurrentId || '')) {
+    live.dataset.musicCurrentId = currentId;
+    const liveContext = live.querySelector('.cml-music-summary__context-card');
+    const nextContext = next.querySelector('.cml-music-summary__context-card');
+    if (liveContext instanceof HTMLElement && nextContext instanceof HTMLElement) {
+      liveContext.replaceWith(nextContext);
+    }
+  }
+
+  return true;
+}
+
 function buildSidebarMarkupForAudio(viewModel, { showDesktopSidebarAudioDock = false } = {}) {
   const desktopAudioDockKey = showDesktopSidebarAudioDock
     ? `${normalizeText(viewModel.currentAudioItem?.id)}|${state.audioPlaying ? 'playing' : 'paused'}|${normalizeAudioMode(state.audioMode)}`
@@ -1474,24 +1558,7 @@ function patchAudioUi({ allowFullRender = true } = {}) {
   }
 
   if (viewModel.isMusicView) {
-    const currentSummary = refs.root.querySelector('.cml-music-summary');
-    if (currentSummary instanceof HTMLElement) {
-      const template = document.createElement('template');
-      template.innerHTML = MusicSummary({
-        totalCount: viewModel.musicItems.length,
-        isMobile: isMobileLayout(),
-        currentItem: viewModel.currentAudioItem,
-        queueItems: viewModel.audioQueueItems,
-        isPlaying: state.audioPlaying,
-        mode: state.audioMode,
-        playlists: viewModel.musicPlaylists,
-        activePlaylistName: viewModel.activePlaylistName
-      }).trim();
-      const nextSummary = template.content.firstElementChild;
-      if (nextSummary instanceof HTMLElement) {
-        currentSummary.replaceWith(nextSummary);
-      }
-    }
+    patchMusicSummary(viewModel);
     patchMusicAudioRows(viewModel);
     patchMusicQueuePanel(viewModel);
   }

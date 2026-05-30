@@ -1918,9 +1918,19 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
     : 'Select a track to begin playback.';
   const queuePreview = queueItems.slice(0, 4);
   const playlistPreview = playlists.slice(0, 4);
+  const kicker = currentItem ? (isPlaying ? 'Playing now' : 'Paused') : 'Ready when you are';
+  const trackTitle = focusItem ? getAudioDisplayTitle(focusItem) : 'Nothing playing';
+  const coverCssUrl = coverUrl ? escapeHtml(coverUrl.replace(/['"\\]/g, encodeURIComponent)) : '';
+  const queuedLabel = queueItems.length
+    ? (queueItems.length === 1 ? '1 queued' : `${queueItems.length} queued`)
+    : '';
+  const metaLine = `${escapeHtml(modeLabel)}${queuedLabel ? ` · ${queuedLabel}` : ''}`;
 
   return `
-    <section class="cml-view-summary cml-view-summary--music cml-music-summary">
+    <section class="cml-view-summary cml-view-summary--music cml-music-summary" data-music-hero>
+      <div class="cml-music-summary__ambient" aria-hidden="true">
+        <span class="cml-music-summary__ambient-cover ${coverUrl ? 'is-active' : ''}" data-music-ambient-cover${coverCssUrl ? ` style="background-image: url('${coverCssUrl}')"` : ''}></span>
+      </div>
       <div class="cml-music-summary__hero">
         <div class="cml-music-summary__hero-main">
           <div class="cml-music-summary__titles">
@@ -1934,26 +1944,21 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
             </div>
           </div>
 
-          <div class="cml-music-summary__player-card" aria-label="Now playing">
-            <div class="cml-music-summary__art ${coverUrl ? '' : 'is-fallback'}">
+          <div class="cml-music-summary__stage">
+            <div class="cml-music-summary__art ${coverUrl ? '' : 'is-fallback'}" data-music-cover>
               ${coverUrl ? `<img src="${escapeHtml(coverUrl)}" alt="${focusItem ? getAudioDisplayTitle(focusItem) : 'Music'}" class="cml-music-summary__cover-image">` : `<span class="cml-music-summary__cover-icon">${icon('music')}</span>`}
             </div>
-            <div class="cml-music-summary__now-copy">
-              <span class="cml-music-summary__kicker">${currentItem ? (isPlaying ? 'Playing now' : 'Paused') : 'Ready when you are'}</span>
-              <strong class="cml-music-summary__track-title">${focusItem ? getAudioDisplayTitle(focusItem) : 'Nothing playing'}</strong>
-              <span class="cml-music-summary__track-subtitle">${escapeHtml(subtitle)}</span>
+            <div class="cml-music-summary__now">
+              <span class="cml-music-summary__kicker ${currentItem && isPlaying ? 'is-playing' : ''}" data-music-kicker>${escapeHtml(kicker)}</span>
+              <strong class="cml-music-summary__track-title" data-music-title>${trackTitle}</strong>
+              <span class="cml-music-summary__track-subtitle" data-music-subtitle>${escapeHtml(subtitle)}</span>
+              <div class="cml-music-summary__controls">
+                <button type="button" class="cml-music-summary__transport-button" data-action="audio-prev" aria-label="Previous">${icon('previous')}</button>
+                <button type="button" class="cml-music-summary__transport-button cml-music-summary__transport-button--primary" data-action="audio-toggle-play" aria-label="${currentItem && isPlaying ? 'Pause' : 'Play'}" ${focusItem ? '' : 'disabled'}>${currentItem && isPlaying ? icon('pause') : icon('play')}</button>
+                <button type="button" class="cml-music-summary__transport-button" data-action="audio-next" aria-label="Next">${icon('next')}</button>
+                <span class="cml-music-summary__meta" data-music-meta>${metaLine}</span>
+              </div>
             </div>
-            <div class="cml-music-summary__controls">
-              <button type="button" class="cml-music-summary__transport-button" data-action="audio-prev" aria-label="Previous">${icon('previous')}</button>
-              <button type="button" class="cml-music-summary__transport-button cml-music-summary__transport-button--primary" data-action="audio-toggle-play" ${focusItem ? '' : 'disabled'}>${currentItem && isPlaying ? icon('pause') : icon('play')}</button>
-              <button type="button" class="cml-music-summary__transport-button" data-action="audio-next" aria-label="Next">${icon('next')}</button>
-            </div>
-          </div>
-
-          <div class="cml-music-summary__stats" aria-label="Music stats">
-            <span class="cml-music-summary__stat"><strong>${countLabel}</strong><span>${activePlaylistName ? 'in playlist' : 'in library'}</span></span>
-            <span class="cml-music-summary__stat"><strong>${queueItems.length}</strong><span>${queueItems.length === 1 ? 'queued track' : 'queued tracks'}</span></span>
-            <span class="cml-music-summary__stat"><strong>${escapeHtml(modeLabel)}</strong><span>play mode</span></span>
           </div>
         </div>
 
@@ -3561,6 +3566,25 @@ export function EmptyState({ query, isLoading = false, mode = 'media', actionLab
             : `No results match "${escapeHtml(query)}". Try a song, album, photo description or document name.`)
       : emptyCopy;
   const illustration = emptyStateIllustrations[mode] || emptyStateIllustrations.media;
+  if (mode === 'music') {
+    return `
+      <section class="cml-empty-state cml-empty-state--music">
+        <div class="cml-empty-state__plate ${isLoading ? 'is-loading' : ''}" aria-hidden="true">
+          <span class="cml-empty-state__plate-icon">${icon('music')}</span>
+        </div>
+        <div class="cml-empty-state__body">
+          <p class="cml-empty-state__eyebrow">${isLoading ? 'Syncing library' : 'Private music'}</p>
+          <h2 class="cml-empty-state__title">${title}</h2>
+          <p class="cml-empty-state__copy">${copy}</p>
+          ${!isLoading && !query && actionLabel && actionAction ? `
+            <div class="cml-empty-state__actions">
+              <button type="button" class="cml-topbar__secondary-button" data-action="${escapeHtml(actionAction)}">${escapeHtml(actionLabel)}</button>
+            </div>
+          ` : ''}
+        </div>
+      </section>
+    `;
+  }
   return `
     <section class="cml-empty-state ${mode === 'music' ? 'cml-empty-state--music' : ''}">
       <div class="cml-empty-state__illustration">${illustration}</div>

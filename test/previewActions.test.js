@@ -2502,6 +2502,57 @@ describe('media library download actions', () => {
     assert.doesNotMatch(cssSource, /cml-music-summary__focus/);
   });
 
+  it('renders the gallery music hero with an ambient cover layer and local-patch hooks', () => {
+    const html = MusicSummary({
+      totalCount: 12,
+      currentItem: {
+        id: 'audio-1',
+        audioTitle: 'Darcy’s Letter',
+        audioArtist: 'Dario Marianelli',
+        audioAlbum: 'Pride & Prejudice',
+        thumbnailUrl: 'https://example.com/cover.jpg'
+      },
+      queueItems: [
+        { id: 'audio-1', audioTitle: 'Darcy’s Letter', audioArtist: 'Dario Marianelli' }
+      ],
+      isPlaying: true,
+      mode: 'sequence',
+      playlists: [],
+      activePlaylistName: ''
+    });
+
+    assert.match(html, /data-music-hero/);
+    assert.match(html, /cml-music-summary__ambient/);
+    assert.match(html, /data-music-ambient-cover/);
+    assert.match(html, /cml-music-summary__stage/);
+    assert.match(html, /data-music-cover/);
+    assert.match(html, /data-music-title/);
+    assert.match(html, /data-music-meta/);
+    assert.match(html, /background-image: url\('https:\/\/example\.com\/cover\.jpg'\)/);
+    assert.match(html, /cml-music-summary__kicker is-playing/);
+  });
+
+  it('drives the gallery music hero from theme tokens without expensive blur', () => {
+    const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+    const summaryRule = cssSource.match(/#codex-media-library-root \.cml-music-summary \{[\s\S]*?\n\s*\}/)?.[0] || '';
+    const contextCardRule = cssSource.match(/#codex-media-library-root \.cml-music-summary__context-card,[\s\S]*?\n\s*\}/)?.[0] || '';
+
+    assert.match(cssSource, /cml-music-summary__ambient-cover/);
+    assert.match(summaryRule, /var\(--bg-panel\)/);
+    assert.doesNotMatch(summaryRule, /backdrop-filter/);
+    assert.doesNotMatch(summaryRule, /rgba\(118, 108, 255/);
+    assert.doesNotMatch(contextCardRule, /backdrop-filter/);
+  });
+
+  it('patches the music hero in place instead of rebuilding the whole summary on playback', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+
+    assert.match(appSource, /function patchMusicSummary\(/);
+    assert.match(appSource, /\[data-music-hero\]/);
+    assert.match(appSource, /dataset\.musicCoverUrl/);
+    assert.doesNotMatch(appSource, /currentSummary\.replaceWith\(nextSummary\)/);
+  });
+
   it('lets Chromium skip offscreen music row layout during free scrolling', () => {
     const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
     const musicRowRule = [...cssSource.matchAll(/#codex-media-library-root \.cml-main-content__inner\.is-music-view \.cml-music-row \{[\s\S]*?\n\s*\}/g)]
