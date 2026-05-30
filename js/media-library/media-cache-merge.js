@@ -57,11 +57,27 @@ export function removeMediaCacheItems(items = [], removedKeys = []) {
 
 export function mergeIndexedMediaResultWithCache(indexedResult = {}, cachedPayload = null) {
   const indexedItems = Array.isArray(indexedResult.items) ? indexedResult.items.filter(Boolean) : [];
+  const indexedLoadedCount = Number(indexedResult.loadedCount) || indexedItems.length;
+  const indexedTotalCount = Number(indexedResult.totalCount) || indexedItems.length;
+
+  // When the server returned a complete (non-truncated) result set, treat it as
+  // authoritative: don't supplement from the local cache, since that would
+  // resurrect items the server has already deleted in another session.
+  const serverIsComplete = indexedTotalCount <= indexedItems.length;
+  if (serverIsComplete || !cachedPayload) {
+    return {
+      ...indexedResult,
+      items: indexedItems,
+      source: indexedResult.source || 'indexed',
+      loadedCount: indexedLoadedCount,
+      totalCount: indexedTotalCount,
+      isTruncated: false,
+    };
+  }
+
   const cachedItems = Array.isArray(cachedPayload?.items) ? cachedPayload.items.filter(Boolean) : [];
   const mergedItems = mergeIndexedMediaWithCachedItems(indexedItems, cachedItems);
   const cacheSupplementedCount = Math.max(0, mergedItems.length - indexedItems.length);
-  const indexedLoadedCount = Number(indexedResult.loadedCount) || indexedItems.length;
-  const indexedTotalCount = Number(indexedResult.totalCount) || indexedItems.length;
   const cachedTotalCount = Number(cachedPayload?.librarySyncMeta?.totalCount) || cachedItems.length;
   const totalCount = Math.max(indexedTotalCount, cachedTotalCount, mergedItems.length);
 

@@ -463,8 +463,21 @@ async function getRawUserEntries(db) {
   return Array.isArray(entries) ? entries : [];
 }
 
-async function putUserEntries(db, entries) {
+async function putUserEntries(db, entries, expectedLengthBeforeWrite = -1) {
   const normalized = Array.isArray(entries) ? entries : [];
+  if (expectedLengthBeforeWrite >= 0) {
+    // Optimistic check: re-read to detect concurrent write; KV has no CAS,
+    // so this is a best-effort race guard rather than a true transaction.
+    const currentStr = await db.get(USER_MOVIE_ENTRIES_KEY);
+    let currentLength = 0;
+    if (currentStr) {
+      try { currentLength = JSON.parse(currentStr).length; } catch { currentLength = 0; }
+    }
+    if (currentLength !== expectedLengthBeforeWrite) {
+      // Another request mutated the list between our read and this write — signal caller to retry.
+      return false;
+    }
+  }
   await db.put(USER_MOVIE_ENTRIES_KEY, JSON.stringify(normalized));
   return normalized;
 }
@@ -522,7 +535,7 @@ export class MovieRepository {
     return putMovieCache(db, remote);
   }
 
-  async saveOrUpdateUserEntry(input = {}) {
+  async saveOrUpdateUserEntry(input = {}, _retries = 3) {
     const db = this.getDb();
     const timestamp = nowIso();
     const entries = await getRawUserEntries(db);
@@ -571,7 +584,10 @@ export class MovieRepository {
     } else {
       nextEntries.unshift(nextEntry);
     }
-    await putUserEntries(db, nextEntries);
+    const putOk = await putUserEntries(db, nextEntries, entries.length);
+    if (!putOk && _retries > 1) {
+      return this.saveOrUpdateUserEntry(input, _retries - 1);
+    }
     return { entry: nextEntry, movie };
   }
 
@@ -585,7 +601,7 @@ export class MovieRepository {
     return hydrateEntries(db, entries, (tmdbId) => this.getMovieDetail(tmdbId));
   }
 
-  async deleteUserEntry(idOrTmdbId) {
+  async deleteUserEntry(idOrTmdbId, _retries = 3) {
     const db = this.getDb();
     const target = normalizeText(idOrTmdbId);
     if (!target) {
@@ -595,7 +611,10 @@ export class MovieRepository {
     const nextEntries = entries.filter((entry) =>
       normalizeText(entry.id) !== target && String(entry.tmdbId) !== target
     );
-    await putUserEntries(db, nextEntries);
+    const putOk = await putUserEntries(db, nextEntries, entries.length);
+    if (!putOk && _retries > 1) {
+      return this.deleteUserEntry(idOrTmdbId, _retries - 1);
+    }
     return { deleted: nextEntries.length !== entries.length };
   }
 }

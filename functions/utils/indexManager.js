@@ -2078,15 +2078,17 @@ async function saveChunkedIndex(context, index) {
             chunkSize: chunkSize
         };
         
-        await db.put(INDEX_META_KEY, JSON.stringify(metadata));
-        
-        // 保存各个分块
+        // Write chunk bodies first, then metadata as the commit point.
+        // If interrupted after chunk writes but before the meta write, the next
+        // load will see no (or stale) meta and treat the index as missing rather
+        // than pointing at partial data.
         const savePromises = chunks.map((chunk, chunkId) => {
             const chunkKey = `${INDEX_KEY}_${chunkId}`;
             return db.put(chunkKey, JSON.stringify(chunk));
         });
-        
         await Promise.all(savePromises);
+
+        await db.put(INDEX_META_KEY, JSON.stringify(metadata));
         
         console.log(`Saved chunked index: ${chunks.length} chunks, ${files.length} total files, ${totalSizeMB.toFixed(2)} MB`);
         return true;
@@ -2118,33 +2120,50 @@ async function loadChunkedIndex(context) {
                 success: true,
             };
         }
-        
-        const metadata = JSON.parse(metadataStr);
+
+        let metadata;
+        try {
+            metadata = JSON.parse(metadataStr);
+        } catch (metaErr) {
+            console.error('Error parsing chunked index metadata:', metaErr);
+            return { files: [], lastUpdated: Date.now(), totalCount: 0, lastOperationId: null, success: false };
+        }
+
         const files = [];
-        
-        // 并行加载所有分块
+        let hasCorruptChunk = false;
+
+        // 并行加载所有分块，每个分块独立 parse
         const loadPromises = [];
         for (let chunkId = 0; chunkId < metadata.chunkCount; chunkId++) {
             const chunkKey = `${INDEX_KEY}_${chunkId}`;
             loadPromises.push(
                 db.get(chunkKey).then(chunkStr => {
-                    if (chunkStr) {
+                    if (!chunkStr) return null; // missing chunk
+                    try {
                         return JSON.parse(chunkStr);
+                    } catch {
+                        return null; // corrupt chunk
                     }
-                    return [];
                 })
             );
         }
-        
+
         const chunks = await Promise.all(loadPromises);
-        
-        // 合并所有分块
+
+        // 合并所有分块；any null = missing/corrupt
         chunks.forEach(chunk => {
-            if (Array.isArray(chunk)) {
+            if (chunk === null) {
+                hasCorruptChunk = true;
+            } else if (Array.isArray(chunk)) {
                 files.push(...chunk);
             }
         });
-        
+
+        if (hasCorruptChunk) {
+            console.error('Chunked index has missing/corrupt chunks — treating as corrupt to force rebuild');
+            return { files: [], lastUpdated: Date.now(), totalCount: 0, lastOperationId: null, success: false };
+        }
+
         const index = {
             files,
             lastUpdated: metadata.lastUpdated,
@@ -2152,13 +2171,12 @@ async function loadChunkedIndex(context) {
             lastOperationId: metadata.lastOperationId,
             success: true
         };
-        
+
         console.log(`Loaded chunked index: ${metadata.chunkCount} chunks, ${files.length} total files`);
         return index;
-        
+
     } catch (error) {
         console.error('Error loading chunked index:', error);
-        // 返回空的索引结构
         return {
             files: [],
             lastUpdated: Date.now(),

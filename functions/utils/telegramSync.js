@@ -645,8 +645,6 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
         lastTouchedAt: Date.now(),
     }
 
-    await saveTelegramDedupeRecord(db, channel.name, messageId, telegramDedupeRecord)
-
     const photoFileIds = String(metadata.FileType || '').toLowerCase().startsWith('image/') ? [fileId] : []
     const effectiveMomentsMessageId = momentsContext.commandActive
         ? momentsContext.commandMessageId || message.message_id
@@ -657,7 +655,15 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
         mediaGroupId: momentsContext.commandActive ? '' : mediaGroupId,
     })
     const rawMomentsState = await db.get(stateKey)
-    const previousState = rawMomentsState ? JSON.parse(rawMomentsState) : null
+    let previousState = null
+    if (rawMomentsState) {
+        try {
+            previousState = JSON.parse(rawMomentsState)
+        } catch {
+            console.warn('telegramSync: corrupt moments state for key', stateKey, '— treating as empty')
+            previousState = null
+        }
+    }
     const momentsStore = new MomentsStore(context.env)
     let postId = previousState?.postId || momentsContext.postId || buildTelegramMomentsPostId({
         chatId: message.chat?.id,
@@ -745,6 +751,10 @@ export async function importTelegramUpdate(context, channel, update, source = 'w
             })
         }
     }
+
+    // Save dedup record after moments processing so that if moments throws,
+    // the next delivery retry is not silently skipped.
+    await saveTelegramDedupeRecord(db, channel.name, messageId, telegramDedupeRecord)
 
     return {
         imported: true,

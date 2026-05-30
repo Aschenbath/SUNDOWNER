@@ -8721,16 +8721,22 @@ async function submitRenameAlbum() {
   render();
 
   try {
-    const payload = await apiFetch('/api/manage/albums', {
+    const _renameAlbumResp = await apiFetch('/api/manage/albums', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: oldName, newName })
-    }).then((r) => r.json());
+    });
+    if (!_renameAlbumResp.ok) {
+      throw new Error(`Server error ${_renameAlbumResp.status}`);
+    }
+    const payload = await _renameAlbumResp.json();
 
     if (payload?.error) {
       throw new Error(payload.error);
     }
-
+    if (!hasPersistedAlbumData(payload)) {
+      throw new Error('Unexpected response from server');
+    }
     applyPersistedAlbumState(payload);
     if (state.activeAlbumName && state.activeAlbumName.toLowerCase() === oldName.toLowerCase()) {
       state.activeAlbumName = newName;
@@ -8746,10 +8752,14 @@ async function submitRenameAlbum() {
 
 async function deleteAlbum(albumName) {
   try {
-    const payload = await apiFetch(`/api/manage/albums?id=${encodeURIComponent(albumName)}`, {
+    const _deleteAlbumResp = await apiFetch(`/api/manage/albums?id=${encodeURIComponent(albumName)}`, {
       method: 'DELETE',
       headers: { Accept: 'application/json' }
-    }).then((r) => r.json());
+    });
+    if (!_deleteAlbumResp.ok) {
+      throw new Error(`Server error ${_deleteAlbumResp.status}`);
+    }
+    const payload = await _deleteAlbumResp.json();
 
     if (payload?.error) {
       throw new Error(payload.error);
@@ -17638,19 +17648,29 @@ async function submitPlaylistDialog() {
   state.playlistDialogError = '';
   render();
   try {
-    let payload = dialogMode === 'rename'
-      ? await apiFetch('/api/manage/playlists', {
+    let payload;
+    if (dialogMode === 'rename') {
+      const _plRenameResp = await apiFetch('/api/manage/playlists', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: getActivePlaylistName(), newName: nextName })
-      }).then((response) => response.json())
-      : await postJson('/api/manage/playlists', { name: nextName });
+      });
+      if (!_plRenameResp.ok) {
+        throw new Error(`Server error ${_plRenameResp.status}`);
+      }
+      payload = await _plRenameResp.json();
+    } else {
+      payload = await postJson('/api/manage/playlists', { name: nextName });
+    }
     if (payload?.error) {
       throw new Error(payload.error);
     }
     if (dialogMode === 'create' && targetItemId) {
       const createdItemId = targetItemId;
       payload = await updatePlaylistMembership(nextName, createdItemId, 'add', { silent: true, returnPayload: true }) || payload;
+    }
+    if (!hasPersistedPlaylistData(payload)) {
+      throw new Error('Unexpected response from server');
     }
     applyPersistedPlaylistState(payload);
     saveJson(PLAYLISTS_STORAGE_KEY, state.playlistNames);
@@ -17681,9 +17701,13 @@ async function deleteActivePlaylist() {
     return;
   }
   try {
-    const payload = await apiFetch(`/api/manage/playlists?name=${encodeURIComponent(activePlaylistName)}`, {
+    const _plDeleteResp = await apiFetch(`/api/manage/playlists?name=${encodeURIComponent(activePlaylistName)}`, {
       method: 'DELETE'
-    }).then((response) => response.json());
+    });
+    if (!_plDeleteResp.ok) {
+      throw new Error(`Server error ${_plDeleteResp.status}`);
+    }
+    const payload = await _plDeleteResp.json();
     if (payload?.error) {
       throw new Error(payload.error);
     }
