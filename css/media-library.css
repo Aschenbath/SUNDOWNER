@@ -11706,6 +11706,86 @@ body.codex-media-library-active #app {
   box-shadow: 0 22px 52px rgba(0, 0, 0, 0.34);
 }
 
+/* Films ticket card — light mode: warm paper (manila) stub so the card sits in
+   the light shell instead of reading as a black hole on the pale page. Only the
+   surface, ink, and accents shift to paper; the ticket shape language (notches,
+   scallop cutout, dashed separators, serif title) is inherited unchanged, and
+   the dark-mode base rules above are left untouched so the dark theme is intact. */
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card {
+  background: #f4ede1;
+  border-color: rgba(150, 120, 60, 0.22);
+  box-shadow: 0 14px 32px rgba(120, 96, 50, 0.16);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__poster-panel {
+  background: #ece2d3;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__ticket-panel {
+  background: #f4ede1;
+  border-top-color: rgba(154, 123, 63, 0.34);
+  color: #2b2620;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__eyebrow {
+  color: rgba(120, 100, 70, 0.72);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__title {
+  color: #2b2620;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__original {
+  color: rgba(74, 68, 59, 0.66);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__rating {
+  background: rgba(154, 123, 63, 0.12);
+  border-color: rgba(154, 123, 63, 0.30);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__rating-value {
+  color: #3a332a;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__rating-star .cml-film-star {
+  color: rgba(120, 96, 50, 0.28);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__separator {
+  background-image: radial-gradient(circle, rgba(120, 96, 50, 0.34) 1.1px, transparent 1.2px);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__info-label {
+  color: #9a7b3f;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__info-value {
+  color: #332e26;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__info-item--locale .cml-film-card__info-value {
+  color: rgba(74, 68, 59, 0.78);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__perforation {
+  background-image: repeating-linear-gradient(90deg, rgba(154, 123, 63, 0.55) 0 10px, transparent 10px 18px);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__director-label {
+  color: rgba(120, 100, 70, 0.58);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__director-value {
+  color: #2b2620;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card:hover,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card:focus-visible {
+  border-color: rgba(150, 120, 60, 0.38);
+  box-shadow: 0 18px 40px rgba(120, 96, 50, 0.22);
+}
+
 #codex-media-library-root .cml-film-detail-page {
   position: relative;
   min-height: 100%;

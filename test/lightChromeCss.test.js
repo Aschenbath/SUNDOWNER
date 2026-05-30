@@ -115,4 +115,15 @@ describe('light chrome CSS', () => {
     assert.match(css, /\.cml-films-library-search input::-webkit-search-cancel-button/);
     assert.match(css, /\.cml-films-library-search input\[type="search"\] \{[\s\S]*appearance: none;/);
   });
+
+  it('repaints the Films ticket card as warm paper in light mode without touching the dark base', () => {
+    // dark-mode base ticket surface stays intact
+    assert.match(css, /#codex-media-library-root \.cml-film-card__ticket-panel \{[\s\S]*background: #101114;/);
+    // light mode: warm manila paper card + ticket surface with ink text
+    assert.match(css, /#codex-media-library-root \.cml-app-shell\[data-cml-theme-mode="light"\] \.cml-film-card \{[\s\S]*background: #f4ede1;/);
+    assert.match(css, /#codex-media-library-root \.cml-app-shell\[data-cml-theme-mode="light"\] \.cml-film-card__ticket-panel \{[\s\S]*background: #f4ede1;[\s\S]*color: #2b2620;/);
+    // bronze label + warm perforation so the gold/serif language survives on paper
+    assert.match(css, /#codex-media-library-root \.cml-app-shell\[data-cml-theme-mode="light"\] \.cml-film-card__info-label \{[\s\S]*color: #9a7b3f;/);
+    assert.match(css, /#codex-media-library-root \.cml-app-shell\[data-cml-theme-mode="light"\] \.cml-film-card__perforation \{[\s\S]*repeating-linear-gradient\(90deg, rgba\(154, 123, 63, 0\.55\) 0 10px, transparent 10px 18px\)/);
+  });
 });
