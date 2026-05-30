@@ -61,10 +61,13 @@ export function mergeIndexedMediaResultWithCache(indexedResult = {}, cachedPaylo
   const indexedTotalCount = Number(indexedResult.totalCount) || indexedItems.length;
 
   // When the server returned a complete (non-truncated) result set, treat it as
-  // authoritative: don't supplement from the local cache, since that would
-  // resurrect items the server has already deleted in another session.
+  // authoritative by default: don't supplement from the local cache, since that
+  // would resurrect items the server has already deleted in another session.
+  // First-page startup hydration is the exception: it needs the fuller local
+  // cache to keep the Photos surface populated until the deferred backfill lands.
   const serverIsComplete = indexedTotalCount <= indexedItems.length;
-  if (serverIsComplete || !cachedPayload) {
+  const allowCacheSupplement = indexedResult.allowCacheSupplement === true;
+  if ((serverIsComplete && !allowCacheSupplement) || !cachedPayload) {
     return {
       ...indexedResult,
       items: indexedItems,

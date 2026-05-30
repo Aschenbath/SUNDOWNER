@@ -285,6 +285,7 @@ describe('Moments app helpers', () => {
       loadedCount: livePageItems.length,
       totalCount: livePageItems.length,
       isTruncated: false,
+      allowCacheSupplement: true,
     }, {
       items: cachedItems,
       librarySyncMeta: { totalCount: cachedItems.length },
@@ -324,9 +325,38 @@ describe('Moments app helpers', () => {
     ]);
   });
 
+  it('keeps complete server results authoritative unless startup hydration allows cache supplements', () => {
+    assert.ifError(mediaCacheMergeImportError);
+    const { mergeIndexedMediaResultWithCache } = mediaCacheMergeModule;
+    const liveItems = [
+      { id: 'managed-live', sourceId: 'Photos/2026-05-18/live.jpg', label: 'live' },
+    ];
+    const cachedItems = [
+      ...liveItems,
+      { id: 'managed-deleted-cache', sourceId: 'Photos/2026-05-17/deleted.jpg', label: 'deleted elsewhere' },
+    ];
+
+    const mergedResult = mergeIndexedMediaResultWithCache({
+      items: liveItems,
+      loadedCount: liveItems.length,
+      totalCount: liveItems.length,
+      isTruncated: false,
+    }, {
+      items: cachedItems,
+      librarySyncMeta: { totalCount: cachedItems.length },
+    });
+
+    assert.deepEqual(mergedResult.items.map((item) => item.sourceId), ['Photos/2026-05-18/live.jpg']);
+    assert.equal(mergedResult.source, 'indexed');
+    assert.equal(mergedResult.loadedCount, 1);
+    assert.equal(mergedResult.totalCount, 1);
+    assert.equal(mergedResult.cacheSupplementedCount, undefined);
+  });
+
   it('applies cached Photos supplements to both first-page hydration and background backfill', () => {
     assert.match(appSource, /mergeIndexedMediaResultWithCache\(\s*await fetchIndexedMediaItems\(domItems, cachedMediaPayload\),\s*cachedMediaPayload\s*\)/);
     assert.match(appSource, /fetchIndexedMediaItems\(domItems, cachedMediaPayload\)/);
+    assert.match(appSource, /allowCacheSupplement:\s*true/);
     assert.match(appSource, /const mergedFullItems = mergeIndexedMediaWithCachedItems\(fullItems, \[\.\.\.state\.mediaItems, \.\.\.safeArray\(cachedMediaPayload\?\.items\)\]\);/);
     assert.match(appSource, /items: mergedFullItems,\s*librarySyncMeta: nextLibrarySyncMeta/);
     assert.match(appSource, /state\.mediaItems = mergedFullItems;/);

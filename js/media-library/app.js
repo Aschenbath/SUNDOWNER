@@ -6585,7 +6585,8 @@ async function fetchIndexedMediaItems(domItems, cachedMediaPayload = null) {
     items: initialItems,
     totalCount: firstTotalCount,
     loadedCount: initialItems.length,
-    isTruncated: firstTotalCount > initialItems.length
+    isTruncated: firstTotalCount > initialItems.length,
+    allowCacheSupplement: true
   };
 
   scheduleDeferredStartupTask(async () => {
