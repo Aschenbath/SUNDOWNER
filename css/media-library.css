@@ -3183,6 +3183,21 @@ body.codex-media-library-active #app {
   white-space: nowrap;
 }
 
+/* Document tile in light mode: dark base reads as a black brick on the pale
+   shell, so repaint to a soft Google-grey card with dark ink + crisp blue glyph. */
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-doc-tile {
+  background: #f1f3f4;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-doc-tile__icon,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-doc-tile__ext {
+  color: #1a73e8;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-doc-tile__name {
+  color: var(--cml-theme-text-muted, #5f6368);
+}
+
 #codex-media-library-root .cml-media-tile__select:hover {
   border-color: #8ab4f8;
   background: rgba(138, 180, 248, 0.12);
@@ -5319,18 +5334,6 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-bin-media-tile__expiry.is-urgent {
   background: rgba(200, 50, 40, 0.84);
-}
-
-#codex-media-library-root .cml-bin-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 64px 0;
-}
-
-#codex-media-library-root .cml-bin-loading__text {
-  color: #7f8796;
-  font-size: 14px;
 }
 
 @media (max-width: 640px) {
