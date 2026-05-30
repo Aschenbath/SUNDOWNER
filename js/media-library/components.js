@@ -1402,7 +1402,7 @@ export function MomentsView({
         ${editingPostId ? '' : renderMomentsComposer({ draftBody, draftAttachments, isPublishing, error })}
         <div data-moments-picker-root>${renderMomentsPicker({ open: pickerOpen, items: pickerItems, selectedIds: pickerSelectedIds })}</div>
         ${isLoading
-    ? '<div class="cml-moments-loading">Loading Moments...</div>'
+    ? renderMomentsLoading()
     : renderMomentsFeed({ posts, authorName, authorAvatarData, editingPostId, draftBody, draftDate, draftAttachments, isPublishing, error })}
       </div>
       <aside class="cml-moments__rail">
@@ -3541,6 +3541,48 @@ const emptyStateIllustrations = {
   'album-detail': '<svg viewBox="0 0 120 100" aria-hidden="true"><rect x="25" y="18" width="70" height="64" rx="5" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5"/><path d="M44 50 h32" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.2"/><path d="M54 58 h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity="0.15"/><path d="M55 40 l5-6 5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/><path d="M60 34 v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.4"/></svg>'
 };
 
+function renderLibraryLoading({ iconName = 'photos', title = '', copy = '' } = {}) {
+  const tiles = Array.from({ length: 18 }, (_, i) =>
+    `<span class="cml-library-loading__tile" style="--cml-tile-delay:${(i % 9) * 0.11}s"></span>`
+  ).join('');
+  return `
+    <section class="cml-library-loading" role="status" aria-live="polite" aria-busy="true">
+      <div class="cml-library-loading__head">
+        <span class="cml-library-loading__badge" aria-hidden="true">${icon(iconName)}</span>
+        <div class="cml-library-loading__head-copy">
+          <h2 class="cml-empty-state__title">${title}</h2>
+          <p class="cml-empty-state__copy">${copy}</p>
+        </div>
+      </div>
+      <div class="cml-library-loading__grid" aria-hidden="true">${tiles}</div>
+    </section>
+  `;
+}
+
+function renderMomentsLoading() {
+  const card = `
+    <article class="cml-moments-loading__card">
+      <div class="cml-moments-loading__head">
+        <span class="cml-moments-loading__avatar"></span>
+        <div class="cml-moments-loading__lines">
+          <span class="cml-moments-loading__line cml-moments-loading__line--name"></span>
+          <span class="cml-moments-loading__line cml-moments-loading__line--meta"></span>
+        </div>
+      </div>
+      <div class="cml-moments-loading__photos">
+        <span class="cml-moments-loading__photo"></span>
+        <span class="cml-moments-loading__photo"></span>
+        <span class="cml-moments-loading__photo"></span>
+      </div>
+    </article>
+  `;
+  return `
+    <div class="cml-moments-loading" role="status" aria-live="polite" aria-busy="true">
+      ${card}${card}
+    </div>
+  `;
+}
+
 export function EmptyState({ query, isLoading = false, mode = 'media', actionLabel = '', actionAction = '' }) {
   const title = isLoading ? 'Loading your library' : 'Nothing to show right now';
   const emptyCopy = mode === 'collections'
@@ -3586,21 +3628,7 @@ export function EmptyState({ query, isLoading = false, mode = 'media', actionLab
     `;
   }
   if (isLoading) {
-    const skeletonTiles = Array.from({ length: 18 }, (_, i) =>
-      `<span class="cml-library-loading__tile" style="--cml-tile-delay:${(i % 9) * 0.11}s"></span>`
-    ).join('');
-    return `
-      <section class="cml-library-loading" role="status" aria-live="polite" aria-busy="true">
-        <div class="cml-library-loading__head">
-          <span class="cml-library-loading__badge" aria-hidden="true">${icon('photos')}</span>
-          <div class="cml-library-loading__head-copy">
-            <h2 class="cml-empty-state__title">${title}</h2>
-            <p class="cml-empty-state__copy">${copy}</p>
-          </div>
-        </div>
-        <div class="cml-library-loading__grid" aria-hidden="true">${skeletonTiles}</div>
-      </section>
-    `;
+    return renderLibraryLoading({ iconName: 'photos', title, copy });
   }
   return `
     <section class="cml-empty-state ${mode === 'music' ? 'cml-empty-state--music' : ''}">
@@ -4023,7 +4051,7 @@ export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutW
       : '';
 
   const gridContent = isBinLoading
-    ? `<div class="cml-bin-loading"><span class="cml-bin-loading__text">Loading bin...</span></div>`
+    ? renderLibraryLoading({ iconName: 'trash', title: 'Opening the bin', copy: 'Loading items waiting to expire from the library.' })
     : !hasItems
       ? `
         <section class="cml-empty-state">

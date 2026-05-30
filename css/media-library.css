@@ -1061,6 +1061,17 @@ body.codex-media-library-active #app {
   width: min(260px, 88%);
 }
 
+@keyframes cml-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #codex-media-library-root .cml-mind-loading__bubble {
+    animation: none;
+  }
+}
+
 #codex-media-library-root .cml-sidebar-audio-player__volume-input::-webkit-slider-runnable-track,
 #codex-media-library-root .cml-audio-panel__volume input::-webkit-slider-runnable-track {
   height: 4px;
@@ -13059,12 +13070,111 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-moments-day-wall__empty,
-#codex-media-library-root .cml-moments-empty,
-#codex-media-library-root .cml-moments-loading {
+#codex-media-library-root .cml-moments-empty {
   margin: 0;
   padding: 22px;
   color: var(--cml-theme-text-muted, rgba(220, 227, 244, 0.58));
   text-align: center;
+}
+
+#codex-media-library-root .cml-moments-loading {
+  display: grid;
+  gap: clamp(16px, 2.4vh, 24px);
+  margin: 0;
+  padding: 4px 0;
+}
+
+#codex-media-library-root .cml-moments-loading__card {
+  display: grid;
+  gap: 14px;
+  padding: clamp(14px, 2vw, 20px);
+  border: 1px solid var(--cml-theme-card-border, rgba(255, 255, 255, 0.08));
+  border-radius: 18px;
+  background: var(--cml-theme-surface-elevated, rgba(255, 255, 255, 0.03));
+}
+
+#codex-media-library-root .cml-moments-loading__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#codex-media-library-root .cml-moments-loading__avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+#codex-media-library-root .cml-moments-loading__lines {
+  display: grid;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+#codex-media-library-root .cml-moments-loading__line {
+  height: 11px;
+  border-radius: 999px;
+}
+
+#codex-media-library-root .cml-moments-loading__line--name {
+  width: 42%;
+}
+
+#codex-media-library-root .cml-moments-loading__line--meta {
+  width: 26%;
+  height: 9px;
+}
+
+#codex-media-library-root .cml-moments-loading__photos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(8px, 1vw, 12px);
+}
+
+#codex-media-library-root .cml-moments-loading__photo {
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+}
+
+#codex-media-library-root .cml-moments-loading__avatar,
+#codex-media-library-root .cml-moments-loading__line,
+#codex-media-library-root .cml-moments-loading__photo {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+#codex-media-library-root .cml-moments-loading__avatar::after,
+#codex-media-library-root .cml-moments-loading__line::after,
+#codex-media-library-root .cml-moments-loading__photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.12) 50%, transparent 100%);
+  animation: cml-library-loading-sweep 1.7s ease-in-out infinite;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-moments-loading__avatar,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-moments-loading__line,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-moments-loading__photo {
+  background: rgba(22, 32, 52, 0.06);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-moments-loading__avatar::after,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-moments-loading__line::after,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-moments-loading__photo::after {
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.7) 50%, transparent 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #codex-media-library-root .cml-moments-loading__avatar::after,
+  #codex-media-library-root .cml-moments-loading__line::after,
+  #codex-media-library-root .cml-moments-loading__photo::after {
+    animation: none;
+  }
 }
 
 @media (max-width: 900px) {
