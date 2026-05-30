@@ -3585,6 +3585,23 @@ export function EmptyState({ query, isLoading = false, mode = 'media', actionLab
       </section>
     `;
   }
+  if (isLoading) {
+    const skeletonTiles = Array.from({ length: 18 }, (_, i) =>
+      `<span class="cml-library-loading__tile" style="--cml-tile-delay:${(i % 9) * 0.11}s"></span>`
+    ).join('');
+    return `
+      <section class="cml-library-loading" role="status" aria-live="polite" aria-busy="true">
+        <div class="cml-library-loading__head">
+          <span class="cml-library-loading__badge" aria-hidden="true">${icon('photos')}</span>
+          <div class="cml-library-loading__head-copy">
+            <h2 class="cml-empty-state__title">${title}</h2>
+            <p class="cml-empty-state__copy">${copy}</p>
+          </div>
+        </div>
+        <div class="cml-library-loading__grid" aria-hidden="true">${skeletonTiles}</div>
+      </section>
+    `;
+  }
   return `
     <section class="cml-empty-state ${mode === 'music' ? 'cml-empty-state--music' : ''}">
       <div class="cml-empty-state__illustration">${illustration}</div>
