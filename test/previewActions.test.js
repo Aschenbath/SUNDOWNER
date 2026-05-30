@@ -1977,7 +1977,7 @@ describe('media library download actions', () => {
       immersive: false,
     });
 
-    assert.match(html, /<img class="cml-preview__media"/);
+    assert.match(html, /<img class="cml-preview__media is-heic-decode-pending"/);
     assert.match(html, /src="\/file\/telegram-import\/Telegram_env\/IMG_2038\.HEIC\?preview=embedded"/);
     assert.doesNotMatch(html, /src="\/file\/telegram-import\/Telegram_env\/IMG_2038\.HEIC\?preview=1"/);
     assert.match(html, /HEIC original/);

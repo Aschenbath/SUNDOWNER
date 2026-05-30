@@ -8,14 +8,19 @@ export async function onRequest(context) {
       next, // used for middleware or to fetch assets
       data, // arbitrary space for passing data between middlewares
     } = context;
-    const res = await fetch(`https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=5`);
-    const bing_data = await res.json();
-    const return_data={
-        "status":true,
-        "message":"操作成功",
-        "data": bing_data.images
+    try {
+        const res = await fetch(`https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=5`);
+        if (!res.ok) {
+            return new Response(JSON.stringify({ status: false, message: `Bing upstream error: ${res.status}` }), { status: 502 });
+        }
+        const bing_data = await res.json();
+        if (!Array.isArray(bing_data?.images)) {
+            return new Response(JSON.stringify({ status: false, message: 'Unexpected Bing response shape' }), { status: 502 });
+        }
+        const return_data = { status: true, message: '操作成功', data: bing_data.images };
+        return new Response(JSON.stringify(return_data));
+    } catch (err) {
+        return new Response(JSON.stringify({ status: false, message: 'Failed to fetch Bing wallpaper' }), { status: 502 });
     }
-    const info = JSON.stringify(return_data);
-    return new Response(info);
 
   }

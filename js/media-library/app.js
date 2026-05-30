@@ -1975,6 +1975,8 @@ function upgradePreviewImageToHeicDecoded(img, heicUrl) {
     } catch (error) {
       console.warn('HEIC client decode failed:', error?.message || error);
       img.dataset.heicDecodeStatus = 'error';
+      img.classList.remove('is-heic-decode-pending');
+      img.classList.add('is-heic-decode-failed');
     }
   })();
 }

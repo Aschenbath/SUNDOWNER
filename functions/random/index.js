@@ -192,14 +192,13 @@ async function getRandomFileList(context, url, dir) {
         }
     });
 
-    // 缓存结果，缓存时间为24小时
+    // 缓存结果，缓存时间为24小时（Cloudflare Cache API 通过 Cache-Control 控制 TTL）
     await cache.put(`${url.origin}/api/randomFileList?dir=${dir}`, new Response(JSON.stringify(allRecords), {
         headers: {
             "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=86400",
         }
-    }), {
-        expirationTtl: 24 * 60 * 60
-    });
+    }));
     
     return allRecords;
 }

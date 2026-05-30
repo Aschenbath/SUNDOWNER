@@ -9602,6 +9602,55 @@ body.codex-media-library-active #app {
   gap: 4px;
 }
 
+/* Music playlist / queue — light mode: swap hardcoded dark values to theme tokens */
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-music-playlist__title,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-music-queue__title {
+  color: var(--cml-theme-text, #1a1a1a);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-main-content__inner.is-music-view .cml-music-playlist__table {
+  border-color: rgba(0, 0, 0, 0.09);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-main-content__inner.is-music-view .cml-music-playlist__header {
+  color: rgba(30, 30, 30, 0.48);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-main-content__inner.is-music-view .cml-music-row {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-main-content__inner.is-music-view .cml-music-row:hover,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-main-content__inner.is-music-view .cml-music-row.is-current {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-main-content__inner.is-music-view .cml-music-row__index,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-main-content__inner.is-music-view .cml-music-row__icon-btn,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-music-queue__index,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-music-queue__remove {
+  border-color: rgba(0, 0, 0, 0.10);
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(30, 30, 30, 0.66);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-main-content__inner.is-music-view .cml-music-row__index:hover,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-main-content__inner.is-music-view .cml-music-row__icon-btn:hover,
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-music-queue__remove:hover {
+  color: #111;
+  background: rgba(0, 0, 0, 0.09);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-main-content__inner.is-music-view .cml-music-row__title {
+  color: var(--cml-theme-text, #1a1a1a);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-main-content__inner.is-music-view .cml-music-row__editable:hover {
+  color: #111;
+}
+
 @media (max-width: 1180px) {
   #codex-media-library-root .cml-music-summary__hero,
   #codex-media-library-root .cml-main-content__inner.is-music-view .cml-music-library,
@@ -11715,6 +11764,7 @@ body.codex-media-library-active #app {
   background: #f4ede1;
   border-color: rgba(150, 120, 60, 0.22);
   box-shadow: 0 14px 32px rgba(120, 96, 50, 0.16);
+  --cml-film-cutout-bg: #f4ede1;
 }
 
 #codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-film-card__poster-panel {

@@ -1,5 +1,5 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { fetchSecurityConfig } from "../utils/sysConfig.js";
+import { fetchSecurityConfig, hasSecurityConfigLoadError } from "../utils/sysConfig.js";
 import { TelegramAPI, buildTelegramFileUrl, resolveTelegramFilePathCached } from "../utils/telegramAPI.js";
 import { DiscordAPI, resolveDiscordFileUrl } from "../utils/discordAPI.js";
 import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
@@ -395,6 +395,11 @@ export async function onRequest(context) {  // Contents of context object
 
     // 读取安全配置，解析必要参数
     const securityConfig = await fetchSecurityConfig(env);
+    // Fail closed: if security config couldn't be loaded, block rather than
+    // silently serving with the permissive fallback (whiteListMode=false, no domain restriction).
+    if (hasSecurityConfigLoadError(securityConfig)) {
+        return await returnBlockImg(new URL(request.url));
+    }
     context.securityConfig = securityConfig;
 
     const url = new URL(request.url);

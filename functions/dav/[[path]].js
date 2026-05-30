@@ -264,32 +264,42 @@ async function fetchDirectoryContents(dir, env, request) {
 
 // --- HTML and XML GENERATION ---
 
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function generateDirectoryListingHtml(basePath, contents) {
     let fileLinks = '';
     let dirLinks = '';
 
     for (const dir of contents.directories) {
-        const fullDirPath = `/dav/${dir}/`;
+        const fullDirPath = `/dav/${encodeURIComponent(dir)}/`;
         const dirName = dir.split('/').pop();
-        dirLinks += `<li><a href="${fullDirPath}"><strong>${dirName}/</strong></a></li>`;
+        dirLinks += `<li><a href="${escapeHtml(fullDirPath)}"><strong>${escapeHtml(dirName)}/</strong></a></li>`;
     }
 
     for (const file of contents.files) {
-        const fullFilePath = `/dav/${file.name}`; 
+        const fullFilePath = `/dav/${encodeURIComponent(file.name)}`;
         const fileName = file.name.split('/').pop();
-        const fileSize = file.metadata && file.metadata['FileSize'] 
-            ? `${file.metadata['FileSize']} MB` 
+        const fileSize = file.metadata && file.metadata['FileSize']
+            ? `${escapeHtml(String(file.metadata['FileSize']))} MB`
             : 'N/A';
-        fileLinks += `<li><a href="${fullFilePath}">${fileName}</a> - ${fileSize}</li>`;
+        fileLinks += `<li><a href="${escapeHtml(fullFilePath)}">${escapeHtml(fileName)}</a> - ${fileSize}</li>`;
     }
-    
+
     let parentDirLink = '';
     if (basePath !== '/') {
         const parentPath = new URL('..', `http://dummy.com${basePath}`).pathname;
-        parentDirLink = `<li><a href="/dav${parentPath}"><strong>../ (Parent Directory)</strong></a></li>`;
+        parentDirLink = `<li><a href="/dav${escapeHtml(parentPath)}"><strong>../ (Parent Directory)</strong></a></li>`;
     }
 
-    return `<!DOCTYPE html><html><head><title>Index of ${basePath}</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:sans-serif;padding:20px}li{margin:5px 0}</style></head><body><h1>Index of ${basePath}</h1><ul>${parentDirLink}${dirLinks}${fileLinks}</ul></body></html>`;
+    const safeBase = escapeHtml(basePath);
+    return `<!DOCTYPE html><html><head><title>Index of ${safeBase}</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:sans-serif;padding:20px}li{margin:5px 0}</style></head><body><h1>Index of ${safeBase}</h1><ul>${parentDirLink}${dirLinks}${fileLinks}</ul></body></html>`;
 }
 
 function generateWebDAVXml(basePath, contents) {

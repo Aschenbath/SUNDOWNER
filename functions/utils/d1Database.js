@@ -229,13 +229,13 @@ class D1Database {
             const referenceLookup = "LOWER(COALESCE(NULLIF(file_name, ''), json_extract(metadata, '$.FileName'), json_extract(metadata, '$.file_name'), '') || ' ' || id)";
             const genericPredicate = `(${fileTypeLookup} IN ('', 'application/octet-stream', 'binary/octet-stream', 'application/x-binary', 'application/unknown', 'unknown', 'none', 'null'))`;
             const imageExtPredicate = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'heic', 'heif']
-                .map((ext) => `${referenceLookup} LIKE '%.${ext}%'`)
+                .map((ext) => `${referenceLookup} LIKE '%.${ext}'`)
                 .join(' OR ');
             const videoExtPredicate = ['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi']
-                .map((ext) => `${referenceLookup} LIKE '%.${ext}%'`)
+                .map((ext) => `${referenceLookup} LIKE '%.${ext}'`)
                 .join(' OR ');
             const audioExtPredicate = ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg']
-                .map((ext) => `${referenceLookup} LIKE '%.${ext}%'`)
+                .map((ext) => `${referenceLookup} LIKE '%.${ext}'`)
                 .join(' OR ');
 
             const updateSql = `

@@ -3,6 +3,7 @@ import { createResponse, getUploadIp, getIPAddress, selectConsistentChannel, bui
 import { retryFailedChunks, cleanupFailedMultipartUploads, checkChunkUploadStatuses, cleanupChunkData, cleanupUploadSession } from './chunkUpload.js';
 import { S3Client, CompleteMultipartUploadCommand } from "@aws-sdk/client-s3";
 import { resolveMimeType } from '../utils/mimeTypes.js';
+import { getDatabase } from '../utils/databaseAdapter.js';
 
 const RECOVERABLE_CHUNK_STATUSES = new Set(['uploading', 'retrying', 'timeout', 'uncertain']);
 

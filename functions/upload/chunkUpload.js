@@ -91,13 +91,13 @@ export async function handleChunkUpload(context) {
 
     try {
         const chunk = formdata.get('file');
-        const chunkIndex = parseInt(formdata.get('chunkIndex'));
-        const totalChunks = parseInt(formdata.get('totalChunks'));
+        const chunkIndex = Number.parseInt(formdata.get('chunkIndex'), 10);
+        const totalChunks = Number.parseInt(formdata.get('totalChunks'), 10);
         const uploadId = formdata.get('uploadId');
         const originalFileName = formdata.get('originalFileName');
         const originalFileType = resolveMimeType(formdata.get('originalFileType') || '', [originalFileName]);
 
-        if (!chunk || chunkIndex === null || !totalChunks || !uploadId || !originalFileName || !originalFileType) {
+        if (!chunk || !Number.isInteger(chunkIndex) || chunkIndex < 0 || !Number.isInteger(totalChunks) || totalChunks <= 0 || chunkIndex >= totalChunks || !uploadId || !originalFileName || !originalFileType) {
             return createResponse('Error: Missing chunk upload parameters', { status: 400 });
         }
 

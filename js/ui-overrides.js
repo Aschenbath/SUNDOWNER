@@ -597,6 +597,7 @@ import {
 
     let shell = home.querySelector('.codex-home-shell-v2');
     if (!(shell instanceof HTMLElement)) {
+      const themeMarkup = buildThemeSwitcherMarkup();
       const brandMarkup = buildBrandLockup({ className: 'codex-home-brand', compact: true }).outerHTML;
       shell = document.createElement('section');
       shell.className = 'codex-home-shell codex-home-shell-v2';
