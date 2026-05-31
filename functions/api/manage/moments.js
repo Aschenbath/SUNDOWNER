@@ -232,10 +232,10 @@ async function buildMomentMutationInput(context) {
   }
 
   const uploadFile = context.uploadFile || defaultUploadFile;
-  const uploaded = [];
-  for (const file of photos) {
-    uploaded.push(await uploadFile({ context, file, uploadFolder }));
-  }
+  // Parallel upload for better performance
+  const uploaded = await Promise.all(
+    photos.map((file) => uploadFile({ context, file, uploadFolder }))
+  );
 
   return {
     body,
