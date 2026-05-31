@@ -7426,6 +7426,7 @@ body.codex-media-library-active #app {
   margin: 0 auto;
   padding: 40px 20px;
   text-align: center;
+  transform: translateY(-8vh);
 }
 
 #codex-media-library-root .cml-private-access__header {
