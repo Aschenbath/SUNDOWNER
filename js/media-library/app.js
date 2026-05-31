@@ -19816,7 +19816,7 @@ function handleClick(event) {
       state.lastSelectedId = actionTarget.dataset.id;
     }
 
-    if (handleAction(actionTarget)) {
+    if (handleAction(actionTarget, event)) {
       return;
     }
   }
