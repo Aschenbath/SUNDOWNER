@@ -7442,6 +7442,8 @@ body.codex-media-library-active #app {
   letter-spacing: 0.18em;
   line-height: 1;
   text-transform: uppercase;
+  width: 100%;
+  text-align: center;
 }
 
 #codex-media-library-root .cml-private-access__title {
@@ -7450,14 +7452,18 @@ body.codex-media-library-active #app {
   font-size: clamp(28px, 3.2vw, 36px);
   font-weight: 700;
   letter-spacing: 0.01em;
+  width: 100%;
+  text-align: center;
 }
 
 #codex-media-library-root .cml-private-access__copy {
-  margin: 0;
+  margin: 0 auto;
   max-width: 420px;
   color: #5f7187;
   font-size: 16px;
   line-height: 1.6;
+  width: 100%;
+  text-align: center;
 }
 
 #codex-media-library-root .cml-private-access__form {
