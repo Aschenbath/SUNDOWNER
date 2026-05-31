@@ -889,12 +889,18 @@ const state = {
   dimensionCache: new Map(),
   docsCurrentDir: '',
   docsNewFolderOpen: false,
-  docsFolders: new Set(),
+  docsFolders: loadDocsFoldersFromStore(),
   docsMoveDialogOpen: false,
   docsMoveDialogDir: '',
   docsMoveCreateOpen: false,
   docsMoveCreateName: '',
   docsContextMenu: null,
+  docsSort: 'name',
+  docsSortDir: 'asc',
+  docsTypeFilter: 'all',
+  docsView: 'list',
+  docsSearch: '',
+  docsRenameId: null,
   films: [],
   activeFilmId: '',
   filmDetailOpen: false,
@@ -4016,6 +4022,25 @@ function ensureDocsFolders() {
     state.docsFolders = new Set();
   }
   return state.docsFolders;
+}
+
+function loadDocsFoldersFromStore() {
+  try {
+    const raw = window.localStorage.getItem('cml-docs-folders-v1');
+    const list = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(list) ? list.filter((p) => typeof p === 'string' && p) : []);
+  } catch (error) {
+    return new Set();
+  }
+}
+
+function persistDocsFolders() {
+  try {
+    const set = state.docsFolders instanceof Set ? state.docsFolders : new Set();
+    window.localStorage.setItem('cml-docs-folders-v1', JSON.stringify([...set]));
+  } catch (error) {
+    // Ignore local persistence failures; folders still work in-session.
+  }
 }
 
 function leaveMobileMindView() {
@@ -9687,6 +9712,7 @@ function createDocFolder(folderName) {
   const currentDir = state.docsCurrentDir || '';
   const fullPath = currentDir ? currentDir + '/' + folderName : folderName;
   state.docsFolders.add(fullPath);
+  persistDocsFolders();
   state.docsNewFolderOpen = false;
   showToast(`Folder "${folderName}" created`, 'success');
   render();
@@ -9743,6 +9769,7 @@ async function deleteDocFolder(dirPath) {
       if (p === dirPath || p.startsWith(dirPrefix)) toDelete.push(p);
     });
     toDelete.forEach((p) => state.docsFolders.delete(p));
+    persistDocsFolders();
   }
   // If currently inside the deleted folder, navigate up
   if (state.docsCurrentDir === dirPath || state.docsCurrentDir.startsWith(dirPrefix)) {
@@ -18548,6 +18575,22 @@ function handleAction(actionTarget, event = null) {
         if (input instanceof HTMLInputElement) input.focus();
       });
       return true;
+    case 'docs-filter-type':
+      state.docsTypeFilter = actionTarget.dataset.type || 'all';
+      render();
+      return true;
+    case 'docs-toggle-view':
+      state.docsView = state.docsView === 'list' ? 'grid' : 'list';
+      render();
+      return true;
+    case 'docs-toggle-sort': {
+      const sortOptions = ['name', 'date', 'size'];
+      const currentIndex = sortOptions.indexOf(state.docsSort);
+      const nextIndex = (currentIndex + 1) % sortOptions.length;
+      state.docsSort = sortOptions[nextIndex];
+      render();
+      return true;
+    }
     case 'docs-download':
       if (actionTarget.dataset.id) {
         downloadPreviewItem(actionTarget.dataset.id);
@@ -18600,6 +18643,7 @@ function handleAction(actionTarget, event = null) {
       const newDir = state.docsMoveDialogDir ? state.docsMoveDialogDir + '/' + folderName : folderName;
       if (!(state.docsFolders instanceof Set)) state.docsFolders = new Set();
       state.docsFolders.add(newDir);
+      persistDocsFolders();
       state.docsMoveCreateOpen = false;
       state.docsMoveCreateName = '';
       state.docsMoveDialogDir = newDir;
@@ -18610,7 +18654,11 @@ function handleAction(actionTarget, event = null) {
       const id = actionTarget.dataset.id;
       if (!id) return true;
       const rect = actionTarget.getBoundingClientRect();
-      state.docsContextMenu = { id, x: rect.right - 200, y: rect.bottom + 4 };
+      const menuWidth = 200;
+      const viewportWidth = window.innerWidth;
+      const preferredX = rect.right - menuWidth;
+      const x = preferredX + menuWidth > viewportWidth ? Math.max(8, viewportWidth - menuWidth - 8) : Math.max(8, preferredX);
+      state.docsContextMenu = { id, x, y: rect.bottom + 4 };
       render();
       return true;
     }
@@ -18628,11 +18676,15 @@ function handleAction(actionTarget, event = null) {
     case 'docs-ctx-rename': {
       const ctxId = actionTarget.dataset.id;
       state.docsContextMenu = null;
-      if (ctxId) {
-        openRenameItemDialog(ctxId, 'FileName');
-      } else {
-        render();
-      }
+      state.docsRenameId = ctxId;
+      render();
+      window.requestAnimationFrame(() => {
+        const input = refs.root ? refs.root.querySelector(`[data-docs-rename-input="${ctxId}"]`) : null;
+        if (input instanceof HTMLInputElement) {
+          input.focus();
+          input.select();
+        }
+      });
       return true;
     }
     case 'docs-ctx-move': {
@@ -19820,7 +19872,7 @@ function handleDoubleClick(event) {
   if (!(event.target instanceof Element) || !refs.root) {
     return;
   }
-  const docsRow = event.target.closest('.cml-docs-row[data-id]');
+  const docsRow = event.target.closest('.cml-docs-row[data-id], .cml-docs-tile[data-id]');
   const clickedControl = event.target.closest('button, a, input, textarea, select, label');
   if (!(docsRow instanceof HTMLElement) || clickedControl instanceof HTMLElement) {
     return;
@@ -19832,7 +19884,12 @@ function handleDoubleClick(event) {
   event.preventDefault();
   event.stopPropagation();
   state.docsContextMenu = null;
-  downloadPreviewItem(itemId);
+  const item = getAllItems().find((entry) => entry.id === itemId);
+  if (item && (item.type === 'photo' || item.type === 'image' || item.type === 'video')) {
+    openPreview(itemId);
+  } else {
+    downloadPreviewItem(itemId);
+  }
 }
 
 function handleInput(event) {
@@ -19917,6 +19974,22 @@ function handleInput(event) {
       return;
     }
     scheduleFilmSearch(input.value);
+    return;
+  }
+  if (input.hasAttribute('data-docs-search-input')) {
+    state.docsSearch = input.value;
+    const query = (input.value || '').toLowerCase().trim();
+    const rows = refs.root ? Array.from(refs.root.querySelectorAll('.cml-docs-row')) : [];
+    rows.forEach((row) => {
+      if (row.classList.contains('cml-docs-row--new-folder')) return;
+      const nameEl = row.querySelector('.cml-docs-row__name');
+      const name = (nameEl?.textContent || '').toLowerCase();
+      if (!query || name.includes(query)) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
     return;
   }
   if (input.hasAttribute('data-film-library-search-input')) {
@@ -20245,6 +20318,45 @@ function handleKeyDown(event) {
     return;
   }
 
+  if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-docs-rename-input')) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      const itemId = event.target.dataset.docsRenameInput;
+      const newName = event.target.value.trim();
+      if (itemId && newName) {
+        void fetch(`/api/manage/metadata/${encodeURIComponent(itemId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ FileName: newName })
+        }).then((res) => {
+          if (res.ok) {
+            const item = getAllItems().find((entry) => entry.id === itemId);
+            if (item) item.label = newName;
+            showToast(`Renamed to "${newName}"`, 'success');
+          } else {
+            showToast('Failed to rename file', 'error');
+          }
+          state.docsRenameId = null;
+          render();
+        }).catch(() => {
+          showToast('Failed to rename file', 'error');
+          state.docsRenameId = null;
+          render();
+        });
+      } else {
+        state.docsRenameId = null;
+        render();
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      state.docsRenameId = null;
+      render();
+    }
+    return;
+  }
+
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault();
     focusSearchInput();
@@ -20399,6 +20511,7 @@ function handleKeyDown(event) {
         const newDir = state.docsMoveDialogDir ? state.docsMoveDialogDir + '/' + folderName : folderName;
         if (!(state.docsFolders instanceof Set)) state.docsFolders = new Set();
         state.docsFolders.add(newDir);
+        persistDocsFolders();
         state.docsMoveCreateOpen = false;
         state.docsMoveCreateName = '';
         state.docsMoveDialogDir = newDir;

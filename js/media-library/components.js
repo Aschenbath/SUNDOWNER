@@ -46,6 +46,10 @@ const icons = {
   folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   'folder-filled': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="#8ab4f8" stroke="#8ab4f8" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   'folder-move': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.6A1.6 1.6 0 0 1 5.6 4h4.1l2 2.4h6.7A1.6 1.6 0 0 1 20 8v10.4a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m10 14 3-3m0 0-3-3m3 3H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  sort: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8v14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m4 8 3-3.2L10 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 19.2V4.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m14 16 3 3.2 3-3.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  grid: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.6" y="4.6" width="6.3" height="6.3" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13.1" y="4.6" width="6.3" height="6.3" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="4.6" y="13.1" width="6.3" height="6.3" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13.1" y="13.1" width="6.3" height="6.3" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>',
+  list: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.4 6.6h10.6M8.4 12h10.6M8.4 17.4h10.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="4.8" cy="6.6" r="1.3" fill="currentColor"/><circle cx="4.8" cy="12" r="1.3" fill="currentColor"/><circle cx="4.8" cy="17.4" r="1.3" fill="currentColor"/></svg>',
+  'chevron-down': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9.5 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.2" y="10.3" width="11.6" height="8.8" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M8.8 10.3V8.2a3.2 3.2 0 0 1 6.4 0v2.1" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
   'sidebar-albums': '<svg viewBox="0 0 96 96" aria-hidden="true"><ellipse cx="48" cy="25" rx="10" ry="17" fill="#F4C66F"></ellipse><ellipse cx="48" cy="71" rx="10" ry="17" fill="#7FB6E8"></ellipse><ellipse cx="25" cy="48" rx="17" ry="10" fill="#F3D389"></ellipse><ellipse cx="71" cy="48" rx="17" ry="10" fill="#A69BE8"></ellipse><ellipse cx="31.7" cy="31.7" rx="10" ry="17" transform="rotate(-45 31.7 31.7)" fill="#F2A5A7"></ellipse><ellipse cx="64.3" cy="64.3" rx="10" ry="17" transform="rotate(-45 64.3 64.3)" fill="#65CDB1"></ellipse><ellipse cx="64.3" cy="31.7" rx="10" ry="17" transform="rotate(45 64.3 31.7)" fill="#F2A5A7"></ellipse><ellipse cx="31.7" cy="64.3" rx="10" ry="17" transform="rotate(45 31.7 64.3)" fill="#F4AEC9"></ellipse><circle cx="48" cy="48" r="17" fill="#F6F4F1"></circle></svg>',
   'sidebar-music': '<svg viewBox="0 0 96 96" aria-hidden="true"><g stroke="currentColor" stroke-width="3.2" stroke-linecap="round" opacity="0.32"><path d="M16 34H78"></path><path d="M16 42H78"></path><path d="M16 50H78"></path><path d="M16 58H78"></path><path d="M16 66H78"></path></g><g fill="currentColor"><ellipse cx="30" cy="66" rx="11.5" ry="8.2" transform="rotate(-20 30 66)"></ellipse><ellipse cx="58" cy="58" rx="11.5" ry="8.2" transform="rotate(-20 58 58)"></ellipse><rect x="37" y="28" width="6" height="37" rx="3"></rect><rect x="65" y="21" width="6" height="36" rx="3"></rect><path d="M37 28L71 20V31L37 39V28Z"></path></g></svg>',
@@ -1424,6 +1428,36 @@ function getFileExtIcon(fileName) {
   return { ext: ext.toUpperCase() || 'FILE', color };
 }
 
+const DOC_KIND_EXTENSIONS = {
+  image: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'svg', 'avif', 'tiff'],
+  video: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v', 'flv', 'wmv'],
+  audio: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'opus'],
+  pdf: ['pdf'],
+  doc: ['doc', 'docx', 'txt', 'rtf', 'md', 'pages', 'odt'],
+  sheet: ['xls', 'xlsx', 'csv', 'numbers', 'ods'],
+  slide: ['ppt', 'pptx', 'key', 'odp'],
+  archive: ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'],
+  code: ['js', 'ts', 'json', 'html', 'css', 'py', 'java', 'c', 'cpp', 'go', 'rs', 'sh', 'yml', 'yaml', 'xml'],
+};
+
+const DOC_KIND_LABEL = {
+  image: 'Images', video: 'Video', audio: 'Audio', pdf: 'PDF',
+  doc: 'Documents', sheet: 'Sheets', slide: 'Slides', archive: 'Archives',
+  code: 'Code', other: 'Other',
+};
+
+function getDocFileKind(item) {
+  const ext = String(item?.label || item?.description || '').split('.').pop()?.toLowerCase() || '';
+  for (const [kind, exts] of Object.entries(DOC_KIND_EXTENSIONS)) {
+    if (exts.includes(ext)) return kind;
+  }
+  if (item?.type === 'video') return 'video';
+  if (item?.type === 'audio') return 'audio';
+  if (item?.type === 'photo' || item?.type === 'image') return 'image';
+  return 'other';
+}
+
+
 export function DocumentsListView({ items, state }) {
   const currentDir = state.docsCurrentDir || '';
   const dirPrefix = currentDir ? currentDir + '/' : '';
@@ -1530,6 +1564,30 @@ export function DocumentsListView({ items, state }) {
             </div>
           `}
           ${isDesktop && isRootView ? '' : breadcrumbHtml}
+          ${!hasSelection ? `
+            <div class="cml-docs-toolbar">
+              <div class="cml-docs-toolbar__search">
+                <input type="text" class="cml-docs-search-input" placeholder="Search files..." value="${escapeHtml(state.docsSearch || '')}" data-docs-search-input />
+              </div>
+              <div class="cml-docs-toolbar__filters">
+                <button type="button" class="cml-docs-filter-btn ${state.docsTypeFilter === 'all' ? 'is-active' : ''}" data-action="docs-filter-type" data-type="all">All</button>
+                <button type="button" class="cml-docs-filter-btn ${state.docsTypeFilter === 'image' ? 'is-active' : ''}" data-action="docs-filter-type" data-type="image">Images</button>
+                <button type="button" class="cml-docs-filter-btn ${state.docsTypeFilter === 'video' ? 'is-active' : ''}" data-action="docs-filter-type" data-type="video">Video</button>
+                <button type="button" class="cml-docs-filter-btn ${state.docsTypeFilter === 'pdf' ? 'is-active' : ''}" data-action="docs-filter-type" data-type="pdf">PDF</button>
+                <button type="button" class="cml-docs-filter-btn ${state.docsTypeFilter === 'doc' ? 'is-active' : ''}" data-action="docs-filter-type" data-type="doc">Docs</button>
+              </div>
+              <div class="cml-docs-toolbar__controls">
+                <button type="button" class="cml-docs-control-btn" data-action="docs-toggle-sort" title="Sort">
+                  ${icon('sort')}
+                  <span>${state.docsSort === 'name' ? 'Name' : state.docsSort === 'date' ? 'Date' : 'Size'}</span>
+                  ${icon('chevron-down')}
+                </button>
+                <button type="button" class="cml-docs-control-btn ${state.docsView === 'grid' ? 'is-active' : ''}" data-action="docs-toggle-view" title="Toggle view">
+                  ${state.docsView === 'list' ? icon('grid') : icon('list')}
+                </button>
+              </div>
+            </div>
+          ` : ''}
           <div class="cml-docs-header__actions">
             ${hasSelection ? `
               <button type="button" class="cml-docs-action-btn" data-action="docs-move-selected">
@@ -1592,10 +1650,29 @@ export function DocumentsListView({ items, state }) {
   }).join('');
 
   // File rows
-  const sortedFiles = [...childFiles].sort((a, b) => {
-    const da = new Date(a.takenAt || 0).getTime();
-    const db = new Date(b.takenAt || 0).getTime();
-    return db - da;
+  let filteredFiles = childFiles;
+  if (state.docsTypeFilter && state.docsTypeFilter !== 'all') {
+    filteredFiles = childFiles.filter((item) => getDocFileKind(item) === state.docsTypeFilter);
+  }
+
+  const sortedFiles = [...filteredFiles].sort((a, b) => {
+    const sortBy = state.docsSort || 'name';
+    const sortDir = state.docsSortDir || 'asc';
+    let result = 0;
+    if (sortBy === 'date') {
+      const da = new Date(a.takenAt || 0).getTime();
+      const db = new Date(b.takenAt || 0).getTime();
+      result = db - da;
+    } else if (sortBy === 'size') {
+      const sa = Number(a.sizeMb) || 0;
+      const sb = Number(b.sizeMb) || 0;
+      result = sb - sa;
+    } else {
+      const na = (a.label || a.description || '').toLowerCase();
+      const nb = (b.label || b.description || '').toLowerCase();
+      result = na.localeCompare(nb);
+    }
+    return sortDir === 'desc' ? -result : result;
   });
 
   const fileRowsHtml = sortedFiles.map((item) => {
@@ -1604,6 +1681,7 @@ export function DocumentsListView({ items, state }) {
     const date = formatFileDate(item.takenAt);
     const size = formatFileSize(item.sizeMb);
     const selected = state.selectedIds.has(item.id) ? 'is-selected' : '';
+    const isRenaming = state.docsRenameId === item.id;
     return `
       <div class="cml-docs-row ${selected}" data-action="toggle-select" data-id="${escapeHtml(item.id)}">
         <div class="cml-docs-row__check">
@@ -1612,10 +1690,43 @@ export function DocumentsListView({ items, state }) {
         <div class="cml-docs-row__icon" style="--doc-color: ${color}">
           <span class="cml-docs-row__ext">${escapeHtml(ext)}</span>
         </div>
-        <div class="cml-docs-row__name">${name}</div>
+        <div class="cml-docs-row__name">
+          ${isRenaming
+            ? `<input type="text" class="cml-docs-rename-input" value="${name}" data-docs-rename-input="${escapeHtml(item.id)}" maxlength="255" />`
+            : name
+          }
+        </div>
         <div class="cml-docs-row__date">${date}</div>
         <div class="cml-docs-row__size">${size}</div>
         <button type="button" class="cml-docs-row__more" data-action="docs-row-menu" data-id="${escapeHtml(item.id)}" title="More actions">
+          ${icon('dots')}
+        </button>
+      </div>`;
+  }).join('');
+
+  // Grid view tiles
+  const gridTilesHtml = sortedFiles.map((item) => {
+    const kind = getDocFileKind(item);
+    const name = escapeHtml(item.label || item.description || 'Unnamed file');
+    const thumbUrl = item.thumbnailUrl || item.sourceUrl || '';
+    const hasThumb = thumbUrl && (kind === 'image' || kind === 'video');
+    const { ext, color } = getFileExtIcon(item.label);
+    const selected = state.selectedIds.has(item.id) ? 'is-selected' : '';
+    return `
+      <div class="cml-docs-tile ${selected}" data-action="toggle-select" data-id="${escapeHtml(item.id)}">
+        <div class="cml-docs-tile__check">
+          <span class="cml-docs-tile__checkbox">${selected ? icon('check') : ''}</span>
+        </div>
+        <div class="cml-docs-tile__preview">
+          ${hasThumb
+            ? `<img src="${escapeHtml(thumbUrl)}" alt="" class="cml-docs-tile__thumb" loading="lazy" />`
+            : `<div class="cml-docs-tile__icon" style="--doc-color: ${color}">
+                 <span class="cml-docs-tile__ext">${escapeHtml(ext)}</span>
+               </div>`
+          }
+        </div>
+        <div class="cml-docs-tile__name">${name}</div>
+        <button type="button" class="cml-docs-tile__more" data-action="docs-row-menu" data-id="${escapeHtml(item.id)}" title="More actions">
           ${icon('dots')}
         </button>
       </div>`;
@@ -1759,13 +1870,19 @@ export function DocumentsListView({ items, state }) {
 
   return `
     ${headerHtml}
-    <div class="cml-docs-table">
-      <div class="cml-docs-table__body">
-        ${newFolderHtml}
-        ${folderRowsHtml}
-        ${fileRowsHtml}
+    ${state.docsView === 'grid' ? `
+      <div class="cml-docs-grid">
+        ${gridTilesHtml}
       </div>
-    </div>
+    ` : `
+      <div class="cml-docs-table">
+        <div class="cml-docs-table__body">
+          ${newFolderHtml}
+          ${folderRowsHtml}
+          ${fileRowsHtml}
+        </div>
+      </div>
+    `}
     ${moveDialogHtml}
     ${contextMenuHtml}
   `;
