@@ -5849,9 +5849,9 @@ body.codex-media-library-active #app {
   position: fixed;
   z-index: 1001;
   min-width: 200px;
-  background: #2d2d3a;
+  background: #1a1b21;
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.12);
   padding: 6px 0;
   animation: cml-ctx-in 120ms ease;
 }
@@ -5869,7 +5869,7 @@ body.codex-media-library-active #app {
   padding: 10px 16px;
   border: 0;
   background: none;
-  color: #ffffff;
+  color: #f0f4fb;
   font-size: 14px;
   font-family: inherit;
   cursor: pointer;
@@ -5877,7 +5877,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-docs-ctx__item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 #codex-media-library-root .cml-docs-ctx__item .cml-icon {
@@ -5887,11 +5887,11 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-docs-ctx__item--danger {
-  color: #f28b82;
+  color: #ffb4ab;
 }
 
 #codex-media-library-root .cml-docs-ctx__item--danger:hover {
-  background: rgba(242, 139, 130, 0.1);
+  background: rgba(242, 139, 130, 0.15);
 }
 
 #codex-media-library-root .cml-docs-ctx__divider {
