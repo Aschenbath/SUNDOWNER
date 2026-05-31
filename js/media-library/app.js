@@ -16357,7 +16357,7 @@ function render() {
     refs.scrollRegion.scrollTop = nextScrollTop;
     state.virtualScrollTop = nextScrollTop;
     state.virtualViewportHeight = refs.scrollRegion.clientHeight;
-    refs.scrollRegion.onscroll = handleScroll;
+    refs.scrollRegion.onscroll = handleScrollThrottled;
     requestAnimationFrame(() => { scrollRestoring = false; });
   }
 
@@ -18171,6 +18171,16 @@ function handleScroll() {
   }
   updateActiveYear();
   updateScrubberThumb();
+}
+
+// Throttled scroll handler using requestAnimationFrame
+let scrollRaf = 0;
+function handleScrollThrottled() {
+  if (scrollRaf) return;
+  scrollRaf = requestAnimationFrame(() => {
+    scrollRaf = 0;
+    handleScroll();
+  });
 }
 
 function updateScrubberThumb() {
