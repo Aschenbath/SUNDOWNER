@@ -20216,6 +20216,34 @@ function handleFocusOut(event) {
       render();
     }
   }
+  if (state.docsRenameId && event.target instanceof HTMLInputElement && event.target.hasAttribute('data-docs-rename-input')) {
+    const itemId = event.target.dataset.docsRenameInput;
+    const newName = event.target.value.trim();
+    if (itemId && newName) {
+      void fetch(`/api/manage/metadata/${encodeURIComponent(itemId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ FileName: newName })
+      }).then((res) => {
+        if (res.ok) {
+          const item = getAllItems().find((entry) => entry.id === itemId);
+          if (item) item.label = newName;
+          showToast(`Renamed to "${newName}"`, 'success');
+        } else {
+          showToast('Failed to rename file', 'error');
+        }
+        state.docsRenameId = null;
+        render();
+      }).catch(() => {
+        showToast('Failed to rename file', 'error');
+        state.docsRenameId = null;
+        render();
+      });
+    } else {
+      state.docsRenameId = null;
+      render();
+    }
+  }
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-film-watched-at-input')) {
     if (event.target.dataset.lastSavedValue !== event.target.value) {
       event.target.dataset.lastSavedValue = event.target.value;
