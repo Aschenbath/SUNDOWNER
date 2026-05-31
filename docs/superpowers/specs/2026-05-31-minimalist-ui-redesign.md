@@ -31,10 +31,10 @@ User feedback: "字体、排版、内容冗余 - 无关紧要的废话多"
 
 ### Font Stack
 ```css
-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 ```
 
-**Rationale**: System fonts load instantly, render perfectly, feel native.
+**Rationale**: Inter is a modern, highly readable typeface similar to Claude.ai's ABC Favorit. Open source, optimized for screens, excellent at small sizes.
 
 ### Font Weights
 - **Regular (400)**: Body text, descriptions, metadata
@@ -143,10 +143,11 @@ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 ## Implementation Plan
 
 ### Phase 1: Typography Cleanup
-1. Create CSS variables for font system
-2. Replace all font-weight declarations
-3. Standardize font-family
-4. Update line-heights
+1. Add Inter font from Google Fonts CDN
+2. Create CSS variables for font system
+3. Replace all font-weight declarations
+4. Standardize font-family to Inter
+5. Update line-heights
 
 ### Phase 2: Content Removal
 1. Remove redundant text from components
