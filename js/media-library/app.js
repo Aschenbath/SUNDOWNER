@@ -4043,6 +4043,94 @@ function persistDocsFolders() {
   }
 }
 
+function getDocFileKindForSort(item) {
+  // Lightweight version for sorting/filtering in app.js
+  const DOC_KINDS = {
+    image: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'svg', 'avif', 'tiff'],
+    video: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v', 'flv', 'wmv'],
+    audio: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'opus'],
+    pdf: ['pdf'],
+    doc: ['doc', 'docx', 'txt', 'rtf', 'md', 'pages', 'odt'],
+    sheet: ['xls', 'xlsx', 'csv', 'numbers', 'ods'],
+    slide: ['ppt', 'pptx', 'key', 'odp'],
+    archive: ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'],
+    code: ['js', 'ts', 'json', 'html', 'css', 'py', 'java', 'c', 'cpp', 'go', 'rs', 'sh', 'yml', 'yaml', 'xml'],
+  };
+  const ext = String(item?.label || item?.description || '').split('.').pop()?.toLowerCase() || '';
+  for (const [kind, exts] of Object.entries(DOC_KINDS)) {
+    if (exts.includes(ext)) return kind;
+  }
+  if (item?.type === 'video') return 'video';
+  if (item?.type === 'audio') return 'audio';
+  if (item?.type === 'photo' || item?.type === 'image') return 'image';
+  return 'other';
+}
+
+function sortAndFilterDocs(items, folders, currentDir) {
+  const dirPrefix = currentDir ? currentDir + '/' : '';
+
+  // Build folder rows
+  const folderRows = [];
+  if (folders instanceof Set) {
+    folders.forEach((path) => {
+      if (currentDir === '') {
+        if (!path.includes('/')) folderRows.push({ isFolder: true, path, name: path });
+      } else if (path.startsWith(dirPrefix)) {
+        const rest = path.slice(dirPrefix.length);
+        if (!rest.includes('/')) folderRows.push({ isFolder: true, path, name: rest });
+      }
+    });
+  }
+
+  // Build file rows
+  const fileRows = (items || [])
+    .filter((item) => {
+      const itemDir = String(item.dir || '');
+      return itemDir === currentDir;
+    })
+    .map((item) => ({ isFolder: false, item }));
+
+  // Type filter
+  const typeFilter = state.docsTypeFilter || 'all';
+  const filteredFiles = typeFilter === 'all'
+    ? fileRows
+    : fileRows.filter((row) => {
+        const kind = getDocFileKindForSort(row.item);
+        return kind === typeFilter;
+      });
+
+  // Sort
+  const sortKey = state.docsSort || 'name';
+  const sortDir = state.docsSortDir || 'asc';
+  const mult = sortDir === 'asc' ? 1 : -1;
+
+  folderRows.sort((a, b) => mult * a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+  filteredFiles.sort((a, b) => {
+    let valA, valB;
+    if (sortKey === 'name') {
+      valA = String(a.item.label || a.item.description || '');
+      valB = String(b.item.label || b.item.description || '');
+      return mult * valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+    } else if (sortKey === 'date') {
+      valA = a.item.timestamp || 0;
+      valB = b.item.timestamp || 0;
+      return mult * (valA - valB);
+    } else if (sortKey === 'size') {
+      valA = a.item.size || 0;
+      valB = b.item.size || 0;
+      return mult * (valA - valB);
+    } else if (sortKey === 'type') {
+      valA = getDocFileKindForSort(a.item);
+      valB = getDocFileKindForSort(b.item);
+      return mult * valA.localeCompare(valB);
+    }
+    return 0;
+  });
+
+  return { folderRows, fileRows: filteredFiles };
+}
+
 function leaveMobileMindView() {
   const targetPrimary = state.mobileMindReturnPrivate
     ? 'Photos'
