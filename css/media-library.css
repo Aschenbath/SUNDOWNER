@@ -5869,8 +5869,9 @@ body.codex-media-library-active #app {
   padding: 10px 16px;
   border: 0;
   background: none;
-  color: #f0f4fb;
+  color: #ffffff;
   font-size: 14px;
+  font-weight: 500;
   font-family: inherit;
   cursor: pointer;
   transition: background 100ms ease;
