@@ -6467,6 +6467,29 @@ body.codex-media-library-active #app {
   height: 18px;
 }
 
+/* ── Folder tiles ── */
+#codex-media-library-root .cml-docs-tile--folder {
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-docs-tile--folder .cml-docs-tile__icon--folder {
+  background: transparent;
+  color: #8ab4f8;
+}
+
+#codex-media-library-root .cml-docs-tile--folder .cml-docs-tile__icon--folder svg {
+  width: 64px;
+  height: 64px;
+}
+
+#codex-media-library-root .cml-docs-tile--folder .cml-docs-tile__more {
+  opacity: 0;
+}
+
+#codex-media-library-root .cml-docs-tile--folder:hover .cml-docs-tile__more {
+  opacity: 1;
+}
+
 /* ── Inline rename ── */
 #codex-media-library-root .cml-docs-rename-input {
   width: 100%;

@@ -1705,6 +1705,25 @@ export function DocumentsListView({ items, state }) {
   }).join('');
 
   // Grid view tiles
+  // Grid folder tiles
+  const gridFolderTilesHtml = sortedFolders.map((name) => {
+    const fullDir = currentDir ? currentDir + '/' + name : name;
+    return `
+      <div class="cml-docs-tile cml-docs-tile--folder" data-action="docs-navigate" data-dir="${escapeHtml(fullDir)}">
+        <div class="cml-docs-tile__check"></div>
+        <div class="cml-docs-tile__preview">
+          <div class="cml-docs-tile__icon cml-docs-tile__icon--folder">
+            ${icon('folder-filled')}
+          </div>
+        </div>
+        <div class="cml-docs-tile__name">${escapeHtml(name)}</div>
+        <button type="button" class="cml-docs-tile__more" data-action="docs-delete-folder" data-dir="${escapeHtml(fullDir)}" title="Delete folder">
+          ${icon('trash')}
+        </button>
+      </div>`;
+  }).join('');
+
+  // Grid file tiles
   const gridTilesHtml = sortedFiles.map((item) => {
     const kind = getDocFileKind(item);
     const name = escapeHtml(item.label || item.description || 'Unnamed file');
@@ -1872,6 +1891,7 @@ export function DocumentsListView({ items, state }) {
     ${headerHtml}
     ${state.docsView === 'grid' ? `
       <div class="cml-docs-grid">
+        ${gridFolderTilesHtml}
         ${gridTilesHtml}
       </div>
     ` : `
