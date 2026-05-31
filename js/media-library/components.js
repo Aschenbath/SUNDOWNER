@@ -3524,7 +3524,6 @@ export function PrivateAlbumGate({ error = '', value = '' }) {
           autocomplete="current-password"
           value="${escapeHtml(value)}"
         />
-        <button type="submit" class="cml-private-access__submit">Unlock</button>
       </form>
       ${error ? `<p class="cml-private-access__error">${escapeHtml(error)}</p>` : ''}
     </section>
