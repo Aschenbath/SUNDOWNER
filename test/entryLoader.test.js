@@ -3,10 +3,15 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const entryLoaderSource = fs.readFileSync(new URL('../js/entry-loader.js', import.meta.url), 'utf8');
+const indexHtmlSource = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const mediaAppSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
-function createHarness(pathname = '/login') {
+function createHarness(pathname = '/login', search = '', hash = '') {
   const warnings = [];
   const scripts = [];
+  const links = [];
+  const headChildren = [];
+  const documentListeners = new Map();
   const nativeParse = JSON.parse;
   const json = {
     parse: nativeParse,
@@ -14,15 +19,42 @@ function createHarness(pathname = '/login') {
   };
 
   const document = {
+    readyState: 'loading',
     head: {
       appendChild(node) {
-        scripts.push(node);
+        const currentIndex = headChildren.indexOf(node);
+        if (currentIndex > -1) {
+          headChildren.splice(currentIndex, 1);
+        }
+        headChildren.push(node);
+        node.parentNode = document.head;
+        if (node.tagName === 'LINK' && !links.includes(node)) {
+          links.push(node);
+        } else if (node.tagName !== 'LINK' && !scripts.includes(node)) {
+          scripts.push(node);
+        }
         return node;
       },
+      get lastChild() {
+        return headChildren[headChildren.length - 1] ?? null;
+      },
+    },
+    addEventListener(name, handler) {
+      const handlers = documentListeners.get(name) ?? [];
+      handlers.push(handler);
+      documentListeners.set(name, handlers);
     },
     createElement(tagName) {
+      if (tagName === 'link') {
+        return {
+          tagName: 'LINK',
+          rel: '',
+          href: '',
+        };
+      }
       assert.equal(tagName, 'script');
       return {
+        tagName: 'SCRIPT',
         defer: false,
         src: '',
         type: '',
@@ -33,7 +65,7 @@ function createHarness(pathname = '/login') {
   };
 
   const window = {
-    location: { pathname },
+    location: { pathname, search, hash },
     document,
     JSON: json,
   };
@@ -56,10 +88,18 @@ function createHarness(pathname = '/login') {
     document,
     window,
     scripts,
+    links,
+    headChildren,
     warnings,
     nativeParse,
     get parse() {
       return json.parse;
+    },
+    triggerDocumentEvent(name) {
+      if (name === 'DOMContentLoaded') {
+        document.readyState = 'interactive';
+      }
+      (documentListeners.get(name) ?? []).forEach((handler) => handler());
     },
     triggerLoad(index) {
       const script = scripts[index];
@@ -82,18 +122,54 @@ function createBrokenLegacyLocalePayload() {
 }
 
 describe('legacy entry loader', () => {
-  it('does not inject legacy scripts on /dashboard routes', () => {
+  it('injects the dashboard media app on /dashboard routes without legacy scripts', () => {
     const harness = createHarness('/dashboard');
 
-    assert.equal(harness.scripts.length, 0);
+    assert.equal(harness.scripts.length, 1);
+    assert.equal(harness.scripts[0].src, '/js/media-library/app.js?v=350');
+    assert.equal(harness.scripts[0].type, 'module');
+    assert.equal(harness.links.find((link) => link.rel === 'stylesheet')?.href, '/css/media-library.css?v=293');
+    assert.deepEqual(harness.links.filter((link) => link.rel === 'modulepreload').map((link) => link.href), [
+      '/js/media-library/app.js?v=350',
+      '/js/media-library/components.js?v=120',
+      '/js/media-library/films-components.js?v=81',
+      '/js/theme-system.js?v=2'
+    ]);
     assert.equal(harness.parse, harness.nativeParse);
   });
 
-  it('does not inject legacy scripts on nested /dashboard routes', () => {
+  it('injects the dashboard media app on nested /dashboard routes', () => {
     const harness = createHarness('/dashboard/stats');
 
-    assert.equal(harness.scripts.length, 0);
+    assert.equal(harness.scripts.length, 1);
+    assert.equal(harness.scripts[0].src, '/js/media-library/app.js?v=350');
+    assert.equal(harness.scripts[0].type, 'module');
     assert.equal(harness.parse, harness.nativeParse);
+  });
+
+  it('injects the dashboard media app on clean root visits', () => {
+    const harness = createHarness('/');
+
+    assert.equal(harness.scripts.length, 1);
+    assert.equal(harness.scripts[0].src, '/js/media-library/app.js?v=350');
+    assert.equal(harness.scripts[0].type, 'module');
+    assert.equal(harness.parse, harness.nativeParse);
+  });
+
+  it('keeps upload and native root visits on the legacy app path', () => {
+    const uploadHarness = createHarness('/', '?cmlUpload=1');
+    const nativeHarness = createHarness('/', '?cmlNative=1');
+    const hashUploadHarness = createHarness('/', '', '#upload');
+
+    assert.equal(uploadHarness.scripts[0].src, '/js/chunk-vendors.8dadfdfd.js');
+    assert.equal(nativeHarness.scripts[0].src, '/js/chunk-vendors.8dadfdfd.js');
+    assert.equal(hashUploadHarness.scripts[0].src, '/js/chunk-vendors.8dadfdfd.js');
+  });
+
+  it('keeps malformed root query strings from crashing the loader', () => {
+    const harness = createHarness('/', '?bad=%E0%A4%A&cmlNative=1');
+
+    assert.equal(harness.scripts[0].src, '/js/chunk-vendors.8dadfdfd.js');
   });
 
   it('loads the new login shell on /login without injecting legacy scripts', () => {
@@ -168,5 +244,42 @@ describe('legacy entry loader', () => {
     harness.triggerError(1);
 
     assert.equal(harness.parse, harness.nativeParse);
+  });
+});
+
+describe('app shell script loading contract', () => {
+  it('does not load the media library module unconditionally from index.html', () => {
+    assert.doesNotMatch(indexHtmlSource, /<script[^>]+src="\/js\/media-library\/app\.js\?v=\d+"/);
+  });
+
+  it('does not load the media library stylesheet unconditionally from index.html', () => {
+    assert.doesNotMatch(indexHtmlSource, /<link[^>]+href="\/css\/media-library\.css\?v=\d+"/);
+  });
+
+  it('moves the dynamic media stylesheet after later static styles to preserve dashboard cascade', () => {
+    const harness = createHarness('/dashboard');
+    const mediaStyle = harness.links.find((link) => link.rel === 'stylesheet');
+    const staticStyle = harness.document.createElement('link');
+
+    staticStyle.rel = 'stylesheet';
+    staticStyle.href = '/css/ui-overrides.css?v=7';
+    harness.document.head.appendChild(staticStyle);
+
+    assert.equal(harness.headChildren.at(-1), staticStyle);
+
+    harness.triggerDocumentEvent('DOMContentLoaded');
+
+    assert.equal(harness.headChildren.at(-1), mediaStyle);
+  });
+
+  it('keeps dashboard modulepreload URLs in sync with app.js import URLs', () => {
+    const importedComponents = mediaAppSource.match(/from '\.\/components\.js\?v=(\d+)'/)?.[1];
+    const importedFilms = mediaAppSource.match(/from '\.\/films-components\.js\?v=(\d+)'/)?.[1];
+    const importedTheme = mediaAppSource.match(/from '\.\.\/theme-system\.js\?v=(\d+)'/)?.[1];
+
+    assert.match(entryLoaderSource, /\/js\/media-library\/app\.js\?v=350/);
+    assert.ok(entryLoaderSource.includes(`/js/media-library/components.js?v=${importedComponents}`));
+    assert.ok(entryLoaderSource.includes(`/js/media-library/films-components.js?v=${importedFilms}`));
+    assert.ok(entryLoaderSource.includes(`/js/theme-system.js?v=${importedTheme}`));
   });
 });
