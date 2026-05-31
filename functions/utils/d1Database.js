@@ -53,6 +53,8 @@ const SCHEMA_STATEMENTS = [
     'CREATE INDEX IF NOT EXISTS idx_files_type_bucket ON files(file_type_bucket, timestamp DESC, id ASC)',
     // is_deleted 索引用于快速查询回收站，避免全表扫描 JSON 字段
     'CREATE INDEX IF NOT EXISTS idx_files_is_deleted ON files(is_deleted, deleted_at DESC, id ASC)',
+    // 复合索引优化常见的多条件查询（directory + type + timestamp）
+    'CREATE INDEX IF NOT EXISTS idx_files_dir_type_time ON files(directory, file_type_bucket, timestamp DESC, id ASC)',
 ];
 
 const SCHEMA_REPAIR_COLUMNS = [
