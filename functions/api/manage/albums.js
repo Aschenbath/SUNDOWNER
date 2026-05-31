@@ -7,6 +7,7 @@ import {
   renamePersistedAlbum,
   replacePersistedAlbumState,
 } from '../../utils/albumsStore.js';
+import { getCachedOrFetch, CACHE_CONFIG, invalidateCache } from '../../utils/apiCache.js';
 
 function jsonResponse(payload, init = {}) {
   const headers = new Headers(init.headers || {});
@@ -23,7 +24,13 @@ export async function onRequest(context) {
   const url = new URL(request.url);
 
   if (request.method === 'GET') {
-    const state = await getPersistedAlbumState(env);
+    // Use cache for GET requests
+    const state = await getCachedOrFetch(
+      env.img_url,
+      CACHE_CONFIG.albums.key,
+      async () => getPersistedAlbumState(env),
+      CACHE_CONFIG.albums.ttl
+    );
     return jsonResponse(state);
   }
 
@@ -39,16 +46,22 @@ export async function onRequest(context) {
       if (body?.state || body?.migrate) {
         const nextState = buildAlbumStatePayload(body.state || body.migrate || {});
         const state = await replacePersistedAlbumState(env, nextState);
+        // Invalidate cache after mutation
+        await invalidateCache(env.img_url, CACHE_CONFIG.albums.key);
         return jsonResponse(state);
       }
 
       if (body?.name) {
         const state = await createPersistedAlbum(env, body.name);
+        // Invalidate cache after mutation
+        await invalidateCache(env.img_url, CACHE_CONFIG.albums.key);
         return jsonResponse(state);
       }
 
       if (body?.albumId && Array.isArray(body?.fileIds)) {
         const state = await applyPersistedAlbumFileMutation(env, body.albumId, body);
+        // Invalidate cache after mutation
+        await invalidateCache(env.img_url, CACHE_CONFIG.albums.key);
         return jsonResponse(state);
       }
 
@@ -74,6 +87,8 @@ export async function onRequest(context) {
 
     try {
       const state = await renamePersistedAlbum(env, albumId, newName);
+      // Invalidate cache after mutation
+      await invalidateCache(env.img_url, CACHE_CONFIG.albums.key);
       return jsonResponse(state);
     } catch (error) {
       return jsonResponse({ error: error.message || 'Failed to rename album' }, { status: 400 });
@@ -88,6 +103,8 @@ export async function onRequest(context) {
 
     try {
       const state = await deletePersistedAlbum(env, albumId);
+      // Invalidate cache after mutation
+      await invalidateCache(env.img_url, CACHE_CONFIG.albums.key);
       return jsonResponse(state);
     } catch (error) {
       return jsonResponse({ error: error.message || 'Failed to delete album' }, { status: 400 });
