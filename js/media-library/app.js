@@ -18348,6 +18348,10 @@ function handleAction(actionTarget, event = null) {
       return true;
     case 'toggle-select':
       if (actionTarget.dataset.id) {
+        const clickedButton = event.target.closest('button');
+        if (clickedButton && clickedButton !== actionTarget) {
+          return false;
+        }
         toggleSelect(actionTarget.dataset.id);
       }
       return true;
