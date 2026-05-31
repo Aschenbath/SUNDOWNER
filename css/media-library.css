@@ -7417,6 +7417,7 @@ body.codex-media-library-active #app {
 
 #codex-media-library-root .cml-private-access__header {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 16px;
 }
