@@ -163,24 +163,37 @@ async function authentication(context) {
 
   const { username: basicUser, password: basicPass } = getConfiguredAdminCredentials(securityConfig)
 
-  // 1. API token (Bearer / custom header)
+  // 1. API token (Bearer / custom header) or Basic Auth
   if (context.request.headers.has('Authorization')) {
-    const requiredPermission = extractRequiredPermission(pathname)
-    const db = getDatabase(context.env)
-    const tokenValidation = await validateApiToken(context.request, db, requiredPermission)
-    if (tokenValidation.valid) {
+    const authHeader = context.request.headers.get('Authorization')
+
+    // Try Bearer token first
+    if (authHeader.startsWith('Bearer ')) {
+      const requiredPermission = extractRequiredPermission(pathname)
+      const db = getDatabase(context.env)
+      const tokenValidation = await validateApiToken(context.request, db, requiredPermission)
+      if (tokenValidation.valid) {
+        return context.next()
+      }
+      // Invalid Bearer token - reject immediately, don't fallback to Basic
+      return UnauthorizedException('Invalid API token.')
+    }
+
+    // Try Basic Auth
+    if (authHeader.startsWith('Basic ')) {
+      const basicAuth = basicAuthentication(context.request)
+      if (basicAuth instanceof Response) {
+        return basicAuth
+      }
+      const { user, pass } = basicAuth
+      if (basicUser !== user || basicPass !== pass) {
+        return UnauthorizedException('Invalid credentials.')
+      }
       return context.next()
     }
 
-    const basicAuth = basicAuthentication(context.request)
-    if (basicAuth instanceof Response) {
-      return basicAuth
-    }
-    const { user, pass } = basicAuth
-    if (basicUser !== user || basicPass !== pass) {
-      return UnauthorizedException('Invalid credentials.')
-    }
-    return context.next()
+    // Unsupported authorization scheme
+    return UnauthorizedException('Unsupported authorization scheme.')
   }
 
   // 2. Session cookie set by the custom login page
