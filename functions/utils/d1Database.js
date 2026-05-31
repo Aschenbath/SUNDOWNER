@@ -21,6 +21,8 @@ const SCHEMA_STATEMENTS = [
         tg_message_id TEXT,
         is_chunked INTEGER DEFAULT 0,
         file_type_bucket TEXT,
+        is_deleted INTEGER DEFAULT 0,
+        deleted_at INTEGER,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -49,12 +51,16 @@ const SCHEMA_STATEMENTS = [
     // 所以这条 CREATE INDEX 必须排在该触发点之后，否则在没跑过 ALTER TABLE 的旧 D1 上
     // 会因为列不存在而直接报错。
     'CREATE INDEX IF NOT EXISTS idx_files_type_bucket ON files(file_type_bucket, timestamp DESC, id ASC)',
+    // is_deleted 索引用于快速查询回收站，避免全表扫描 JSON 字段
+    'CREATE INDEX IF NOT EXISTS idx_files_is_deleted ON files(is_deleted, deleted_at DESC, id ASC)',
 ];
 
 const SCHEMA_REPAIR_COLUMNS = [
     { table: 'index_operations', column: 'expires_at', sql: 'ALTER TABLE index_operations ADD COLUMN expires_at INTEGER' },
     { table: 'index_operations', column: 'updated_at', sql: 'ALTER TABLE index_operations ADD COLUMN updated_at TEXT' },
     { table: 'files', column: 'file_type_bucket', sql: 'ALTER TABLE files ADD COLUMN file_type_bucket TEXT' },
+    { table: 'files', column: 'is_deleted', sql: 'ALTER TABLE files ADD COLUMN is_deleted INTEGER DEFAULT 0' },
+    { table: 'files', column: 'deleted_at', sql: 'ALTER TABLE files ADD COLUMN deleted_at INTEGER' },
 ];
 
 // Settings sentinel that records when the file_type_bucket backfill has run, so
@@ -306,9 +312,9 @@ class D1Database {
                 upload_ip, upload_address, list_type, timestamp,
                 label, directory, channel, channel_name,
                 tg_file_id, tg_chat_id, tg_message_id, is_chunked,
-                file_type_bucket,
+                file_type_bucket, is_deleted, deleted_at,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM files WHERE id = ?), CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM files WHERE id = ?), CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)`
         ).bind(
             fileId,
             value ?? '',
@@ -329,6 +335,8 @@ class D1Database {
             extractedFields.tgMessageId,
             normalizeBoolean(extractedFields.isChunked),
             extractedFields.fileTypeBucket,
+            normalizeBoolean(extractedFields.isDeleted),
+            extractedFields.deletedAt,
             fileId,
         ).run();
     }
@@ -743,6 +751,8 @@ class D1Database {
             tgMessageId: metadata.TgMessageId || null,
             isChunked: isTruthyMetadataValue(metadata.IsChunked),
             fileTypeBucket: computeFileTypeBucket(metadata, fileId),
+            isDeleted: isTruthyMetadataValue(metadata.RecycleBin),
+            deletedAt: metadata.DeletedAt ? Number(metadata.DeletedAt) : null,
         };
     }
 
