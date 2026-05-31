@@ -18585,9 +18585,11 @@ function handleAction(actionTarget, event = null) {
       return true;
     case 'docs-toggle-sort': {
       const sortOptions = ['name', 'date', 'size'];
-      const currentIndex = sortOptions.indexOf(state.docsSort);
+      const currentIndex = sortOptions.indexOf(state.docsSort || 'name');
       const nextIndex = (currentIndex + 1) % sortOptions.length;
       state.docsSort = sortOptions[nextIndex];
+      // Default direction: name/size asc, date desc (newest first)
+      state.docsSortDir = state.docsSort === 'date' ? 'desc' : 'asc';
       render();
       return true;
     }
@@ -19874,6 +19876,20 @@ function handleDoubleClick(event) {
   if (!(event.target instanceof Element) || !refs.root) {
     return;
   }
+  // Handle folder navigation
+  const docsFolder = event.target.closest('.cml-docs-row--folder, .cml-docs-tile--folder');
+  if (docsFolder instanceof HTMLElement && state.secondaryFilter === 'Documents') {
+    const targetDir = normalizeText(docsFolder.getAttribute('data-dir'));
+    if (targetDir) {
+      event.preventDefault();
+      event.stopPropagation();
+      state.docsCurrentDir = targetDir;
+      state.docsContextMenu = null;
+      render();
+      return;
+    }
+  }
+  // Handle file preview/download
   const docsRow = event.target.closest('.cml-docs-row[data-id], .cml-docs-tile[data-id]');
   const clickedControl = event.target.closest('button, a, input, textarea, select, label');
   if (!(docsRow instanceof HTMLElement) || clickedControl instanceof HTMLElement) {

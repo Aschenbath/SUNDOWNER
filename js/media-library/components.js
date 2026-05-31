@@ -1577,10 +1577,10 @@ export function DocumentsListView({ items, state }) {
                 <button type="button" class="cml-docs-filter-btn ${state.docsTypeFilter === 'doc' ? 'is-active' : ''}" data-action="docs-filter-type" data-type="doc">Docs</button>
               </div>
               <div class="cml-docs-toolbar__controls">
-                <button type="button" class="cml-docs-control-btn" data-action="docs-toggle-sort" title="Sort">
+                <button type="button" class="cml-docs-control-btn" data-action="docs-toggle-sort" title="Sort by ${state.docsSort === 'name' ? 'Name' : state.docsSort === 'date' ? 'Date' : 'Size'} (${state.docsSortDir === 'asc' ? 'A-Z' : 'Z-A'})">
                   ${icon('sort')}
                   <span>${state.docsSort === 'name' ? 'Name' : state.docsSort === 'date' ? 'Date' : 'Size'}</span>
-                  ${icon('chevron-down')}
+                  ${state.docsSortDir === 'asc' ? '↑' : '↓'}
                 </button>
                 <button type="button" class="cml-docs-control-btn ${state.docsView === 'grid' ? 'is-active' : ''}" data-action="docs-toggle-view" title="Toggle view">
                   ${state.docsView === 'list' ? icon('grid') : icon('list')}
