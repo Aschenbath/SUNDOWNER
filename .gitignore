@@ -13,3 +13,9 @@ wrangler.toml
 
 # Build source maps (regenerated from the upstream Vue build; never served in prod).
 *.map
+
+# Local git worktrees (feature branches checked out in-tree).
+.worktrees/
+
+# Skills framework (local tooling, not project source).
+.superpowers/
