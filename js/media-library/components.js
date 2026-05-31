@@ -1751,12 +1751,19 @@ export function DocumentsListView({ items, state }) {
       </div>`;
   }).join('');
 
-  if (!sortedFolders.length && !childFiles.length && !state.docsNewFolderOpen) {
+  if (!sortedFolders.length && !sortedFiles.length && !state.docsNewFolderOpen) {
+    const hasFilter = (state.docsTypeFilter && state.docsTypeFilter !== 'all') || state.docsSearch;
+    const emptyMessage = hasFilter
+      ? 'No files match your filters'
+      : (currentDir ? 'This folder is empty' : 'No files yet');
+    const emptyHint = hasFilter
+      ? 'Try adjusting your search or filter'
+      : 'Upload files or create a folder to get started';
     return `${headerHtml}
       <div class="cml-docs-empty">
         ${icon('documents', 'cml-docs-empty__icon')}
-        <p class="cml-docs-empty__text">${currentDir ? 'This folder is empty' : 'No files yet'}</p>
-        <p class="cml-docs-empty__hint">Upload files or create a folder to get started</p>
+        <p class="cml-docs-empty__text">${emptyMessage}</p>
+        <p class="cml-docs-empty__hint">${emptyHint}</p>
       </div>`;
   }
 
