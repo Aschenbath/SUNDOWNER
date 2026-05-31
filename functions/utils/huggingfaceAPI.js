@@ -189,28 +189,38 @@ export class HuggingFaceAPI {
 
         const completeParts = [];
 
-        for (const part of parts) {
-            const index = parseInt(part) - 1;
-            const start = index * chunkSize;
-            const end = Math.min(start + chunkSize, file.size);
-            const chunk = file.slice(start, end);
-            
-            console.log(`Uploading part ${part}/${parts.length}`);
-            const response = await fetch(header[part], {
-                method: 'PUT',
-                body: chunk
-            });
+        // Upload parts in parallel with concurrency limit
+        const CONCURRENCY = 3;
+        for (let i = 0; i < parts.length; i += CONCURRENCY) {
+            const batch = parts.slice(i, i + CONCURRENCY);
 
-            if (!response.ok) {
-                throw new Error(`Failed to upload part ${part}: ${response.status}`);
-            }
+            const batchResults = await Promise.all(
+                batch.map(async (part) => {
+                    const index = parseInt(part) - 1;
+                    const start = index * chunkSize;
+                    const end = Math.min(start + chunkSize, file.size);
+                    const chunk = file.slice(start, end);
 
-            const etag = response.headers.get('ETag');
-            if (!etag) {
-                throw new Error(`No ETag for part ${part}`);
-            }
+                    console.log(`Uploading part ${part}/${parts.length}`);
+                    const response = await fetch(header[part], {
+                        method: 'PUT',
+                        body: chunk
+                    });
 
-            completeParts.push({ partNumber: parseInt(part), etag });
+                    if (!response.ok) {
+                        throw new Error(`Failed to upload part ${part}: ${response.status}`);
+                    }
+
+                    const etag = response.headers.get('ETag');
+                    if (!etag) {
+                        throw new Error(`No ETag for part ${part}`);
+                    }
+
+                    return { partNumber: parseInt(part), etag };
+                })
+            );
+
+            completeParts.push(...batchResults);
         }
 
         // 完成分片上传

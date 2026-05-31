@@ -10,6 +10,7 @@ import {
   makeAdminSessionCookie,
 } from '../../utils/adminSession.js';
 import { jsonResponse, optionsResponse } from '../../utils/cors.js';
+import { checkRateLimit, getClientIp, createRateLimitResponse } from '../../utils/rateLimiter.js';
 
 export function onRequestOptions() {
   return optionsResponse();
@@ -17,6 +18,19 @@ export function onRequestOptions() {
 
 export async function onRequestPost(context) {
   const { request, env } = context;
+
+  // Rate limiting: 10 attempts per 5 minutes per IP
+  const clientIp = getClientIp(request);
+  const rateLimitResult = await checkRateLimit(clientIp, env.img_url, {
+    windowMs: 300000, // 5 minutes
+    maxRequests: 10,
+    keyPrefix: 'admin_auth_ratelimit'
+  });
+
+  if (!rateLimitResult.allowed) {
+    console.warn(`Rate limit exceeded for admin auth attempt from IP: ${clientIp}`);
+    return createRateLimitResponse(rateLimitResult.resetAt);
+  }
 
   let body;
   try {

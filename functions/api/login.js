@@ -5,6 +5,7 @@ import {
     hasSecurityConfigLoadError,
 } from "../utils/sysConfig.js";
 import { optionsResponse, withCorsHeaders } from '../utils/cors.js';
+import { checkRateLimit, getClientIp, createRateLimitResponse } from '../utils/rateLimiter.js';
 
 function invalidBodyResponse() {
     return new Response(JSON.stringify({ success: false, error: 'Invalid request body' }), {
@@ -19,6 +20,19 @@ export function onRequestOptions() {
 
 export async function onRequestPost(context) {
     const { request, env } = context;
+
+    // Rate limiting: 5 attempts per 5 minutes per IP
+    const clientIp = getClientIp(request);
+    const rateLimitResult = await checkRateLimit(clientIp, env.img_url, {
+        windowMs: 300000, // 5 minutes
+        maxRequests: 5,
+        keyPrefix: 'login_ratelimit'
+    });
+
+    if (!rateLimitResult.allowed) {
+        console.warn(`Rate limit exceeded for login attempt from IP: ${clientIp}`);
+        return createRateLimitResponse(rateLimitResult.resetAt);
+    }
 
     let jsonRequest;
     try {

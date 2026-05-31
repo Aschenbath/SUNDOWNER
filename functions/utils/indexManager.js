@@ -553,147 +553,8 @@ export async function mergeOperationsToIndex(context, options = {}) {
             };
         }
 
-        // 获取所有待处理的操作
-        const operationsResult = await getAllPendingOperations(context, currentIndex.lastOperationId);
-
+        // Use the improved mergeOperationsInProcess implementation
         return await mergeOperationsInProcess(context, currentIndex, cleanupAfterMerge);
-
-        const operations = operationsResult.operations;
-        const isALLOperations = operationsResult.isAll;
-
-        if (operations.length === 0) {
-            console.log('No pending operations to merge');
-            return {
-                success: true,
-                processedOperations: 0,
-                message: 'No pending operations'
-            };
-        }
-
-        console.log(`Found ${operations.length} pending operations to merge. Is all operations: ${isALLOperations}, if there are remaining operations they will be processed in the next merge.`);
-
-        // 按时间戳排序操作，确保按正确顺序应用
-        operations.sort((a, b) => a.timestamp - b.timestamp);
-
-        // 创建索引的副本进行操作
-        const workingIndex = currentIndex;
-        let operationsProcessed = 0;
-        let addedCount = 0;
-        let removedCount = 0;
-        let movedCount = 0;
-        let updatedCount = 0;
-        const processedOperationIds = [];
-
-        // 应用每个操作
-        for (const operation of operations) {
-            try {
-                switch (operation.type) {
-                    case 'add':
-                        const addResult = applyAddOperation(workingIndex, operation.data);
-                        if (addResult.added) addedCount++;
-                        if (addResult.updated) updatedCount++;
-                        break;
-                        
-                    case 'remove':
-                        if (applyRemoveOperation(workingIndex, operation.data)) {
-                            removedCount++;
-                        }
-                        break;
-                        
-                    case 'move':
-                        if (applyMoveOperation(workingIndex, operation.data)) {
-                            movedCount++;
-                        }
-                        break;
-                        
-                    case 'batch_add':
-                        const batchAddResult = applyBatchAddOperation(workingIndex, operation.data);
-                        addedCount += batchAddResult.addedCount;
-                        updatedCount += batchAddResult.updatedCount;
-                        break;
-                        
-                    case 'batch_remove':
-                        removedCount += applyBatchRemoveOperation(workingIndex, operation.data);
-                        break;
-                        
-                    case 'batch_move':
-                        movedCount += applyBatchMoveOperation(workingIndex, operation.data);
-                        break;
-                        
-                    default:
-                        console.warn(`Unknown operation type: ${operation.type}`);
-                        continue;
-                }
-                
-                operationsProcessed++;
-                processedOperationIds.push(operation.id);
-
-                // 增加协作点
-                if (operationsProcessed % 3 === 0) {
-                    await new Promise(resolve => setTimeout(resolve, 0));
-                }
-                
-            } catch (error) {
-                console.error(`Error applying operation ${operation.id}:`, error);
-            }
-        }
-
-        // 如果有任何修改，保存索引
-        if (operationsProcessed > 0) {
-            workingIndex.lastUpdated = Date.now();
-            workingIndex.totalCount = workingIndex.files.length;
-            
-            // 记录最后处理的操作ID
-            if (processedOperationIds.length > 0) {
-                workingIndex.lastOperationId = processedOperationIds[processedOperationIds.length - 1];
-            }
-
-            // 保存更新后的索引（使用分块格式）
-            const saveSuccess = await saveChunkedIndex(context, workingIndex);
-            if (!saveSuccess) {
-                console.error('Failed to save chunked index');
-                return {
-                    success: false,
-                    error: 'Failed to save index'
-                };
-            }
-
-            console.log(`Index updated: ${addedCount} added, ${updatedCount} updated, ${removedCount} removed, ${movedCount} moved`);
-        }
-
-        // 清理已处理的操作记录
-        if (cleanupAfterMerge && processedOperationIds.length > 0) {
-            await cleanupOperations(context, processedOperationIds);
-        }
-
-        // 如果未处理完所有操作，调用 merge-operations API 递归处理
-        if (!isALLOperations) {
-            console.log('There are remaining operations, will process them in subsequent calls.');
-
-            const headers = new Headers(request.headers);
-            const originUrl = new URL(request.url);
-            const mergeUrl = `${originUrl.protocol}//${originUrl.host}/api/manage/list?action=merge-operations`;
-
-            await fetch(mergeUrl, { method: 'GET', headers });
-
-            return {
-                success: false,
-                error: 'There are remaining operations, will process them in subsequent calls.'
-            };
-        }
-
-        const result = {
-            success: true,
-            processedOperations: operationsProcessed,
-            addedCount,
-            updatedCount,
-            removedCount,
-            movedCount,
-            totalFiles: workingIndex.totalCount
-        };
-
-        console.log('Operations merge completed:', result);
-        return result;
 
     } catch (error) {
         console.error('Error merging operations:', error);
@@ -1574,11 +1435,10 @@ function applyBatchAddOperation(index, data) {
         } else {
             // 添加新文件
             insertFileInOrder(index.files, fileItem);
-            // 更新映射
-            index.files.forEach((file, idx) => {
-                existingFilesMap.set(file.id, idx);
-            });
-            
+            // 只更新新插入文件的索引位置
+            const insertedIndex = index.files.indexOf(fileItem);
+            existingFilesMap.set(fileItem.id, insertedIndex);
+
             addedCount++;
         }
     }
@@ -1737,32 +1597,8 @@ export async function deleteAllOperations(context) {
         }
         
         console.log(`Found ${totalFound} atomic operations to delete`);
+        // Use the improved deleteOperationsInProcess implementation
         return await deleteOperationsInProcess(context, allOperationIds, totalFound);
-
-        // 限制单次删除的数量
-        const MAX_DELETE_BATCH = 40;
-        const toDeleteOperationIds = allOperationIds.slice(0, MAX_DELETE_BATCH);
-   
-        // 批量删除原子操作
-        const cleanupResult = await cleanupOperations(context, toDeleteOperationIds);
-
-        // 剩余未删除的操作，调用 delete-operations API 进行递归删除
-        if (allOperationIds.length > MAX_DELETE_BATCH || cleanupResult.errorCount > 0) {
-            console.warn(`Too many operations (${allOperationIds.length}), only deleting first ${cleanupResult.deletedCount}. The remaining operations will be deleted in subsequent calls.`);
-            // 复制请求头，用于鉴权
-            const headers = new Headers(request.headers);
-
-            const originUrl = new URL(request.url);
-            const deleteUrl = `${originUrl.protocol}//${originUrl.host}/api/manage/list?action=delete-operations`
-            
-            await fetch(deleteUrl, {
-                method: 'GET',
-                headers: headers
-            });
-
-        } else {
-            console.log(`Delete all operations completed`);
-        }
 
     } catch (error) {
         console.error('Error deleting all operations:', error);

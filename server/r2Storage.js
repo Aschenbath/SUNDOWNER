@@ -72,13 +72,17 @@ export class LocalR2Storage {
             buffer = Buffer.from(value);
         } else if (value instanceof ReadableStream) {
             const reader = value.getReader();
-            const chunks = [];
-            while (true) {
-                const { done, value: chunk } = await reader.read();
-                if (done) break;
-                chunks.push(chunk);
+            try {
+                const chunks = [];
+                while (true) {
+                    const { done, value: chunk } = await reader.read();
+                    if (done) break;
+                    chunks.push(chunk);
+                }
+                buffer = Buffer.concat(chunks);
+            } finally {
+                reader.releaseLock();
             }
-            buffer = Buffer.concat(chunks);
         } else if (typeof value === 'string') {
             buffer = Buffer.from(value, 'utf-8');
         } else {
@@ -144,13 +148,17 @@ export class LocalR2Storage {
                     buffer = Buffer.from(await data.arrayBuffer());
                 } else if (data instanceof ReadableStream) {
                     const reader = data.getReader();
-                    const chunks = [];
-                    while (true) {
-                        const { done, value: chunk } = await reader.read();
-                        if (done) break;
-                        chunks.push(chunk);
+                    try {
+                        const chunks = [];
+                        while (true) {
+                            const { done, value: chunk } = await reader.read();
+                            if (done) break;
+                            chunks.push(chunk);
+                        }
+                        buffer = Buffer.concat(chunks);
+                    } finally {
+                        reader.releaseLock();
                     }
-                    buffer = Buffer.concat(chunks);
                 } else {
                     buffer = Buffer.from(data);
                 }

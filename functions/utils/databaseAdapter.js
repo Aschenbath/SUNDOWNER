@@ -184,24 +184,27 @@ class KVAdapter {
             prefix: 'manage@index@operation_',
         });
 
-        const operations = [];
-        for (const item of result.keys || []) {
-            const value = await this.get(item.name);
-            if (!value) {
-                continue;
-            }
+        // Parallelize fetches instead of sequential loop
+        const operations = await Promise.all(
+            (result.keys || []).map(async (item) => {
+                const value = await this.get(item.name);
+                if (!value) {
+                    return null;
+                }
 
-            const operation = JSON.parse(value);
-            operations.push({
-                id: item.name.replace('manage@index@operation_', ''),
-                type: operation.type,
-                timestamp: operation.timestamp,
-                data: operation.data,
-                processed: Boolean(operation.processed),
-            });
-        }
+                const operation = JSON.parse(value);
+                return {
+                    id: item.name.replace('manage@index@operation_', ''),
+                    type: operation.type,
+                    timestamp: operation.timestamp,
+                    data: operation.data,
+                    processed: Boolean(operation.processed),
+                };
+            })
+        );
 
-        return operations;
+        // Filter out null values
+        return operations.filter(Boolean);
     }
 
     async queryFiles() {
@@ -269,10 +272,15 @@ class HybridAdapter {
         }
     }
 
-    async getMigrationStatus() {
-        if (!this._migrationStatusPromise) {
+    async getMigrationStatus(forceFresh = false) {
+        const now = Date.now();
+        const CACHE_TTL_MS = 60000; // 1 minute cache TTL
+
+        // Invalidate cache if forced refresh or TTL expired
+        if (forceFresh || !this._migrationStatusPromise || !this._migrationStatusCacheTime || (now - this._migrationStatusCacheTime) > CACHE_TTL_MS) {
             this._migrationStatusPromise = this.d1.get(KV_TO_D1_MIGRATION_STATE_KEY)
                 .then((rawValue) => parseMigrationStatus(rawValue));
+            this._migrationStatusCacheTime = now;
         }
 
         return this._migrationStatusPromise;
