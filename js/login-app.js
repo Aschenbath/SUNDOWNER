@@ -9,7 +9,7 @@ function ensureLoginStyles(doc) {
     'body{margin:0;background:linear-gradient(180deg,#eef5ff 0%,#f8fbff 45%,#edf2f7 100%);color:#152033;font-family:"Segoe UI",Arial,sans-serif;}',
     '#app{min-height:100vh;}',
     '.sla-login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 12% 14%,rgba(165,194,255,0.45),transparent 28%),radial-gradient(circle at 88% 18%,rgba(194,226,255,0.5),transparent 26%),linear-gradient(180deg,#eef5ff 0%,#f9fbff 44%,#edf2f7 100%);}',
-    '.sla-login__shell{width:min(100%,430px);padding:34px 30px;border:1px solid rgba(171,188,211,0.42);border-radius:28px;background:rgba(255,255,255,0.84);backdrop-filter:blur(18px);box-shadow:0 26px 64px rgba(118,145,182,0.18);}',
+    '.sla-login__shell{width:min(100%,430px);padding:34px 30px;border:1px solid rgba(171,188,211,0.42);border-radius:28px;background:rgba(255,255,255,0.96);box-shadow:0 26px 64px rgba(118,145,182,0.18);}',
     '.sla-login__eyebrow{margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7185a6;}',
     '.sla-login__title{margin:0 0 8px;font-size:31px;line-height:1.08;font-weight:700;color:#182536;}',
     '.sla-login__copy{margin:0 0 24px;color:#5b6e87;font-size:14px;line-height:1.55;}',
