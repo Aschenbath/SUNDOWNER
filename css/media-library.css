@@ -1,3 +1,47 @@
+/* Typography System - Claude Fonts */
+@font-face {
+  font-family: "Tiempos Text";
+  src: local("Tiempos Text"), local("TiemposText-Regular");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Tiempos Text";
+  src: local("Tiempos Text Semibold"), local("TiemposText-Semibold");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "ABC Favorit";
+  src: local("ABC Favorit"), local("ABCFavorit-Regular");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "ABC Favorit";
+  src: local("ABC Favorit Medium"), local("ABCFavorit-Medium");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* CSS Variables for Typography */
+:root {
+  --cml-font-serif: "Tiempos Text", "Times New Roman", Georgia, serif;
+  --cml-font-sans: "ABC Favorit", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --cml-font-weight-regular: 400;
+  --cml-font-weight-semibold: 600;
+  --cml-line-height-tight: 1.3;
+  --cml-line-height-normal: 1.6;
+  --cml-line-height-relaxed: 1.7;
+}
+
 /* force pages static asset reupload */
 html[data-ui-theme-mode='dark'].codex-media-library-active,
 html[data-ui-theme-mode='dark'] body.codex-media-library-active {
@@ -36,12 +80,15 @@ body.codex-media-library-active #app {
 #codex-media-library-root,
 #codex-media-library-root * {
   box-sizing: border-box;
-  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif !important;
+  font-family: var(--cml-font-sans) !important;
+  font-weight: var(--cml-font-weight-regular);
+  line-height: var(--cml-line-height-normal);
 }
 
 #codex-media-library-root .cml-sidebar__brand-wordmark,
 #codex-media-library-root .cml-sidebar__brand-name {
-  font-family: "Times New Roman", Times, serif !important;
+  font-family: var(--cml-font-serif) !important;
+  font-weight: var(--cml-font-weight-semibold);
 }
 
 #codex-media-library-root button,

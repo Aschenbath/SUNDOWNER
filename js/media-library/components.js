@@ -3501,11 +3501,6 @@ export function PrivateAlbumGate({ error = '', value = '' }) {
           <h2 class="cml-private-access__title">Unlock private album</h2>
         </div>
       </div>
-      <p class="cml-private-access__copy">Enter your password to view hidden photos and videos.</p>
-      <div class="cml-private-access__status">
-        <span class="cml-private-access__status-dot" aria-hidden="true"></span>
-        <span>This unlock only lasts for the current visit.</span>
-      </div>
       <form class="cml-private-access__form" data-form="private-access">
         <input
           type="text"
@@ -4200,7 +4195,6 @@ export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutW
         <section class="cml-empty-state">
           <div class="cml-empty-state__icon">${icon('trash')}</div>
           <h2 class="cml-empty-state__title">Bin is empty</h2>
-          <p class="cml-empty-state__copy">Items you delete will appear here for up to 45 days before permanent removal.</p>
         </section>
       `
       : `
