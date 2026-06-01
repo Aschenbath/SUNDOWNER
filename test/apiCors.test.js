@@ -85,7 +85,7 @@ describe('API CORS responses', () => {
     assertCors(response);
   });
 
-  it('returns invalid stored user config with CORS headers', async () => {
+  it('skips invalid stored user config and still returns CORS headers', async () => {
     const response = await onRequest({
       env: createEnv({
         pageConfig: {
@@ -96,7 +96,8 @@ describe('API CORS responses', () => {
       }),
       request: new Request('http://localhost/api/userConfig', { method: 'GET' }),
     });
-    assert.equal(response.status, 500);
+    // 公开未鉴权端点：单个坏值被跳过、整体仍 200，且 CORS 头照常带上。
+    assert.equal(response.status, 200);
     assertCors(response);
   });
 

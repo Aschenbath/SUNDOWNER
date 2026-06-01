@@ -34,8 +34,11 @@ export async function onRequest(context) {
             try {
                 userConfig[config.id] = JSON.parse(config.value);
             } catch (error) {
-                console.error(`Invalid stored user configuration for ${config.id}:`, error);
-                return invalidStoredConfigResponse();
+                // 这是未鉴权、登录前的公开端点：单个 config 值损坏（或被存成裸字符串）
+                // 不能让整个端点 500、丢掉全部配置。跳过坏 key、继续返回其余可用配置。
+                // 注意只 console 记录、不把原始错误/坏值放进响应体，避免泄露内部细节。
+                console.error(`Invalid stored user configuration for ${config.id}, skipping:`, error);
+                continue;
             }
         } else if (config.type === 'boolean' && config.default !== undefined) {
             userConfig[config.id] = config.default;

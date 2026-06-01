@@ -37,20 +37,27 @@ describe('userConfig API', () => {
     assert.equal(payload.announcement, 'hello');
   });
 
-  it('returns a stable error when stored config JSON is invalid', async () => {
+  it('skips an invalid stored config value and still returns the valid ones', async () => {
     const response = await onRequest({
       env: createEnvWithRawPageValue(JSON.stringify({
         config: [
-          { id: 'showDirectorySuggestions', value: '{bad' },
+          { id: 'showDirectorySuggestions', value: 'true' },
+          { id: 'broken', value: '{bad' },
+          { id: 'announcement', value: '"hello"' },
         ],
       })),
     });
 
-    assert.equal(response.status, 500);
+    // 公开未鉴权端点：单个坏值不能让整个端点 500、丢掉全部配置。
+    assert.equal(response.status, 200);
     const payload = await response.json();
-    assert.equal(payload.success, false);
-    assert.equal(payload.error, 'Invalid stored user configuration');
+    // 好的配置照常返回
+    assert.equal(payload.showDirectorySuggestions, true);
+    assert.equal(payload.announcement, 'hello');
+    // 坏的 key 被跳过、不出现在响应里
+    assert.equal('broken' in payload, false);
+    // 仍然不泄露内部错误细节 / 原始坏值
     const serialized = JSON.stringify(payload);
-    assert.doesNotMatch(serialized, /Unexpected token|SyntaxError|\{bad|showDirectorySuggestions/);
+    assert.doesNotMatch(serialized, /Unexpected token|SyntaxError|\{bad/);
   });
 });
