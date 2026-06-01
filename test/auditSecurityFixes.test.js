@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { onRequest as securityOnRequest } from '../functions/api/manage/sysConfig/security.js';
 import { onRequest as publicListOnRequest } from '../functions/api/public/list.js';
 import { onRequest as davOnRequest } from '../functions/dav/[[path]].js';
+import { onRequest as randomOnRequest } from '../functions/random/index.js';
 import { userAuthCheck } from '../functions/utils/userAuth.js';
 import { returnWithCheck } from '../functions/file/fileTools.js';
 
@@ -193,6 +194,27 @@ describe('audit security hardening', () => {
     } else {
       assert.ok([200, 403, 404, 207].includes(response.status));
     }
+  });
+
+  it('fails closed instead of crashing when WebDAV falls back to default others config', async () => {
+    const response = await davOnRequest({
+      env: {},
+      request: new Request('http://localhost/dav/private.txt', { method: 'GET' })
+    });
+
+    assert.equal(response.status, 403);
+    assert.equal(await response.text(), 'WebDAV is disabled');
+  });
+
+  it('fails closed instead of crashing when random image config falls back to defaults', async () => {
+    const response = await randomOnRequest({
+      env: {},
+      request: new Request('http://localhost/random?dir=photos', { method: 'GET' }),
+      waitUntil: async () => {}
+    });
+
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: 'Random is disabled' });
   });
 
   it('keeps D1 queryFiles totals accurate when pagination returns no rows', () => {

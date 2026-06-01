@@ -30,6 +30,28 @@ function buildSecurityConfigFallback(error = null) {
     return defineHiddenProperty(fallback, '__securityConfigLoadError', error || true);
 }
 
+function buildOthersConfigFallback() {
+    return {
+        telemetry: { enabled: false, fixed: false },
+        randomImageAPI: { enabled: false, allowedDir: '', fixed: false },
+        cloudflareApiToken: {
+            CF_ZONE_ID: '',
+            CF_EMAIL: '',
+            CF_API_KEY: '',
+            fixed: false,
+        },
+        webDAV: {
+            enabled: false,
+            username: '',
+            password: '',
+            uploadChannel: '',
+            channelName: '',
+            fixed: false,
+        },
+        publicBrowse: { enabled: false, allowedDir: '', fixed: false },
+    };
+}
+
 function normalizeConfigValue(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
@@ -169,8 +191,6 @@ export async function fetchOthersConfig(env) {
     } catch (error) {
         console.error('Failed to fetch others config:', error);
         // 返回默认配置
-        return {
-            telemetry: { enabled: false }
-        };
+        return buildOthersConfigFallback();
     }
 }
