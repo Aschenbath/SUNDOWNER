@@ -2426,6 +2426,24 @@ describe('media library download actions', () => {
     assert.match(appSource, /state\.renameItemField === 'Album'[\s\S]*'Album'/);
   });
 
+  it('keeps music rename local-first with no-op skip and stale response guards', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    const renameSource = appSource.slice(
+      appSource.indexOf('async function submitRenameItem()'),
+      appSource.indexOf('function openPlaylistDialog', appSource.indexOf('async function submitRenameItem()'))
+    );
+
+    assert.match(appSource, /renameItemSaveSequences: new Map\(\)/);
+    assert.match(renameSource, /getRenameItemCurrentValue\(item, field\)/);
+    assert.match(renameSource, /nextValue === previousValue[\s\S]*closeRenameItemDialog\(\)/);
+    assert.match(renameSource, /applyRenameItemLocalPatch\(itemId, field, nextValue\)/);
+    assert.match(renameSource, /const sequence = nextRenameItemSaveSequence\(itemId, field\)/);
+    assert.match(renameSource, /isLatestRenameItemSave\(itemId, field, sequence\)/);
+    assert.match(renameSource, /rollbackRenameItemLocalPatch\(itemId, field, previousValue\)/);
+    assert.doesNotMatch(renameSource, /renameItemBusy = true/);
+    assert.doesNotMatch(renameSource, /Saving\.\.\./);
+  });
+
   it('keeps the music summary renderable before any track is selected', () => {
     const html = AudioPlayerPanel({
       currentItem: null,

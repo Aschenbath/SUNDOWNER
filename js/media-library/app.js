@@ -868,6 +868,7 @@ const state = {
   renameItemDraftValue: '',
   renameItemError: '',
   renameItemBusy: false,
+  renameItemSaveSequences: new Map(),
   playlistDialogOpen: false,
   playlistDialogMode: 'create',
   playlistDialogTargetItemId: '',
@@ -15829,8 +15830,8 @@ function renderRenameItemDialog() {
           </label>
           ${state.renameItemError ? `<p class="cml-simple-dialog__error">${escapeHtml(state.renameItemError)}</p>` : ''}
         <footer class="cml-dialog__footer">
-          <button type="button" class="cml-topbar__secondary-button" data-action="close-rename-item-dialog" ${state.renameItemBusy ? 'disabled' : ''}>Cancel</button>
-          <button type="button" class="cml-topbar__secondary-button" data-action="submit-rename-item" ${state.renameItemBusy ? 'disabled' : ''}>${state.renameItemBusy ? 'Saving...' : 'Save'}</button>
+          <button type="button" class="cml-topbar__secondary-button" data-action="close-rename-item-dialog">Cancel</button>
+          <button type="button" class="cml-topbar__secondary-button" data-action="submit-rename-item">Save</button>
         </footer>
       </div>
     </div>
@@ -17663,18 +17664,79 @@ function openRenameItemDialog(itemId, field = 'FileName') {
   render();
 }
 
-function closeRenameItemDialog() {
+function closeRenameItemDialog({ shouldRender = true } = {}) {
   state.renameItemDialogOpen = false;
   state.renameItemTargetId = '';
   state.renameItemField = 'FileName';
   state.renameItemDraftValue = '';
   state.renameItemError = '';
   state.renameItemBusy = false;
-  render();
+  if (shouldRender) {
+    render();
+  }
+}
+
+function getRenameItemFieldKey(field = 'FileName') {
+  if (field === 'Title') {
+    return 'audioTitle';
+  }
+  if (field === 'Artist') {
+    return 'audioArtist';
+  }
+  if (field === 'Album') {
+    return 'audioAlbum';
+  }
+  return 'label';
+}
+
+function getRenameItemCurrentValue(item, field = 'FileName') {
+  if (!item) {
+    return '';
+  }
+  if (field === 'Title') {
+    return normalizeText(item.audioTitle || item.label || '');
+  }
+  if (field === 'Artist') {
+    return normalizeText(item.audioArtist || '');
+  }
+  if (field === 'Album') {
+    return normalizeText(item.audioAlbum || '');
+  }
+  return normalizeText(item.label || item.audioTitle || '');
+}
+
+function getRenameItemSaveKey(itemId, field = 'FileName') {
+  return `${normalizeText(itemId)}::${getRenameItemFieldKey(field)}`;
+}
+
+function nextRenameItemSaveSequence(itemId, field = 'FileName') {
+  const key = getRenameItemSaveKey(itemId, field);
+  const sequence = (state.renameItemSaveSequences.get(key) || 0) + 1;
+  state.renameItemSaveSequences.set(key, sequence);
+  return sequence;
+}
+
+function isLatestRenameItemSave(itemId, field = 'FileName', sequence = 0) {
+  return state.renameItemSaveSequences.get(getRenameItemSaveKey(itemId, field)) === sequence;
+}
+
+function applyRenameItemLocalPatch(itemId, field = 'FileName', value = '') {
+  const mediaItem = state.mediaItems.find((entry) => entry.id === itemId);
+  if (!mediaItem) {
+    return false;
+  }
+  mediaItem[getRenameItemFieldKey(field)] = value;
+  return true;
+}
+
+function rollbackRenameItemLocalPatch(itemId, field = 'FileName', previousValue = '') {
+  applyRenameItemLocalPatch(itemId, field, previousValue);
 }
 
 async function submitRenameItem() {
-  const item = getAllItems().find((entry) => entry.id === state.renameItemTargetId);
+  const itemId = state.renameItemTargetId;
+  const field = state.renameItemField;
+  const item = getAllItems().find((entry) => entry.id === itemId);
   if (!item?.sourceId) {
     state.renameItemError = 'Item not found';
     render();
@@ -17686,15 +17748,21 @@ async function submitRenameItem() {
     render();
     return;
   }
-  const payload = state.renameItemField === 'Title'
+  const previousValue = getRenameItemCurrentValue(item, field);
+  if (nextValue === previousValue) {
+    closeRenameItemDialog();
+    return;
+  }
+  const payload = field === 'Title'
     ? { Title: nextValue }
-    : state.renameItemField === 'Artist'
+    : field === 'Artist'
       ? { Artist: nextValue }
-      : state.renameItemField === 'Album'
+      : field === 'Album'
         ? { Album: nextValue }
         : { FileName: nextValue };
-  state.renameItemBusy = true;
-  state.renameItemError = '';
+  const sequence = nextRenameItemSaveSequence(itemId, field);
+  applyRenameItemLocalPatch(itemId, field, nextValue);
+  closeRenameItemDialog({ shouldRender: false });
   render();
   try {
     const encodedPath = encodeMetadataPath(item.sourceId);
@@ -17707,24 +17775,15 @@ async function submitRenameItem() {
     if (!response.ok || !data?.success) {
       throw new Error(data?.message || 'Failed to rename item');
     }
-    const mediaItem = state.mediaItems.find((entry) => entry.id === state.renameItemTargetId);
-    if (mediaItem) {
-      if (state.renameItemField === 'Title') {
-        mediaItem.audioTitle = nextValue;
-      } else if (state.renameItemField === 'Artist') {
-        mediaItem.audioArtist = nextValue;
-      } else if (state.renameItemField === 'Album') {
-        mediaItem.audioAlbum = nextValue;
-      } else {
-        mediaItem.label = nextValue;
-      }
+    if (isLatestRenameItemSave(itemId, field, sequence)) {
+      applyRenameItemLocalPatch(itemId, field, nextValue);
     }
-    closeRenameItemDialog();
-    render();
   } catch (error) {
-    state.renameItemError = error.message || 'Failed to rename item';
-    state.renameItemBusy = false;
-    render();
+    if (isLatestRenameItemSave(itemId, field, sequence)) {
+      rollbackRenameItemLocalPatch(itemId, field, previousValue);
+      render();
+      showToast(error.message || 'Failed to rename item');
+    }
   }
 }
 
