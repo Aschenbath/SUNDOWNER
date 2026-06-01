@@ -36,15 +36,20 @@ export class HuggingFaceAPI {
      * 检查仓库是否存在
      */
     async repoExists() {
-        try {
-            const response = await fetch(`${this.baseURL}/api/datasets/${this.repo}`, {
-                headers: { 'Authorization': `Bearer ${this.token}` }
-            });
-            return response.ok;
-        } catch (error) {
-            console.error('Error checking repo:', error.message);
-            return false;
+        const response = await fetch(`${this.baseURL}/api/datasets/${this.repo}`, {
+            headers: { 'Authorization': `Bearer ${this.token}` }
+        });
+        if (response.status === 404) {
+            return false; // 确认不存在
         }
+        if (response.ok) {
+            return true; // 确认存在
+        }
+        // 401/403/5xx：状态未知，不能当成"不存在"——抛出以避免盲目创建
+        // 网络层 fetch reject 同样不再吞掉，自然向上传播（与 preupload/lfsBatch 一致），
+        // 由 createRepoIfNotExists 的 try-catch 接住，跳过 create
+        const errorText = await response.text();
+        throw new Error(`Failed to check repo: ${response.status} - ${errorText}`);
     }
 
     /**

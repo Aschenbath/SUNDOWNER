@@ -249,6 +249,11 @@ class HybridAdapter {
                 await this.restoreD1Record(key, snapshot);
             } catch (rollbackError) {
                 console.error(`Failed to roll back D1 state for ${key}:`, rollbackError);
+                // 回滚也失败 = D1/KV 已不一致，抛复合错误把两个失败都带上，便于排查
+                const compositeError = new Error(`KV put failed for ${key} and D1 rollback also failed - data is inconsistent. Original error: ${error?.message}. Rollback error: ${rollbackError?.message}`);
+                compositeError.cause = error;
+                compositeError.rollbackError = rollbackError;
+                throw compositeError;
             }
 
             throw error;
@@ -266,6 +271,11 @@ class HybridAdapter {
                 await this.restoreD1Record(key, snapshot);
             } catch (rollbackError) {
                 console.error(`Failed to roll back D1 delete for ${key}:`, rollbackError);
+                // 回滚也失败 = D1/KV 已不一致，抛复合错误把两个失败都带上，便于排查
+                const compositeError = new Error(`KV delete failed for ${key} and D1 rollback also failed - data is inconsistent. Original error: ${error?.message}. Rollback error: ${rollbackError?.message}`);
+                compositeError.cause = error;
+                compositeError.rollbackError = rollbackError;
+                throw compositeError;
             }
 
             throw error;
