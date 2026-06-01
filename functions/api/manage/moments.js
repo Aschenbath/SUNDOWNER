@@ -254,6 +254,12 @@ async function handlePost(context, store) {
 async function handlePatch(context, store) {
   const url = new URL(context.request.url);
   const id = url.searchParams.get('id') || '';
+  if (!id) {
+    const error = new Error('Moment id is required');
+    error.status = 400;
+    error.expose = true;
+    throw error;
+  }
   const mutation = await buildMomentMutationInput(context);
   const post = await store.updatePost(id, mutation);
   return jsonResponse({ post });

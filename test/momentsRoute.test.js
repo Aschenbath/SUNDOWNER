@@ -18,7 +18,7 @@ async function seedFile(d1, id, metadata = {}) {
   });
 }
 
-function createContext({ request, env, uploadFile, now, processUploadFile } = {}) {
+function createContext({ request, env, uploadFile, now, processUploadFile, store } = {}) {
   return {
     request: request || new Request('https://example.com/api/manage/moments'),
     env: env || { img_d1: new SqliteD1(':memory:') },
@@ -28,6 +28,7 @@ function createContext({ request, env, uploadFile, now, processUploadFile } = {}
     uploadFile,
     processUploadFile,
     now,
+    store,
   };
 }
 
@@ -477,5 +478,32 @@ describe('manage moments route', () => {
     const newDatePayload = await newDateResponse.json();
     assert.equal(newDatePayload.posts.length, 1);
     assert.equal(newDatePayload.posts[0].id, created.post.id);
+  });
+
+  it('rejects PATCH without an id before uploading replacement photos', async () => {
+    const patchForm = new FormData();
+    patchForm.set('body', 'no id');
+    patchForm.append('photos[]', new File(['fake image'], 'orphan.jpg', { type: 'image/jpeg' }));
+
+    let uploadCalled = false;
+    const response = await onRequest(createContext({
+      env: {},
+      now: '2026-05-16T20:30:00.000Z',
+      request: new Request('https://example.com/api/manage/moments', { method: 'PATCH', body: patchForm }),
+      store: {
+        updatePost() {
+          throw new Error('store.updatePost should not run when PATCH id is missing');
+        },
+      },
+      uploadFile: async () => {
+        uploadCalled = true;
+        throw new Error('should not upload photos when PATCH id is missing');
+      },
+    }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(payload.error, 'Moment id is required');
+    assert.equal(uploadCalled, false);
   });
 });

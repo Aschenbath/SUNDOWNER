@@ -48,8 +48,12 @@ export async function onRequest(context) {
         return jsonResponse(state);
       }
 
-      const state = await appendWebMindMessage(env, body?.text || '');
-      return jsonResponse(state);
+      if (!body?.action || body?.action === 'append') {
+        const state = await appendWebMindMessage(env, body?.text || '');
+        return jsonResponse(state);
+      }
+
+      return jsonResponse({ error: 'Unsupported Mind action' }, { status: 400 });
     } catch (error) {
       return jsonResponse({ error: error.message || 'Failed to update Mind' }, { status: 400 });
     }
