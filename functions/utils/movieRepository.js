@@ -4,6 +4,7 @@ import { TMDbClient } from './tmdbClient.js';
 const MOVIE_CACHE_KEY_PREFIX = 'manage@sysConfig@movieCache@';
 const USER_MOVIE_ENTRIES_KEY = 'manage@sysConfig@userMovieEntries';
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const MOVIE_HYDRATE_CONCURRENCY = 3;
 const BACKDROP_DEFAULT_FRAME = Object.freeze({
   backdropZoomOverride: 0.5,
   backdropPositionXOverride: 50,
@@ -482,12 +483,25 @@ async function putUserEntries(db, entries, expectedLengthBeforeWrite = -1) {
   return normalized;
 }
 
+async function runWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+  const runners = Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await worker(items[currentIndex], currentIndex);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
 async function hydrateEntries(db, entries, detailLoader = null) {
-  const hydrated = [];
-  for (const entry of entries) {
+  return runWithConcurrency(entries, MOVIE_HYDRATE_CONCURRENCY, async (entry) => {
     if (entry?.source === 'manual' || !entry?.tmdbId) {
-      hydrated.push({ entry, movie: buildManualMovieFromEntry(entry) });
-      continue;
+      return { entry, movie: buildManualMovieFromEntry(entry) };
     }
     let movie = await getRawMovieCache(db, entry.tmdbId);
     const needsDetailRefresh = movie
@@ -500,9 +514,8 @@ async function hydrateEntries(db, entries, detailLoader = null) {
         // Listing should remain local-first even if a director backfill request fails.
       }
     }
-    hydrated.push({ entry, movie });
-  }
-  return hydrated;
+    return { entry, movie };
+  });
 }
 
 export class MovieRepository {

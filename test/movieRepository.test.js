@@ -874,6 +874,69 @@ describe('MovieRepository', () => {
     assert.equal(list[0].movie.director, 'James Cameron');
   });
 
+  it('backfills incomplete cached movie entries with bounded concurrency while preserving order', async () => {
+    const db = new MemoryDB();
+    let activeCalls = 0;
+    let maxActiveCalls = 0;
+    const detailCalls = [];
+    const repository = new MovieRepository({}, {
+      db,
+      client: {
+        async movieDetail(tmdbId) {
+          activeCalls += 1;
+          maxActiveCalls = Math.max(maxActiveCalls, activeCalls);
+          detailCalls.push(tmdbId);
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          activeCalls -= 1;
+          return createMovie({
+            tmdbId,
+            title: `Movie ${tmdbId}`,
+            director: `Director ${tmdbId}`,
+          });
+        },
+      },
+    });
+    const entries = Array.from({ length: 7 }, (_, index) => {
+      const tmdbId = 100 + index;
+      return {
+        id: `tmdb-${tmdbId}`,
+        tmdbId,
+        watchStatus: 'watched',
+        userRating: null,
+        note: '',
+        tags: [],
+        isFavorite: false,
+        watchedAt: '',
+        createdAt: `2026-05-09T00:00:0${index}.000Z`,
+        updatedAt: `2026-05-09T00:00:0${6 - index}.000Z`,
+      };
+    });
+    for (const entry of entries) {
+      await db.put(`manage@sysConfig@movieCache@${entry.tmdbId}`, JSON.stringify(createMovie({
+        tmdbId: entry.tmdbId,
+        title: `Cached ${entry.tmdbId}`,
+        director: '',
+      })));
+    }
+    await db.put('manage@sysConfig@userMovieEntries', JSON.stringify(entries));
+
+    const list = await repository.listUserEntries();
+
+    assert.equal(detailCalls.length, 7);
+    assert.ok(maxActiveCalls > 1);
+    assert.ok(maxActiveCalls <= 3);
+    assert.deepEqual(list.map(({ entry }) => entry.tmdbId), [100, 101, 102, 103, 104, 105, 106]);
+    assert.deepEqual(list.map(({ movie }) => movie.director), [
+      'Director 100',
+      'Director 101',
+      'Director 102',
+      'Director 103',
+      'Director 104',
+      'Director 105',
+      'Director 106',
+    ]);
+  });
+
   it('preserves cached directors when saving user rating updates with partial movie payloads', async () => {
     const db = new MemoryDB();
     const repository = new MovieRepository({}, { db, client: {} });
