@@ -73,6 +73,13 @@ export async function onRequestPost(context) {
       // 恢复文件数据 - 并行写入
       const filePromises = Object.entries(data).map(async ([key, fileData]) => {
         try {
+          // files 分支只能写真正的文件 key。拒绝写到 HybridAdapter 按前缀路由的
+          // 管理键（manage@ -> 索引/系统设置）和内部分块键（chunk_）：否则一个畸形/
+          // 旧/跨实例的备份就能 verbatim 覆盖实时索引或系统配置（等同写入越权）。
+          // 与导出侧（batch/list.js 的 manage@ / chunk_ 跳过）对称。
+          if (key.startsWith('manage@') || key.startsWith('chunk_')) {
+            return { success: false, key, error: 'Refused: reserved key prefix (manage@ / chunk_) not allowed in files restore' };
+          }
           if (fileData.value) {
             // 有 value 的文件（如 Telegram/Discord 分块文件）
             await db.put(key, fileData.value, {

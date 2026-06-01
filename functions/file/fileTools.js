@@ -131,13 +131,34 @@ export function handleHeadRequest(headers, etag = null) {
     });
 }
 
+// 转发给第三方（telegra.ph / api.telegram.org / 自建代理 / Discord CDN）时只放行
+// 与内容协商相关的安全 header。绝不转发入站请求的 Authorization / Cookie / authCode：
+// WebDAV GET 代理路径会注入 `Authorization: Basic <admin 凭据>`，verbatim 透传会把
+// 管理员凭据泄露到外部主机。
+const FORWARDABLE_FETCH_HEADERS = ['range', 'if-none-match', 'if-modified-since', 'accept-encoding', 'accept'];
+
+function buildForwardHeaders(sourceHeaders) {
+    const forwarded = new Headers();
+    if (!sourceHeaders || typeof sourceHeaders.get !== 'function') {
+        return forwarded;
+    }
+    for (const name of FORWARDABLE_FETCH_HEADERS) {
+        const value = sourceHeaders.get(name);
+        if (value !== null && value !== undefined) {
+            forwarded.set(name, value);
+        }
+    }
+    return forwarded;
+}
+
 export async function getFileContent(request, targetUrl, max_retries = 2) {
     let retries = 0;
+    const forwardHeaders = buildForwardHeaders(request.headers);
     while (retries <= max_retries) {
         try {
             const response = await fetch(targetUrl, {
                 method: request.method,
-                headers: request.headers,
+                headers: forwardHeaders,
                 body: request.body,
             });
             if (response.ok || response.status === 304) {

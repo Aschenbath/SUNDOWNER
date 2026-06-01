@@ -14,6 +14,12 @@ export function isExpired(expiresAt, now = new Date()) {
     return false;
   }
   const expiresDate = new Date(expiresAt);
+  // 损坏 / 非法的 expiresAt（new Date(...) => Invalid Date，getTime() => NaN）
+  // 必须 fail-closed 视为已过期：否则 `now > NaN` 恒为 false，token 会被当成永不过期、
+  // 还躲过 auto-delete。宁可把坏 token 判为过期，也不让它永久有效。
+  if (Number.isNaN(expiresDate.getTime())) {
+    return true;
+  }
   const currentTime = now instanceof Date ? now : new Date(now);
   return currentTime.getTime() > expiresDate.getTime();
 }
