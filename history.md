@@ -751,3 +751,8 @@ Three small Phase 5 LOW guardrails landed with RED/GREEN tests:
 - `functions/utils/tagHelpers.js`: `mergeTags(..., 'remove')` ignores non-string existing tag elements before lowercasing, matching the rest of tag normalization.
 
 Regression tests added in `test/auditSecurityFixes.test.js`. Validation: Node 22 `--check` passed for all touched files; focused new tests 3/3; full `auditSecurityFixes.test.js` 15/15; `git diff --check` clean; full Node 22 Mocha `601 passing / 1 pending / 75 failing`, same local better-sqlite3/D1 environment failures.
+
+### M18 tags batch guard/perf fixed (this commit)
+Phase 5 performance item M18. `functions/api/manage/tags/batch.js` used to accept unbounded `fileIds` and process every file sequentially; very large inputs could burn subrequests and leave partial mutations. The route now rejects more than 100 file ids up front (400, before storage reads/writes) and processes allowed batches with bounded concurrency 3 while preserving input-order aggregation for the response and async index update payload.
+
+Regression tests added in `test/tagsRoute.test.js`: oversize batch returns 400 without touching storage; normal 7-file batch updates all files with observed concurrent reads `>1` and `<=3`. Validation: Node 22 `--check` passed for route/test; focused M18 tests 2/2; full `tagsRoute.test.js` 4/4; `git diff --check` clean; full Node 22 Mocha `603 passing / 1 pending / 75 failing`, same local better-sqlite3/D1 environment failures. Follow-up discovered but not mixed in: existing KV metadata trim whitelist does not include `Tags`, which affects broader tag persistence semantics and should be handled as a separate tag-storage fix.

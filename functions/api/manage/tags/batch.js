@@ -3,6 +3,30 @@ import { batchAddFilesToIndex } from "../../../utils/indexManager.js";
 import { getDatabase } from "../../../utils/databaseAdapter.js";
 import { mergeTags, validateTag } from "../../../utils/tagHelpers.js";
 
+const MAX_BATCH_FILE_IDS = 100;
+const TAG_UPDATE_CONCURRENCY = 3;
+
+async function runWithConcurrency(items, concurrency, worker) {
+    const results = new Array(items.length);
+    let nextIndex = 0;
+
+    async function runNext() {
+        const index = nextIndex++;
+        if (index >= items.length) {
+            return;
+        }
+        results[index] = await worker(items[index], index);
+        await runNext();
+    }
+
+    const runners = Array.from(
+        { length: Math.min(concurrency, items.length) },
+        () => runNext()
+    );
+    await Promise.all(runners);
+    return results;
+}
+
 /**
  * Batch Tag Management API
  *
@@ -46,6 +70,15 @@ export async function onRequest(context) {
             return new Response(JSON.stringify({
                 error: 'Invalid fileIds',
                 message: 'fileIds must be a non-empty array of file identifiers'
+            }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+        if (fileIds.length > MAX_BATCH_FILE_IDS) {
+            return new Response(JSON.stringify({
+                error: 'Too many fileIds',
+                message: `A maximum of ${MAX_BATCH_FILE_IDS} files can be updated in one batch`
             }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json' }
@@ -97,17 +130,17 @@ export async function onRequest(context) {
 
         const updatedFiles = [];
 
-        for (const fileId of fileIds) {
+        const perFileResults = await runWithConcurrency(fileIds, TAG_UPDATE_CONCURRENCY, async (fileId) => {
             try {
                 // Get file metadata
                 const fileData = await db.getWithMetadata(fileId);
 
                 if (!fileData || !fileData.metadata) {
-                    results.errors.push({
+                    return {
+                        success: false,
                         fileId: fileId,
                         error: 'File not found'
-                    });
-                    continue;
+                    };
                 }
 
                 // Get existing tags
@@ -128,18 +161,32 @@ export async function onRequest(context) {
                 const cdnUrl = `https://${url.hostname}/file/${fileId}`;
                 waitUntil(purgeCFCache(env, cdnUrl));
 
-                // Track updated file for batch index update
-                updatedFiles.push({
+                return {
+                    success: true,
                     fileId: fileId,
                     metadata: fileData.metadata
-                });
-
-                results.updated++;
+                };
 
             } catch (error) {
-                results.errors.push({
+                return {
+                    success: false,
                     fileId: fileId,
                     error: error.message
+                };
+            }
+        });
+
+        for (const result of perFileResults) {
+            if (result.success) {
+                results.updated++;
+                updatedFiles.push({
+                    fileId: result.fileId,
+                    metadata: result.metadata
+                });
+            } else {
+                results.errors.push({
+                    fileId: result.fileId,
+                    error: result.error
                 });
             }
         }
