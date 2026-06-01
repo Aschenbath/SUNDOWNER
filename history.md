@@ -743,3 +743,11 @@ TDD: new `test/tagsRoute.test.js` reproduces both RED states (URIError throw, 20
 Phase 5 LOW public-list pagination guard. `functions/api/public/list.js` no longer lets arbitrary negative `count` values feed JavaScript `Array.slice(start, start + count)` and silently drop trailing files. The existing `count=-1` contract remains "return all"; invalid `count` values and values below `-1` fall back to the default page size. While debugging the full-suite-only failure, `getDefaultCache()` was also hardened to ignore incomplete `globalThis.caches.default` stubs unless both `match` and `put` exist.
 
 Regression test added in `test/auditSecurityFixes.test.js`: seeds two public photo entries, simulates an incomplete cache stub, calls `/api/public/list?dir=photos&count=-1`, and asserts both files are returned. Validation: Node 22 `--check` passed for the route and test; focused regression 1/1; full `auditSecurityFixes.test.js` 12/12; `git diff --check` clean; full Node 22 Mocha `598 passing / 1 pending / 75 failing`, with the same 75 local better-sqlite3/D1 environment failures.
+
+### LOW boundary/corrupt-state trio fixed (this commit)
+Three small Phase 5 LOW guardrails landed with RED/GREEN tests:
+- `functions/api/directoryTree.js`: optional `cacheTime` is parsed as decimal seconds and falls back to `60` for invalid/non-finite input before writing `Cache-Control`, avoiding header errors or injected header-like values.
+- `functions/utils/adminProfile.js`: corrupt stored `manage@profile@admin` JSON now logs a warning and falls back to the safe default profile, so account GET/save can self-heal instead of crashing.
+- `functions/utils/tagHelpers.js`: `mergeTags(..., 'remove')` ignores non-string existing tag elements before lowercasing, matching the rest of tag normalization.
+
+Regression tests added in `test/auditSecurityFixes.test.js`. Validation: Node 22 `--check` passed for all touched files; focused new tests 3/3; full `auditSecurityFixes.test.js` 15/15; `git diff --check` clean; full Node 22 Mocha `601 passing / 1 pending / 75 failing`, same local better-sqlite3/D1 environment failures.

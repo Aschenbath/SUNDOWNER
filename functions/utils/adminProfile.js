@@ -36,7 +36,14 @@ export function buildAdminProfileRecord(rawProfile, username) {
 
 export async function getAdminProfile(db, username) {
   const profileText = await db.get(ADMIN_PROFILE_DB_KEY);
-  const parsed = profileText ? JSON.parse(profileText) : {};
+  let parsed = {};
+  if (profileText) {
+    try {
+      parsed = JSON.parse(profileText);
+    } catch (error) {
+      console.warn('Invalid admin profile JSON, using default profile:', error);
+    }
+  }
   return buildAdminProfileRecord(parsed, username);
 }
 

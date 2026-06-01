@@ -3,6 +3,20 @@ import { dualAuthCheck } from '../utils/dualAuth.js';
 import { fetchPageConfig } from '../utils/sysConfig.js';
 import { jsonResponse, methodNotAllowed, optionsResponse } from '../utils/cors.js';
 
+const DEFAULT_CACHE_TIME = 60;
+
+function parseCacheTime(value) {
+    if (value === null || value === undefined || value === '') {
+        return DEFAULT_CACHE_TIME;
+    }
+    const normalized = String(value).trim();
+    if (!/^\d+$/.test(normalized)) {
+        return DEFAULT_CACHE_TIME;
+    }
+    const parsed = Number(normalized);
+    return Number.isSafeInteger(parsed) ? parsed : DEFAULT_CACHE_TIME;
+}
+
 /**
  * 目录树 API 端点
  * GET /api/directoryTree
@@ -46,7 +60,7 @@ export async function onRequestGet(context) {
 
     try {
         const tree = await getDirectoryTree(context);
-        const cacheTime = url.searchParams.get('cacheTime') || 60;
+        const cacheTime = parseCacheTime(url.searchParams.get('cacheTime'));
 
         return jsonResponse({ tree }, {
             headers: {

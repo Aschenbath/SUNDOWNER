@@ -7,8 +7,11 @@ import { onRequest as davOnRequest } from '../functions/dav/[[path]].js';
 import { onRequest as randomOnRequest } from '../functions/random/index.js';
 import { onRequest as blockOnRequest } from '../functions/api/manage/block/[[path]].js';
 import { onRequest as whiteOnRequest } from '../functions/api/manage/white/[[path]].js';
+import { onRequest as directoryTreeOnRequest } from '../functions/api/directoryTree.js';
 import { userAuthCheck } from '../functions/utils/userAuth.js';
 import { returnWithCheck } from '../functions/file/fileTools.js';
+import { getAdminProfile, saveAdminProfile } from '../functions/utils/adminProfile.js';
+import { mergeTags } from '../functions/utils/tagHelpers.js';
 
 class MemoryKV {
   constructor(initialEntries = {}) {
@@ -205,6 +208,55 @@ describe('audit security hardening', () => {
     assert.equal(response.status, 200);
     assert.equal(payload.returnedCount, 2);
     assert.deepEqual(payload.files.map((file) => file.name).sort(), ['photos/a.jpg', 'photos/b.jpg']);
+  });
+
+  it('normalizes directory tree cacheTime before writing Cache-Control', async () => {
+    const env = createEnv();
+    await env.img_url.put('manage@sysConfig@security', JSON.stringify({
+      auth: {
+        user: { authCode: 'user' },
+        admin: { adminUsername: 'admin', adminPassword: 'secret' }
+      },
+      upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+      access: { allowedDomains: '', whiteListMode: false },
+      apiTokens: { tokens: {} }
+    }));
+    const basic = Buffer.from('admin:secret').toString('base64');
+
+    const response = await directoryTreeOnRequest({
+      env,
+      request: new Request('http://localhost/api/directoryTree?cacheTime=abc%0D%0AX-Bad:%20yes', {
+        method: 'GET',
+        headers: { Authorization: `Basic ${basic}` }
+      }),
+      waitUntil: async () => {}
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('Cache-Control'), 'public, max-age=60');
+    assert.equal(response.headers.get('X-Bad'), null);
+  });
+
+  it('falls back to a safe admin profile when stored profile JSON is corrupt', async () => {
+    const env = createEnv();
+    await env.img_url.put('manage@profile@admin', '{bad');
+
+    const profile = await getAdminProfile(env.img_url, 'admin');
+    assert.deepEqual(profile, {
+      username: 'admin',
+      displayName: 'admin',
+      avatarData: '',
+      roleLabel: 'Administrator',
+    });
+
+    const saved = await saveAdminProfile(env.img_url, 'admin', { displayName: 'Gilbert' });
+    assert.equal(saved.displayName, 'Gilbert');
+    assert.doesNotThrow(() => JSON.parse(env.img_url.store.get('manage@profile@admin')));
+  });
+
+  it('ignores non-string existing tags when removing tags', () => {
+    const result = mergeTags(['keep', 'drop', null, 42, { tag: 'x' }], ['drop'], 'remove');
+    assert.deepEqual(result, ['keep']);
   });
 
   it('does not leak internal error details from public browse failures', async () => {

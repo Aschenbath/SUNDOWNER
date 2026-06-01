@@ -64,7 +64,9 @@ export function mergeTags(existingTags, newTags, action) {
         case 'remove':
             // Remove specified tags from existing
             const toRemove = new Set(normalized);
-            return existing.filter(tag => !toRemove.has(tag.toLowerCase()));
+            return existing
+                .filter(tag => tag && typeof tag === 'string')
+                .filter(tag => !toRemove.has(tag.toLowerCase()));
 
         default:
             throw new Error(`Invalid action: ${action}. Must be 'set', 'add', or 'remove'`);
