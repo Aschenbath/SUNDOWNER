@@ -108,7 +108,7 @@ class KVAdapter {
 
     async put(key, value, options = {}) {
         const sanitized = sanitizeOptionsForPut(key, options);
-        if (!String(key).startsWith('manage@') && sanitized.metadata) {
+        if (!String(key).startsWith('manage@') && !isTransientChunkKey(key) && sanitized.metadata) {
             sanitized.metadata = trimMetadataForKV(sanitized.metadata);
         }
         return this.kv.put(key, value, sanitized);
@@ -239,7 +239,7 @@ class HybridAdapter {
         const snapshot = await this.snapshotD1Record(key);
         await this.d1.put(key, d1Value, options);
 
-        const kvOptions = options.metadata
+        const kvOptions = options.metadata && !isTransientChunkKey(key)
             ? { ...options, metadata: trimMetadataForKV(stripSensitiveMetadata(options.metadata)) }
             : options;
 

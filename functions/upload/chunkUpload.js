@@ -7,6 +7,8 @@ import { getDatabase, checkDatabaseConfig } from '../utils/databaseAdapter.js';
 import { extractEmbeddedPreview, supportsEmbeddedPreviewExtraction } from './exifExtractor.js';
 import { resolveMimeType } from '../utils/mimeTypes.js';
 
+const CHUNK_STATUS_READ_CONCURRENCY = 3;
+
 // 初始化分块上传
 export async function initializeChunkedUpload(context) {
     const { request, env, url } = context;
@@ -1016,13 +1018,14 @@ export async function cleanupFailedMultipartUploads(context, uploadId, uploadCha
 
 // 检查分块上传状态
 export async function checkChunkUploadStatuses(env, uploadId, totalChunks) {
-    const chunkStatuses = [];
     const currentTime = Date.now();
-
     const db = getDatabase(env);
+    const normalizedTotalChunks = Math.max(0, Number(totalChunks) || 0);
+    const chunkStatuses = new Array(normalizedTotalChunks);
+    let nextIndex = 0;
 
-    for (let i = 0; i < totalChunks; i++) {
-        const chunkKey = `chunk_${uploadId}_${i.toString().padStart(3, '0')}`;
+    async function checkChunk(index) {
+        const chunkKey = `chunk_${uploadId}_${index.toString().padStart(3, '0')}`;
         try {
             const chunkRecord = await db.getWithMetadata(chunkKey, { type: 'arrayBuffer' });
             if (chunkRecord && chunkRecord.metadata) {
@@ -1043,7 +1046,7 @@ export async function checkChunkUploadStatuses(env, uploadId, totalChunks) {
                     await db.put(chunkKey, chunkRecord.value, {
                         metadata: timeoutMetadata,
                         expirationTtl: 3600
-                    }).catch(err => console.warn(`Failed to update timeout status for chunk ${i}:`, err));
+                    }).catch(err => console.warn(`Failed to update timeout status for chunk ${index}:`, err));
                 }
 
                 let hasData = false;
@@ -1058,8 +1061,8 @@ export async function checkChunkUploadStatuses(env, uploadId, totalChunks) {
                     hasData = (chunkRecord.value && chunkRecord.value.byteLength > 0);
                 }
 
-                chunkStatuses.push({
-                    index: i,
+                return {
+                    index,
                     key: chunkKey,
                     status: status,
                     uploadResult: chunkRecord.metadata.uploadResult,
@@ -1071,25 +1074,35 @@ export async function checkChunkUploadStatuses(env, uploadId, totalChunks) {
                     timeoutThreshold: chunkRecord.metadata.timeoutThreshold,
                     uploadChannel: chunkRecord.metadata.uploadChannel,
                     isTimeout: status === 'timeout'
-                });
-            } else {
-                chunkStatuses.push({
-                    index: i,
-                    key: chunkKey,
-                    status: 'missing',
-                    hasData: false
-                });
+                };
             }
+
+            return {
+                index,
+                key: chunkKey,
+                status: 'missing',
+                hasData: false
+            };
         } catch (error) {
-            chunkStatuses.push({
-                index: i,
+            return {
+                index,
                 key: chunkKey,
                 status: 'error',
                 error: error.message,
                 hasData: false
-            });
+            };
         }
     }
+
+    const workerCount = Math.min(CHUNK_STATUS_READ_CONCURRENCY, normalizedTotalChunks);
+    const workers = Array.from({ length: workerCount }, async () => {
+        while (nextIndex < normalizedTotalChunks) {
+            const currentIndex = nextIndex;
+            nextIndex += 1;
+            chunkStatuses[currentIndex] = await checkChunk(currentIndex);
+        }
+    });
+    await Promise.all(workers);
 
     return chunkStatuses;
 }
