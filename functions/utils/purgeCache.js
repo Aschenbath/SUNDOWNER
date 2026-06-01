@@ -22,7 +22,7 @@ export async function purgeCFCache(env, cdnUrl) {
         const options = {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'X-Auth-Email': `${cfEmail}`, 'X-Auth-Key': `${cfApiKey}`},
-            body: `{"files":["${ cdnUrl }"]}`
+            body: JSON.stringify({ files: [cdnUrl] })
         };
         await fetch(`https://api.cloudflare.com/client/v4/zones/${ cfZoneId }/purge_cache`, options);
     } catch (error) {

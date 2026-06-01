@@ -786,3 +786,8 @@ Fix: process listed keys with order-preserving bounded concurrency 3. Each worke
 Phase 5 LOW cache race. `getCachedOrFetch()` intentionally stored miss results in the background, but `invalidateCache()` did not know about in-flight writes. A slow read-through `kv.put()` could therefore finish after invalidation and resurrect stale cache data.
 
 Fix: track pending cache writes per key and make `invalidateCache()` wait for same-key pending writes to settle before deleting. Read path remains fire-and-forget for callers; invalidation gets the ordering guarantee. Regression in `test/apiCache.test.js` uses a delayed KV `put` to reproduce stale resurrection RED and verifies the key stays deleted after invalidation. Validation: Node 22 `--check` passed; `apiCache.test.js` 9/9; `git diff --check` clean; full Mocha `610 passing / 1 pending / 75 failing`, same local baseline failures.
+
+### LOW purgeCFCache JSON body fixed (this commit)
+Phase 5 LOW misc item. `purgeCFCache()` hand-built the Cloudflare purge body as a string, so CDN URLs containing JSON-significant characters such as quotes or backslashes produced invalid JSON and silently failed to purge.
+
+Fix: build the body with `JSON.stringify({ files: [cdnUrl] })`. Regression in `test/purgeCache.test.js` stubs `fetch`, passes a URL containing `"` and `\\`, and asserts the observed request body parses back to the same URL. Validation: Node 22 `--check` passed; purge cache test 1/1; `git diff --check` clean; full Mocha `611 passing / 1 pending / 75 failing`, same local baseline failures.
