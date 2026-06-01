@@ -196,6 +196,7 @@ async function loadAlbumCommandState(db, channelName) {
             return parsed
         }
     } catch (error) {
+        console.warn(`Failed to parse album command state for ${channelName}, clearing:`, error?.message)
         // fall through and clear invalid state
     }
 
@@ -225,6 +226,7 @@ async function loadMomentsCommandState(db, channelName) {
             return parsed
         }
     } catch (error) {
+        console.warn(`Failed to parse moments command state for ${channelName}, clearing:`, error?.message)
         // fall through and clear invalid state
     }
 
@@ -496,9 +498,15 @@ async function cleanupStaleImportedFiles(context, prefix, keepFileId) {
         }
     }
 
-    for (const staleFileId of staleFileIds) {
-        await db.delete(staleFileId)
-        await removeFileFromIndex(context, staleFileId)
+    // 并发批量删除（CONCURRENCY=3，复用 huggingfaceAPI.js 的分批写法）
+    // 不用裸 Promise.all：staleFileIds 可能上百，需避开 Cloudflare 子请求上限与 KV 写入限流
+    const CONCURRENCY = 3
+    for (let i = 0; i < staleFileIds.length; i += CONCURRENCY) {
+        const batch = staleFileIds.slice(i, i + CONCURRENCY)
+        await Promise.all(batch.map(async (staleFileId) => {
+            await db.delete(staleFileId)
+            await removeFileFromIndex(context, staleFileId)
+        }))
     }
 
     return staleFileIds

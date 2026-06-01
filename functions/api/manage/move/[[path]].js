@@ -3,7 +3,7 @@ import { purgeCFCache, purgeRandomFileListCache, purgePublicFileListCache } from
 import { moveFileInIndex, batchMoveFilesInIndex } from "../../../utils/indexManager.js";
 import { getDatabase } from '../../../utils/databaseAdapter.js';
 import { resolveS3Access } from '../../../utils/mediaSecurity.js';
-import { sanitizeUploadFolder } from "../../../upload/uploadTools.js";
+import { sanitizeUploadFolder, isPathSafe } from "../../../upload/uploadTools.js";
 
 let createS3Client = (options) => new S3Client(options);
 
@@ -31,6 +31,9 @@ export async function onRequest(context) {
     if (folder === 'true') {
         try {
             params.path = decodeURIComponent(params.path);
+            if (!isPathSafe(params.path)) {
+                throw new Error('Invalid path');
+            }
             // 使用队列存储需要处理的文件夹
             const folderQueue = [{
                 path: params.path.split(',').join('/'),
@@ -109,6 +112,9 @@ export async function onRequest(context) {
     try {
         // 解码params.path
         params.path = decodeURIComponent(params.path);
+        if (!isPathSafe(params.path)) {
+            throw new Error('Invalid path');
+        }
         const fileId = params.path.split(',').join('/');
         const fileKey = fileId.split('/').pop();
         const newFileId = dist === '' ? fileKey : `${dist}/${fileKey}`;

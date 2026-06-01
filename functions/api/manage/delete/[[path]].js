@@ -2,6 +2,7 @@ import { removeFileFromIndex, batchRemoveFilesFromIndex } from "../../../utils/i
 import { getDatabase } from '../../../utils/databaseAdapter.js';
 import { markRecycleBinMetadata, isRecycleBinMetadata } from '../../../utils/recycleBin.js';
 import { permanentlyDeleteFileRecord } from '../../../utils/mediaDeletion.js';
+import { isPathSafe } from "../../../upload/uploadTools.js";
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -21,6 +22,9 @@ export async function onRequest(context) {
     if (folder === 'true') {
         try {
             params.path = decodeURIComponent(params.path);
+            if (!isPathSafe(params.path)) {
+                throw new Error('Invalid path');
+            }
             const folderQueue = [{
                 path: params.path.split(',').join('/')
             }];
@@ -82,6 +86,9 @@ export async function onRequest(context) {
     // 单个文件删除
     try {
         params.path = decodeURIComponent(params.path);
+        if (!isPathSafe(params.path)) {
+            throw new Error('Invalid path');
+        }
         const fileId = params.path.split(',').join('/');
 
         const success = permanent

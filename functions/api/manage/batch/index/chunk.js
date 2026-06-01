@@ -130,27 +130,33 @@ function sanitizeString(str) {
  * @param {any} obj - 要清理的对象
  * @returns {any} 清理后的对象
  */
-function sanitizeObject(obj) {
+function sanitizeObject(obj, depth = 0) {
+  // 递归深度限制：防止恶意/畸形请求构造深度嵌套对象导致栈溢出
+  // 真实索引数据是扁平的文件记录（id + metadata + Tags 数组），50 层留足余量
+  if (depth > 50) {
+    throw new Error('Object nesting too deep (max 50 levels)');
+  }
+
   if (obj === null || obj === undefined) {
     return obj;
   }
-  
+
   if (typeof obj === 'string') {
     return sanitizeString(obj);
   }
-  
+
   if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeObject(item));
+    return obj.map(item => sanitizeObject(item, depth + 1));
   }
-  
+
   if (typeof obj === 'object') {
     const sanitized = {};
     for (const key of Object.keys(obj)) {
-      sanitized[sanitizeString(key)] = sanitizeObject(obj[key]);
+      sanitized[sanitizeString(key)] = sanitizeObject(obj[key], depth + 1);
     }
     return sanitized;
   }
-  
+
   return obj;
 }
 
@@ -311,8 +317,13 @@ export async function onRequestPost(context) {
 
     const { chunkId, sessionId, data, checksum } = body;
 
-    // 清理数据中的字符串字段
-    const sanitizedData = sanitizeObject(data);
+    // 清理数据中的字符串字段（深度超限视为非法请求，返回 400）
+    let sanitizedData;
+    try {
+      sanitizedData = sanitizeObject(data);
+    } catch (sanitizeError) {
+      return errorResponse('Invalid request body', 400, sanitizeError.message);
+    }
 
     // 验证 checksum，根据长度选择对应算法
     // 64字符 = SHA-256（安全上下文），16字符 = FNV fallback（非安全上下文，如 0.0.0.0）
@@ -340,7 +351,9 @@ export async function onRequestPost(context) {
       recordCount: sanitizedData.length,
     };
 
-    await db.put(chunkKey, JSON.stringify(chunkData));
+    // 加 24h TTL 兜底：rebuild 中断/失败时 finalize 的 cleanupChunks 不会执行，
+    // 这些临时 chunk 会永久滞留 KV。正常流程仍由 finalize 主动删除，TTL 仅在异常时生效。
+    await db.put(chunkKey, JSON.stringify(chunkData), { expirationTtl: 86400 });
 
     // 8. 返回成功响应
     return jsonResponse({

@@ -229,7 +229,9 @@ async function acquireRebuildLock(context) {
 async function releaseRebuildLock(context) {
     const { env } = context;
     const db = getDatabase(env);
-    await db.delete(REBUILD_LOCK_KEY).catch(() => {});
+    await db.delete(REBUILD_LOCK_KEY).catch((error) => {
+        console.warn('Failed to release rebuild lock:', error?.message);
+    });
 }
 
 async function scheduleRebuildIfNeeded(context) {
@@ -1078,7 +1080,7 @@ export async function rebuildIndex(context, progressCallback = null, options = {
         }
 
         // 按时间戳倒序排序
-        newIndex.files.sort((a, b) => b.metadata.TimeStamp - a.metadata.TimeStamp);
+        newIndex.files.sort((a, b) => (b.metadata?.TimeStamp || 0) - (a.metadata?.TimeStamp || 0));
 
         newIndex.totalCount = newIndex.files.length;
 

@@ -132,7 +132,34 @@ export function sanitizeUploadFolder(folder) {
     return sanitizedSegments.join('/');
 }
 
-// 检查文件扩展名是否有效
+/**
+ * 路径遍历安全校验（拒绝式，不改写 key）
+ * 用于 delete/move 等"按既有 key 查找"的场景：不能像 sanitizeUploadFolder 那样改写，
+ * 否则含空格/括号/# 等合法文件名的 key 会被改写导致查找不到（静默删/移失败）。
+ * 只拒绝真正危险的形态：.. 路径段、绝对路径、反斜杠绝对路径、空字节。
+ * @param {string} path - 解码后的路径/key
+ * @returns {boolean} 安全返回 true，否则 false
+ */
+export function isPathSafe(path) {
+    if (!path) {
+        return true;
+    }
+    // 拒绝空字节
+    if (path.includes('\0')) {
+        return false;
+    }
+    // 统一分隔符后逐段判断
+    const normalized = path.replace(/\\/g, '/');
+    // 拒绝绝对路径
+    if (normalized.startsWith('/')) {
+        return false;
+    }
+    // 拒绝任意位置的 .. 路径段（精确按段匹配，避免误伤 my..file.jpg 这类合法名）
+    if (normalized.split('/').some(seg => seg === '..')) {
+        return false;
+    }
+    return true;
+}
 const VALID_EXTENSIONS = new Set([
     'jpeg', 'jpg', 'png', 'gif', 'webp', 'heic', 'heif', 'avif', 'ico', 'svg', 'eps', 'psd', 'ai', 'sketch', 'fig',
     'mp4', 'mp3', 'ogg', 'wav', 'flac', 'aac', 'opus',
