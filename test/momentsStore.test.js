@@ -52,6 +52,51 @@ function createAttachmentInsertFailingD1(d1) {
   };
 }
 
+function createAttachmentInsertAndRollbackFailingD1() {
+  return {
+    prepare(sql) {
+      const shouldFailAttachmentInsert = sql.includes('INSERT INTO moment_attachments');
+      const shouldFailPostRollback = sql.includes('DELETE FROM moments_posts WHERE id = ?');
+
+      return {
+        bind(...params) {
+          this.params = params;
+          return this;
+        },
+        async run() {
+          if (shouldFailAttachmentInsert) {
+            throw new Error('attachment insert failed');
+          }
+          if (shouldFailPostRollback) {
+            throw new Error('post rollback failed');
+          }
+          return { success: true };
+        },
+        async first() {
+          if (sql.includes("sqlite_master WHERE type = 'table' AND name = 'files'")) {
+            return { name: 'files' };
+          }
+          if (sql.includes('SELECT metadata FROM files WHERE id = ?')) {
+            return {
+              metadata: JSON.stringify({
+                FileName: 'a.jpg',
+                FileType: 'image/jpeg',
+              }),
+            };
+          }
+          return null;
+        },
+        async all() {
+          if (sql.includes('PRAGMA table_info(moments_posts)')) {
+            return { results: [{ name: 'moment_date' }] };
+          }
+          return { results: [] };
+        },
+      };
+    },
+  };
+}
+
 function createQueryCountingD1(d1) {
   const counts = {
     filesTableChecks: 0,
@@ -160,6 +205,25 @@ describe('MomentsStore', () => {
 
     assert.equal(postCount.total, 0);
     assert.equal(attachmentCount.total, 0);
+  });
+
+  it('reports both original and rollback errors when create rollback fails', async () => {
+    const store = new MomentsStore({ img_d1: createAttachmentInsertAndRollbackFailingD1() });
+
+    await assert.rejects(
+      () => store.createPost({
+        body: 'rollback should report both errors',
+        fileIds: ['Moments/2026-05-16/a.jpg'],
+        now: '2026-05-16T20:15:00.000Z',
+      }),
+      (error) => {
+        assert.match(error.message, /attachment insert failed/);
+        assert.match(error.message, /post rollback failed/);
+        assert.equal(error.cause?.message, 'attachment insert failed');
+        assert.equal(error.rollbackError?.message, 'post rollback failed');
+        return true;
+      },
+    );
   });
 
   it('creates, lists, filters, and deletes D1-backed posts with hydrated image attachments', async () => {

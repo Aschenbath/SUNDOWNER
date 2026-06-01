@@ -64,6 +64,13 @@ function createAttachmentId(postId, index) {
   return `${postId}-att-${String(index).padStart(2, '0')}`;
 }
 
+function createRollbackFailureError(operation, originalError, rollbackError) {
+  const error = new Error(`${operation} failed and rollback also failed. Original error: ${originalError?.message || originalError}. Rollback error: ${rollbackError?.message || rollbackError}`);
+  error.cause = originalError;
+  error.rollbackError = rollbackError;
+  return error;
+}
+
 function assertD1(env = {}) {
   if (!env?.img_d1 || typeof env.img_d1.prepare !== 'function') {
     const error = new Error('D1 database is required for Moments');
@@ -238,8 +245,12 @@ export class MomentsStore {
         ).run();
       }
     } catch (error) {
-      await this.db.prepare('DELETE FROM moment_attachments WHERE post_id = ?').bind(postId).run();
-      await this.db.prepare('DELETE FROM moments_posts WHERE id = ?').bind(postId).run();
+      try {
+        await this.db.prepare('DELETE FROM moment_attachments WHERE post_id = ?').bind(postId).run();
+        await this.db.prepare('DELETE FROM moments_posts WHERE id = ?').bind(postId).run();
+      } catch (rollbackError) {
+        throw createRollbackFailureError('Moment create', error, rollbackError);
+      }
       throw error;
     }
 
@@ -287,22 +298,26 @@ export class MomentsStore {
         ).run();
       }
     } catch (error) {
-      await this.db.prepare('DELETE FROM moment_attachments WHERE post_id = ?').bind(normalizedId).run();
-      for (let index = 0; index < existingPost.attachments.length; index += 1) {
-        const attachment = existingPost.attachments[index];
+      try {
+        await this.db.prepare('DELETE FROM moment_attachments WHERE post_id = ?').bind(normalizedId).run();
+        for (let index = 0; index < existingPost.attachments.length; index += 1) {
+          const attachment = existingPost.attachments[index];
+          await this.db.prepare(
+            'INSERT INTO moment_attachments (id, post_id, file_id, sort_order, created_at) VALUES (?, ?, ?, ?, ?)'
+          ).bind(
+            attachment.id || createAttachmentId(normalizedId, index),
+            normalizedId,
+            attachment.fileId,
+            Number(attachment.sortOrder || index),
+            attachment.createdAt || existingPost.createdAt,
+          ).run();
+        }
         await this.db.prepare(
-          'INSERT INTO moment_attachments (id, post_id, file_id, sort_order, created_at) VALUES (?, ?, ?, ?, ?)'
-        ).bind(
-          attachment.id || createAttachmentId(normalizedId, index),
-          normalizedId,
-          attachment.fileId,
-          Number(attachment.sortOrder || index),
-          attachment.createdAt || existingPost.createdAt,
-        ).run();
+          'UPDATE moments_posts SET body = ?, moment_date = ?, updated_at = ? WHERE id = ?'
+        ).bind(existingPost.body || '', existingPost.momentDate || normalizeMomentDate(existingPost.createdAt), existingPost.updatedAt || existingPost.createdAt, normalizedId).run();
+      } catch (rollbackError) {
+        throw createRollbackFailureError('Moment update', error, rollbackError);
       }
-      await this.db.prepare(
-        'UPDATE moments_posts SET body = ?, moment_date = ?, updated_at = ? WHERE id = ?'
-      ).bind(existingPost.body || '', existingPost.momentDate || normalizeMomentDate(existingPost.createdAt), existingPost.updatedAt || existingPost.createdAt, normalizedId).run();
       throw error;
     }
 
