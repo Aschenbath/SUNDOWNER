@@ -34,6 +34,7 @@ function shouldPersistFileMetadataInD1(key) {
 
 const KV_METADATA_CORE_KEYS = [
     'FileName', 'FileType', 'FileSize', 'TimeStamp', 'Label', 'Directory',
+    'Tags',
     'Channel', 'ChannelName', 'ListType', 'Width', 'Height',
     'TgFileId', 'TgChatId', 'TgMessageId', 'TgFileUniqueId',
     'TgThumbnailFileId', 'TgThumbnailFileType', 'TgThumbnailFileUniqueId',

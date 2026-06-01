@@ -92,6 +92,39 @@ describe('manage tags route', () => {
     assert.equal(payload.error, 'Invalid limit');
   });
 
+  it('persists tag metadata through the KV adapter metadata whitelist', async () => {
+    const kv = new MemoryKV({
+      'photos/a.jpg': JSON.stringify({ value: 'bytes', metadata: { FileName: 'a.jpg', Tags: [] } }),
+    });
+    const update = await onRequest({
+      env: { img_url: kv },
+      params: { path: 'photos,a.jpg' },
+      waitUntil: async () => {},
+      request: new Request('https://example.com/api/manage/tags/photos/a.jpg', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'add',
+          tags: ['summer'],
+        }),
+      }),
+    });
+    const updatePayload = await update.json();
+
+    assert.equal(update.status, 200);
+    assert.deepEqual(updatePayload.tags, ['summer']);
+
+    const readBack = await onRequest({
+      env: { img_url: kv },
+      params: { path: 'photos,a.jpg' },
+      waitUntil: async () => {},
+      request: new Request('https://example.com/api/manage/tags/photos/a.jpg', { method: 'GET' }),
+    });
+    const readPayload = await readBack.json();
+
+    assert.equal(readBack.status, 200);
+    assert.deepEqual(readPayload.tags, ['summer']);
+  });
+
   it('rejects oversized batch tag updates before touching storage', async () => {
     const kv = new MemoryKV();
     const response = await batchTagsOnRequest({
