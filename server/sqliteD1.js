@@ -28,6 +28,11 @@ export class SqliteD1 {
         const db = this.db;
         return new SqliteD1Statement(db, sql);
     }
+
+    async batch(statements) {
+        const runBatch = this.db.transaction(() => statements.map((statement) => statement.runSync()));
+        return runBatch();
+    }
 }
 
 class SqliteD1Statement {
@@ -87,18 +92,22 @@ class SqliteD1Statement {
      */
     async run() {
         try {
-            const stmt = this._db.prepare(this._sql);
-            const result = stmt.run(...this._params);
-            return {
-                success: true,
-                meta: {
-                    changes: result.changes,
-                    last_row_id: result.lastInsertRowid
-                }
-            };
+            return this.runSync();
         } catch (e) {
             console.error('SQLite run() error:', e.message, 'SQL:', this._sql);
             throw e;
         }
+    }
+
+    runSync() {
+        const stmt = this._db.prepare(this._sql);
+        const result = stmt.run(...this._params);
+        return {
+            success: true,
+            meta: {
+                changes: result.changes,
+                last_row_id: result.lastInsertRowid
+            }
+        };
     }
 }

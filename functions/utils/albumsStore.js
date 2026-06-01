@@ -147,6 +147,25 @@ async function d1Run(env, sql, params = []) {
   return bound.run();
 }
 
+function d1Statement(env, sql, params = []) {
+  const statement = env.img_d1.prepare(sql);
+  return params.length ? statement.bind(...params) : statement;
+}
+
+async function d1Batch(env, statements) {
+  if (!statements.length) {
+    return [];
+  }
+  if (typeof env.img_d1.batch === 'function') {
+    return env.img_d1.batch(statements);
+  }
+  const results = [];
+  for (const statement of statements) {
+    results.push(await statement.run());
+  }
+  return results;
+}
+
 async function d1All(env, sql, params = []) {
   const statement = env.img_d1.prepare(sql);
   const bound = params.length ? statement.bind(...params) : statement;
@@ -235,6 +254,7 @@ async function replaceAlbumStateInD1(env, nextState) {
   const existingByLookup = new Map(
     existingAlbums.map((row) => [normalizeAlbumLookup(row.name), { id: normalizeText(row.id), name: normalizeAlbumName(row.name) }]),
   );
+  const statements = [];
 
   for (const albumName of normalizedState.albumNames) {
     const lookup = normalizeAlbumLookup(albumName);
@@ -242,26 +262,19 @@ async function replaceAlbumStateInD1(env, nextState) {
       continue;
     }
     const albumId = crypto.randomUUID();
-    await d1Run(
+    statements.push(d1Statement(
       env,
       'INSERT INTO albums (id, name, cover_file_id) VALUES (?, ?, ?)',
       [albumId, albumName, null],
-    );
+    ));
     existingByLookup.set(lookup, { id: albumId, name: albumName });
   }
 
   const desiredLookups = new Set(normalizedState.albumNames.map((albumName) => normalizeAlbumLookup(albumName)));
-  const resolvedAlbums = await d1All(
-    env,
-    'SELECT id, name FROM albums WHERE id != ?',
-    [FAVORITES_ALBUM_ID],
-  );
-  const resolvedByLookup = new Map(
-    resolvedAlbums.map((row) => [normalizeAlbumLookup(row.name), { id: normalizeText(row.id), name: normalizeAlbumName(row.name) }]),
-  );
+  const resolvedByLookup = existingByLookup;
 
-  await d1Run(env, 'DELETE FROM album_files WHERE album_id = ?', [FAVORITES_ALBUM_ID]);
-  await d1Run(env, 'DELETE FROM album_files WHERE album_id != ?', [FAVORITES_ALBUM_ID]);
+  statements.push(d1Statement(env, 'DELETE FROM album_files WHERE album_id = ?', [FAVORITES_ALBUM_ID]));
+  statements.push(d1Statement(env, 'DELETE FROM album_files WHERE album_id != ?', [FAVORITES_ALBUM_ID]));
 
   for (const [fileId, albumNames] of Object.entries(normalizedState.albumAssignments)) {
     const names = Array.isArray(albumNames) ? albumNames : [albumNames];
@@ -270,32 +283,33 @@ async function replaceAlbumStateInD1(env, nextState) {
       if (!album) {
         continue;
       }
-      await d1Run(
+      statements.push(d1Statement(
         env,
         'INSERT OR REPLACE INTO album_files (album_id, file_id) VALUES (?, ?)',
         [album.id, fileId],
-      );
+      ));
     }
   }
 
   for (const fileId of normalizedState.favorites) {
-    await d1Run(
+    statements.push(d1Statement(
       env,
       'INSERT OR REPLACE INTO album_files (album_id, file_id) VALUES (?, ?)',
       [FAVORITES_ALBUM_ID, fileId],
-    );
+    ));
   }
 
   for (const album of resolvedByLookup.values()) {
     const lookup = normalizeAlbumLookup(album.name);
     if (!desiredLookups.has(lookup)) {
-      await d1Run(env, 'DELETE FROM albums WHERE id = ?', [album.id]);
+      statements.push(d1Statement(env, 'DELETE FROM albums WHERE id = ?', [album.id]));
       continue;
     }
     const coverFileId = normalizedState.albumCovers[lookup] || null;
-    await d1Run(env, 'UPDATE albums SET cover_file_id = ? WHERE id = ?', [coverFileId, album.id]);
+    statements.push(d1Statement(env, 'UPDATE albums SET cover_file_id = ? WHERE id = ?', [coverFileId, album.id]));
   }
 
+  await d1Batch(env, statements);
   return loadAlbumStateFromD1(env);
 }
 
