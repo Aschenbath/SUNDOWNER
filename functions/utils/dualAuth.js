@@ -7,6 +7,7 @@ import {
 } from './sysConfig.js';
 import { validateApiToken } from './tokenValidator.js';
 import { userAuthCheck } from './userAuth.js';
+import { constantTimeEqual } from './constantTimeEqual.js';
 
 export async function dualAuthCheck(env, url, request) {
     const adminAuthPassed = await adminAuthCheck(env, request);
@@ -41,7 +42,7 @@ async function adminAuthCheck(env, request) {
     try {
         const { user, pass } = parseBasicAuth(request);
         const { username: basicUser, password: basicPass } = getConfiguredAdminCredentials(securityConfig);
-        return user === basicUser && pass === basicPass;
+        return constantTimeEqual(user, basicUser) && constantTimeEqual(pass, basicPass);
     } catch {
         return false;
     }

@@ -6,6 +6,7 @@ import {
 } from "../utils/sysConfig.js";
 import { optionsResponse, withCorsHeaders } from '../utils/cors.js';
 import { checkRateLimit, getClientIp, createRateLimitResponse } from '../utils/rateLimiter.js';
+import { constantTimeEqual } from '../utils/constantTimeEqual.js';
 
 function invalidBodyResponse() {
     return new Response(JSON.stringify({ success: false, error: 'Invalid request body' }), {
@@ -63,7 +64,7 @@ export async function onRequestPost(context) {
     }
 
     const rightAuthCode = getConfiguredUserAuthCode(securityConfig);
-    if (authCode !== rightAuthCode) {
+    if (!constantTimeEqual(authCode, rightAuthCode)) {
         return new Response('Unauthorized', {
             status: 401,
             headers: withCorsHeaders(),

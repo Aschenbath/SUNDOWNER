@@ -1,5 +1,6 @@
 import { getDatabase } from '../../utils/databaseAdapter.js';
 import { filterAutoDeleteTokens } from '../../utils/tokenExpiration.js';
+import { constantTimeEqual } from '../../utils/constantTimeEqual.js';
 
 export async function onRequest(context) {
     // API Token管理，支持创建、删除、列出Token
@@ -244,7 +245,7 @@ export async function getTokenPermissions(db, token) {
     
     // 查找匹配的token
     for (const tokenId in tokens) {
-        if (tokens[tokenId].token === token) {
+        if (constantTimeEqual(tokens[tokenId].token, token)) {
             return tokens[tokenId].permissions
         }
     }
@@ -260,7 +261,7 @@ export async function getTokenData(db, token) {
     
     // 查找匹配的token
     for (const tokenId in tokens) {
-        if (tokens[tokenId].token === token) {
+        if (constantTimeEqual(tokens[tokenId].token, token)) {
             const t = tokens[tokenId]
             return {
                 id: t.id,

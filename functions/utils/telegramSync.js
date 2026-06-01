@@ -21,6 +21,7 @@ import {
     shouldUpsertTelegramMomentsPost,
 } from './momentsTelegramSync.js'
 import { MomentsStore } from './momentsStore.js'
+import { constantTimeEqual } from './constantTimeEqual.js'
 
 const TELEGRAM_ALLOWED_UPDATES = ['channel_post', 'edited_channel_post']
 const TELEGRAM_ALBUM_COMMAND_PREFIX = 'telegram-sync@album-command@'
@@ -1039,7 +1040,7 @@ export async function handleTelegramWebhook(context, channelName, providedSecret
             reason: 'sync_disabled',
         }
     }
-    if (!channel.webhookSecret || providedSecret !== channel.webhookSecret) {
+    if (!channel.webhookSecret || !constantTimeEqual(providedSecret, channel.webhookSecret)) {
         const error = new Error('Invalid Telegram webhook secret')
         error.status = 401
         throw error

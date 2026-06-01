@@ -1,5 +1,6 @@
 // WebDAV 服务支持
 import { fetchSecurityConfig, fetchOthersConfig } from "../utils/sysConfig.js";
+import { constantTimeEqual } from "../utils/constantTimeEqual.js";
 
 function InternalServerErrorResponse(message = 'Internal server error', status = 500) {
     return new Response(message, { status });
@@ -74,7 +75,7 @@ async function checkAuth(request, env) {
     }
 
     const [user, pass] = atob(encoded).split(':');
-    if (user !== davUser || pass !== davPass) {
+    if (!constantTimeEqual(user, davUser) || !constantTimeEqual(pass, davPass)) {
         return new Response('Invalid credentials', { status: 403 });
     }
 

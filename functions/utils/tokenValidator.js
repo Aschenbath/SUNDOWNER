@@ -1,6 +1,7 @@
 // API Token权限验证工具函数
 import { getTokenData } from '../api/manage/apiTokens.js';
 import { isExpired } from './tokenExpiration.js';
+import { constantTimeEqual } from './constantTimeEqual.js';
 
 /**
  * 验证API Token权限
@@ -82,7 +83,7 @@ export async function getTokenInfo(request, kv) {
     
     // 查找匹配的token
     for (const tokenId in tokens) {
-        if (tokens[tokenId].token === token) {
+        if (constantTimeEqual(tokens[tokenId].token, token)) {
             const t = tokens[tokenId];
             return {
                 ...t,
