@@ -78,6 +78,93 @@ class MemoryKV {
     }
 }
 
+class FakeD1Statement {
+    constructor(d1, sql) {
+        this.d1 = d1;
+        this.sql = sql;
+        this.params = [];
+    }
+
+    bind(...params) {
+        this.params = params;
+        return this;
+    }
+
+    async first(column) {
+        const row = this.d1.first(this.sql, this.params);
+        return column && row ? row[column] : row;
+    }
+
+    async all() {
+        return { results: this.d1.all(this.sql, this.params) };
+    }
+
+    async run() {
+        return this.d1.run(this.sql, this.params);
+    }
+}
+
+class ConcurrentPutD1 {
+    constructor() {
+        this.records = new Map();
+        this.activePuts = 0;
+        this.maxActivePuts = 0;
+        this.putOrder = [];
+    }
+
+    prepare(sql) {
+        return new FakeD1Statement(this, sql);
+    }
+
+    first(sql, params = []) {
+        if (sql.includes('SELECT value, metadata FROM files WHERE id = ?')) {
+            const record = this.records.get(params[0]);
+            return record
+                ? { value: record.value, metadata: JSON.stringify(record.metadata || {}) }
+                : null;
+        }
+        if (sql.includes('SELECT value FROM files WHERE id = ?')) {
+            return { value: this.records.get(params[0])?.value ?? null };
+        }
+        if (sql.includes('SELECT COUNT(*) AS total FROM files')) {
+            return { total: this.records.size };
+        }
+        return null;
+    }
+
+    all() {
+        return [];
+    }
+
+    async run(sql, params = []) {
+        if (sql.includes('INSERT OR REPLACE INTO files')) {
+            const [id, value, metadata] = params;
+            this.activePuts += 1;
+            this.maxActivePuts = Math.max(this.maxActivePuts, this.activePuts);
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            this.activePuts -= 1;
+            this.putOrder.push(id);
+            this.records.set(id, {
+                value,
+                metadata: metadata ? JSON.parse(metadata) : {},
+            });
+        }
+        if (sql.includes('INSERT OR REPLACE INTO settings')) {
+            const [key, value] = params;
+            this.activePuts += 1;
+            this.maxActivePuts = Math.max(this.maxActivePuts, this.activePuts);
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            this.activePuts -= 1;
+            this.putOrder.push(key);
+            this.records.set(key, {
+                value,
+                metadata: {},
+            });
+        }
+        return { success: true, meta: { changes: 1 } };
+    }
+}
+
 function createContext(env, request = new Request('https://example.com/api/manage/list')) {
     return {
         env,
@@ -509,6 +596,50 @@ describe('D1 metadata migration path', () => {
                 reason: 'missing_metadata',
             },
         ]);
+    });
+
+    it('migrates KV records to D1 with bounded write concurrency and marks complete last', async () => {
+        const imgD1 = new ConcurrentPutD1();
+        const env = {
+            img_url: new MemoryKV(),
+            img_d1: imgD1,
+        };
+        const fileKeys = Array.from({ length: 7 }, (_, index) => `photos/migrate-${index}.jpg`);
+        for (const [index, key] of fileKeys.entries()) {
+            await env.img_url.put(key, 'kv-value', {
+                metadata: {
+                    FileName: `migrate-${index}.jpg`,
+                    FileType: 'image/jpeg',
+                    TimeStamp: 100 + index,
+                    Directory: 'photos/',
+                },
+            });
+        }
+        await env.img_url.put('manage@sysConfig@upload', JSON.stringify({
+            telegram: { channels: [] },
+        }));
+
+        const response = await migrateKvToD1(createContext(
+            env,
+            new Request('https://example.com/api/manage/migrate/kv-to-d1', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ limit: 100, rebuild: false }),
+            }),
+        ));
+
+        assert.equal(response.status, 200);
+        const payload = await response.json();
+        assert.equal(payload.migratedFiles, 7);
+        assert.equal(payload.migratedSettings, 1);
+        assert.ok(imgD1.maxActivePuts > 1);
+        assert.ok(imgD1.maxActivePuts <= 3);
+        const markerIndex = imgD1.putOrder.lastIndexOf(KV_TO_D1_MIGRATION_STATE_KEY);
+        assert.ok(markerIndex > -1);
+        for (const key of [...fileKeys, 'manage@sysConfig@upload']) {
+            assert.ok(imgD1.putOrder.indexOf(key) > -1);
+            assert.ok(imgD1.putOrder.indexOf(key) < markerIndex);
+        }
     });
 
     it('queryFiles paginates and returns the total count', async () => {

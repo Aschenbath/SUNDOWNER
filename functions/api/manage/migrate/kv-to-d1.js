@@ -3,6 +3,8 @@ import { D1Database } from '../../../utils/d1Database.js';
 import { KV_TO_D1_MIGRATION_STATE_KEY } from '../../../utils/databaseAdapter.js';
 import { loadLegacyKvIndexMetadataMap, mergeCaptureMetadata } from '../../../utils/captureTimeMetadata.js';
 
+const MIGRATION_WRITE_CONCURRENCY = 3;
+
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -25,6 +27,21 @@ function shouldSkipKey(key) {
         || key.startsWith('manage@index')
         || key === 'manage@sysConfig@mediaLibraryAlbums'
     );
+}
+
+async function runWithConcurrency(items, concurrency, worker) {
+    const results = new Array(items.length);
+    let nextIndex = 0;
+    const workerCount = Math.min(Math.max(1, concurrency), items.length);
+    const runners = Array.from({ length: workerCount }, async () => {
+        while (nextIndex < items.length) {
+            const currentIndex = nextIndex;
+            nextIndex += 1;
+            results[currentIndex] = await worker(items[currentIndex], currentIndex);
+        }
+    });
+    await Promise.all(runners);
+    return results;
 }
 
 export async function onRequest(context) {
@@ -91,54 +108,38 @@ async function onRequestPost(context) {
         cursor,
     });
 
-    let migratedFiles = 0;
-    let migratedSettings = 0;
-    let skipped = 0;
     const skippedKeys = [];
     const targetFileKeys = (response.keys || [])
         .map((item) => item?.name)
         .filter((key) => key && !shouldSkipKey(key) && !key.startsWith('manage@'));
     const legacyIndexMetadataMap = await loadLegacyKvIndexMetadataMap(env, targetFileKeys);
 
-    function recordSkippedKey(key, reason) {
-        skipped += 1;
-        if (skippedKeys.length < 100) {
-            skippedKeys.push({ key, reason });
-        }
-    }
-
-    for (const item of response.keys || []) {
+    const migrationResults = await runWithConcurrency(response.keys || [], MIGRATION_WRITE_CONCURRENCY, async (item) => {
         const key = item.name;
         if (shouldSkipKey(key)) {
-            recordSkippedKey(key, 'internal_key');
-            continue;
+            return { skippedKey: { key, reason: 'internal_key' } };
         }
 
         if (key.startsWith('manage@sysConfig@')) {
             if (!includeSettings) {
-                recordSkippedKey(key, 'settings_excluded');
-                continue;
+                return { skippedKey: { key, reason: 'settings_excluded' } };
             }
 
             const value = await env.img_url.get(key);
             if (value === null) {
-                recordSkippedKey(key, 'missing_setting_value');
-                continue;
+                return { skippedKey: { key, reason: 'missing_setting_value' } };
             }
 
             await d1.put(key, value);
-            migratedSettings += 1;
-            continue;
+            return { migratedSettings: 1 };
         }
 
         if (key.startsWith('manage@')) {
-            recordSkippedKey(key, 'unsupported_manage_key');
-            continue;
+            return { skippedKey: { key, reason: 'unsupported_manage_key' } };
         }
 
         if (!item.metadata || Object.keys(item.metadata).length === 0) {
-            recordSkippedKey(key, 'missing_metadata');
-            continue;
+            return { skippedKey: { key, reason: 'missing_metadata' } };
         }
 
         await d1.put(key, '', {
@@ -148,7 +149,21 @@ async function onRequestPost(context) {
                 item.metadata?.FileName || key,
             ),
         });
-        migratedFiles += 1;
+        return { migratedFiles: 1 };
+    });
+
+    let migratedFiles = 0;
+    let migratedSettings = 0;
+    let skipped = 0;
+    for (const result of migrationResults) {
+        migratedFiles += result?.migratedFiles || 0;
+        migratedSettings += result?.migratedSettings || 0;
+        if (result?.skippedKey) {
+            skipped += 1;
+            if (skippedKeys.length < 100) {
+                skippedKeys.push(result.skippedKey);
+            }
+        }
     }
 
     const migrationStatus = {
