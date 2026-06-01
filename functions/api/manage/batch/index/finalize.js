@@ -240,8 +240,6 @@ async function saveIndex(db, files, env) {
       chunkSize: chunkSize,
     };
 
-    await db.put(INDEX_META_KEY, JSON.stringify(metadata));
-
     // 保存各个分块
     const savePromises = chunks.map((chunk, chunkId) => {
       const chunkKey = `${INDEX_KEY}_${chunkId}`;
@@ -249,6 +247,7 @@ async function saveIndex(db, files, env) {
     });
 
     await Promise.all(savePromises);
+    await db.put(INDEX_META_KEY, JSON.stringify(metadata));
 
     console.log(`Saved index: ${chunks.length} chunks, ${files.length} total files, ${totalSizeMB.toFixed(2)} MB`);
 
@@ -282,37 +281,24 @@ async function cleanupChunks(db, sessionId, totalChunks) {
   console.log(`Cleaned up ${totalChunks} temporary chunks for session ${sessionId}`);
 }
 
-/**
- * 清理旧的索引分块（如果新索引分块数量少于旧的）
- * @param {Object} db - 数据库实例
- * @param {number} newChunkCount - 新索引的分块数量
- * @returns {Promise<void>}
- */
-async function cleanupOldIndexChunks(db, newChunkCount) {
+async function cleanupOldIndexChunksFromCount(db, oldChunkCount, newChunkCount) {
   try {
-    // 读取旧的元数据获取旧的分块数量
-    const oldMetaStr = await db.get(INDEX_META_KEY);
-    if (!oldMetaStr) {
+    if (newChunkCount >= oldChunkCount) {
       return;
     }
 
-    const oldMeta = JSON.parse(oldMetaStr);
-    const oldChunkCount = oldMeta.chunkCount || 0;
-
-    // 如果新的分块数量少于旧的，删除多余的分块
-    if (newChunkCount < oldChunkCount) {
-      const deletePromises = [];
-      for (let i = newChunkCount; i < oldChunkCount; i++) {
-        const chunkKey = `${INDEX_KEY}_${i}`;
-        deletePromises.push(
-          db.delete(chunkKey).catch(error => {
-            console.warn(`Failed to delete old index chunk ${chunkKey}:`, error);
-          })
-        );
-      }
-      await Promise.all(deletePromises);
-      console.log(`Cleaned up ${oldChunkCount - newChunkCount} old index chunks`);
+    const deletePromises = [];
+    for (let i = newChunkCount; i < oldChunkCount; i++) {
+      const chunkKey = `${INDEX_KEY}_${i}`;
+      deletePromises.push(
+        db.delete(chunkKey).catch(error => {
+          console.warn(`Failed to delete old index chunk ${chunkKey}:`, error);
+        })
+      );
     }
+
+    await Promise.all(deletePromises);
+    console.log(`Cleaned up ${oldChunkCount - newChunkCount} old index chunks`);
   } catch (error) {
     console.warn('Error cleaning up old index chunks:', error);
   }
@@ -348,6 +334,15 @@ export async function onRequestPost(context) {
 
     // 4. 获取数据库实例
     const db = getDatabase(env);
+    let oldChunkCount = 0;
+    try {
+      const oldMetaStr = await db.get(INDEX_META_KEY);
+      if (oldMetaStr) {
+        oldChunkCount = JSON.parse(oldMetaStr).chunkCount || 0;
+      }
+    } catch (error) {
+      console.warn('Error reading old index metadata before finalize cleanup:', error);
+    }
 
     // 5. 处理空索引的情况
     if (totalChunks === 0 || totalFiles === 0) {
@@ -358,7 +353,7 @@ export async function onRequestPost(context) {
       }
 
       // 清理旧的索引分块
-      await cleanupOldIndexChunks(db, 0);
+      await cleanupOldIndexChunksFromCount(db, oldChunkCount, 0);
 
       return jsonResponse({
         success: true,
@@ -385,13 +380,14 @@ export async function onRequestPost(context) {
     // 9. 清理旧的索引分块（在保存新索引之前）
     const chunkSize = getIndexChunkSize(env);
     const newChunkCount = Math.ceil(allFiles.length / chunkSize);
-    await cleanupOldIndexChunks(db, newChunkCount);
 
     // 10. 保存新索引
     const saveResult = await saveIndex(db, allFiles, env);
     if (!saveResult.success) {
       return errorResponse('Failed to save index', 500, saveResult.error);
     }
+
+    await cleanupOldIndexChunksFromCount(db, oldChunkCount, newChunkCount);
 
     // 11. 清理临时分块数据
     // 使用 waitUntil 异步清理，不阻塞响应

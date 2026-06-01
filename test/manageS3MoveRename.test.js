@@ -200,6 +200,45 @@ describe('S3 manage move/rename routes', () => {
       resetMoveS3ClientFactory();
     }
   });
+
+  it('does not move over an existing destination file', async () => {
+    const env = createS3Env();
+    await seedS3Record(env);
+    await env.img_url.put('archive/old.jpg', 'existing-value', {
+      metadata: {
+        Channel: 'External',
+        FileName: 'old.jpg',
+        FileType: 'image/jpeg',
+        Directory: 'archive/',
+      },
+    });
+
+    const createdClients = [];
+    const sentCommands = [];
+    setMoveS3ClientFactory(createS3ClientFactory(createdClients, sentCommands));
+
+    try {
+      const response = await moveOnRequest({
+        env,
+        params: { path: 'photos,old.jpg' },
+        request: new Request('https://sundowner.example/api/manage/move/photos,old.jpg?dist=archive'),
+        waitUntil() {
+          throw new Error('index move should not be scheduled for a destination conflict');
+        },
+      });
+
+      assert.equal(response.status, 409);
+      const payload = await response.json();
+      assert.equal(payload.success, false);
+      assert.equal(payload.error, 'Target file already exists');
+      assert.deepEqual(sentCommands, []);
+      assert.equal(await env.img_url.get('photos/old.jpg'), 'kv-value');
+      assert.equal(await env.img_url.get('archive/old.jpg'), 'existing-value');
+    } finally {
+      resetMoveS3ClientFactory();
+    }
+  });
+
   it('does not expose legacy S3 secrets in rename responses', async () => {
     const env = createS3Env();
     await seedS3Record(env);

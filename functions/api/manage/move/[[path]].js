@@ -42,6 +42,7 @@ export async function onRequest(context) {
 
             const processedFiles = [];
             const failedFiles = [];
+            const db = getDatabase(env);
 
             while (folderQueue.length > 0) {
                 const currentFolder = folderQueue.shift();
@@ -64,6 +65,11 @@ export async function onRequest(context) {
                     const fileName = file.name.split('/').pop();
                     const newFileId = `${folderDist}/${fileName}`;
                     const cdnUrl = `https://${url.hostname}/file/${fileId}`;
+                    const existingFile = await db.getWithMetadata(newFileId);
+                    if (existingFile && existingFile.value !== null) {
+                        failedFiles.push(fileId);
+                        continue;
+                    }
 
                     const success = await moveFile(env, fileId, newFileId, cdnUrl, url);
                     if (success) {
@@ -119,6 +125,14 @@ export async function onRequest(context) {
         const fileKey = fileId.split('/').pop();
         const newFileId = dist === '' ? fileKey : `${dist}/${fileKey}`;
         const cdnUrl = `https://${url.hostname}/file/${fileId}`;
+        const db = getDatabase(env);
+        const existingFile = await db.getWithMetadata(newFileId);
+        if (existingFile && existingFile.value !== null) {
+            return new Response(JSON.stringify({
+                success: false,
+                error: 'Target file already exists'
+            }), { status: 409 });
+        }
 
         const success = await moveFile(env, fileId, newFileId, cdnUrl, url);
         if (!success) {

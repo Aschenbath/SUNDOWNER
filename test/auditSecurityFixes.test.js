@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import { onRequest as securityOnRequest } from '../functions/api/manage/sysConfig/security.js';
 import { onRequest as publicListOnRequest } from '../functions/api/public/list.js';
@@ -192,5 +193,18 @@ describe('audit security hardening', () => {
     } else {
       assert.ok([200, 403, 404, 207].includes(response.status));
     }
+  });
+
+  it('keeps D1 queryFiles totals accurate when pagination returns no rows', () => {
+    const source = fs.readFileSync(new URL('../functions/utils/d1Database.js', import.meta.url), 'utf8');
+    const resultsAssignment = source.indexOf('const results = rows.results || [];');
+    const emptyOffsetGuard = source.indexOf('if (results.length === 0 && offset > 0)', resultsAssignment);
+    const fallbackCount = source.indexOf('SELECT COUNT(*) AS total FROM files${whereSql}', emptyOffsetGuard);
+    const filteredParams = source.indexOf(').bind(...params).first();', fallbackCount);
+
+    assert.ok(resultsAssignment >= 0, 'queryFiles should assign paginated results before computing total');
+    assert.ok(emptyOffsetGuard > resultsAssignment, 'empty pages past the first offset need a total-count fallback');
+    assert.ok(fallbackCount > emptyOffsetGuard, 'fallback count must reuse the same filtered WHERE clause');
+    assert.ok(filteredParams > fallbackCount, 'fallback count must bind the same filter params');
   });
 });

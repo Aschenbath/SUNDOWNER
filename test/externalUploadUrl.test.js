@@ -11,9 +11,13 @@ class MemoryKV {
   constructor() {
     this.store = new Map();
     this.metadata = new Map();
+    this.failPuts = new Set();
   }
 
   async put(key, value, options = {}) {
+    if (this.failPuts.has(key)) {
+      throw new Error(`KV put failed for ${key}`);
+    }
     this.store.set(key, value);
     this.metadata.set(key, options.metadata || {});
   }
@@ -53,6 +57,7 @@ class MemoryKV {
 class MemoryR2 {
   constructor() {
     this.objects = new Map();
+    this.deleteCalls = [];
   }
 
   async put(key, value) {
@@ -61,6 +66,11 @@ class MemoryR2 {
 
   async get(key) {
     return this.objects.get(key) || null;
+  }
+
+  async delete(key) {
+    this.deleteCalls.push(key);
+    this.objects.delete(key);
   }
 }
 
@@ -173,12 +183,69 @@ describe('external upload URL normalization', () => {
     }
   });
 
+  it('removes an R2 object when the metadata write fails after upload', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: false,
+      async json() {
+        return {};
+      },
+    });
+
+    try {
+      const formdata = new FormData();
+      formdata.set('file', new File([new Uint8Array([0x00, 0x01, 0x02])], 'orphan.jpg', { type: 'image/jpeg' }));
+
+      const env = {
+        dev_mode: 'true',
+        img_url: new MemoryKV(),
+        img_r2: new MemoryR2(),
+      };
+      env.img_url.failPuts.add('photos/orphan.jpg');
+
+      const requestUrl = new URL('https://sundowner.example/upload?uploadChannel=cfr2&uploadFolder=photos&uploadNameType=origin&autoRetry=false');
+      const response = await processFileUpload({
+        env,
+        request: new Request(requestUrl, { method: 'POST' }),
+        url: requestUrl,
+        uploadConfig: {
+          cfr2: {
+            channels: [{ name: 'R2_env', publicUrl: 'https://cdn.example.com' }],
+          },
+        },
+        waitUntil() {
+          throw new Error('endUpload must not be scheduled after metadata write failure');
+        },
+      }, formdata);
+
+      assert.equal(response.status, 500);
+      assert.equal(env.img_r2.objects.has('photos/orphan.jpg'), false);
+      assert.deepEqual(env.img_r2.deleteCalls, ['photos/orphan.jpg']);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('keeps HEIC uploads on Telegram document transport instead of photo transport', () => {
     const source = fs.readFileSync(new URL('../functions/upload/index.js', import.meta.url), 'utf8');
 
     assert.match(source, /fileType === 'image\/heic'/);
     assert.match(source, /fileType === 'image\/heif'/);
     assert.match(source, /sendFunction = \{ 'url': 'sendDocument', 'type': 'document' \}/);
+  });
+
+  it('returns immediately when Telegram metadata persistence fails', () => {
+    const source = fs.readFileSync(new URL('../functions/upload/index.js', import.meta.url), 'utf8');
+    const telegramMetadataStart = source.indexOf('metadata.Channel = "TelegramNew";');
+    const dbPutStart = source.indexOf('await db.put(fullId, "", {', telegramMetadataStart);
+    const catchStart = source.indexOf('} catch (error) {', dbPutStart);
+    const waitUntilStart = source.indexOf('waitUntil(endUpload(context, fullId, metadata));', catchStart);
+
+    assert.ok(telegramMetadataStart >= 0, 'Telegram metadata block should be present');
+    assert.ok(dbPutStart > telegramMetadataStart, 'Telegram metadata db.put should be present');
+    assert.ok(catchStart > dbPutStart, 'Telegram metadata catch block should be present');
+    assert.ok(waitUntilStart > catchStart, 'Telegram waitUntil should remain after the persistence block');
+    assert.match(source.slice(catchStart, waitUntilStart), /return res;/);
   });
 
   it('creates a stored preview thumbnail for ordinary Telegram HEIC uploads when Telegram omits one', async () => {

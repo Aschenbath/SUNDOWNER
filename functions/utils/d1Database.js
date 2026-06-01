@@ -560,7 +560,13 @@ class D1Database {
         ).bind(...params, pageSize, offset).all();
 
         const results = rows.results || [];
-        const total = results.length > 0 ? Number(results[0].total || 0) : 0;
+        let total = results.length > 0 ? Number(results[0].total || 0) : 0;
+        if (results.length === 0 && offset > 0) {
+            const countRow = await this.db.prepare(
+                `SELECT COUNT(*) AS total FROM files${whereSql}`
+            ).bind(...params).first();
+            total = Number(countRow?.total || 0);
+        }
 
         return {
             files: results.map((row) => ({

@@ -709,3 +709,12 @@ UX audit workflow completed; only one verified `ship-now` item was safe enough t
 - `test/previewActions.test.js`: added source-contract coverage for no-op skip, local patch, and stale-response rollback guard. RED verified first: new test failed on missing `renameItemSaveSequences`; GREEN passed after implementation.
 - Cache-bust: `js/entry-loader.js` bumped media app modulepreload/loadScript from `app.js?v=350` to `v=351`; `index.html` bumped `entry-loader.js?v=7` to `v=8`; `test/entryLoader.test.js` updated fixed assertions.
 Validation: node --check for `app.js`, `entry-loader.js`, `previewActions.test.js`, `entryLoader.test.js`; focused rename tests 2/2; `entryLoader.test.js` 16/16; full Node 22 Mocha `582 passing / 1 pending / 75 failing`. The +1 passing is the new source-contract test; 75 failing unchanged from baseline. Wider frontend subset still exposes an unrelated baseline failure in `PrivateAlbumGate` missing `>Unlock<`; confirmed by stash baseline run on `ccf02e1`, not caused by this change.
+
+### M2 / M3 / M5 / M6 / M7 已修 (pending commit)
+Phase 5 下一批单点数据完整性/错误处理项，动手前由主线 + 2 个 read-only explorer 复核 premise，5 条全部成立；KV 竞态批仍未动。
+- **M2 `upload/index.js` Telegram metadata fail**：Telegram 上传成功后若 `db.put(fullId)` 失败，catch 现在直接返回 500，不再继续 `waitUntil(endUpload -> addFileToIndex)`，避免 KV-index 模式留下指向缺失 metadata 的悬空索引操作。
+- **M3 `upload/index.js` R2 orphan object**：R2 bytes 先写、metadata 后写；metadata 写失败时现在 best-effort `R2DataBase.delete(fullId)`，再返回 500，避免孤儿 R2 对象。
+- **M5 `batch/index/finalize.js` index commit ordering**：`saveIndex` 改为 chunk bodies first、`manage@index@meta` last commit point；旧 chunks cleanup 改为先 capture old chunkCount，save 成功后按旧 count 清理。顺手修了 empty-index 分支 save 后读新 meta 导致旧 chunks 清不掉的问题。
+- **M6 `d1Database.js queryFiles`**：分页 offset 越过末行时 window `COUNT(*) OVER()` 无行可读，现用同一 `whereSql + params` 补 `SELECT COUNT(*) AS total`，保留真实 total。
+- **M7 `move/[[path]].js` destination conflict**：single move 目标存在返回 409；folder move 目标存在则该文件进 `failed`，不做远端 copy/delete、不 schedule index move，补齐 rename 已有的冲突保护。
+测试：新增/更新 `externalUploadUrl.test.js`、`manageS3MoveRename.test.js`、`batchIndexFinalize.test.js`、`auditSecurityFixes.test.js` 共 6 条 regression/source-contract。Focused 6 passing；全量 Node 22 Mocha `588 passing / 1 pending / 75 failing`，75 failing 仍是既有本地 better-sqlite3/D1 环境 baseline，未增加。node --check 8 文件过，`git diff --check` 干净。

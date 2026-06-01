@@ -408,6 +408,11 @@ async function uploadFileToCloudflareR2(context, fullId, metadata, returnLink) {
             metadata: metadata,
         });
     } catch (error) {
+        try {
+            await R2DataBase.delete(fullId);
+        } catch (cleanupError) {
+            console.warn(`Failed to clean up orphaned R2 object ${fullId}:`, cleanupError);
+        }
         return createResponse('Error: Failed to write to database', { status: 500 });
     }
 
@@ -665,6 +670,7 @@ async function uploadFileToTelegram(context, fullId, metadata, fileExt, fileName
             });
         } catch (error) {
             res = createResponse('Error: Failed to write to KV database', { status: 500 });
+            return res;
         }
 
         // 结束上传
