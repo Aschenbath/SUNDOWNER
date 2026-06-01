@@ -1412,39 +1412,40 @@ function applyBatchAddOperation(index, data) {
     
     let addedCount = 0;
     let updatedCount = 0;
-    
-    // 创建现有文件ID的映射以提高查找效率
+
+    // 映射 fileId -> 文件对象引用（不存数组下标）：
+    // 新文件经 insertFileInOrder 的 unshift/splice 会移动其它元素的下标，
+    // 若存下标，同批次后续的更新会用过期下标覆盖到无关文件（静默数据损坏）。
+    // 存对象引用则与数组位置无关，始终指向正确的文件项。
     const existingFilesMap = new Map();
-    index.files.forEach((file, idx) => {
-        existingFilesMap.set(file.id, idx);
+    index.files.forEach((file) => {
+        existingFilesMap.set(file.id, file);
     });
-    
+
     for (const fileData of files) {
         const { fileId, metadata } = fileData;
-        const fileItem = {
-            id: fileId,
-            metadata: metadata || {}
-        };
-        
-        const existingIndex = existingFilesMap.get(fileId);
-        
-        if (existingIndex !== undefined) {
+
+        const existing = existingFilesMap.get(fileId);
+
+        if (existing !== undefined) {
             if (!skipExisting) {
-                // 更新现有文件
-                index.files[existingIndex] = fileItem;
+                // 原地更新已存在文件的 metadata（对象引用不变、数组位置不变）
+                existing.metadata = metadata || {};
                 updatedCount++;
             }
         } else {
-            // 添加新文件
+            // 添加新文件并登记其引用，供同批次后续命中更新
+            const fileItem = {
+                id: fileId,
+                metadata: metadata || {}
+            };
             insertFileInOrder(index.files, fileItem);
-            // 只更新新插入文件的索引位置
-            const insertedIndex = index.files.indexOf(fileItem);
-            existingFilesMap.set(fileItem.id, insertedIndex);
+            existingFilesMap.set(fileId, fileItem);
 
             addedCount++;
         }
     }
-    
+
     return { addedCount, updatedCount };
 }
 
