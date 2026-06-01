@@ -34,7 +34,8 @@ export class LocalR2Storage {
 
         if (options && options.range) {
             const offset = options.range.offset || 0;
-            const length = options.range.length || (size - offset);
+            const requestedLength = options.range.length || (size - offset);
+            const length = Math.max(0, Math.min(requestedLength, size - offset));
             const end = offset + length - 1;
             const nodeStream = createReadStream(filePath, { start: offset, end: end });
             body = Readable.toWeb(nodeStream);
