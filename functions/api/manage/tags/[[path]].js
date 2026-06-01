@@ -4,6 +4,11 @@ import { getDatabase } from "../../../utils/databaseAdapter.js";
 import { mergeTags, normalizeTags, validateTag } from "../../../utils/tagHelpers.js";
 import { sanitizeExposedMetadata } from "../../../utils/mediaSecurity.js";
 
+function parseFileId(pathParam) {
+    const path = String(pathParam || '').split(',').join('/');
+    return decodeURIComponent(path);
+}
+
 /**
  * Tag Management API for Single Files
  *
@@ -26,13 +31,17 @@ export async function onRequest(context) {
 
     const url = new URL(request.url);
 
-    // Parse file path
-    if (params.path) {
-        params.path = String(params.path).split(',').join('/');
+    let fileId;
+    try {
+        fileId = parseFileId(params.path);
+    } catch {
+        return new Response(JSON.stringify({
+            error: 'Invalid file path'
+        }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+        });
     }
-
-    // Decode file path
-    const fileId = decodeURIComponent(params.path);
 
     const db = getDatabase(env);
 

@@ -29,7 +29,7 @@ export async function onRequest(context) {
         const limit = parseInt(url.searchParams.get('limit') || '20', 10);
 
         // Validate limit
-        if (limit < 1 || limit > 100) {
+        if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
             return new Response(JSON.stringify({
                 error: 'Invalid limit',
                 message: 'Limit must be between 1 and 100'
