@@ -27,6 +27,15 @@ export async function onRequest(context) {
     //read the metadata
     const db = getDatabase(env);
     const value = await db.getWithMetadata(params.path);
+    if (!value || !value.metadata) {
+        return new Response(JSON.stringify({
+            success: false,
+            message: 'File not found.',
+        }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' },
+        });
+    }
 
     //change the metadata
     value.metadata.ListType = "White"

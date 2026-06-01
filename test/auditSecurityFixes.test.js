@@ -5,6 +5,8 @@ import { onRequest as securityOnRequest } from '../functions/api/manage/sysConfi
 import { onRequest as publicListOnRequest } from '../functions/api/public/list.js';
 import { onRequest as davOnRequest } from '../functions/dav/[[path]].js';
 import { onRequest as randomOnRequest } from '../functions/random/index.js';
+import { onRequest as blockOnRequest } from '../functions/api/manage/block/[[path]].js';
+import { onRequest as whiteOnRequest } from '../functions/api/manage/white/[[path]].js';
 import { userAuthCheck } from '../functions/utils/userAuth.js';
 import { returnWithCheck } from '../functions/file/fileTools.js';
 
@@ -17,8 +19,12 @@ class MemoryKV {
     return this.store.has(key) ? this.store.get(key) : null;
   }
 
+  async getWithMetadata(key) {
+    return this.store.has(key) ? JSON.parse(this.store.get(key)) : null;
+  }
+
   async put(key, value) {
-    this.store.set(key, String(value));
+    this.store.set(key, typeof value === 'string' ? value : JSON.stringify(value));
   }
 
   async list(options = {}) {
@@ -215,6 +221,30 @@ describe('audit security hardening', () => {
 
     assert.equal(response.status, 403);
     assert.deepEqual(await response.json(), { error: 'Random is disabled' });
+  });
+
+  it('returns 404 instead of crashing when block-listing a missing file', async () => {
+    const response = await blockOnRequest({
+      env: createEnv(),
+      request: new Request('http://localhost/api/manage/block/photos/missing.jpg', { method: 'POST' }),
+      params: { path: 'photos,missing.jpg' },
+      waitUntil: async () => {}
+    });
+
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { success: false, message: 'File not found.' });
+  });
+
+  it('returns 404 instead of crashing when white-listing a missing file', async () => {
+    const response = await whiteOnRequest({
+      env: createEnv(),
+      request: new Request('http://localhost/api/manage/white/photos/missing.jpg', { method: 'POST' }),
+      params: { path: 'photos,missing.jpg' },
+      waitUntil: async () => {}
+    });
+
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { success: false, message: 'File not found.' });
   });
 
   it('keeps D1 queryFiles totals accurate when pagination returns no rows', () => {
