@@ -22,6 +22,7 @@ const INDEX_META_KEY = 'manage@index@meta';
 // D1 单字段限制 2MB，KV 限制 25MB，根据数据库类型动态设置
 const INDEX_CHUNK_SIZE_D1 = 500; // D1 数据库分块大小
 const INDEX_CHUNK_SIZE_KV = 5000; // KV 存储分块大小
+const MAX_REBUILD_CHUNKS = 1000;
 
 /**
  * 根据数据库类型获取索引分块大小
@@ -102,6 +103,9 @@ function validateRequestBody(body) {
   // 验证 totalChunks
   if (typeof body.totalChunks !== 'number' || !Number.isInteger(body.totalChunks) || body.totalChunks < 0) {
     return { valid: false, error: 'totalChunks must be a non-negative integer' };
+  }
+  if (body.totalChunks > MAX_REBUILD_CHUNKS) {
+    return { valid: false, error: `totalChunks must be at most ${MAX_REBUILD_CHUNKS}` };
   }
 
   // 验证 totalFiles

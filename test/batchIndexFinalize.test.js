@@ -44,6 +44,24 @@ function createChunk(chunkId, data) {
 }
 
 describe('batch index finalize', () => {
+  it('rejects oversized chunk counts before reading storage', async () => {
+    const img_url = new MemoryKV();
+
+    const response = await onRequestPost({
+      env: { img_url },
+      request: createFinalizeRequest('rebuild_too_many', 1001, 1),
+      waitUntil() {
+        throw new Error('cleanup must not run for invalid requests');
+      },
+    });
+
+    assert.equal(response.status, 400);
+    const payload = await response.json();
+    assert.equal(payload.success, false);
+    assert.match(payload.details, /totalChunks must be at most 1000/);
+    assert.deepEqual(img_url.operations, []);
+  });
+
   it('writes chunk bodies before metadata and cleans old chunks only after save succeeds', async () => {
     const img_url = new MemoryKV();
     await img_url.put('manage@index@meta', JSON.stringify({ chunkCount: 3 }));
