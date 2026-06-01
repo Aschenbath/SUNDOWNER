@@ -56,8 +56,9 @@ function isAllowedDirectory(dir, allowedDirs) {
  * @returns {Promise<Object>} 文件列表和目录列表，包含 fromCache 字段
  */
 function getDefaultCache() {
-    if (typeof caches !== 'undefined' && caches?.default) {
-        return caches.default;
+    const defaultCache = typeof caches !== 'undefined' ? caches?.default : undefined;
+    if (defaultCache && typeof defaultCache.match === 'function' && typeof defaultCache.put === 'function') {
+        return defaultCache;
     }
     return {
         async match() { return undefined; },
@@ -203,8 +204,10 @@ export async function onRequest(context) {
         }
 
         // 解析分页参数
-        const start = parseInt(url.searchParams.get('start'), 10) || 0;
-        const count = parseInt(url.searchParams.get('count'), 10) || 50;
+        const requestedStart = parseInt(url.searchParams.get('start'), 10);
+        const requestedCount = parseInt(url.searchParams.get('count'), 10);
+        const start = Number.isInteger(requestedStart) && requestedStart > 0 ? requestedStart : 0;
+        const count = Number.isInteger(requestedCount) && (requestedCount > 0 || requestedCount === -1) ? requestedCount : 50;
 
         // 获取文件列表（带缓存）
         const cachedData = await getPublicFileList(context, url, dir, recursive);
@@ -250,7 +253,7 @@ export async function onRequest(context) {
         // 计算过滤后的总数和分页
         const filteredTotalCount = filteredFiles.length;
         // 过滤后再分页
-        filteredFiles = filteredFiles.slice(start, start + count);
+        filteredFiles = count === -1 ? filteredFiles.slice(start) : filteredFiles.slice(start, start + count);
 
         // 转换文件格式
         const safeFiles = filteredFiles.map(file => ({

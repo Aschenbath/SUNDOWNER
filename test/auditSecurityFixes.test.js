@@ -50,6 +50,13 @@ function createEnv(overrides = {}) {
   };
 }
 
+function createIndexChunk(files) {
+  return JSON.stringify(files.map((file) => ({
+    id: file.id,
+    metadata: file.metadata,
+  })));
+}
+
 describe('audit security hardening', () => {
   it('does not accept cookie authCode for upload-style checks when disabled', async () => {
     const env = createEnv();
@@ -144,6 +151,60 @@ describe('audit security hardening', () => {
 
     assert.equal(response.status, 403);
     assert.deepEqual(await response.json(), { error: 'Directory not allowed' });
+  });
+
+  it('does not let negative public browse counts drop files through Array.slice semantics', async () => {
+    const env = createEnv();
+    const originalCaches = globalThis.caches;
+    globalThis.caches = { default: { open: async () => ({}) } };
+    await env.img_url.put('manage@sysConfig@others', JSON.stringify({
+      publicBrowse: {
+        enabled: true,
+        allowedDir: '*'
+      }
+    }));
+    await env.img_url.put('manage@index@meta', JSON.stringify({ chunkCount: 1 }));
+    await env.img_url.put('manage@index_0', createIndexChunk([
+      {
+        id: 'photos/a.jpg',
+        metadata: {
+          FileName: 'a.jpg',
+          FileType: 'image/jpeg',
+          Directory: 'photos/',
+          TimeStamp: 2,
+        },
+      },
+      {
+        id: 'photos/b.jpg',
+        metadata: {
+          FileName: 'b.jpg',
+          FileType: 'image/jpeg',
+          Directory: 'photos/',
+          TimeStamp: 1,
+        },
+      },
+    ]));
+
+    let response;
+    let payload;
+    try {
+      response = await publicListOnRequest({
+        env,
+        waitUntil: async () => {},
+        request: new Request('http://localhost/api/public/list?dir=photos&count=-1', { method: 'GET' })
+      });
+      payload = await response.json();
+    } finally {
+      if (originalCaches === undefined) {
+        delete globalThis.caches;
+      } else {
+        globalThis.caches = originalCaches;
+      }
+    }
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.returnedCount, 2);
+    assert.deepEqual(payload.files.map((file) => file.name).sort(), ['photos/a.jpg', 'photos/b.jpg']);
   });
 
   it('does not leak internal error details from public browse failures', async () => {
