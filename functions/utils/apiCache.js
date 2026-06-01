@@ -34,6 +34,33 @@ export const CACHE_CONFIG = {
   },
 };
 
+const pendingCacheWrites = new Map();
+
+function trackPendingCacheWrite(cacheKey, writePromise) {
+  let pendingWrites = pendingCacheWrites.get(cacheKey);
+  if (!pendingWrites) {
+    pendingWrites = new Set();
+    pendingCacheWrites.set(cacheKey, pendingWrites);
+  }
+
+  const tracked = Promise.resolve(writePromise).finally(() => {
+    pendingWrites.delete(tracked);
+    if (pendingWrites.size === 0) {
+      pendingCacheWrites.delete(cacheKey);
+    }
+  });
+  pendingWrites.add(tracked);
+  return tracked;
+}
+
+async function waitForPendingCacheWrites(cacheKey) {
+  const pendingWrites = pendingCacheWrites.get(cacheKey);
+  if (!pendingWrites || pendingWrites.size === 0) {
+    return;
+  }
+  await Promise.allSettled([...pendingWrites]);
+}
+
 /**
  * Get cached response or fetch and cache
  * @param {object} kv - KV namespace
@@ -61,11 +88,12 @@ export async function getCachedOrFetch(kv, cacheKey, fetcher, ttl = 60) {
     const data = await fetcher();
 
     // Store in cache (fire and forget)
-    kv.put(cacheKey, JSON.stringify(data), {
+    const writePromise = kv.put(cacheKey, JSON.stringify(data), {
       expirationTtl: ttl,
     }).catch(err => {
       console.warn(`[Cache] Failed to store: ${cacheKey}`, err);
     });
+    trackPendingCacheWrite(cacheKey, writePromise);
 
     return data;
   } catch (error) {
@@ -84,6 +112,7 @@ export async function invalidateCache(kv, cacheKey) {
   if (!kv) return;
 
   try {
+    await waitForPendingCacheWrites(cacheKey);
     await kv.delete(cacheKey);
     console.log(`[Cache] Invalidated: ${cacheKey}`);
   } catch (error) {

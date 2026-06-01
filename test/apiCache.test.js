@@ -117,6 +117,35 @@ describe('API Cache', () => {
       await getCachedOrFetch(mockKV, 'test-key-5', fetcher, 60);
       assert.equal(fetchCount, 2);
     });
+
+    it('waits for an in-flight read-through write before deleting the cache key', async () => {
+      let releasePut;
+      const delayedKV = {
+        storage: new Map(),
+        async get() {
+          return null;
+        },
+        async put(key, value) {
+          await new Promise((resolve) => {
+            releasePut = resolve;
+          });
+          this.storage.set(key, value);
+        },
+        async delete(key) {
+          this.storage.delete(key);
+        },
+      };
+
+      const result = await getCachedOrFetch(delayedKV, 'test-key-race', async () => ({ data: 'stale' }), 60);
+      assert.deepEqual(result, { data: 'stale' });
+
+      const invalidatePromise = invalidateCache(delayedKV, 'test-key-race');
+      await Promise.resolve();
+      releasePut();
+      await invalidatePromise;
+
+      assert.equal(delayedKV.storage.has('test-key-race'), false);
+    });
   });
 
   describe('Cache key helpers', () => {
