@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { normalizeExternalUploadUrl, processFileUpload } from '../functions/upload/index.js';
+import {
+  normalizeExternalUploadUrl,
+  processFileUpload,
+  __resetUploadClientFactoriesForTests,
+  __setDiscordAPIFactoryForTests,
+  __setHuggingFaceAPIFactoryForTests,
+  __setS3ClientFactoryForTests,
+} from '../functions/upload/index.js';
 import {
   __resetEmbeddedThumbnailExtractorForTests,
   __setEmbeddedThumbnailExtractorForTests,
@@ -77,6 +84,7 @@ class MemoryR2 {
 describe('external upload URL normalization', () => {
   afterEach(() => {
     __resetEmbeddedThumbnailExtractorForTests();
+    __resetUploadClientFactoriesForTests();
   });
 
   it('normalizes valid HTTP(S) URLs before they are stored as metadata', () => {
@@ -221,6 +229,198 @@ describe('external upload URL normalization', () => {
       assert.equal(response.status, 500);
       assert.equal(env.img_r2.objects.has('photos/orphan.jpg'), false);
       assert.deepEqual(env.img_r2.deleteCalls, ['photos/orphan.jpg']);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('removes an S3 object when the metadata write fails after upload', async () => {
+    const originalFetch = globalThis.fetch;
+    const sentCommands = [];
+    __setS3ClientFactoryForTests(() => ({
+      async send(command) {
+        sentCommands.push(command.input);
+        return {};
+      },
+    }));
+    globalThis.fetch = async () => ({
+      ok: false,
+      async json() {
+        return {};
+      },
+    });
+
+    try {
+      const formdata = new FormData();
+      formdata.set('file', new File([new Uint8Array([0x00, 0x01, 0x02])], 'orphan.jpg', { type: 'image/jpeg' }));
+
+      const env = {
+        dev_mode: 'true',
+        img_url: new MemoryKV(),
+      };
+      env.img_url.failPuts.add('photos/orphan.jpg');
+
+      const requestUrl = new URL('https://sundowner.example/upload?uploadChannel=s3&uploadFolder=photos&uploadNameType=origin&autoRetry=false');
+      const response = await processFileUpload({
+        env,
+        request: new Request(requestUrl, { method: 'POST' }),
+        url: requestUrl,
+        securityConfig: { upload: { moderate: { enabled: false } } },
+        uploadConfig: {
+          s3: {
+            loadBalance: { enabled: false },
+            channels: [{
+              name: 'Archive S3',
+              endpoint: 'https://s3.example.com',
+              accessKeyId: 'access',
+              secretAccessKey: 'secret',
+              bucketName: 'media',
+              region: 'auto',
+              pathStyle: false,
+            }],
+          },
+        },
+        waitUntil() {
+          throw new Error('endUpload must not be scheduled after metadata write failure');
+        },
+      }, formdata);
+
+      assert.equal(response.status, 500);
+      const deleteCommands = sentCommands.filter((command) => !Object.hasOwn(command, 'Body'));
+      assert.deepEqual(deleteCommands, [
+        { Bucket: 'media', Key: 'photos/orphan.jpg' },
+      ]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('deletes a Discord message when the metadata write fails after upload', async () => {
+    const originalFetch = globalThis.fetch;
+    const deletedMessages = [];
+    __setDiscordAPIFactoryForTests(() => ({
+      async sendFile() {
+        return { ok: true };
+      },
+      getFileInfo() {
+        return {
+          message_id: 'message-1',
+          file_size: 1024,
+          url: 'https://cdn.discord.example/orphan.jpg',
+        };
+      },
+      async deleteMessage(channelId, messageId) {
+        deletedMessages.push({ channelId, messageId });
+      },
+    }));
+    globalThis.fetch = async () => ({
+      ok: false,
+      async json() {
+        return {};
+      },
+    });
+
+    try {
+      const formdata = new FormData();
+      formdata.set('file', new File([new Uint8Array([0x00, 0x01, 0x02])], 'orphan.jpg', { type: 'image/jpeg' }));
+
+      const env = {
+        dev_mode: 'true',
+        img_url: new MemoryKV(),
+      };
+      await env.img_url.put('manage@sysConfig@security', JSON.stringify({
+        upload: { moderate: { enabled: false } },
+      }));
+      env.img_url.failPuts.add('photos/orphan.jpg');
+
+      const requestUrl = new URL('https://sundowner.example/upload?uploadChannel=discord&uploadFolder=photos&uploadNameType=origin&autoRetry=false');
+      const response = await processFileUpload({
+        env,
+        request: new Request(requestUrl, { method: 'POST' }),
+        url: requestUrl,
+        uploadConfig: {
+          discord: {
+            loadBalance: { enabled: false },
+            channels: [{
+              name: 'Discord',
+              botToken: 'discord-token',
+              channelId: 'channel-1',
+              isNitro: true,
+            }],
+          },
+        },
+        waitUntil() {
+          throw new Error('endUpload must not be scheduled after metadata write failure');
+        },
+      }, formdata);
+
+      assert.equal(response.status, 500);
+      assert.deepEqual(deletedMessages, [
+        { channelId: 'channel-1', messageId: 'message-1' },
+      ]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('deletes a HuggingFace file when the metadata write fails after upload', async () => {
+    const originalFetch = globalThis.fetch;
+    const deletedFiles = [];
+    __setHuggingFaceAPIFactoryForTests(() => ({
+      async uploadFile(file, filePath) {
+        return {
+          success: true,
+          fileUrl: `https://huggingface.co/datasets/owner/repo/resolve/main/${filePath}`,
+        };
+      },
+      async deleteFile(filePath, commitMessage) {
+        deletedFiles.push({ filePath, commitMessage });
+        return true;
+      },
+    }));
+    globalThis.fetch = async () => ({
+      ok: false,
+      async json() {
+        return {};
+      },
+    });
+
+    try {
+      const formdata = new FormData();
+      formdata.set('file', new File([new Uint8Array([0x00, 0x01, 0x02])], 'orphan.jpg', { type: 'image/jpeg' }));
+
+      const env = {
+        dev_mode: 'true',
+        img_url: new MemoryKV(),
+      };
+      env.img_url.failPuts.add('photos/orphan.jpg');
+
+      const requestUrl = new URL('https://sundowner.example/upload?uploadChannel=huggingface&uploadFolder=photos&uploadNameType=origin&autoRetry=false');
+      const response = await processFileUpload({
+        env,
+        request: new Request(requestUrl, { method: 'POST' }),
+        url: requestUrl,
+        securityConfig: { upload: { moderate: { enabled: false } } },
+        uploadConfig: {
+          huggingface: {
+            loadBalance: { enabled: false },
+            channels: [{
+              name: 'HuggingFace',
+              token: 'hf-secret',
+              repo: 'owner/repo',
+              isPrivate: true,
+            }],
+          },
+        },
+        waitUntil() {
+          throw new Error('endUpload must not be scheduled after metadata write failure');
+        },
+      }, formdata);
+
+      assert.equal(response.status, 500);
+      assert.equal(deletedFiles.length, 1);
+      assert.match(deletedFiles[0].filePath, /^photos\/.+_orphan\.jpg$/);
+      assert.equal(deletedFiles[0].commitMessage, `Delete ${deletedFiles[0].filePath}`);
     } finally {
       globalThis.fetch = originalFetch;
     }

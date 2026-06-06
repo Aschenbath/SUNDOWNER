@@ -8,6 +8,7 @@ import { checkDatabaseConfig } from '../../utils/middleware.js';
 import { validateApiToken } from '../../utils/tokenValidator.js';
 import { getDatabase } from '../../utils/databaseAdapter.js';
 import { getAdminSessionTokenFromRequest, verifyAdminSessionToken } from '../../utils/adminSession.js';
+import { constantTimeEqual } from '../../utils/constantTimeEqual.js';
 
 function buildLoginRedirect(request) {
   const url = new URL(request.url);
@@ -128,7 +129,10 @@ const corsHeaders = {
 }
 
 function isTelegramWebhookPath(pathname) {
-  return pathname.startsWith('/api/manage/telegram-sync/webhook/')
+  const normalizedPathname = String(pathname || '').replace(/\/+$/, '')
+  return normalizedPathname.startsWith('/api/manage/telegram-sync/webhook/')
+    && normalizedPathname !== '/api/manage/telegram-sync/webhook/setup'
+    && normalizedPathname !== '/api/manage/telegram-sync/webhook/delete'
 }
 
 function isPublicPath(pathname) {
@@ -186,7 +190,7 @@ async function authentication(context) {
         return basicAuth
       }
       const { user, pass } = basicAuth
-      if (basicUser !== user || basicPass !== pass) {
+      if (!constantTimeEqual(user, basicUser) || !constantTimeEqual(pass, basicPass)) {
         return UnauthorizedException('Invalid credentials.')
       }
       return context.next()

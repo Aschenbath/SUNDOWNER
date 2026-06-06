@@ -11,10 +11,38 @@ import { handleChunkMerge } from "./chunkMerge.js";
 import { TelegramAPI, buildTelegramFileUrl } from "../utils/telegramAPI.js";
 import { DiscordAPI, resolveDiscordFileUrl } from "../utils/discordAPI.js";
 import { HuggingFaceAPI } from "../utils/huggingfaceAPI.js";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getDatabase } from '../utils/databaseAdapter.js';
 import { extractEmbeddedPreview, extractExifData, supportsEmbeddedPreviewExtraction } from './exifExtractor.js';
 import { resolveMimeType } from '../utils/mimeTypes.js';
+
+let createS3Client = (options) => new S3Client(options);
+let createDiscordAPI = (botToken) => new DiscordAPI(botToken);
+let createHuggingFaceAPI = (token, repo, isPrivate) => new HuggingFaceAPI(token, repo, isPrivate);
+
+export function __setS3ClientFactoryForTests(factory) {
+    createS3Client = typeof factory === 'function'
+        ? factory
+        : (options) => new S3Client(options);
+}
+
+export function __setDiscordAPIFactoryForTests(factory) {
+    createDiscordAPI = typeof factory === 'function'
+        ? factory
+        : (botToken) => new DiscordAPI(botToken);
+}
+
+export function __setHuggingFaceAPIFactoryForTests(factory) {
+    createHuggingFaceAPI = typeof factory === 'function'
+        ? factory
+        : (token, repo, isPrivate) => new HuggingFaceAPI(token, repo, isPrivate);
+}
+
+export function __resetUploadClientFactoriesForTests() {
+    createS3Client = (options) => new S3Client(options);
+    createDiscordAPI = (botToken) => new DiscordAPI(botToken);
+    createHuggingFaceAPI = (token, repo, isPrivate) => new HuggingFaceAPI(token, repo, isPrivate);
+}
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -33,6 +61,17 @@ function withCorsHeaders(response) {
         statusText: response.statusText,
         headers,
     });
+}
+
+async function cleanupRemoteAfterMetadataFailure(label, cleanup) {
+    if (typeof cleanup !== 'function') {
+        return;
+    }
+    try {
+        await cleanup();
+    } catch (cleanupError) {
+        console.warn(`Failed to clean up orphaned ${label}:`, cleanupError);
+    }
 }
 
 export function onRequestOptions() {
@@ -460,7 +499,7 @@ async function uploadFileToS3(context, fullId, metadata, returnLink) {
     const { endpoint, pathStyle, accessKeyId, secretAccessKey, bucketName, region, cdnDomain } = s3Channel;
 
     // 创建 S3 客户端
-    const s3Client = new S3Client({
+    const s3Client = createS3Client({
         region: region || "auto", // R2 可用 "auto"
         endpoint, // 自定义 S3 端点
         credentials: {
@@ -479,6 +518,12 @@ async function uploadFileToS3(context, fullId, metadata, returnLink) {
     const uint8Array = new Uint8Array(arrayBuffer);
 
     const s3FileName = fullId;
+    const cleanupS3Object = () => s3Client.send(new DeleteObjectCommand({
+        Bucket: bucketName,
+        Key: s3FileName,
+    }));
+    let s3ObjectUploaded = false;
+    let metadataWritten = false;
 
     try {
         // S3 上传参数
@@ -491,6 +536,7 @@ async function uploadFileToS3(context, fullId, metadata, returnLink) {
 
         // 执行上传
         await s3Client.send(new PutObjectCommand(putObjectParams));
+        s3ObjectUploaded = true;
 
         // 更新 metadata
         metadata.Channel = "S3";
@@ -517,7 +563,9 @@ async function uploadFileToS3(context, fullId, metadata, returnLink) {
         if (uploadModerate && uploadModerate.enabled) {
             try {
                 await db.put(fullId, "", { metadata });
+                metadataWritten = true;
             } catch {
+                await cleanupRemoteAfterMetadataFailure(`S3 object ${s3FileName}`, cleanupS3Object);
                 return createResponse("Error: Failed to write to KV database", { status: 500 });
             }
 
@@ -529,7 +577,11 @@ async function uploadFileToS3(context, fullId, metadata, returnLink) {
         // 写入数据库
         try {
             await db.put(fullId, "", { metadata });
+            metadataWritten = true;
         } catch {
+            if (!metadataWritten) {
+                await cleanupRemoteAfterMetadataFailure(`S3 object ${s3FileName}`, cleanupS3Object);
+            }
             return createResponse("Error: Failed to write to database", { status: 500 });
         }
 
@@ -543,6 +595,9 @@ async function uploadFileToS3(context, fullId, metadata, returnLink) {
             },
         });
     } catch (error) {
+        if (s3ObjectUploaded && !metadataWritten) {
+            await cleanupRemoteAfterMetadataFailure(`S3 object ${s3FileName}`, cleanupS3Object);
+        }
         return createResponse(`Error: Failed to upload to S3 - ${error.message}`, { status: 500 });
     }
 }
@@ -767,7 +822,7 @@ async function uploadFileToDiscord(context, fullId, metadata, returnLink) {
         return createResponse(`Error: File size exceeds Discord limit (${limitMB}MB), please use another channel`, { status: 413 });
     }
 
-    const discordAPI = new DiscordAPI(discordChannel.botToken);
+    const discordAPI = createDiscordAPI(discordChannel.botToken);
 
     try {
         // 上传文件到 Discord
@@ -800,6 +855,10 @@ async function uploadFileToDiscord(context, fullId, metadata, returnLink) {
         try {
             await db.put(fullId, "", { metadata });
         } catch (error) {
+            await cleanupRemoteAfterMetadataFailure(
+                `Discord message ${fileInfo.message_id}`,
+                () => discordAPI.deleteMessage(discordChannel.channelId, fileInfo.message_id)
+            );
             return createResponse('Error: Failed to write to KV database', { status: 500 });
         }
 
@@ -877,7 +936,7 @@ async function uploadFileToHuggingFace(context, fullId, metadata, returnLink) {
         : `${fullId.substring(0, lastSlashIndex + 1)}${uniquePrefix}_${fullId.substring(lastSlashIndex + 1)}`;
     console.log('HuggingFace file path:', hfFilePath);
 
-    const huggingfaceAPI = new HuggingFaceAPI(hfChannel.token, hfChannel.repo, hfChannel.isPrivate || false);
+    const huggingfaceAPI = createHuggingFaceAPI(hfChannel.token, hfChannel.repo, hfChannel.isPrivate || false);
 
     try {
         // 上传文件到 HuggingFace（传入预计算的 SHA256）
@@ -897,6 +956,8 @@ async function uploadFileToHuggingFace(context, fullId, metadata, returnLink) {
         metadata.HfIsPrivate = hfChannel.isPrivate || false;
         metadata.HfFileUrl = result.fileUrl;
 
+        let metadataWritten = false;
+
         // 图像审查
         const securityConfig = context.securityConfig;
         const uploadModerate = securityConfig.upload?.moderate;
@@ -909,7 +970,12 @@ async function uploadFileToHuggingFace(context, fullId, metadata, returnLink) {
                 // 私有仓库：先写入KV，再通过自己的域名访问进行审查
                 try {
                     await db.put(fullId, "", { metadata });
+                    metadataWritten = true;
                 } catch (error) {
+                    await cleanupRemoteAfterMetadataFailure(
+                        `HuggingFace file ${hfFilePath}`,
+                        () => huggingfaceAPI.deleteFile(hfFilePath, `Delete ${hfFilePath}`)
+                    );
                     return createResponse('Error: Failed to write to KV database', { status: 500 });
                 }
                 
@@ -922,7 +988,14 @@ async function uploadFileToHuggingFace(context, fullId, metadata, returnLink) {
         // 写入 KV 数据库
         try {
             await db.put(fullId, "", { metadata });
+            metadataWritten = true;
         } catch (error) {
+            if (!metadataWritten) {
+                await cleanupRemoteAfterMetadataFailure(
+                    `HuggingFace file ${hfFilePath}`,
+                    () => huggingfaceAPI.deleteFile(hfFilePath, `Delete ${hfFilePath}`)
+                );
+            }
             return createResponse('Error: Failed to write to KV database', { status: 500 });
         }
 

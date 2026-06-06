@@ -6,6 +6,31 @@ function InternalServerErrorResponse(message = 'Internal server error', status =
     return new Response(message, { status });
 }
 
+function parseBasicAuthHeader(authHeader) {
+    const [scheme, encoded] = String(authHeader || '').split(' ');
+    if (scheme !== 'Basic' || !encoded) {
+        return new Response('Malformed Authorization header', { status: 400 });
+    }
+
+    let decoded = '';
+    try {
+        const buffer = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
+        decoded = new TextDecoder().decode(buffer).normalize();
+    } catch {
+        return new Response('Invalid Authorization value', { status: 400 });
+    }
+
+    const separatorIndex = decoded.indexOf(':');
+    if (separatorIndex === -1 || /[\0-\x1F\x7F]/.test(decoded)) {
+        return new Response('Invalid Authorization value', { status: 400 });
+    }
+
+    return {
+        user: decoded.substring(0, separatorIndex),
+        pass: decoded.substring(separatorIndex + 1),
+    };
+}
+
 export async function onRequest(context) {
     const { request, env } = context;
 
@@ -69,12 +94,12 @@ async function checkAuth(request, env) {
         });
     }
 
-    const [scheme, encoded] = authHeader.split(' ');
-    if (scheme !== 'Basic' || !encoded) {
-        return new Response('Malformed Authorization header', { status: 400 });
+    const basicAuth = parseBasicAuthHeader(authHeader);
+    if (basicAuth instanceof Response) {
+        return basicAuth;
     }
 
-    const [user, pass] = atob(encoded).split(':');
+    const { user, pass } = basicAuth;
     if (!constantTimeEqual(user, davUser) || !constantTimeEqual(pass, davPass)) {
         return new Response('Invalid credentials', { status: 403 });
     }
@@ -274,6 +299,15 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
+function escapeXml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
 function generateDirectoryListingHtml(basePath, contents) {
     let fileLinks = '';
     let dirLinks = '';
@@ -322,11 +356,11 @@ function createCollectionXml(path) {
     const now = new Date().toUTCString();
     const cleanPath = path.endsWith('/') ? path.slice(0, -1) : path;
     const name = cleanPath.split('/').pop() || '';
-    return `<D:response><D:href>${encodeURI(path)}</D:href><D:propstat><D:prop><D:displayname>${name}</D:displayname><D:resourcetype><D:collection/></D:resourcetype><D:creationdate>${now}</D:creationdate><D:getlastmodified>${now}</D:getlastmodified></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>`;
+    return `<D:response><D:href>${escapeXml(encodeURI(path))}</D:href><D:propstat><D:prop><D:displayname>${escapeXml(name)}</D:displayname><D:resourcetype><D:collection/></D:resourcetype><D:creationdate>${now}</D:creationdate><D:getlastmodified>${now}</D:getlastmodified></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>`;
 }
 
 function createFileXml(file) {
     const now = new Date().toUTCString();
     const fileSize = file.metadata && file.metadata['File-Size'] ? file.metadata['File-Size'] : "0";
-    return `<D:response><D:href>${encodeURI(`/${file.name}`)}</D:href><D:propstat><D:prop><D:displayname>${file.name.split('/').pop()}</D:displayname><D:resourcetype/><D:creationdate>${now}</D:creationdate><D:getlastmodified>${now}</D:getlastmodified><D:getcontentlength>${fileSize}</D:getcontentlength></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>`;
+    return `<D:response><D:href>${escapeXml(encodeURI(`/${file.name}`))}</D:href><D:propstat><D:prop><D:displayname>${escapeXml(file.name.split('/').pop())}</D:displayname><D:resourcetype/><D:creationdate>${now}</D:creationdate><D:getlastmodified>${now}</D:getlastmodified><D:getcontentlength>${escapeXml(fileSize)}</D:getcontentlength></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>`;
 }

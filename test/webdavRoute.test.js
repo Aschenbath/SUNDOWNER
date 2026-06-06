@@ -101,4 +101,75 @@ describe('WebDAV route', () => {
     assert.equal(calls[0].options.headers.Authorization, `Basic ${Buffer.from('admin:secret').toString('base64')}`);
     assert.equal(calls[0].options.headers.authCode, 'user-code');
   });
+
+  it('returns 400 for malformed Basic auth instead of throwing', async () => {
+    const response = await onRequest({
+      env: createEnv({
+        kvEntries: {
+          'manage@sysConfig@others': JSON.stringify({
+            webDAV: { enabled: true, username: 'dav', password: 'dav-pass' }
+          })
+        }
+      }),
+      request: createWebDavRequest('/dav/docs/readme.txt', {
+        headers: {
+          Authorization: 'Basic %%%'
+        }
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal(await response.text(), 'Invalid Authorization value');
+  });
+
+  it('escapes PROPFIND XML text values from file metadata', async () => {
+    global.fetch = async () => new Response(JSON.stringify({
+      files: [
+        {
+          name: 'docs/a&b<evil>.txt',
+          metadata: { 'File-Size': '1&2<3' }
+        }
+      ],
+      directories: ['docs/x&y<dir>']
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const response = await onRequest({
+      env: createEnv({
+        BASIC_USER: 'admin',
+        BASIC_PASS: 'secret',
+        AUTH_CODE: 'user-code',
+        kvEntries: {
+          'manage@sysConfig@others': JSON.stringify({
+            webDAV: { enabled: true, username: 'dav', password: 'dav-pass' }
+          }),
+          'manage@sysConfig@security': JSON.stringify({
+            auth: {
+              user: { authCode: 'user-code' },
+              admin: { adminUsername: 'admin', adminPassword: 'secret' }
+            },
+            upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+            access: { allowedDomains: '', whiteListMode: false },
+            apiTokens: { tokens: {} }
+          })
+        }
+      }),
+      request: createWebDavRequest('/dav/docs/', {
+        method: 'PROPFIND',
+        headers: {
+          Authorization: `Basic ${Buffer.from('dav:dav-pass').toString('base64')}`
+        }
+      }),
+    });
+
+    const body = await response.text();
+    assert.equal(response.status, 207);
+    assert.match(body, /<D:displayname>x&amp;y&lt;dir&gt;<\/D:displayname>/);
+    assert.match(body, /<D:displayname>a&amp;b&lt;evil&gt;\.txt<\/D:displayname>/);
+    assert.match(body, /<D:getcontentlength>1&amp;2&lt;3<\/D:getcontentlength>/);
+    assert.doesNotMatch(body, /<D:displayname>x&y<dir><\/D:displayname>/);
+    assert.doesNotMatch(body, /<D:displayname>a&b<evil>\.txt<\/D:displayname>/);
+  });
 });

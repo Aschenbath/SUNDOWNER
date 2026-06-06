@@ -25,6 +25,8 @@ describe('constant-time secret comparison', () => {
 
   it('routes sensitive credential checks through the shared helper', () => {
     const loginSource = readSource('../functions/api/login.js');
+    const manageMiddlewareSource = readSource('../functions/api/manage/_middleware.js');
+    const authSessionSource = readSource('../functions/api/manage/auth-session.js');
     const dualAuthSource = readSource('../functions/utils/dualAuth.js');
     const webDavSource = readSource('../functions/dav/[[path]].js');
     const telegramSource = readSource('../functions/utils/telegramSync.js');
@@ -33,6 +35,14 @@ describe('constant-time secret comparison', () => {
 
     assert.match(loginSource, /constantTimeEqual\(authCode,\s*rightAuthCode\)/);
     assert.doesNotMatch(loginSource, /authCode\s*!==\s*rightAuthCode/);
+
+    assert.match(manageMiddlewareSource, /constantTimeEqual\(user,\s*basicUser\)/);
+    assert.match(manageMiddlewareSource, /constantTimeEqual\(pass,\s*basicPass\)/);
+    assert.doesNotMatch(manageMiddlewareSource, /basicUser\s*!==\s*user\s*\|\|\s*basicPass\s*!==\s*pass/);
+
+    assert.match(authSessionSource, /constantTimeEqual\(username,\s*rightUser\)/);
+    assert.match(authSessionSource, /constantTimeEqual\(password,\s*rightPass\)/);
+    assert.doesNotMatch(authSessionSource, /username\s*!==\s*rightUser\s*\|\|\s*password\s*!==\s*rightPass/);
 
     assert.match(dualAuthSource, /constantTimeEqual\(user,\s*basicUser\)/);
     assert.match(dualAuthSource, /constantTimeEqual\(pass,\s*basicPass\)/);

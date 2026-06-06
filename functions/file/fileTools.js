@@ -5,11 +5,16 @@ export function isDomainAllowed(context) {
     const { Referer, securityConfig, url } = context;
 
     const allowedDomains = securityConfig.access.allowedDomains;
+    const hasAllowlist = Boolean(allowedDomains && allowedDomains.trim() !== '');
+
+    if (!Referer) {
+        return !hasAllowlist;
+    }
 
     if (Referer) {
         try {
             const refererUrl = new URL(Referer);
-            if (allowedDomains && allowedDomains.trim() !== '') {
+            if (hasAllowlist) {
                 const domains = allowedDomains.split(',');
                 domains.push(url.hostname);// 把自身域名加入白名单
 

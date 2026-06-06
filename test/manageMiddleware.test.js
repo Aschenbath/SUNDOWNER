@@ -86,6 +86,50 @@ describe('manage middleware', () => {
     assert.equal(await response.text(), 'Invalid authorization value.');
   });
 
+  it('requires admin auth for Telegram webhook setup management route', async () => {
+    const response = await runManageMiddleware({
+      request: new Request('http://localhost/api/manage/telegram-sync/webhook/setup?channelName=Main', {
+        method: 'POST',
+      }),
+    });
+
+    assert.equal(response.status, 503);
+    assert.equal(await response.text(), 'Admin credentials are not configured.');
+  });
+
+  it('requires admin auth for Telegram webhook setup route with trailing slash', async () => {
+    const response = await runManageMiddleware({
+      request: new Request('http://localhost/api/manage/telegram-sync/webhook/setup/?channelName=Main', {
+        method: 'POST',
+      }),
+    });
+
+    assert.equal(response.status, 503);
+    assert.equal(await response.text(), 'Admin credentials are not configured.');
+  });
+
+  it('requires admin auth for Telegram webhook delete route with trailing slash', async () => {
+    const response = await runManageMiddleware({
+      request: new Request('http://localhost/api/manage/telegram-sync/webhook/delete/?channelName=Main', {
+        method: 'POST',
+      }),
+    });
+
+    assert.equal(response.status, 503);
+    assert.equal(await response.text(), 'Admin credentials are not configured.');
+  });
+
+  it('keeps inbound Telegram webhook delivery route public', async () => {
+    const response = await runManageMiddleware({
+      request: new Request('http://localhost/api/manage/telegram-sync/webhook/Main', {
+        method: 'POST',
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), 'ok');
+  });
+
   it('returns a generic 500 response without leaking stack traces', async () => {
     const response = await runManageMiddleware({
       env: createEnv({

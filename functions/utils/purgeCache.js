@@ -46,6 +46,24 @@ export async function purgeRandomFileListCache(origin, ...dirs) {
     }
 }
 
+function normalizeCacheDir(dir) {
+    return String(dir || '').replace(/^\/+/, '').replace(/\/+$/, '');
+}
+
+function getAncestorDirs(dir) {
+    const normalized = normalizeCacheDir(dir);
+    if (!normalized) {
+        return [];
+    }
+
+    const segments = normalized.split('/').filter(Boolean);
+    const ancestors = [''];
+    for (let i = 1; i < segments.length; i++) {
+        ancestors.push(segments.slice(0, i).join('/'));
+    }
+    return ancestors.reverse();
+}
+
 export async function purgePublicFileListCache(origin, ...dirs) {
     try {
         const cache = caches.default;
@@ -56,8 +74,13 @@ export async function purgePublicFileListCache(origin, ...dirs) {
 
         for (const dir of dirs) {
             // 清除递归和非递归两种缓存
-            await cache.put(`${origin}/api/publicFileList?dir=${dir}&recursive=false`, nullResponse);
-            await cache.put(`${origin}/api/publicFileList?dir=${dir}&recursive=true`, nullResponse);
+            const normalizedDir = normalizeCacheDir(dir);
+            await cache.put(`${origin}/api/publicFileList?dir=${normalizedDir}&recursive=false`, nullResponse);
+            await cache.put(`${origin}/api/publicFileList?dir=${normalizedDir}&recursive=true`, nullResponse);
+            for (const ancestorDir of getAncestorDirs(normalizedDir)) {
+                await cache.put(`${origin}/api/publicFileList?dir=${ancestorDir}&recursive=false`, nullResponse);
+                await cache.put(`${origin}/api/publicFileList?dir=${ancestorDir}&recursive=true`, nullResponse);
+            }
         }
     } catch (error) {
         console.error('Failed to clear publicFileList cache:', error);

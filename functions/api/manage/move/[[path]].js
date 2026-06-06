@@ -162,6 +162,8 @@ async function moveFile(env, fileId, newFileId, cdnUrl, url) {
 
         // 读取图片信息
         const img = await db.getWithMetadata(fileId);
+        let cleanupCopiedRemote = null;
+        let deleteOldRemote = null;
 
         // 如果是R2渠道的图片，需要移动R2中对应的图片
         if (img.metadata?.Channel === 'CloudflareR2') {
@@ -177,14 +179,17 @@ async function moveFile(env, fileId, newFileId, cdnUrl, url) {
             await R2DataBase.put(newFileId, object.body);
 
             // 删除旧文件
-            await R2DataBase.delete(fileId);
+            cleanupCopiedRemote = () => R2DataBase.delete(newFileId);
+            deleteOldRemote = () => R2DataBase.delete(fileId);
         }
 
         // S3 渠道的图片，需要移动S3中对应的图片
         if (img.metadata?.Channel === 'S3') {
-            const { success, newKey, oldKey, bucketName, endpoint, region, pathStyle, cdnFileUrl, error } = await moveS3File(env, img, newFileId, fileId);
+            const { success, newKey, oldKey, bucketName, endpoint, region, pathStyle, cdnFileUrl, deleteOld, deleteCopied, error } = await moveS3File(env, img, newFileId, fileId);
             if (success) {
                 // 更新 metadata
+                cleanupCopiedRemote = deleteCopied;
+                deleteOldRemote = deleteOld;
                 const previousS3FileKey = img.metadata.S3FileKey || oldKey;
                 if (endpoint) {
                     img.metadata.S3Endpoint = endpoint;
@@ -222,8 +227,36 @@ async function moveFile(env, fileId, newFileId, cdnUrl, url) {
         img.metadata.Directory = DirectoryPath;
 
         // 更新KV存储
-        await db.put(newFileId, img.value, { metadata: img.metadata });
-        await db.delete(fileId);
+        let newMetadataWritten = false;
+        try {
+            await db.put(newFileId, img.value, { metadata: img.metadata });
+            newMetadataWritten = true;
+            await db.delete(fileId);
+        } catch (metadataError) {
+            if (newMetadataWritten) {
+                try {
+                    await db.delete(newFileId);
+                } catch (rollbackError) {
+                    console.error('Failed to roll back new metadata after metadata commit failure:', rollbackError);
+                }
+            }
+            if (cleanupCopiedRemote) {
+                try {
+                    await cleanupCopiedRemote();
+                } catch (cleanupError) {
+                    console.error('Failed to clean copied remote object after metadata commit failure:', cleanupError);
+                }
+            }
+            throw metadataError;
+        }
+
+        if (deleteOldRemote) {
+            try {
+                await deleteOldRemote();
+            } catch (deleteOldError) {
+                console.error('Failed to delete old remote object after metadata commit:', deleteOldError);
+            }
+        }
 
         // 清除CDN缓存
         await purgeCFCache(env, cdnUrl);
@@ -276,15 +309,20 @@ async function moveS3File(env, img, newFileId, fileId) {
             Key: newKey,
         }));
 
-        // 复制成功后，删除旧文件
-        await s3Client.send(new DeleteObjectCommand({
-            Bucket: bucketName,
-            Key: oldKey,
-        }));
-
         // 返回新的 S3 文件信息
         const cdnFileUrl = s3Access.cdnDomain ? `${s3Access.cdnDomain.replace(/\/$/, '')}/${newKey}` : null;
-        return { success: true, newKey, oldKey, bucketName, endpoint, region, pathStyle, cdnFileUrl };
+        return {
+            success: true,
+            newKey,
+            oldKey,
+            bucketName,
+            endpoint,
+            region,
+            pathStyle,
+            cdnFileUrl,
+            deleteOld: () => s3Client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: oldKey })),
+            deleteCopied: () => s3Client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: newKey })),
+        };
     } catch (error) {
         console.error("S3 Move Failed:", error);
         return { success: false, error: error.message };

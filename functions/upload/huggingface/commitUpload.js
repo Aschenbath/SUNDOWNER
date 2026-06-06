@@ -9,6 +9,19 @@ import { fetchUploadConfig } from '../../utils/sysConfig.js';
 import { getDatabase } from '../../utils/databaseAdapter.js';
 import { moderateContent, endUpload, getUploadIp, getIPAddress, sanitizeUploadFolder } from '../uploadTools.js';
 import { userAuthCheck, UnauthorizedResponse } from '../../utils/userAuth.js';
+import { hasValidAdminSession } from '../../utils/dashboardAuth.js';
+
+let createHuggingFaceAPI = (token, repo, isPrivate) => new HuggingFaceAPI(token, repo, isPrivate);
+
+export function __setHuggingFaceAPIFactoryForTests(factory) {
+    createHuggingFaceAPI = typeof factory === 'function'
+        ? factory
+        : (token, repo, isPrivate) => new HuggingFaceAPI(token, repo, isPrivate);
+}
+
+export function __resetHuggingFaceAPIFactoryForTests() {
+    createHuggingFaceAPI = (token, repo, isPrivate) => new HuggingFaceAPI(token, repo, isPrivate);
+}
 
 export async function onRequestPost(context) {
     const { request, env, waitUntil } = context;
@@ -17,7 +30,9 @@ export async function onRequestPost(context) {
     try {
         // 鉴权
         const requiredPermission = 'upload';
-        if (!await userAuthCheck(env, url, request, requiredPermission)) {
+        const hasUserAuth = await userAuthCheck(env, url, request, requiredPermission, { allowCookieAuthCode: false });
+        const hasAdminAuth = !hasUserAuth && await hasValidAdminSession(request, env);
+        if (!hasUserAuth && !hasAdminAuth) {
             return UnauthorizedResponse('Unauthorized');
         }
 
@@ -71,7 +86,7 @@ export async function onRequestPost(context) {
             });
         }
 
-        const huggingfaceAPI = new HuggingFaceAPI(hfChannel.token, hfChannel.repo, hfChannel.isPrivate || false);
+        const huggingfaceAPI = createHuggingFaceAPI(hfChannel.token, hfChannel.repo, hfChannel.isPrivate || false);
 
         // 如果有 multipart parts，需要先完成 multipart 上传
         if (multipartParts && multipartParts.length > 0) {
@@ -112,7 +127,6 @@ export async function onRequestPost(context) {
             ListType: "None",
             HfRepo: hfChannel.repo,
             HfFilePath: filePath,
-            HfToken: hfChannel.token,
             HfIsPrivate: hfChannel.isPrivate || false,
             HfFileUrl: fileUrl,
             TimeStamp: Date.now(),
@@ -132,7 +146,19 @@ export async function onRequestPost(context) {
 
         // 写入数据库
         const db = getDatabase(env);
-        await db.put(fullId, "", { metadata });
+        try {
+            await db.put(fullId, "", { metadata });
+        } catch (metadataError) {
+            try {
+                await huggingfaceAPI.deleteFile(filePath, `Delete ${filePath}`);
+            } catch (cleanupError) {
+                console.warn(`Failed to clean up committed HuggingFace file ${filePath}:`, cleanupError);
+            }
+            return new Response(JSON.stringify({ error: metadataError.message || 'Failed to write metadata' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
 
         // 结束上传（更新索引等）
         const uploadContext = {

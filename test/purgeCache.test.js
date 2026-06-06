@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { purgeCFCache } from '../functions/utils/purgeCache.js';
+import { purgeCFCache, purgePublicFileListCache } from '../functions/utils/purgeCache.js';
 
 class MemoryKV {
   constructor(entries = {}) {
@@ -46,5 +46,38 @@ describe('purgeCFCache', () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+});
+
+describe('purgePublicFileListCache', () => {
+  it('purges recursive and non-recursive public-list cache keys for ancestor directories', async () => {
+    const originalCaches = globalThis.caches;
+    const observedKeys = [];
+    globalThis.caches = {
+      default: {
+        async put(key) {
+          observedKeys.push(String(key));
+        }
+      }
+    };
+
+    try {
+      await purgePublicFileListCache('https://example.com', 'photos/trip/day1');
+    } finally {
+      if (originalCaches === undefined) {
+        delete globalThis.caches;
+      } else {
+        globalThis.caches = originalCaches;
+      }
+    }
+
+    assert.ok(observedKeys.includes('https://example.com/api/publicFileList?dir=photos/trip/day1&recursive=false'));
+    assert.ok(observedKeys.includes('https://example.com/api/publicFileList?dir=photos/trip/day1&recursive=true'));
+    assert.ok(observedKeys.includes('https://example.com/api/publicFileList?dir=photos/trip&recursive=true'));
+    assert.ok(observedKeys.includes('https://example.com/api/publicFileList?dir=photos/trip&recursive=false'));
+    assert.ok(observedKeys.includes('https://example.com/api/publicFileList?dir=photos&recursive=true'));
+    assert.ok(observedKeys.includes('https://example.com/api/publicFileList?dir=photos&recursive=false'));
+    assert.ok(observedKeys.includes('https://example.com/api/publicFileList?dir=&recursive=true'));
+    assert.ok(observedKeys.includes('https://example.com/api/publicFileList?dir=&recursive=false'));
   });
 });

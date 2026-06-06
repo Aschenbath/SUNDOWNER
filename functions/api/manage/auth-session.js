@@ -9,6 +9,7 @@ import {
   createAdminSessionToken,
   makeAdminSessionCookie,
 } from '../../utils/adminSession.js';
+import { constantTimeEqual } from '../../utils/constantTimeEqual.js';
 import { jsonResponse, optionsResponse } from '../../utils/cors.js';
 import { checkRateLimit, getClientIp, createRateLimitResponse } from '../../utils/rateLimiter.js';
 
@@ -66,7 +67,7 @@ export async function onRequestPost(context) {
 
   const { username: rightUser, password: rightPass } = getConfiguredAdminCredentials(securityConfig);
 
-  if (!rightUser || username !== rightUser || password !== rightPass) {
+  if (!constantTimeEqual(username, rightUser) || !constantTimeEqual(password, rightPass)) {
     return jsonResponse({ error: 'Invalid username or password' }, {
       status: 401,
       headers: { 'Cache-Control': 'no-store' },

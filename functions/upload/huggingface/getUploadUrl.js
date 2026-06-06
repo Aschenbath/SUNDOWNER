@@ -13,6 +13,7 @@
 import { HuggingFaceAPI } from '../../utils/huggingfaceAPI.js';
 import { fetchUploadConfig } from '../../utils/sysConfig.js';
 import { userAuthCheck, UnauthorizedResponse } from '../../utils/userAuth.js';
+import { hasValidAdminSession } from '../../utils/dashboardAuth.js';
 import { buildUniqueFileId, getUploadIp, isBlockedUploadIp } from '../uploadTools.js';
 
 export async function onRequestPost(context) {
@@ -23,7 +24,9 @@ export async function onRequestPost(context) {
     try {
         // 鉴权
         const requiredPermission = 'upload';
-        if (!await userAuthCheck(env, url, request, requiredPermission)) {
+        const hasUserAuth = await userAuthCheck(env, url, request, requiredPermission, { allowCookieAuthCode: false });
+        const hasAdminAuth = !hasUserAuth && await hasValidAdminSession(request, env);
+        if (!hasUserAuth && !hasAdminAuth) {
             return UnauthorizedResponse('Unauthorized');
         }
 

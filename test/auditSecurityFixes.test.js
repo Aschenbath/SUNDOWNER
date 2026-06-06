@@ -8,6 +8,12 @@ import { onRequest as randomOnRequest } from '../functions/random/index.js';
 import { onRequest as blockOnRequest } from '../functions/api/manage/block/[[path]].js';
 import { onRequest as whiteOnRequest } from '../functions/api/manage/white/[[path]].js';
 import { onRequest as directoryTreeOnRequest } from '../functions/api/directoryTree.js';
+import { onRequestPost as hfGetUploadUrlPost } from '../functions/upload/huggingface/getUploadUrl.js';
+import {
+  onRequestPost as hfCommitUploadPost,
+  __resetHuggingFaceAPIFactoryForTests as resetCommitHuggingFaceAPIFactory,
+  __setHuggingFaceAPIFactoryForTests as setCommitHuggingFaceAPIFactory,
+} from '../functions/upload/huggingface/commitUpload.js';
 import { userAuthCheck } from '../functions/utils/userAuth.js';
 import { returnWithCheck } from '../functions/file/fileTools.js';
 import { getAdminProfile, saveAdminProfile } from '../functions/utils/adminProfile.js';
@@ -16,6 +22,8 @@ import { mergeTags } from '../functions/utils/tagHelpers.js';
 class MemoryKV {
   constructor(initialEntries = {}) {
     this.store = new Map(Object.entries(initialEntries));
+    this.metadata = new Map();
+    this.failPuts = new Set();
   }
 
   async get(key) {
@@ -23,11 +31,33 @@ class MemoryKV {
   }
 
   async getWithMetadata(key) {
-    return this.store.has(key) ? JSON.parse(this.store.get(key)) : null;
+    if (!this.store.has(key)) {
+      return null;
+    }
+    if (this.metadata.has(key)) {
+      return {
+        value: this.store.get(key),
+        metadata: this.metadata.get(key) || {},
+      };
+    }
+    return JSON.parse(this.store.get(key));
   }
 
-  async put(key, value) {
+  async put(key, value, options = {}) {
+    if (this.failPuts.has(key)) {
+      throw new Error(`KV put failed for ${key}`);
+    }
     this.store.set(key, typeof value === 'string' ? value : JSON.stringify(value));
+    if (options.metadata) {
+      this.metadata.set(key, { ...options.metadata });
+    } else {
+      this.metadata.delete(key);
+    }
+  }
+
+  async delete(key) {
+    this.store.delete(key);
+    this.metadata.delete(key);
   }
 
   async list(options = {}) {
@@ -60,7 +90,48 @@ function createIndexChunk(files) {
   })));
 }
 
+async function seedHuggingFaceDirectUploadConfig(env) {
+  await env.img_url.put('manage@sysConfig@security', JSON.stringify({
+    auth: {
+      user: { authCode: 'abc123' },
+      admin: { adminUsername: 'admin', adminPassword: 'secret' },
+    },
+    upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+    access: { allowedDomains: '', whiteListMode: false },
+    apiTokens: {
+      tokens: {
+        uploadToken: {
+          id: 'uploadToken',
+          name: 'Upload token',
+          token: 'upload-token',
+          owner: 'test',
+          permissions: ['upload'],
+          createdAt: '2026-06-06T00:00:00.000Z',
+          updatedAt: '2026-06-06T00:00:00.000Z',
+        },
+      },
+    },
+  }));
+
+  await env.img_url.put('manage@sysConfig@upload', JSON.stringify({
+    huggingface: {
+      loadBalance: { enabled: false },
+      channels: [{
+        name: 'HF Direct',
+        token: 'hf-secret',
+        repo: 'owner/repo',
+        isPrivate: true,
+        enabled: true,
+      }],
+    },
+  }));
+}
+
 describe('audit security hardening', () => {
+  afterEach(() => {
+    resetCommitHuggingFaceAPIFactory();
+  });
+
   it('does not accept cookie authCode for upload-style checks when disabled', async () => {
     const env = createEnv();
     await env.img_url.put('manage@sysConfig@security', JSON.stringify({
@@ -81,6 +152,168 @@ describe('audit security hardening', () => {
 
     const authorized = await userAuthCheck(env, new URL(request.url), request, 'upload', { allowCookieAuthCode: false });
     assert.equal(authorized, false);
+  });
+
+  it('rejects cookie-only auth on HuggingFace direct upload endpoints', async () => {
+    const env = createEnv();
+    await env.img_url.put('manage@sysConfig@security', JSON.stringify({
+      auth: {
+        user: { authCode: 'abc123' },
+        admin: { adminUsername: 'admin', adminPassword: 'secret' }
+      },
+      upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+      access: { allowedDomains: '', whiteListMode: false },
+      apiTokens: { tokens: {} }
+    }));
+
+    const getUploadUrlResponse = await hfGetUploadUrlPost({
+      env,
+      request: new Request('http://localhost/upload/huggingface/getUploadUrl', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: 'authCode=abc123'
+        },
+        body: '{}'
+      }),
+    });
+
+    const commitUploadResponse = await hfCommitUploadPost({
+      env,
+      waitUntil: async () => {},
+      request: new Request('http://localhost/upload/huggingface/commitUpload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: 'authCode=abc123'
+        },
+        body: '{}'
+      }),
+    });
+
+    assert.equal(getUploadUrlResponse.status, 401);
+    assert.equal(commitUploadResponse.status, 401);
+  });
+
+  it('does not persist HuggingFace direct upload tokens in file metadata or index operations', async () => {
+    const env = createEnv({ dev_mode: 'true' });
+    await seedHuggingFaceDirectUploadConfig(env);
+    const originalFetch = globalThis.fetch;
+    const waitUntilPromises = [];
+    const commits = [];
+    setCommitHuggingFaceAPIFactory(() => ({
+      async commitLfsFile(filePath, sha256, fileSize, commitMessage) {
+        commits.push({ filePath, sha256, fileSize, commitMessage });
+        return { success: true };
+      },
+      async deleteFile() {
+        throw new Error('deleteFile must not be called after successful metadata write');
+      },
+    }));
+    globalThis.fetch = async () => ({
+      ok: false,
+      async json() {
+        return {};
+      },
+    });
+
+    try {
+      const response = await hfCommitUploadPost({
+        env,
+        waitUntil(promise) {
+          waitUntilPromises.push(Promise.resolve(promise));
+        },
+        request: new Request('http://localhost/upload/huggingface/commitUpload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer upload-token',
+          },
+          body: JSON.stringify({
+            fullId: 'photos/direct.jpg',
+            filePath: 'photos/direct-lfs.jpg',
+            sha256: 'a'.repeat(64),
+            fileSize: 2048,
+            fileName: 'direct.jpg',
+            fileType: 'image/jpeg',
+          }),
+        }),
+      });
+
+      assert.equal(response.status, 200);
+      assert.equal(commits.length, 1);
+      const stored = await env.img_url.getWithMetadata('photos/direct.jpg');
+      assert.equal(stored.metadata.HfToken, undefined);
+      assert.equal(stored.metadata.HfRepo, 'owner/repo');
+      assert.equal(stored.metadata.HfFilePath, 'photos/direct-lfs.jpg');
+
+      await Promise.all(waitUntilPromises);
+      const indexOperationValues = [...env.img_url.store.entries()]
+        .filter(([key]) => key.startsWith('manage@index@operation_'))
+        .map(([, value]) => String(value));
+      assert.ok(indexOperationValues.length > 0);
+      assert.equal(indexOperationValues.some((value) => value.includes('HfToken')), false);
+      assert.equal(indexOperationValues.some((value) => value.includes('hf-secret')), false);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('deletes a committed HuggingFace LFS file when direct upload metadata write fails', async () => {
+    const env = createEnv({ dev_mode: 'true' });
+    await seedHuggingFaceDirectUploadConfig(env);
+    env.img_url.failPuts.add('photos/direct-fail.jpg');
+    const originalFetch = globalThis.fetch;
+    const deletedFiles = [];
+    setCommitHuggingFaceAPIFactory(() => ({
+      async commitLfsFile() {
+        return { success: true };
+      },
+      async deleteFile(filePath, commitMessage) {
+        deletedFiles.push({ filePath, commitMessage });
+        return true;
+      },
+    }));
+    globalThis.fetch = async () => ({
+      ok: false,
+      async json() {
+        return {};
+      },
+    });
+
+    try {
+      const response = await hfCommitUploadPost({
+        env,
+        waitUntil() {
+          throw new Error('endUpload must not be scheduled after metadata write failure');
+        },
+        request: new Request('http://localhost/upload/huggingface/commitUpload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer upload-token',
+          },
+          body: JSON.stringify({
+            fullId: 'photos/direct-fail.jpg',
+            filePath: 'photos/direct-fail-lfs.jpg',
+            sha256: 'b'.repeat(64),
+            fileSize: 4096,
+            fileName: 'direct-fail.jpg',
+            fileType: 'image/jpeg',
+          }),
+        }),
+      });
+
+      assert.equal(response.status, 500);
+      assert.deepEqual(deletedFiles, [
+        {
+          filePath: 'photos/direct-fail-lfs.jpg',
+          commitMessage: 'Delete photos/direct-fail-lfs.jpg',
+        },
+      ]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it('masks sensitive fields in security config responses', async () => {

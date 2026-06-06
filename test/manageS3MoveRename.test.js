@@ -117,6 +117,26 @@ function createS3ClientFactory(createdClients, sentCommands) {
   };
 }
 
+function failPutForKey(kv, failingKey) {
+  const originalPut = kv.put.bind(kv);
+  kv.put = async (key, value, options = {}) => {
+    if (key === failingKey) {
+      throw new Error(`metadata put failed for ${key}`);
+    }
+    return originalPut(key, value, options);
+  };
+}
+
+function failDeleteForKey(kv, failingKey) {
+  const originalDelete = kv.delete.bind(kv);
+  kv.delete = async (key) => {
+    if (key === failingKey) {
+      throw new Error(`metadata delete failed for ${key}`);
+    }
+    return originalDelete(key);
+  };
+}
+
 let originalCaches;
 beforeEach(() => {
   originalCaches = globalThis.caches;
@@ -234,6 +254,138 @@ describe('S3 manage move/rename routes', () => {
       assert.deepEqual(sentCommands, []);
       assert.equal(await env.img_url.get('photos/old.jpg'), 'kv-value');
       assert.equal(await env.img_url.get('archive/old.jpg'), 'existing-value');
+    } finally {
+      resetMoveS3ClientFactory();
+    }
+  });
+
+  it('keeps the old S3 object when rename metadata commit fails and cleans the copied object', async () => {
+    const env = createS3Env();
+    await seedS3Record(env);
+    failPutForKey(env.img_url, 'photos/new.jpg');
+    const createdClients = [];
+    const sentCommands = [];
+    setRenameS3ClientFactory(createS3ClientFactory(createdClients, sentCommands));
+
+    try {
+      const response = await renameOnRequest({
+        env,
+        params: { path: 'photos,old.jpg' },
+        request: new Request('https://sundowner.example/api/manage/rename/photos,old.jpg', {
+          method: 'POST',
+          body: JSON.stringify({ newFileId: 'photos/new.jpg' }),
+        }),
+        waitUntil() {
+          throw new Error('index move should not be scheduled when metadata commit fails');
+        },
+      });
+
+      assert.equal(response.status, 500);
+      const deleteCommands = sentCommands.filter((command) => !command.CopySource);
+      assert.deepEqual(deleteCommands, [
+        { Bucket: 'media', Key: 'photos/new.jpg' },
+      ]);
+      assert.equal(await env.img_url.get('photos/old.jpg'), 'kv-value');
+      assert.equal(await env.img_url.get('photos/new.jpg'), null);
+    } finally {
+      resetRenameS3ClientFactory();
+    }
+  });
+
+  it('rolls back rename metadata and copied S3 object when deleting old metadata fails', async () => {
+    const env = createS3Env();
+    await seedS3Record(env);
+    failDeleteForKey(env.img_url, 'photos/old.jpg');
+    const createdClients = [];
+    const sentCommands = [];
+    setRenameS3ClientFactory(createS3ClientFactory(createdClients, sentCommands));
+
+    try {
+      const response = await renameOnRequest({
+        env,
+        params: { path: 'photos,old.jpg' },
+        request: new Request('https://sundowner.example/api/manage/rename/photos,old.jpg', {
+          method: 'POST',
+          body: JSON.stringify({ newFileId: 'photos/new.jpg' }),
+        }),
+        waitUntil() {
+          throw new Error('index move should not be scheduled when metadata delete fails');
+        },
+      });
+
+      assert.equal(response.status, 500);
+      const deleteCommands = sentCommands.filter((command) => !command.CopySource);
+      assert.deepEqual(deleteCommands, [
+        { Bucket: 'media', Key: 'photos/new.jpg' },
+      ]);
+      assert.equal(await env.img_url.get('photos/old.jpg'), 'kv-value');
+      assert.equal(await env.img_url.get('photos/new.jpg'), null);
+    } finally {
+      resetRenameS3ClientFactory();
+    }
+  });
+
+  it('keeps the old S3 object when move metadata commit fails and cleans the copied object', async () => {
+    const env = createS3Env();
+    await seedS3Record(env);
+    failPutForKey(env.img_url, 'archive/old.jpg');
+    const createdClients = [];
+    const sentCommands = [];
+    setMoveS3ClientFactory(createS3ClientFactory(createdClients, sentCommands));
+
+    try {
+      const response = await moveOnRequest({
+        env,
+        params: { path: 'photos,old.jpg' },
+        request: new Request('https://sundowner.example/api/manage/move/photos,old.jpg?dist=archive'),
+        waitUntil() {
+          throw new Error('index move should not be scheduled when metadata commit fails');
+        },
+      });
+
+      assert.equal(response.status, 400);
+      const payload = await response.json();
+      assert.equal(payload.success, false);
+      assert.equal(payload.error, 'Move file failed');
+      const deleteCommands = sentCommands.filter((command) => !command.CopySource);
+      assert.deepEqual(deleteCommands, [
+        { Bucket: 'media', Key: 'archive/old.jpg' },
+      ]);
+      assert.equal(await env.img_url.get('photos/old.jpg'), 'kv-value');
+      assert.equal(await env.img_url.get('archive/old.jpg'), null);
+    } finally {
+      resetMoveS3ClientFactory();
+    }
+  });
+
+  it('rolls back move metadata and copied S3 object when deleting old metadata fails', async () => {
+    const env = createS3Env();
+    await seedS3Record(env);
+    failDeleteForKey(env.img_url, 'photos/old.jpg');
+    const createdClients = [];
+    const sentCommands = [];
+    setMoveS3ClientFactory(createS3ClientFactory(createdClients, sentCommands));
+
+    try {
+      const response = await moveOnRequest({
+        env,
+        params: { path: 'photos,old.jpg' },
+        request: new Request('https://sundowner.example/api/manage/move/photos,old.jpg?dist=archive'),
+        waitUntil() {
+          throw new Error('index move should not be scheduled when metadata delete fails');
+        },
+      });
+
+      assert.equal(response.status, 400);
+      const payload = await response.json();
+      assert.equal(payload.success, false);
+      assert.equal(payload.error, 'Move file failed');
+      const deleteCommands = sentCommands.filter((command) => !command.CopySource);
+      assert.deepEqual(deleteCommands, [
+        { Bucket: 'media', Key: 'archive/old.jpg' },
+      ]);
+      assert.equal(await env.img_url.get('photos/old.jpg'), 'kv-value');
+      assert.equal(await env.img_url.get('archive/old.jpg'), null);
     } finally {
       resetMoveS3ClientFactory();
     }

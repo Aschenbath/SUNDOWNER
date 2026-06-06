@@ -20,4 +20,22 @@ describe('file domain allowlist hardening', () => {
     });
     assert.equal(allowed, false);
   });
+
+  it('rejects requests without Referer when an allowlist is configured', () => {
+    const allowed = isDomainAllowed({
+      Referer: null,
+      securityConfig: { access: { allowedDomains: 'example.com' } },
+      url: new URL('https://example.com/file/test.jpg'),
+    });
+    assert.equal(allowed, false);
+  });
+
+  it('allows requests without Referer when no allowlist is configured', () => {
+    const allowed = isDomainAllowed({
+      Referer: null,
+      securityConfig: { access: { allowedDomains: '' } },
+      url: new URL('https://example.com/file/test.jpg'),
+    });
+    assert.equal(allowed, true);
+  });
 });
