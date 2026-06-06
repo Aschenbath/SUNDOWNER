@@ -125,19 +125,22 @@ async function getApiTokens(db) {
     }
     
     // 返回时不包含实际token值，只返回基本信息
-    const tokenList = toKeep.map(t => ({
-        id: t.id,
-        name: t.name,
-        owner: t.owner,
-        permissions: t.permissions,
-        createdAt: t.createdAt,
-        updatedAt: t.updatedAt,
-        token: t.token.substr(0, 15) + '...', // 只显示前15位
-        expiresAt: t.expiresAt,
-        autoDelete: t.autoDelete
-    }))
+    const tokenList = toKeep.map(t => serializeTokenForManagement(t.id, t))
     
     return { tokens: tokenList }
+}
+
+function serializeTokenForManagement(id, tokenData) {
+    return {
+        id,
+        name: tokenData.name,
+        owner: tokenData.owner,
+        permissions: tokenData.permissions,
+        createdAt: tokenData.createdAt,
+        updatedAt: tokenData.updatedAt,
+        expiresAt: tokenData.expiresAt ?? null,
+        autoDelete: tokenData.autoDelete ?? false
+    }
 }
 
 // 创建新的API Token
@@ -220,7 +223,7 @@ async function updateApiToken(db, tokenId, permissions, expiresAt = null, autoDe
     return { 
         success: true, 
         message: 'Token 已更新',
-        token: settings.apiTokens.tokens[tokenId]
+        token: serializeTokenForManagement(tokenId, settings.apiTokens.tokens[tokenId])
     }
 }
 
