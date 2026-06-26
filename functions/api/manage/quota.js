@@ -48,9 +48,10 @@ async function getQuotaStats(context) {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     } catch (error) {
+        console.error('quota request failed:', error);
         return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: 'Unable to retrieve storage quota'
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
@@ -88,9 +89,10 @@ async function recalculateQuota(context) {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     } catch (error) {
+        console.error('quota request failed:', error);
         return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: 'Unable to retrieve storage quota'
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', ...corsHeaders }

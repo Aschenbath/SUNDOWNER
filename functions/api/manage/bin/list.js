@@ -57,9 +57,10 @@ export async function onRequest(context) {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     } catch (error) {
+        console.error('bin/list request failed:', error);
         return new Response(JSON.stringify({
             success: false,
-            error: error.message
+            error: 'Unable to load the recycle bin'
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', ...corsHeaders }

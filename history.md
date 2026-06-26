@@ -823,3 +823,31 @@ Phase 5 follow-up sweep for auth boundaries, external upload rollback, WebDAV pa
 Upload/storage rollback was tightened across direct HuggingFace commit and normal S3/R2, Discord, and HuggingFace paths: if metadata persistence fails after remote object/message/file creation, the new code best-effort deletes the remote artifact and returns 500 instead of leaving orphans. Direct HuggingFace upload auth now rejects cookie-only authCode, accepts dashboard admin sessions, and no longer writes `HfToken` into file metadata. S3 move/rename now copies remote first, commits metadata second, and deletes old remote only after old metadata deletion succeeds; db.put(new) and db.delete(old) failures roll back copied remote/new metadata and do not schedule index moves.
 
 Cache/list correctness fixes: public-list cache purge now invalidates recursive and non-recursive keys for the target directory plus ancestors/root. Regression coverage added for webhook auth, HF direct upload auth/metadata/cleanup, external upload orphan cleanup, move/rename rollback, WebDAV malformed Basic/XML escaping, referer allowlist behavior, and purge-cache ancestors. Validation so far: Node 22 syntax checks passed for touched production/test files; focused hardening suite passed `60 passing`; `git diff --check` clean aside from CRLF warnings. Full Mocha remains locally blocked by the known `better-sqlite3` Node 22 native binding baseline (`MOCHA_EXIT=75`, missing `better_sqlite3.node`), not by this change.
+
+---
+
+## 2026 June 26 — Security re-audit pass + generic error-message UX
+
+### Security re-audit (no vulnerability found)
+
+[security][audit] Re-reviewed the whole `functions/` server surface (excluding `node_modules`) plus the media-library frontend runtime by attack-surface dimension. Conclusion: no critical/high vulnerability. The codebase is independently re-confirmed to be in the hardened state the Phase 3/4/5 entries above describe:
+
+- Auth/session: HMAC-signed admin session + constant-time compares across `adminSession`/`userAuth`/`dualAuth`/`tokenValidator`/webhook-secret; fail-closed on security-config load error; manage `_middleware` rejects an invalid Bearer without falling back to Basic; `isPublicPath` allowlist exact (webhook setup/delete excluded from the public webhook path).
+- API tokens: `crypto.getRandomValues` 128-bit, constant-time lookup, plaintext returned only at creation; GET/PUT management responses are metadata-only.
+- File serving: fail-closed (block image on config-load error); `getFileContent` strips Authorization/Cookie/authCode before proxying to third parties; referer allowlist is regex-escaped and fail-closed on missing Referer.
+- SSRF: `fetchRes` allowlist + private-IP block + per-hop redirect re-validation; disabled until `FETCH_RES_ALLOWED_HOSTS` is set.
+- SQL: `d1Database` fully `?`-parameterized; sort column via `ALLOWED_SORT_COLUMNS` whitelist; only static constants interpolated.
+- Secrets: security GET masks adminPassword/authCode and forces `apiTokens.tokens={}`; `stripSensitiveMetadata` runs on write.
+- Path traversal: `sanitizeUploadFolder` double-encoding defense + `..`/`.` stripping; `isPathSafe` reject-style for delete/move.
+- Public surfaces: channels/directoryTree require dualAuth; public/list + random are default-disabled + allowedDir allowlist + `accessStatus:'normal'` (excludes Block/Private/adult).
+- CORS: ACAO `*` with no Allow-Credentials, paired with the SameSite=Strict session cookie.
+
+One LOW item left UNCHANGED by design: `GET /api/manage/sysConfig/security` returns `upload.moderate.moderateContentApiKey` in cleartext to the authenticated admin while masking password/authCode/tokens. Treated as a deliberate read-modify-write round-trip tradeoff (the wholesale `settings.upload = newSettings.upload` overwrite in POST would clobber a masked placeholder), admin-only exposure, consistent with the Phase 5 masking style.
+
+### UX change: stop leaking raw error.message on 5xx (extends the Phase 5 list.js pattern)
+
+[ux][security][error-handling] Since the audit found nothing to fix, took the "optimize UX" branch with a surgical, consistency change. Five routes returned raw `error.message` to the client on a 500, which is both an info-disclosure smell and inconsistent error UX. Routed them to `console.error(...)` the real detail server-side and return a stable, user-facing generic message instead, preserving each route's existing response shape and status. Routes: `functions/api/directoryTree.js` (user-reachable via dualAuth — the most relevant), `functions/api/manage/quota.js` (both catch blocks), `functions/api/manage/bin/list.js`, `bin/empty.js`, `bin/batch.js`. Left UNCHANGED: `restore/[[path]].js` (its catch returns 400, where the message is intentional validation feedback), and the test-pinned `list.js` (`Unable to list media items`) / `metadataRoute` validation strings / d1 `Internal server error`. Verified read-only first that the chosen routes' error strings are NOT asserted by tests (directoryTree is tested for CRLF/CORS/auth only; quota has no test file; bin routes test method-rejection/list behavior, not the 500 body).
+
+Validation: Node 22 `--check` clean for all 5 files; focused suites `binListRoute` + `binMutationMethods` + `auditSecurityFixes` + `apiCors` + `failClosedAuth` 48 passing; full Mocha `634 passing / 1 pending / 75 failing` (the 75 are the unchanged `better-sqlite3` native-binding env baseline, `MOCHA_EXIT=75`; zero new failures). Branch `chore/generic-error-messages`.
+
+Process note: the 10-agent adversarial-verification workflow could NOT run this pass — a sustained `claude-opus-4-8[1m]` capacity outage 429'd every subagent and made the Bash/PowerShell/Edit safety classifier unavailable for a long stretch mid-session; the security re-audit was therefore completed by direct manual review, and the code change + validation + commit were done once capacity recovered.

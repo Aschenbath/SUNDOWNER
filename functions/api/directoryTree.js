@@ -68,7 +68,8 @@ export async function onRequestGet(context) {
             }
         });
     } catch (error) {
-        return jsonResponse({ error: error.message }, { status: 500 });
+        console.error('directoryTree request failed:', error);
+        return jsonResponse({ error: 'Unable to load the directory tree' }, { status: 500 });
     }
 }
 
