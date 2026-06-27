@@ -851,3 +851,26 @@ One LOW item left UNCHANGED by design: `GET /api/manage/sysConfig/security` retu
 Validation: Node 22 `--check` clean for all 5 files; focused suites `binListRoute` + `binMutationMethods` + `auditSecurityFixes` + `apiCors` + `failClosedAuth` 48 passing; full Mocha `634 passing / 1 pending / 75 failing` (the 75 are the unchanged `better-sqlite3` native-binding env baseline, `MOCHA_EXIT=75`; zero new failures). Branch `chore/generic-error-messages`.
 
 Process note: the 10-agent adversarial-verification workflow could NOT run this pass — a sustained `claude-opus-4-8[1m]` capacity outage 429'd every subagent and made the Bash/PowerShell/Edit safety classifier unavailable for a long stretch mid-session; the security re-audit was therefore completed by direct manual review, and the code change + validation + commit were done once capacity recovered.
+
+---
+
+## 2026 June 26 — Rich search Stage 1 shipped (merged to main) + Stage 3 design
+
+### Shipped to main + deployed
+
+[search][stage1] Two commits extending search, ff-merged to main:
+- `d6d055b` backend field parity: D1 `queryFiles` (`functions/utils/d1Database.js`, the `if (search)` clause ~L449) and KV `readIndex` (`functions/utils/indexManager.js` search filter ~L913) now match `Title/Artist/Album/Description/VideoCategory/Tags` in addition to `FileName`, all `?`-parameterized. The FRONTEND matcher was already rich (`search-filters.js` + `app.js#matchesSearchQuery` cover filename/tags/music-meta/description/camera/location/personLabels); this brought the SERVER side to parity. KV search has a runnable unit test (`d1Metadata.test.js` MemoryKV); D1 is review+regression-verified because `better-sqlite3` cannot load locally.
+- `bdfc4f3` date filters: `search-filters.js#parseMediaSearchQuery` understands `year:` / `after:` / `before:` (plus Chinese 年/之前/之后 aliases); `matchesMediaSearchFilters` applies them against `item.takenAt` / `item.year` via TZ-free lexical YYYY-MM-DD compare. Works in the UI immediately because `app.js` already runs `matchesMediaSearchFilters` in the global-search path (L10029/10293). Cache bump `app.js?v=352` (entry-loader + entryLoader.test) + `search-filters.js?v=5` (app.js import).
+- Validation baseline is now `637 passing / 1 pending / 75 failing` (75 = unchanged `better-sqlite3` binding baseline, zero new).
+
+Stage 2 (full-library server-backed search) DEFERRED: global search is client-side over loaded media and the current library is fully loaded, so Stage 2 is gated future-proofing with no visible effect now (revisit when libraries grow). Backend date params turned out unnecessary: the frontend applies date filters client-side over the merged set, so a Stage 2 supplement only needs the already-rich text search.
+
+### Stage 3 design (cross-surface Films / Moments / Mind) — ready to execute
+
+Add Films / Moments / Mind buckets to global search results. Anchors located:
+- Data is on-demand-loaded (not eager): Films `state.films` + reusable matcher `app.js#getFilmRecordsMatchingLibraryQuery(query)` / `filmRecordMatchesLibraryQuery`; Moments `state.momentsPosts` (+ `momentsStore.listPosts`, GET `/api/manage/moments`); Mind `state.mindMessages` (+ `mindStore.getMindState`, GET `/api/manage/mind`). Because they load on-route, a global search must ensure-load each via the existing GET/loader before client-filtering (or accept "only what is already loaded").
+- View model: add `searchFilmItems` / `searchMomentItems` / `searchMindItems` in BOTH `app.js#getSearchViewModel` (~L10820) and the main builder (~L10461-10522 / 10630), include them in `globalSearchResultCount`, and thread through `renderSearchResultsViewHtml` (~L4196).
+- Component: `components.js#SearchResultsView` (~L3966) uses a clean `SearchResultSection({title,count,body,groupKey})` per bucket plus `jumpGroups` + `hasResults`; add the three sections. Film card body reuses `films-components.js#FilmCard` (L1363) — confirm whether components.js imports it, else build the card HTML in app.js and pass it as a pre-rendered body string.
+- Routing: films open via `data-action="open-film-detail" data-film-id` (action allowlist app.js:184); Moments → its date view, Mind → mind route.
+- Cache bump (app.js + components.js + films-components.js + entryLoader.test version sync) and likely `previewActions.test.js` search-bucket assertions to update.
+- Recommended order: surface-by-surface, Films first (highest search value + most existing infra), each its own commit + tests + cache bump.
