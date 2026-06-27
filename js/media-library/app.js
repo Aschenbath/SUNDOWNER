@@ -4199,6 +4199,14 @@ function restoreSearchInputFocus(selectionStart = null, selectionEnd = null) {
   if (!(searchInput instanceof HTMLInputElement)) {
     return;
   }
+  // When the results-only patch ran, the live search input was never replaced
+  // and still holds focus, so the browser already tracks the user's caret.
+  // Forcing a captured (and by now stale) selection range here would yank the
+  // caret backwards mid-typing and scramble fast input. Only restore when focus
+  // was actually lost (e.g. a full render rebuilt the input).
+  if (document.activeElement === searchInput) {
+    return;
+  }
   searchInput.focus({ preventScroll: true });
   if (Number.isInteger(selectionStart) && Number.isInteger(selectionEnd)) {
     searchInput.setSelectionRange(selectionStart, selectionEnd);
