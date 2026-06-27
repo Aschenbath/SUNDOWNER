@@ -718,6 +718,7 @@ const state = {
   privateSelectionMode: false,
   searchQuery: '',
   searchDraft: '',
+  searchComposing: false,
   selectedIds: new Set(),
   favoriteIds: new Set(),
   loadedMediaIds: new Set(),
@@ -3796,6 +3797,11 @@ function isMobileMindRouteActive() {
 }
 
 function handleCompositionStart(event) {
+  if (event.target instanceof HTMLInputElement && (event.target.classList.contains('cml-topbar__search-input') || event.target.classList.contains('cml-sidebar__search-input'))) {
+    state.searchComposing = true;
+    cancelPendingSearchQueryApply();
+    return;
+  }
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-films-search-input')) {
     state.filmSearchComposing = true;
     clearPendingFilmSearch();
@@ -3816,6 +3822,15 @@ function handleCompositionStart(event) {
 }
 
 function handleCompositionEnd(event) {
+  if (event.target instanceof HTMLInputElement && (event.target.classList.contains('cml-topbar__search-input') || event.target.classList.contains('cml-sidebar__search-input'))) {
+    state.searchComposing = false;
+    state.searchDraft = event.target.value;
+    scheduleSearchQueryApply(event.target.value, {
+      selectionStart: event.target.selectionStart,
+      selectionEnd: event.target.selectionEnd
+    });
+    return;
+  }
   if (event.target instanceof HTMLInputElement && event.target.hasAttribute('data-films-search-input')) {
     state.filmSearchComposing = false;
     clearPendingFilmSearch();
@@ -4282,10 +4297,15 @@ function applySearchQuery(nextQuery, { preserveFocus = false, selectionStart = n
   }
 }
 
-function scheduleSearchQueryApply(nextQuery, { selectionStart = null, selectionEnd = null } = {}) {
+function cancelPendingSearchQueryApply() {
   if (pendingSearchApplyTimer) {
     window.clearTimeout(pendingSearchApplyTimer);
+    pendingSearchApplyTimer = 0;
   }
+}
+
+function scheduleSearchQueryApply(nextQuery, { selectionStart = null, selectionEnd = null } = {}) {
+  cancelPendingSearchQueryApply();
   pendingSearchApplyTimer = window.setTimeout(() => {
     pendingSearchApplyTimer = 0;
     applySearchQuery(nextQuery, {
@@ -20153,6 +20173,9 @@ function handleInput(event) {
   }
   if (input.classList.contains('cml-topbar__search-input') || input.classList.contains('cml-sidebar__search-input')) {
     state.searchDraft = input.value;
+    if (event.isComposing || state.searchComposing) {
+      return;
+    }
     scheduleSearchQueryApply(input.value, {
       selectionStart: input.selectionStart,
       selectionEnd: input.selectionEnd
@@ -20809,6 +20832,9 @@ function handleKeyDown(event) {
   }
 
   if (event.target instanceof HTMLInputElement && (event.target.classList.contains('cml-sidebar__search-input') || event.target.classList.contains('cml-topbar__search-input'))) {
+    if (event.isComposing || state.searchComposing || event.key === 'Process') {
+      return;
+    }
     if (event.key === 'Enter') {
       event.preventDefault();
       applySearchQuery(event.target.value);
