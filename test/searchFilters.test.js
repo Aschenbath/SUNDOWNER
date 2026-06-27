@@ -26,6 +26,9 @@ describe('media search filters', () => {
       cameraQuery: '',
       tagQuery: '',
       hasLocation: false,
+      dateAfter: '',
+      dateBefore: '',
+      year: '',
     });
   });
 
@@ -92,6 +95,9 @@ describe('media search filters', () => {
       cameraQuery: '',
       tagQuery: '',
       hasLocation: false,
+      dateAfter: '',
+      dateBefore: '',
+      year: '',
     });
 
     assert.equal(matchesMediaSearchFilters({
@@ -130,6 +136,9 @@ describe('media search filters', () => {
       cameraQuery: '',
       tagQuery: 'summer family trip',
       hasLocation: false,
+      dateAfter: '',
+      dateBefore: '',
+      year: '',
     });
 
     assert.equal(matchesMediaSearchFilters({
@@ -178,6 +187,9 @@ describe('media search filters', () => {
       cameraQuery: 'Canon EOS',
       tagQuery: 'night',
       hasLocation: true,
+      dateAfter: '',
+      dateBefore: '',
+      year: '',
     });
 
     assert.equal(matchesMediaSearchFilters({
@@ -219,5 +231,36 @@ describe('media search filters', () => {
       'Has location',
     ]);
     assert.equal(countActiveMediaSearchFilters(parsed.filters), 3);
+  });
+
+  it('parses and applies year and date-range filters', () => {
+    const parsed = parseMediaSearchQuery('sunset year:2023 after:2023-06 before:2023/8/15');
+    assert.equal(parsed.textQuery, 'sunset');
+    assert.equal(parsed.filters.year, '2023');
+    assert.equal(parsed.filters.dateAfter, '2023-06');
+    assert.equal(parsed.filters.dateBefore, '2023-08-15');
+    assert.equal(countActiveMediaSearchFilters(parsed.filters), 3);
+    assert.deepEqual(summarizeMediaSearch(parsed.filters), [
+      'Year: 2023',
+      'After: 2023-06',
+      'Before: 2023-08-15',
+    ]);
+
+    const inRange = { type: 'photo', takenAt: '2023-07-04T10:00:00.000Z', tags: [], personLabels: [] };
+    const tooEarly = { type: 'photo', takenAt: '2023-05-20T10:00:00.000Z', tags: [], personLabels: [] };
+    const tooLate = { type: 'photo', takenAt: '2023-09-01T10:00:00.000Z', tags: [], personLabels: [] };
+    const wrongYear = { type: 'photo', takenAt: '2022-07-04T10:00:00.000Z', tags: [], personLabels: [] };
+
+    assert.equal(matchesMediaSearchFilters(inRange, parsed.filters), true);
+    assert.equal(matchesMediaSearchFilters(tooEarly, parsed.filters), false);
+    assert.equal(matchesMediaSearchFilters(tooLate, parsed.filters), false);
+    assert.equal(matchesMediaSearchFilters(wrongYear, parsed.filters), false);
+  });
+
+  it('matches a bare year filter (incl. Chinese 年 prefix) against item.year when takenAt is absent', () => {
+    const parsed = parseMediaSearchQuery('年:2021');
+    assert.equal(parsed.filters.year, '2021');
+    assert.equal(matchesMediaSearchFilters({ type: 'photo', year: 2021, tags: [], personLabels: [] }, parsed.filters), true);
+    assert.equal(matchesMediaSearchFilters({ type: 'photo', year: 2020, tags: [], personLabels: [] }, parsed.filters), false);
   });
 });

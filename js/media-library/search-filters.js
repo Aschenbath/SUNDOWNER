@@ -1,10 +1,13 @@
 const MEDIA_TYPE_FACETS = new Set(['all', 'photo', 'video', 'audio', 'document']);
-const TYPE_PREFIXES = new Set(['type', 't', '\u7c7b\u578b']);
-const LOCATION_PREFIXES = new Set(['loc', 'location', 'place', '\u5730\u70b9', '\u4f4d\u7f6e']);
-const CATEGORY_PREFIXES = new Set(['category', 'cat', '\u5206\u7c7b', '\u89c6\u9891\u5206\u7c7b']);
-const CAMERA_PREFIXES = new Set(['camera', 'cam', 'device', '\u76f8\u673a']);
-const TAG_PREFIXES = new Set(['tag', 'tags', '\u6807\u7b7e']);
+const TYPE_PREFIXES = new Set(['type', 't', '类型']);
+const LOCATION_PREFIXES = new Set(['loc', 'location', 'place', '地点', '位置']);
+const CATEGORY_PREFIXES = new Set(['category', 'cat', '分类', '视频分类']);
+const CAMERA_PREFIXES = new Set(['camera', 'cam', 'device', '相机']);
+const TAG_PREFIXES = new Set(['tag', 'tags', '标签']);
 const HAS_PREFIXES = new Set(['has', 'with']);
+const AFTER_PREFIXES = new Set(['after', 'since', 'from', '之后', '晚于']);
+const BEFORE_PREFIXES = new Set(['before', 'until', 'til', '之前', '早于']);
+const YEAR_PREFIXES = new Set(['year', 'yr', '年', '年份']);
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -32,19 +35,74 @@ function stripWrappingQuotes(value) {
 
 function normalizeTypeFacet(value) {
   const normalized = normalizeLowerText(value);
-  if (['photo', 'photos', 'image', 'images', 'pic', 'pics', '\u7167\u7247', '\u56fe\u7247'].includes(normalized)) {
+  if (['photo', 'photos', 'image', 'images', 'pic', 'pics', '照片', '图片'].includes(normalized)) {
     return 'photo';
   }
-  if (['video', 'videos', 'movie', 'movies', '\u89c6\u9891', '\u5f55\u50cf'].includes(normalized)) {
+  if (['video', 'videos', 'movie', 'movies', '视频', '录像'].includes(normalized)) {
     return 'video';
   }
-  if (['audio', 'audios', 'music', 'song', 'songs', 'mp3', '\u97f3\u9891', '\u97f3\u4e50'].includes(normalized)) {
+  if (['audio', 'audios', 'music', 'song', 'songs', 'mp3', '音频', '音乐'].includes(normalized)) {
     return 'audio';
   }
-  if (['document', 'documents', 'doc', 'docs', 'scan', 'scans', '\u6587\u6863', '\u6587\u4ef6', '\u626b\u63cf'].includes(normalized)) {
+  if (['document', 'documents', 'doc', 'docs', 'scan', 'scans', '文档', '文件', '扫描'].includes(normalized)) {
     return 'document';
   }
   return MEDIA_TYPE_FACETS.has(normalized) ? normalized : '';
+}
+
+function normalizeYearValue(value) {
+  const match = String(value || '').match(/\d{4}/);
+  return match ? match[0] : '';
+}
+
+// Accept YYYY, YYYY-MM, YYYY-MM-DD (also '/' or '.' separators). Returns a
+// canonical dash-joined string truncated to the granularity the user gave.
+function normalizeDateValue(value) {
+  const text = normalizeText(value).replace(/[/.]/g, '-');
+  const match = text.match(/^(\d{4})(?:-(\d{1,2}))?(?:-(\d{1,2}))?$/);
+  if (!match) {
+    return '';
+  }
+  const parts = [match[1]];
+  if (match[2]) {
+    parts.push(String(Math.min(12, Math.max(1, Number(match[2])))).padStart(2, '0'));
+  }
+  if (match[2] && match[3]) {
+    parts.push(String(Math.min(31, Math.max(1, Number(match[3])))).padStart(2, '0'));
+  }
+  return parts.join('-');
+}
+
+// Resolve a comparable YYYY-MM-DD string for an item from its capture/created date.
+function resolveItemDateString(item) {
+  const raw = item?.takenAt || item?.createdAt || item?.deletedAt || '';
+  if (raw) {
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+  }
+  const year = String(item?.year || '').match(/\d{4}/);
+  return year ? `${year[0]}-01-01` : '';
+}
+
+// Expand a partial filter date to a full YYYY-MM-DD boundary for lexical compare.
+function dateBoundary(normalized, edge) {
+  const [y, m, d] = normalized.split('-');
+  if (edge === 'start') {
+    return `${y}-${m || '01'}-${d || '01'}`;
+  }
+  if (d) {
+    return `${y}-${m}-${d}`;
+  }
+  if (m) {
+    const lastDay = new Date(Number(y), Number(m), 0).getDate();
+    return `${y}-${m}-${String(lastDay).padStart(2, '0')}`;
+  }
+  return `${y}-12-31`;
 }
 
 export function createEmptyMediaSearchFilters() {
@@ -55,6 +113,9 @@ export function createEmptyMediaSearchFilters() {
     cameraQuery: '',
     tagQuery: '',
     hasLocation: false,
+    dateAfter: '',
+    dateBefore: '',
+    year: '',
   };
 }
 
@@ -66,6 +127,9 @@ export function normalizeMediaSearchFilters(input = {}) {
     cameraQuery: normalizeText(input.cameraQuery),
     tagQuery: normalizeText(input.tagQuery),
     hasLocation: input.hasLocation === true || normalizeLowerText(input.hasLocation) === 'location',
+    dateAfter: normalizeDateValue(input.dateAfter),
+    dateBefore: normalizeDateValue(input.dateBefore),
+    year: normalizeYearValue(input.year),
   };
 }
 
@@ -127,8 +191,32 @@ export function parseMediaSearchQuery(input = '') {
 
     if (HAS_PREFIXES.has(prefix)) {
       const normalizedValue = normalizeLowerText(value);
-      if (['location', 'loc', 'gps', 'place', '\u4f4d\u7f6e', '\u5730\u70b9'].includes(normalizedValue)) {
+      if (['location', 'loc', 'gps', 'place', '位置', '地点'].includes(normalizedValue)) {
         filters.hasLocation = true;
+        return;
+      }
+    }
+
+    if (YEAR_PREFIXES.has(prefix)) {
+      const normalizedYear = normalizeYearValue(value);
+      if (normalizedYear) {
+        filters.year = normalizedYear;
+        return;
+      }
+    }
+
+    if (AFTER_PREFIXES.has(prefix)) {
+      const normalizedDate = normalizeDateValue(value);
+      if (normalizedDate) {
+        filters.dateAfter = normalizedDate;
+        return;
+      }
+    }
+
+    if (BEFORE_PREFIXES.has(prefix)) {
+      const normalizedDate = normalizeDateValue(value);
+      if (normalizedDate) {
+        filters.dateBefore = normalizedDate;
         return;
       }
     }
@@ -162,6 +250,15 @@ export function countActiveMediaSearchFilters(input = {}) {
     count += 1;
   }
   if (filters.hasLocation) {
+    count += 1;
+  }
+  if (filters.dateAfter) {
+    count += 1;
+  }
+  if (filters.dateBefore) {
+    count += 1;
+  }
+  if (filters.year) {
     count += 1;
   }
   return count;
@@ -231,6 +328,22 @@ export function matchesMediaSearchFilters(item, input = {}) {
     }
   }
 
+  if (filters.year || filters.dateAfter || filters.dateBefore) {
+    const itemDay = resolveItemDateString(item);
+    if (!itemDay) {
+      return false;
+    }
+    if (filters.year && itemDay.slice(0, 4) !== filters.year) {
+      return false;
+    }
+    if (filters.dateAfter && itemDay < dateBoundary(filters.dateAfter, 'start')) {
+      return false;
+    }
+    if (filters.dateBefore && itemDay > dateBoundary(filters.dateBefore, 'end')) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -260,6 +373,15 @@ export function summarizeMediaSearch(filtersInput = {}) {
   }
   if (filters.hasLocation) {
     parts.push('Has location');
+  }
+  if (filters.year) {
+    parts.push(`Year: ${filters.year}`);
+  }
+  if (filters.dateAfter) {
+    parts.push(`After: ${filters.dateAfter}`);
+  }
+  if (filters.dateBefore) {
+    parts.push(`Before: ${filters.dateBefore}`);
   }
   return parts;
 }

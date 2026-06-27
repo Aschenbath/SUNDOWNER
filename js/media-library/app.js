@@ -59,7 +59,7 @@ import {
   matchesMediaSearchFilters,
   parseMediaSearchQuery,
   summarizeMediaSearch,
-} from './search-filters.js?v=4';
+} from './search-filters.js?v=5';
 import { loadJson, saveJson } from './storage.js?v=1';
 import {
   buildMomentAttachmentItem,
