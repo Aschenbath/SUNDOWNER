@@ -53,7 +53,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=120';
+} from './components.js?v=121';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -89,7 +89,7 @@ import { resolveMediaCaptureTimestamp } from './time-resolution.js?v=1';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=81';
+import { FilmCard, FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=81';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -4208,6 +4208,8 @@ function renderSearchResultsViewHtml(viewModel = getViewModel()) {
     fileCount: viewModel.searchFileItems.length,
     albumCards: viewModel.searchAlbumCards,
     albumCount: viewModel.searchAlbumCards.length,
+    filmCount: (viewModel.searchFilmItems || []).length,
+    filmCardsHtml: (viewModel.searchFilmItems || []).map((record) => FilmCard(record)).join(''),
     state,
     layoutWidth: state.layoutWidth,
     audioState: {
@@ -10409,6 +10411,7 @@ function buildViewModelResult(context = getBaseViewModelContext(), overrides = {
     searchAudioItems: [],
     searchFileItems: [],
     searchAlbumCards: [],
+    searchFilmItems: [],
     searchPhotoSections: [],
     searchVideoSections: [],
     musicItems: [],
@@ -10817,6 +10820,14 @@ function getPhotosViewModel(context = getBaseViewModelContext()) {
     binSelectedIds: state.binSelectedIds
   });
 }
+function buildSearchFilmItems(context) {
+  const parsed = context?.parsedSearch;
+  if (!context?.globalSearchActive || !parsed?.textQuery || parsed?.filters?.type !== 'all') {
+    return [];
+  }
+  return getFilmRecordsMatchingLibraryQuery(parsed.textQuery);
+}
+
 function getSearchViewModel(context = getBaseViewModelContext()) {
   const { accessibleItems } = context;
   const filteredItems = getFilteredItems(accessibleItems);
@@ -10825,6 +10836,7 @@ function getSearchViewModel(context = getBaseViewModelContext()) {
   const searchAudioItems = filteredItems.filter((item) => item?.type === 'audio');
   const searchFileItems = filteredItems.filter((item) => item?.isDocumentLike);
   const searchAlbumCards = buildCollectionSummaries(accessibleItems);
+  const searchFilmItems = buildSearchFilmItems(context);
   const searchPhotoSections = buildSearchTimelineSections(searchPhotoItems, 'search-photo');
   const searchVideoSections = buildSearchTimelineSections(searchVideoItems, 'search-video');
   const selectedItems = getSelectedItems(accessibleItems);
@@ -10837,7 +10849,8 @@ function getSearchViewModel(context = getBaseViewModelContext()) {
     + searchVideoItems.length
     + searchAudioItems.length
     + searchFileItems.length
-    + searchAlbumCards.length;
+    + searchAlbumCards.length
+    + searchFilmItems.length;
 
   return buildViewModelResult(context, {
     globalSearchResultCount,
@@ -10847,6 +10860,7 @@ function getSearchViewModel(context = getBaseViewModelContext()) {
     searchAudioItems,
     searchFileItems,
     searchAlbumCards,
+    searchFilmItems,
     searchPhotoSections,
     searchVideoSections,
     musicPlaylists,
@@ -16057,6 +16071,8 @@ function render() {
                     fileCount: viewModel.searchFileItems.length,
                     albumCards: viewModel.searchAlbumCards,
                     albumCount: viewModel.searchAlbumCards.length,
+                    filmCount: (viewModel.searchFilmItems || []).length,
+                    filmCardsHtml: (viewModel.searchFilmItems || []).map((record) => FilmCard(record)).join(''),
                     state,
                     layoutWidth: state.layoutWidth,
                     audioState: {

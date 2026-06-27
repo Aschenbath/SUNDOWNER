@@ -3978,6 +3978,8 @@ export function SearchResultsView({
   fileCount = 0,
   albumCards = [],
   albumCount = 0,
+  filmCount = 0,
+  filmCardsHtml = '',
   state,
   layoutWidth = 0,
   audioState = {},
@@ -3993,7 +3995,8 @@ export function SearchResultsView({
     videoCount ? { key: 'videos', label: 'Videos', count: videoCount } : null,
     audioCount ? { key: 'music', label: 'Music', count: audioCount } : null,
     fileCount ? { key: 'files', label: 'Files', count: fileCount } : null,
-    albumCount ? { key: 'albums', label: 'Albums', count: albumCount } : null
+    albumCount ? { key: 'albums', label: 'Albums', count: albumCount } : null,
+    filmCount ? { key: 'films', label: 'Films', count: filmCount } : null
   ].filter(Boolean);
   const summary = SearchSummary({
     query,
@@ -4006,7 +4009,7 @@ export function SearchResultsView({
     jumpGroups,
     loadedCount
   });
-  const hasResults = photoCount || videoCount || audioCount || fileCount || albumCount;
+  const hasResults = photoCount || videoCount || audioCount || fileCount || albumCount || filmCount;
   if (!hasResults) {
     return `
       <div data-search-results-root>
@@ -4058,6 +4061,13 @@ export function SearchResultsView({
           body: albumCards.length ? CollectionGrid({ collections: albumCards }) : '',
           sectionClassName: 'cml-search-group--albums',
           groupKey: 'albums'
+        })}
+        ${SearchResultSection({
+          title: 'Films',
+          count: filmCount,
+          body: filmCardsHtml ? `<div class="cml-films-grid">${filmCardsHtml}</div>` : '',
+          sectionClassName: 'cml-search-group--films',
+          groupKey: 'films'
         })}
       </div>
     </div>
