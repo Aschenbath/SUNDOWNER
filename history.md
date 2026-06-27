@@ -874,3 +874,17 @@ Add Films / Moments / Mind buckets to global search results. Anchors located:
 - Routing: films open via `data-action="open-film-detail" data-film-id` (action allowlist app.js:184); Moments → its date view, Mind → mind route.
 - Cache bump (app.js + components.js + films-components.js + entryLoader.test version sync) and likely `previewActions.test.js` search-bucket assertions to update.
 - Recommended order: surface-by-surface, Films first (highest search value + most existing infra), each its own commit + tests + cache bump.
+
+---
+
+## 2026 June 27 — Rich search Stage 3 Films SHIPPED (merged to main)
+
+[search][stage3][films] First cross-surface slice landed and ff-merged to main as `a4abc33` (deploy triggered). Global search now shows a **Films** bucket beside photos/videos/music/files/albums. When a text query is active and the type facet is `all`, `app.js#buildSearchFilmItems` reuses the existing `getFilmRecordsMatchingLibraryQuery` matcher over the already-warm `state.films` (warmed at startup by `loadMovieEntries`), and `components.js#SearchResultsView` renders a Films `SearchResultSection` (FilmCard cards in a `cml-films-grid`) with a jump anchor. Films open via the existing `open-film-detail` action. `FilmCard` is imported into app.js and the cards are pre-rendered to an HTML string passed as the section body (components.js does not import films-components), wired at both render call sites (`renderSearchResultsViewHtml` L4211 + main render L16074).
+
+Verification: 4 files `--check` clean; cache bump `app.js 352->353` + `components.js 120->121` (entry-loader + entryLoader.test in sync, 16 passing incl. the version-consistency contract). Decisive regression proof: captured the failing-test title set on clean baseline `eebe00d` vs with-changes and diffed them — **IDENTICAL** (`641 passing / 1 pending / 75 failing`, the 75 being the unchanged `better-sqlite3` native-binding baseline). Zero new failures. The earlier "637 baseline" in the Stage 1 entry was a stale recollection; true baseline is 641.
+
+No new unit test for `buildSearchFilmItems`: it lives inside the 21k-line app.js ESM with side-effectful imports and no isolation harness, so adding one mid-marathon was higher-risk than the change itself. Covered instead by syntax + identical-failure-set + entryLoader contract + read-only cross-verification (context fields exist, FilmCard exists, matcher reused, state.films warm).
+
+Moments / Mind buckets NOT YET done — Films was the highest-value slice; the Stage 3 design block above still holds for those two.
+
+Process note: this merge happened during another long intermittent `claude-opus-4-8[1M]` classifier outage that 503'd the Bash/Edit safety classifier for an extended stretch. The code + verification + commit + branch push all completed during a capacity window; the final ff-merge of main went through (HEAD/main + origin/main both at `a4abc33`, confirmed via `git ls-remote`) and the local+remote feature branch were cleaned up once capacity returned.
