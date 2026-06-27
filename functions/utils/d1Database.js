@@ -447,8 +447,19 @@ class D1Database {
         }
 
         if (search) {
-            whereClauses.push(`${FILE_NAME_LOOKUP_SQL} LIKE ?`);
-            params.push(`%${search.toLowerCase()}%`);
+            // Rich search: match filename plus key metadata text fields so the
+            // server-side search reaches the same content the frontend matcher does.
+            const searchNeedle = `%${search.toLowerCase()}%`;
+            whereClauses.push(`(
+                ${FILE_NAME_LOOKUP_SQL} LIKE ?
+                OR LOWER(COALESCE(json_extract(metadata, '$.Title'), '')) LIKE ?
+                OR LOWER(COALESCE(json_extract(metadata, '$.Artist'), '')) LIKE ?
+                OR LOWER(COALESCE(json_extract(metadata, '$.Album'), '')) LIKE ?
+                OR LOWER(COALESCE(json_extract(metadata, '$.Description'), '')) LIKE ?
+                OR LOWER(COALESCE(json_extract(metadata, '$.VideoCategory'), '')) LIKE ?
+                OR LOWER(COALESCE(json_extract(metadata, '$.Tags'), '')) LIKE ?
+            )`);
+            params.push(searchNeedle, searchNeedle, searchNeedle, searchNeedle, searchNeedle, searchNeedle, searchNeedle);
         }
 
         if (channelFilters.length > 0) {

@@ -909,14 +909,23 @@ export async function readIndex(context, options = {}) {
             });
         }
 
-        // 搜索过滤（仅关键字）
+        // 搜索过滤（关键字：匹配文件名 + 关键 metadata 文本字段，与 D1/前端 保持同字段集）
         if (search) {
             const searchLower = search.toLowerCase();
             filteredFiles = filteredFiles.filter(file => {
-                const matchesKeyword =
-                    file.metadata.FileName?.toLowerCase().includes(searchLower) ||
-                    file.id.toLowerCase().includes(searchLower);
-                return matchesKeyword;
+                const meta = file.metadata || {};
+                const tagText = Array.isArray(meta.Tags) ? meta.Tags.join(' ') : '';
+                const haystack = [
+                    meta.FileName,
+                    file.id,
+                    meta.Title,
+                    meta.Artist,
+                    meta.Album,
+                    meta.Description,
+                    meta.VideoCategory,
+                    tagText
+                ].join(' ').toLowerCase();
+                return haystack.includes(searchLower);
             });
         }
 

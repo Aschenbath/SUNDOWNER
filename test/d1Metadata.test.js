@@ -1229,6 +1229,48 @@ describe('D1 metadata migration path', () => {
         assert.equal(result.files.length, 31);
     });
 
+    it('readIndex search matches filename plus title, album, description, category and tags', async () => {
+        const env = {
+            img_url: new MemoryKV(),
+        };
+        const context = createContext(env);
+
+        await env.img_url.put('manage@index@meta', JSON.stringify({
+            lastUpdated: Date.now(),
+            totalCount: 0,
+            lastOperationId: null,
+            chunkCount: 0,
+            chunkSize: 5000,
+        }));
+
+        const seeded = [
+            { fileId: 'photos/sunrise.jpg', metadata: { FileName: 'sunrise.jpg', Directory: 'photos/', TimeStamp: 1 } },
+            { fileId: 'music/track.mp3', metadata: { FileName: 'track.mp3', Directory: 'music/', Title: 'Ocean Drive', Artist: 'Duke', Album: 'Summer Nights', TimeStamp: 2 } },
+            { fileId: 'docs/report.pdf', metadata: { FileName: 'report.pdf', Directory: 'docs/', Description: 'Quarterly budget overview', TimeStamp: 3 } },
+            { fileId: 'videos/clip.mp4', metadata: { FileName: 'clip.mp4', Directory: 'videos/', VideoCategory: 'Travel Vlog', Tags: ['beach', 'holiday'], TimeStamp: 4 } },
+        ];
+        for (let i = 0; i < seeded.length; i += 1) {
+            const operationId = String(i + 1).padStart(4, '0');
+            await env.img_url.put(`manage@index@operation_${operationId}`, JSON.stringify({
+                type: 'add',
+                timestamp: i + 1,
+                data: seeded[i],
+            }));
+        }
+
+        const search = async (query) => {
+            const r = await readIndex(context, { count: -1, includeSubdirFiles: true, search: query });
+            return r.files.map((file) => file.id).sort();
+        };
+
+        assert.deepEqual(await search('sunrise'), ['photos/sunrise.jpg']);
+        assert.deepEqual(await search('ocean'), ['music/track.mp3']);
+        assert.deepEqual(await search('summer nights'), ['music/track.mp3']);
+        assert.deepEqual(await search('budget'), ['docs/report.pdf']);
+        assert.deepEqual(await search('travel'), ['videos/clip.mp4']);
+        assert.deepEqual(await search('beach'), ['videos/clip.mp4']);
+    });
+
     it('deleteAllOperations clears more than one delete batch without recursive self-fetch', async () => {
         const env = {
             img_url: new MemoryKV(),
