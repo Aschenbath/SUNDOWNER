@@ -894,3 +894,4 @@ Process note: this merge happened during another long intermittent `claude-opus-
 ## 2026 June 30 - README baseline written
 
 - 2026-06-30 15:20:53 +08:00: Replaced the empty root `README.md` with a product-showcase SUNDOWNER/leosDrive baseline: hero section, bundled screenshot gallery from `static/readme/`, product positioning, architecture, Cloudflare bindings (`img_url`, `img_d1`, `img_r2`), local/Docker startup commands, test commands, D1 migration endpoint, and operational constraints around KV `list()`, sensitive metadata, Telegram `file_id`, proxy headers, and frontend cache-bust versions.
+- 2026-06-30 15:53:04 +08:00: Refined the README visual direction after review: replaced the bulky screenshot table with a single privacy-softened composite `static/readme/showcase.png`, tightened the copy into a cleaner product-page structure, and kept technical/operator details below the product narrative.

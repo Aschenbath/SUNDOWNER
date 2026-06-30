@@ -1,88 +1,60 @@
 <div align="center">
-  <img src="static/readme/banner.png" alt="SUNDOWNER banner" width="920" />
+  <img src="static/readme/showcase.png" alt="SUNDOWNER product showcase" width="960" />
 
   <h1>SUNDOWNER / leosDrive</h1>
 
   <p>
-    <strong>A private media library for the files, photos, films, moments, and notes that should stay yours.</strong>
+    <strong>A private media cockpit for photos, files, films, moments, notes, and long-lived storage operations.</strong>
   </p>
 
   <p>
-    Cloudflare Pages Functions | D1/KV Hybrid | Telegram | Discord | R2 | S3 | Hugging Face
+    Cloudflare Pages Functions | D1/KV Hybrid | Telegram Sync | R2/S3/Discord/Hugging Face
   </p>
 
   <p>
-    <a href="#product-preview">Product Preview</a> |
-    <a href="#what-it-does">What It Does</a> |
+    <a href="#experience">Experience</a> |
+    <a href="#storage-model">Storage Model</a> |
     <a href="#architecture">Architecture</a> |
     <a href="#quick-start">Quick Start</a> |
     <a href="#operator-notes">Operator Notes</a>
   </p>
 </div>
 
-## Product Preview
+## Experience
 
-SUNDOWNER is more than an image bed. It is a compact private media cockpit: upload once, route files across storage backends, browse them as a library, recover Telegram imports, and keep metadata queryable without burning through KV list quota.
+SUNDOWNER started from the image-bed idea, but the current shape is closer to a private media operating room. It uploads, catalogs, searches, serves, recovers, and migrates media across storage backends while keeping the daily surface quiet enough to actually use.
 
-<p align="center">
-  <img src="static/readme/dashboard.png" alt="Admin dashboard preview" width="920" />
-</p>
+| Surface | What it is for |
+| --- | --- |
+| Library cockpit | Browse photos, videos, audio, documents, albums, films, moments, and notes from one admin UI. |
+| Upload routing | Send files to Telegram, Discord, Cloudflare R2, S3-compatible storage, or Hugging Face channels. |
+| Recovery tooling | Repair Telegram imports, recover `file_id` values, scan orphan records, and migrate KV metadata into D1. |
+| Operations | Manage auth, API tokens, WebDAV, public browsing, random APIs, quotas, cache behavior, and channel config. |
 
-<table>
-  <tr>
-    <td width="50%">
-      <img src="static/readme/upload.png" alt="Upload screen" />
-      <br />
-      <strong>Upload without caring where the bytes land</strong>
-      <br />
-      Route files into Telegram, Discord, R2, S3-compatible buckets, or Hugging Face channels from one control surface.
-    </td>
-    <td width="50%">
-      <img src="static/readme/public-gallery.png" alt="Public gallery screen" />
-      <br />
-      <strong>Library first, links second</strong>
-      <br />
-      Browse photos, videos, audio, files, albums, films, moments, and saved context as a real media space.
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="static/readme/customer-config.png" alt="Configuration screen" />
-      <br />
-      <strong>Config lives in the product</strong>
-      <br />
-      Manage auth, upload channels, WebDAV, public browsing, API tokens, quotas, and page behavior through system config.
-    </td>
-    <td width="50%">
-      <img src="static/readme/status-page.png" alt="Status screen" />
-      <br />
-      <strong>Built for long-running libraries</strong>
-      <br />
-      D1-backed metadata, migration endpoints, recycle-bin flows, cache invalidation, and recovery tooling keep operations explicit.
-    </td>
-  </tr>
-</table>
+Raw product captures live in `static/readme/`; the showcase above is a privacy-softened composite built from those screenshots.
 
-## What It Does
+## What Makes This Fork Different
 
-- Presents a private-first admin media library for images, videos, music, documents, albums, films, moments, and notes.
-- Serves direct media URLs through `/file/...`, with backend-specific resolution for Telegram, Discord, R2, S3, and Hugging Face.
-- Keeps metadata queryable through D1 while preserving KV compatibility for existing deployments.
-- Supports global search over rich metadata such as filenames, tags, music fields, descriptions, and film records.
-- Provides Telegram sync and migration helpers for imported channel media, including `file_id` recovery flows.
-- Exposes optional public browsing, random media, WebDAV, API token, and dashboard surfaces when configured.
-- Hardens auth and proxy boundaries with constant-time comparisons, fail-closed config handling, SSRF allowlists, referer checks, sensitive metadata stripping, and generic 5xx responses.
+- D1 is the preferred metadata/query path, so normal library listing and search do not depend on expensive KV `list()` scans.
+- Hybrid mode keeps compatibility with KV-backed deployments while moving queryable metadata into SQL.
+- Telegram sync is treated as a first-class import pipeline, including the `file_id` vs `file_unique_id` recovery problem.
+- Sensitive channel credentials are kept out of per-file metadata by design.
+- The frontend is evolving from upload panel to media library: richer search, albums, films, moments, and notes live beside ordinary file management.
+- Security hardening covers constant-time comparisons, fail-closed config handling, SSRF host allowlists, referer checks, token response shaping, proxy header stripping, and generic 5xx responses.
 
-## Why This Fork Exists
+## Storage Model
 
-The original Cloudflare ImgBed pattern is a useful starting point, but long-lived personal media libraries need a different center of gravity:
+The Cloudflare binding names are part of the project contract:
 
-- KV `list()` is too expensive to be the normal listing/search path on free-tier deployments.
-- Telegram imports are durable only when real `file_id` values are available, not just `file_unique_id`.
-- File metadata must not become a secret store.
-- Admin UX matters when the project becomes a daily media cockpit instead of a throwaway upload panel.
+| Binding | Type | Purpose |
+| --- | --- | --- |
+| `img_url` | KV namespace | Legacy metadata, settings, index chunks, and fallback state |
+| `img_d1` | D1 database | Preferred metadata, settings, and query database |
+| `img_r2` | R2 bucket | Cloudflare R2 file channel |
 
-This fork pushes the project toward D1-backed metadata, safer credential boundaries, richer search, and a more library-shaped frontend.
+When both `img_url` and `img_d1` exist, `functions/utils/databaseAdapter.js` runs in Hybrid mode. D1 handles queryable metadata; KV remains available for compatibility and selected mirrored state.
+
+Do not store tokens in file metadata. Non-`manage@` keys are sanitized before write, stripping sensitive fields such as Telegram, Discord, S3, and Hugging Face credentials. Store channel credentials in upload config (`manage@sysConfig@upload`) or environment variables, then attach files through `ChannelName`.
 
 ## Architecture
 
@@ -97,13 +69,12 @@ This fork pushes the project toward D1-backed metadata, safer credential boundar
 +-- js/media-library/          admin media-library frontend modules
 +-- css/                       compiled and override styles
 +-- database/                  local SQLite/D1 bootstrap SQL and migrations
-+-- server/                    local Docker/Node runtime that emulates Pages Functions
++-- server/                    local Node runtime that emulates Pages Functions
 +-- test/                      Mocha regression tests
-+-- data/                      local persisted dev data
-+-- static/                    static assets and README screenshots
++-- static/readme/             README showcase and product screenshots
 ```
 
-Key backend files:
+Key files:
 
 | File | Role |
 | --- | --- |
@@ -113,20 +84,6 @@ Key backend files:
 | `functions/utils/mediaSecurity.js` | Resolves channel credentials and strips sensitive file metadata. |
 | `functions/api/manage/sysConfig/upload.js` | Stores upload-channel configuration. |
 | `functions/api/manage/migrate/kv-to-d1.js` | Migrates legacy KV metadata/settings into D1. |
-
-## Data Model
-
-The project uses these Cloudflare bindings by convention:
-
-| Binding | Type | Purpose |
-| --- | --- | --- |
-| `img_url` | KV namespace | Legacy metadata, settings, index chunks, and fallback storage state |
-| `img_d1` | D1 database | Preferred metadata/settings/query database |
-| `img_r2` | R2 bucket | Cloudflare R2 file channel |
-
-When both `img_url` and `img_d1` are present, the adapter runs in Hybrid mode. D1 handles queryable metadata, while KV remains available for compatibility and selected mirrored state.
-
-Sensitive channel credentials must not be stored in per-file metadata. The adapter strips fields such as Telegram, Discord, S3, and Hugging Face tokens for non-`manage@` keys. Store channel credentials in system upload config (`manage@sysConfig@upload`) or environment variables, then associate files with `ChannelName`.
 
 ## Quick Start
 
@@ -143,7 +100,7 @@ Install dependencies:
 npm install
 ```
 
-The root install script also installs function dependencies for Cloudflare Pages builds:
+Install function dependencies for Cloudflare Pages builds:
 
 ```bash
 npm run install
@@ -155,13 +112,13 @@ Run the Cloudflare Pages development server:
 npm start
 ```
 
-Wrangler starts on:
+Wrangler serves the app at:
 
 ```text
 http://localhost:8787
 ```
 
-Run the local Node/Docker-compatible server:
+Run the local Node/Docker-compatible runtime:
 
 ```bash
 npm run start:docker
@@ -187,7 +144,7 @@ Recommended production bindings:
 
 - KV namespace: `img_url`
 - D1 database: `img_d1`
-- R2 bucket: `img_r2` if using Cloudflare R2
+- R2 bucket: `img_r2` when using Cloudflare R2
 
 Common optional settings:
 
@@ -195,7 +152,7 @@ Common optional settings:
 - `FETCH_RES_ALLOWED_HOSTS`: explicit host allowlist for `/api/fetchRes`; leave unset to keep that proxy disabled.
 - Admin/user auth, upload channels, WebDAV, public browsing, random API, API tokens, quotas, and page options are managed through system config APIs/UI and stored under `manage@sysConfig@...`.
 
-After binding D1 to an existing KV-backed deployment, migrate legacy metadata in batches:
+After binding D1 to an existing KV-backed deployment, migrate metadata in batches:
 
 ```text
 POST /api/manage/migrate/kv-to-d1
@@ -239,7 +196,7 @@ Some local environments can fail the full suite because the native `better-sqlit
 - Keep credentials in upload config or environment variables, not in file metadata.
 - If a route proxies third-party media, do not forward inbound `Authorization`, `Cookie`, or `authCode` headers.
 - Keep cache-busted frontend module versions in `index.html`, `js/entry-loader.js`, and related tests synchronized.
-- Existing screenshots live under `static/readme/`; replace them with current product captures when preparing a public release.
+- Refresh `static/readme/showcase.png` from neutralized product screenshots before a public-facing release.
 
 ## License
 
