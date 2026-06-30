@@ -1,53 +1,35 @@
-name: Help wanted issue template / 求助问题
-description: Help wanted template.
-title: '[Help Wanted]'
-labels: ['help wanted']
+name: Help wanted / 使用求助
+description: Ask for help with setup, deployment, storage, or migration.
+title: "[Help] "
+labels: ["help wanted"]
 body:
   - type: checkboxes
     id: self_check
     attributes:
       label: Self-check / 自查
-      description: Self-Check before submitting the Issue / 在提交Issue之前的自查
       options:
-        - label: I have already read the document and checked my relative settings / 我已经仔细阅读文档并检查了有关设置
-          required: false
-  - type: checkboxes
-    id: confirm
-    attributes:
-      label: Confirm / 确认
-      description: Please confirm / 请你确认
-      options:
-        - label: I have searched the Issue and found no related issues / 我已经搜索过Issue，没有找到相关问题
+        - label: I have read the README and checked my local configuration. / 我已经阅读 README 并检查本地配置。
           required: true
-        - label: I am using the latest source from this repository / 我使用的是来自此仓库的最新版代码
-          required: true
-        - label: I provided information which does not include sensitive information / 我提供的信息里不包含敏感信息
+        - label: I removed secrets, tokens, cookies, and private media from this request. / 我已移除密钥、token、cookie 和私人媒体信息。
           required: true
   - type: textarea
-    id: description
+    id: question
     attributes:
-      label: Problem Description / 问题描述
-      description: Describe your problem / 描述你的问题
+      label: Question / 问题
+      description: What are you trying to do, and where are you stuck?
     validations:
       required: true
   - type: textarea
-    id: upload_method
+    id: context
     attributes:
-      label: Upload Method / 上传方式
-      description: web or api / WEB 或 API 上传
+      label: Context / 背景
+      description: Deployment target, command, storage backend, and relevant error output.
     validations:
       required: true
   - type: textarea
-    id: upload_channel
+    id: attempts
     attributes:
-      label: Upload Channel / 上传渠道
-      description: Telegram, Cloudflare R2 etc / Telegram, Cloudflare R2 等
-    validations:
-      required: true
-  - type: textarea
-    id: additional_materials
-    attributes:
-      label: Additional Materials / 辅助材料
-      description: Upload interface request, response screenshots, environment variable settings screenshots, etc. as detailed as possible / 上传接口请求、响应截图，环境变量设置截图等，尽可能详细
+      label: What you tried / 已尝试操作
+      description: List the commands or configuration changes already tested.
     validations:
       required: false

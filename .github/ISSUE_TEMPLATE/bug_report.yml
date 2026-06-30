@@ -1,61 +1,51 @@
 name: Bug report / 错误报告
-description: Create a report to help us improve
-title: "[BUG]"
+description: Report a reproducible SUNDOWNER issue.
+title: "[BUG] "
 labels: ["bug"]
 body:
   - type: checkboxes
     id: self_check
     attributes:
       label: Self-check / 自查
-      description: Self-Check before submitting the Issue / 在提交Issue之前的自查
       options:
-        - label: I have already read the document and checked my relative settings / 我已经仔细阅读文档并检查了有关设置
-          required: false
-  - type: checkboxes
-    id: confirm
-    attributes:
-      label: Confirm / 确认
-      description: Please confirm / 请你确认
-      options:
-        - label: I have searched the Issue and found no related issues / 我已经搜索过Issue，没有找到相关问题
+        - label: I have searched existing issues and did not find a duplicate. / 我已经搜索过现有 issue，没有找到重复问题。
           required: true
-        - label: I am using the latest source from this repository / 我使用的是来自此仓库的最新版代码
+        - label: I am using the latest source from this repository. / 我使用的是本仓库的最新代码。
           required: true
-        - label: I provided information which does not include sensitive information / 我提供的信息里不包含敏感信息
+        - label: I removed secrets, tokens, cookies, and private media from this report. / 我已移除密钥、token、cookie 和私人媒体信息。
           required: true
   - type: textarea
     id: description
     attributes:
-      label: BUG Description / BUG 描述
-      description: Describe your BUG here / 在此描述你的BUG
+      label: What happened? / 发生了什么？
+      description: Describe the visible behavior and the affected page, route, or API.
     validations:
       required: true
   - type: textarea
     id: expected_behavior
     attributes:
-      label: Expected Behavior / 预期行为
-      description: What you expect to happen / 你认为的预期行为
+      label: Expected behavior / 预期行为
+      description: What should SUNDOWNER have done instead?
     validations:
       required: true
   - type: textarea
     id: reproduce
     attributes:
-      label: Reproduction Steps / 复现步骤
-      description: How to reproduce / 如何复现
+      label: Reproduction steps / 复现步骤
+      description: List the smallest steps that reproduce the issue.
     validations:
       required: true
   - type: textarea
-    id: debug
+    id: environment
     attributes:
-      label: Console Log / 控制台日志
-      description: F12 -> Console / 从 F12 -> 控制台 复制你觉得可能有帮助的日志
+      label: Environment / 环境
+      description: Browser, deployment target, storage backend, and relevant binding names.
     validations:
       required: false
   - type: textarea
-    id: additional_context
+    id: logs
     attributes:
-      label: Additional Information / 附加信息
-      description: Any other information you think might be helpful to solve this BUG / 你觉得对解决此BUG有帮助的其它信息
+      label: Logs or screenshots / 日志或截图
+      description: Paste safe logs or screenshots. Do not include private credentials or media.
     validations:
       required: false
-

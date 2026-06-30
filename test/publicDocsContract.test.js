@@ -8,6 +8,21 @@ const exists = (path) => fs.existsSync(new URL(path, root));
 
 const publicDocs = ['README.md', 'README_zh.md', 'AGENTS.md'];
 const readmes = ['README.md', 'README_zh.md'];
+const githubMetadataFiles = [
+  '.github/ISSUE_TEMPLATE/bug_report.yml',
+  '.github/ISSUE_TEMPLATE/config.yml',
+  '.github/ISSUE_TEMPLATE/feature_request.yml',
+  '.github/ISSUE_TEMPLATE/help-wanted-issue-template.yml',
+  '.github/workflows/docker-publish.yml',
+  '.github/workflows/sync-release.yml',
+  '.github/workflows/sync.yml',
+];
+const upstreamBrandSurfaceFiles = [
+  ...githubMetadataFiles,
+  'database/init.sql',
+  'functions/api/manage/sysConfig/page.js',
+  'functions/utils/discordAPI.js',
+];
 const currentReadmeScreenshots = [
   'static/readme/current-library.png',
   'static/readme/current-style.png',
@@ -181,6 +196,21 @@ describe('public documentation contract', () => {
     assert.match(compose, /^\s{4}image:\s*sundowner:local\s*$/m);
     assert.doesNotMatch(compose, /cloudflare-imgbed/i);
     assert.doesNotMatch(compose, /^\s{2}imgbed:\s*$/m);
+  });
+
+  it('keeps public GitHub metadata readable and free of old upstream branding', () => {
+    const mojibakePattern = /闁|閻|鐨|鍥|涓|浣|鏂|绠|€|�/;
+    const oldUpstreamPattern = /MarSeventh|CloudFlare-ImgBed|Sanyue-ImgHub|cfbed\.sanyue\.de/i;
+
+    for (const file of githubMetadataFiles) {
+      const text = readUtf8(file);
+      assert.doesNotMatch(text, mojibakePattern, `${file} should not contain mojibake`);
+    }
+
+    for (const file of upstreamBrandSurfaceFiles) {
+      const text = readUtf8(file);
+      assert.doesNotMatch(text, oldUpstreamPattern, `${file} should not reference the old upstream project`);
+    }
   });
 
   it('keeps brand and app icon assets out of the repository root', () => {
