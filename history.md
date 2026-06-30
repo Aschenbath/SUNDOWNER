@@ -622,18 +622,18 @@ ultracode workflow 全盘扫描 201 个源文件，发现 91 bug + 39 优化点�
 
 **验证:** node --check 全过。对抗性验证 workflow 因模型侧 API 临时错误失败 (0 token)，改为手工逐项核验关键风险点 (KV binding 名、rateLimiter 签名、part 完整性、buffer 作用域、调用方兼容性) 全部通过。Mocha 测试未跑 (better-sqlite3 原生模块此前已知构建问题)。
 
-**报告文件 (未纳入 commit):** COMPREHENSIVE_AUDIT_2026-05-31.md / CRITICAL_FIXES_2026-05-31.md / PERFORMANCE_OPTIMIZATIONS_2026-05-31.md
+**报告文件 (已归档到 `docs/audits/2026-05-31/`):** COMPREHENSIVE_AUDIT_2026-05-31.md / CRITICAL_FIXES_2026-05-31.md / PERFORMANCE_OPTIMIZATIONS_2026-05-31.md
 
 **待办 (Phase 3, 未做):** telegramSync 串行删除并行化、indexManager 排序优化、错误处理统一、输入校验 (sanitizeObject 递归深度限制、chunk TTL)、路径遍历加固。
 
->>> ~~明天接续看这里：`PHASE3_TODO_2026-05-31.md`~~ **Phase 3 已完成 (commit f8062b0, pushed)，见下方记录** <<<
+>>> ~~明天接续看这里：`docs/audits/2026-05-31/PHASE3_TODO_2026-05-31.md`~~ **Phase 3 已完成 (commit f8062b0, pushed)，见下方记录** <<<
 该文档自包含、带准确当前行号、grep 锚点、问题代码、修复方案、验证步骤，可脱离对话独立衔接。本轮窗口 context 已很长，新窗口直接读那个文件即可，无需回溯本对话。
 
 ---
 
 ## 2026-06-01 Phase 3 完成 (commit f8062b0, pushed)
 
-按 `PHASE3_TODO_2026-05-31.md` 做完 A/B/C 三组。**先用 5-agent read-only workflow 复核了文档里的开放设计问题，修正了 2 处错误假设**（见下），再动手。6 文件 +80/-17。
+按 `docs/audits/2026-05-31/PHASE3_TODO_2026-05-31.md` 做完 A/B/C 三组。**先用 5-agent read-only workflow 复核了文档里的开放设计问题，修正了 2 处错误假设**（见下），再动手。6 文件 +80/-17。
 
 **A. 性能**
 - A1 telegramSync.cleanupStaleImportedFiles (line 499)：串行删除改**分批并发 CONCURRENCY=3**，复用 huggingfaceAPI.js multipart 写法。⚠️ 不用裸 Promise.all——staleFileIds 可能上百，会撞 Cloudflare 子请求上限 (1000 付费/50 免费) + KV 写入限流。并发安全已确认：每个 fileId 操作独立 key/row，D1 模式下 removeFileFromIndex 直接 early-return 无写入，KV 模式写独立 operation key 不碰共享索引。
@@ -678,13 +678,13 @@ PHASE3_TODO 附录列的 4 个剩余 medium 项。**先用 4-agent read-only wor
 原始 91-bug 审计 JSON 已被 temp 清掉，重跑了一次更强的全盘 audit：**23-batch workflow 扫 126 个源文件**（排除 node_modules/.wrangler/.worktrees/test），每个 HIGH/MEDIUM 派**对抗性 refuter** 验证。**67 agent / 3.9M tokens**。
 结果：**44 高/中审计 → 35 confirmed、0 uncertain、9 refuted**，+51 未验证 LOW。漏审的 batch[11]（5 个 API handler）已补跑，基本干净（仅 2 LOW）。
 
-完整分层待办见同目录 **`PHASE5_AUDIT_2026-06-01.md`**（自包含、带 grep 锚点、修法、爆炸半径、9 条假阳性清单）。要点：
+完整分层待办见 **`docs/audits/2026-06-01/PHASE5_AUDIT_2026-06-01.md`**（自包含、带 grep 锚点、修法、爆炸半径、9 条假阳性清单）。要点：
 - **2 真 HIGH**：H1 `indexManager.js:1438` applyBatchAddOperation 用过期下标损坏无关文件（安全自包含，可直接修）；H2 `telegramSync.js:665` moments 相册 stateKey 无锁 RMW 丢图（需定 KV 竞态策略）。
 - **系统性主题**：①KV 共享键无锁 RMW（≥8 处，含 H2 + apiTokens/rateLimiter/index-merge/telegramSync-config/mindStore/blockip）——KV 无 CAS，需统一策略（复用 acquireRebuildLock 范式 / 拆键 / 接受 best-effort）；②`fetchOthersConfig` fallback 缺 key → random/dav null-deref（一处修同治）；③serial-io ≥12 处可批次化。
 - **最该先做的 MEDIUM**：M1 `restore/chunk.js:72` files-restore 写越权可覆盖 index/settings；M8 `tokenExpiration.js` corrupt expiresAt fail-open；M9 `userConfig.js` 一个坏值 500 整个公开端点；M10 `fileTools.js` 转发 Authorization 给第三方泄 admin 凭据。
 - **9 条假阳性**已记录（含看似真的 chunked-file value-wipe 三连），别凭标题重开。
 
->>> **接续：先做 H1（安全自包含），其余按 `PHASE5_AUDIT_2026-06-01.md` 末尾的"建议执行顺序"，KV 竞态那批等 Gilbert 定策略。** <<<
+>>> **接续：先做 H1（安全自包含），其余按 `docs/audits/2026-06-01/PHASE5_AUDIT_2026-06-01.md` 末尾的"建议执行顺序"，KV 竞态那批等 Gilbert 定策略。** <<<
 
 ### H1 已修 (commit 57676e1, pushed)
 `indexManager.js:1409 applyBatchAddOperation`：`existingFilesMap` 由"存数组下标"改为"存对象引用"。原 bug：新文件经 insertFileInOrder（unshift/splice）移动数组后，缓存的下标过期，同批次后续 UPDATE 用过期下标 `index.files[staleIndex]=fileItem` 覆盖**无关文件**（静默损坏，updatedCount 仍正常）。修法：更新分支原地改 metadata（O(1)、位置不变），新文件分支登记对象引用并删掉每次 O(n) 的 indexOf。零回归 581/75/1（stash 对比一致）。**回归测试留作 follow-up**（该函数未导出，加测试需导出或搭 KV-mode merge 路径 harness）。
@@ -896,3 +896,4 @@ Process note: this merge happened during another long intermittent `claude-opus-
 - 2026-06-30 15:20:53 +08:00: Replaced the empty root `README.md` with a product-showcase SUNDOWNER/leosDrive baseline: hero section, bundled screenshot gallery from `static/readme/`, product positioning, architecture, Cloudflare bindings (`img_url`, `img_d1`, `img_r2`), local/Docker startup commands, test commands, D1 migration endpoint, and operational constraints around KV `list()`, sensitive metadata, Telegram `file_id`, proxy headers, and frontend cache-bust versions.
 - 2026-06-30 15:53:04 +08:00: Refined the README visual direction after review: replaced the bulky screenshot table with a single privacy-softened composite `static/readme/showcase.png`, tightened the copy into a cleaner product-page structure, and kept technical/operator details below the product narrative.
 - 2026-06-30 16:14:38 +08:00: Brightened the README showcase after follow-up review: regenerated `static/readme/showcase.png` with a more vivid dawn/neon-glass composition, stronger product-title treatment, clearer feature cards, and privacy-softened real screenshots; lightly adjusted the README hero copy to match.
+- 2026-06-30 16:37:58 +08:00: Cleaned up loose root documentation by moving historical audit/report files into `docs/audits/2026-05-31/` and `docs/audits/2026-06-01/`, added `docs/audits/README.md`, and kept root public entry/PWA/logo files in place because direct routes and the legacy bundle still reference them.
