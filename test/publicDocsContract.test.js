@@ -33,6 +33,44 @@ function localReferenceTarget(target) {
   return target.split('#')[0];
 }
 
+function stripMarkdownCode(markdown) {
+  return markdown
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`\n]*`/g, '');
+}
+
+function cleanMarkdownTarget(rawTarget) {
+  const trimmed = rawTarget.trim();
+  const angleMatch = trimmed.match(/^<([^>]+)>/);
+  if (angleMatch) {
+    return angleMatch[1];
+  }
+  return trimmed.split(/\s+/)[0];
+}
+
+function collectMarkdownReferences(markdown) {
+  const source = stripMarkdownCode(markdown);
+  const references = [];
+
+  for (const match of source.matchAll(/!\[[^\]\n]*\]\(([^)\n]+)\)/g)) {
+    const target = cleanMarkdownTarget(match[1]);
+    if (localReferenceTarget(target)) {
+      references.push({ kind: 'image', target, index: match.index });
+    }
+  }
+
+  for (const match of source.matchAll(/(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)/g)) {
+    const target = cleanMarkdownTarget(match[1]);
+    if (localReferenceTarget(target)) {
+      references.push({ kind: 'link', target, index: match.index });
+    }
+  }
+
+  return references
+    .sort((a, b) => a.index - b.index)
+    .map(({ kind, target }) => ({ kind, target }));
+}
+
 describe('public documentation contract', () => {
   it('uses SUNDOWNER as the only public product name', () => {
     for (const file of publicDocs) {
@@ -101,6 +139,33 @@ describe('public documentation contract', () => {
           assert.equal(exists(target), true, `${file} image should exist: ${target}`);
         }
       }
+
+      for (const reference of collectMarkdownReferences(markdown)) {
+        const [localPath, hash = ''] = reference.target.split('#');
+        const target = localReferenceTarget(reference.target);
+        if (target) {
+          assert.equal(exists(target), true, `${file} ${reference.kind} should exist: ${target}`);
+        }
+        if (hash) {
+          const anchorSource = localPath ? readUtf8(localPath) : markdown;
+          const anchorSet = localPath ? readmeAnchors(anchorSource) : anchors;
+          assert.equal(anchorSet.has(decodeURIComponent(hash).toLowerCase()), true, `${file} anchor should exist: ${reference.target}`);
+        }
+      }
     }
+  });
+
+  it('recognizes Markdown inline links and images as local README references', () => {
+    const markdown = [
+      '[License](LICENSE)',
+      '![Library](static/readme/current-library.png)',
+      '[External](https://example.com)',
+      '`[Ignored](missing.md)`',
+    ].join('\n');
+
+    assert.deepEqual(collectMarkdownReferences(markdown), [
+      { kind: 'link', target: 'LICENSE' },
+      { kind: 'image', target: 'static/readme/current-library.png' },
+    ]);
   });
 });
