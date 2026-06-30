@@ -96,6 +96,17 @@ function collectReadmeImageTargets(markdown) {
   return [...new Set(targets)];
 }
 
+function readPngInfo(buffer) {
+  const pngSignature = '89504e470d0a1a0a';
+  assert.equal(buffer.subarray(0, 8).toString('hex'), pngSignature, 'image should be a PNG file');
+
+  return {
+    byteLength: buffer.byteLength,
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+  };
+}
+
 describe('public documentation contract', () => {
   it('uses SUNDOWNER as the only public product name', () => {
     for (const file of publicDocs) {
@@ -117,6 +128,10 @@ describe('public documentation contract', () => {
 
     for (const file of currentReadmeScreenshots) {
       assert.equal(exists(file), true, `${file} should be tracked for the README`);
+      const pngInfo = readPngInfo(fs.readFileSync(new URL(file, root)));
+      assert.ok(pngInfo.width >= 1200, `${file} should be a wide, readable screenshot`);
+      assert.ok(pngInfo.height >= 700, `${file} should be a tall enough dashboard screenshot`);
+      assert.ok(pngInfo.byteLength >= 100_000, `${file} should not be a tiny placeholder image`);
     }
 
     for (const file of readmes) {
@@ -209,5 +224,18 @@ describe('public documentation contract', () => {
       'static/readme/current-library.png',
       'static/readme/current-style.png',
     ]);
+  });
+
+  it('reads PNG dimensions from the image header', () => {
+    const png = Buffer.alloc(24);
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(png, 0);
+    png.writeUInt32BE(1800, 16);
+    png.writeUInt32BE(1100, 20);
+
+    assert.deepEqual(readPngInfo(png), {
+      byteLength: 24,
+      width: 1800,
+      height: 1100,
+    });
   });
 });
