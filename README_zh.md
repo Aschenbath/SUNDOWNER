@@ -218,11 +218,17 @@ Docker 风格本地 server 测试：
 npm run ci-test:docker
 ```
 
+修改 README、截图或公开品牌展示后，运行公开文档守门测试：
+
+```bash
+npm run test:docs
+```
+
 对改动文件做快速语法检查：
 
 ```bash
 node --check scripts/capture-readme-screenshots.mjs
-npx mocha test/readmeScreenshotWorkflow.test.js
+npm run test:docs
 node --check functions/utils/databaseAdapter.js
 node --check js/media-library/app.js
 ```

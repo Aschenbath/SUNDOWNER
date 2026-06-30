@@ -218,11 +218,17 @@ Run Docker-style local server tests:
 npm run ci-test:docker
 ```
 
+Run the public documentation guard after README, screenshot, or branding changes:
+
+```bash
+npm run test:docs
+```
+
 For quick syntax checks on touched files:
 
 ```bash
 node --check scripts/capture-readme-screenshots.mjs
-npx mocha test/readmeScreenshotWorkflow.test.js
+npm run test:docs
 node --check functions/utils/databaseAdapter.js
 node --check js/media-library/app.js
 ```

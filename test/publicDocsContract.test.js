@@ -49,6 +49,8 @@ describe('public documentation contract', () => {
     const packageJson = JSON.parse(readUtf8('package.json'));
     assert.equal(packageJson.scripts['capture:readme:local'], 'powershell -ExecutionPolicy Bypass -File scripts/capture-readme-screenshots.ps1');
     assert.equal(packageJson.scripts['test:docs'], 'mocha test/publicDocsContract.test.js test/readmeScreenshotWorkflow.test.js');
+    assert.match(readUtf8('README.md'), /npm run test:docs/);
+    assert.match(readUtf8('README_zh.md'), /npm run test:docs/);
 
     for (const file of [
       'static/readme/current-library.png',
