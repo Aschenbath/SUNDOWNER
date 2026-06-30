@@ -147,7 +147,7 @@ describe('public documentation contract', () => {
       .filter((name) => /\.(?:avif|gif|ico|jpe?g|png|svg|webp)$/i.test(name))
       .sort();
 
-    assert.deepEqual(rootImageAssets, ['logo-dark.png', 'logo.png']);
+    assert.deepEqual(rootImageAssets, []);
   });
 
   it('loads organized app icon and brand assets from static folders', () => {
@@ -155,6 +155,7 @@ describe('public documentation contract', () => {
     const manifest = JSON.parse(readUtf8('manifest.json'));
     const uiOverrides = readUtf8('js/ui-overrides.js');
     const components = readUtf8('js/media-library/components.js');
+    const legacyBundle = readUtf8('js/app.f0825045.js');
 
     for (const icon of ['favicon-32.png', 'favicon-16.png', 'apple-touch-icon.png']) {
       assert.match(indexHtml, new RegExp(`/static/icons/${icon}\\?v=1`));
@@ -174,6 +175,24 @@ describe('public documentation contract', () => {
     assert.match(components, /src="\/static\/brand\/logo-sundowner\.png\?v=1"/);
     assert.equal(exists('static/brand/logo-sundowner.png'), true);
     assert.equal(exists('static/brand/logo-sundowner.svg'), true);
+    assert.equal(exists('static/brand/logo.png'), true);
+    assert.equal(exists('static/brand/logo-dark.png'), true);
+    assert.match(legacyBundle, /\/static\/brand\/logo\.png/);
+    assert.match(legacyBundle, /\/static\/brand\/logo-dark\.png/);
+    assert.doesNotMatch(legacyBundle, /["']\/logo(?:-dark)?\.png["']/);
+  });
+
+  it('keeps legacy root logo URLs compatible through route shims', async () => {
+    for (const logo of ['logo.png', 'logo-dark.png']) {
+      assert.equal(exists(`functions/${logo}.js`), true);
+      const route = await import(new URL(`functions/${logo}.js?test=${Date.now()}`, root));
+      const response = await route.onRequestGet({
+        request: new Request(`https://sundowner.example/${logo}`),
+      });
+
+      assert.equal(response.status, 302);
+      assert.equal(response.headers.get('location'), `https://sundowner.example/static/brand/${logo}`);
+    }
   });
 
   it('keeps auxiliary tool pages out of the repository root with route shims', async () => {
