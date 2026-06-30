@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="static/readme/showcase.png" alt="SUNDOWNER 产品展示" width="960" />
+  <img src="static/readme/current-library.png" alt="SUNDOWNER 当前媒体库界面" width="960" />
 
   <h1>SUNDOWNER / leosDrive</h1>
 
@@ -32,7 +32,17 @@ SUNDOWNER 最早来自图床项目，但现在更接近一个私有媒体驾驶�
 | 恢复工具 | 修复 Telegram 导入记录，恢复真实 `file_id`，扫描孤儿文件，并把 KV 元数据迁移到 D1。 |
 | 运维配置 | 管理鉴权、API token、WebDAV、公开浏览、随机 API、配额、缓存和通道配置。 |
 
-上方展示图来自 `static/readme/` 中的真实产品截图，并做了隐私弱化处理，适合公开展示。
+## 当前效果图
+
+这些截图由本仓库本地运行的 Wrangler Pages dev 生成，使用临时 README 截图账号和空的本地媒体数据。它们展示的是当前改造后的 media-library 界面，不是旧上游界面，也不是用户提供的截图。
+
+| 媒体库主界面 | Style 面板 |
+| --- | --- |
+| <img src="static/readme/current-library.png" alt="当前 SUNDOWNER 媒体库主界面" width="460" /> | <img src="static/readme/current-style.png" alt="当前 SUNDOWNER Style 面板" width="460" /> |
+
+| Films | Moments |
+| --- | --- |
+| <img src="static/readme/current-films.png" alt="当前 SUNDOWNER Films 页面" width="460" /> | <img src="static/readme/current-moments.png" alt="当前 SUNDOWNER Moments 页面" width="460" /> |
 
 ## 这个 Fork 的重点
 
@@ -197,7 +207,7 @@ node --check js/media-library/app.js
 - 凭证放在 upload config 或环境变量中，不要放进文件 metadata。
 - 代理第三方媒体时，不要转发入站的 `Authorization`、`Cookie` 或 `authCode` header。
 - 修改前端入口时，同步维护 `index.html`、`js/entry-loader.js` 和相关测试中的 cache-bust 版本。
-- 公开发布前，优先用隐私弱化后的产品截图刷新 `static/readme/showcase.png`。
+- 公开发布前，用本地运行的当前界面刷新 `static/readme/current-*.png` 截图，避免继续沿用旧上游界面图。
 
 ## 许可证
 

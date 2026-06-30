@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="static/readme/showcase.png" alt="SUNDOWNER product showcase" width="960" />
+  <img src="static/readme/current-library.png" alt="SUNDOWNER current media library UI" width="960" />
 
   <h1>SUNDOWNER / leosDrive</h1>
 
@@ -32,7 +32,19 @@ SUNDOWNER started from the image-bed idea, but the current shape is closer to a 
 | Recovery tooling | Repair Telegram imports, recover `file_id` values, scan orphan records, and migrate KV metadata into D1. |
 | Operations | Manage auth, API tokens, WebDAV, public browsing, random APIs, quotas, cache behavior, and channel config. |
 
-Raw product captures live in `static/readme/`; the showcase above is a privacy-softened composite built from those screenshots.
+Current product captures live in `static/readme/`. The lead image and gallery below are captured from this fork running locally.
+
+## Current Screenshots
+
+These captures are generated from this repository running locally with Wrangler Pages dev, temporary README-only credentials, and empty local media data. They show the current redesigned media-library shell, not the old upstream interface.
+
+| Library shell | Style panel |
+| --- | --- |
+| <img src="static/readme/current-library.png" alt="Current SUNDOWNER media library shell" width="460" /> | <img src="static/readme/current-style.png" alt="Current SUNDOWNER style panel" width="460" /> |
+
+| Films | Moments |
+| --- | --- |
+| <img src="static/readme/current-films.png" alt="Current SUNDOWNER Films view" width="460" /> | <img src="static/readme/current-moments.png" alt="Current SUNDOWNER Moments view" width="460" /> |
 
 ## What Makes This Fork Different
 
@@ -197,7 +209,7 @@ Some local environments can fail the full suite because the native `better-sqlit
 - Keep credentials in upload config or environment variables, not in file metadata.
 - If a route proxies third-party media, do not forward inbound `Authorization`, `Cookie`, or `authCode` headers.
 - Keep cache-busted frontend module versions in `index.html`, `js/entry-loader.js`, and related tests synchronized.
-- Refresh `static/readme/showcase.png` from neutralized product screenshots before a public-facing release.
+- Refresh the `static/readme/current-*.png` screenshots from a local run before a public-facing release.
 
 ## License
 
