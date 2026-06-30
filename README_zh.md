@@ -107,6 +107,8 @@ Cloudflare 绑定名是项目约定的一部分：
 +-- database/                  本地 SQLite/D1 初始化 SQL 与迁移
 +-- server/                    模拟 Pages Functions 的本地 Node runtime
 +-- test/                      Mocha 回归测试
++-- static/brand/              SUNDOWNER 品牌图
++-- static/icons/              favicon 与 PWA 图标资源
 +-- static/readme/             README 截图
 ```
 

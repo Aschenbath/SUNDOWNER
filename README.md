@@ -107,6 +107,8 @@ Do not store tokens in file metadata. Non-`manage@` keys are sanitized before wr
 +-- database/                  local SQLite/D1 bootstrap SQL and migrations
 +-- server/                    local Node runtime that emulates Pages Functions
 +-- test/                      Mocha regression tests
++-- static/brand/              SUNDOWNER brand artwork
++-- static/icons/              favicon and PWA icon assets
 +-- static/readme/             README screenshots
 ```
 

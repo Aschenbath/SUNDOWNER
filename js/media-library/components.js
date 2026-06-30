@@ -4245,7 +4245,7 @@ export function LoginOverlay({ error = '', isLoading = false } = {}) {
     <div class="cml-login-overlay" role="main" aria-label="Sign in">
       <div class="cml-login-card">
         <div class="cml-login__brand">
-          <img class="cml-login__logo" src="/logo-sundowner.png?v=1" alt="SUNDOWNER" />
+          <img class="cml-login__logo" src="/static/brand/logo-sundowner.png?v=1" alt="SUNDOWNER" />
         </div>
         <p class="cml-login__subtitle">Your private photo space</p>
         <form class="cml-login__form" data-form="login" method="post" action="">

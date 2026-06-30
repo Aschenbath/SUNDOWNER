@@ -141,6 +141,41 @@ describe('public documentation contract', () => {
     assert.doesNotMatch(compose, /^\s{2}imgbed:\s*$/m);
   });
 
+  it('keeps brand and app icon assets out of the repository root', () => {
+    const rootImageAssets = fs
+      .readdirSync(root)
+      .filter((name) => /\.(?:avif|gif|ico|jpe?g|png|svg|webp)$/i.test(name))
+      .sort();
+
+    assert.deepEqual(rootImageAssets, ['logo-dark.png', 'logo.png']);
+  });
+
+  it('loads organized app icon and brand assets from static folders', () => {
+    const indexHtml = readUtf8('index.html');
+    const manifest = JSON.parse(readUtf8('manifest.json'));
+    const uiOverrides = readUtf8('js/ui-overrides.js');
+    const components = readUtf8('js/media-library/components.js');
+
+    for (const icon of ['favicon-32.png', 'favicon-16.png', 'apple-touch-icon.png']) {
+      assert.match(indexHtml, new RegExp(`/static/icons/${icon}\\?v=1`));
+      assert.equal(exists(`static/icons/${icon}`), true, `static/icons/${icon} should exist`);
+    }
+
+    assert.deepEqual(manifest.icons.map((icon) => icon.src), [
+      '/static/icons/icon-192.png?v=1',
+      '/static/icons/icon-512.png?v=1',
+    ]);
+
+    for (const icon of ['icon-192.png', 'icon-512.png']) {
+      assert.equal(exists(`static/icons/${icon}`), true, `static/icons/${icon} should exist`);
+    }
+
+    assert.match(uiOverrides, /const LOGO_PATH = '\/static\/brand\/logo-sundowner\.png';/);
+    assert.match(components, /src="\/static\/brand\/logo-sundowner\.png\?v=1"/);
+    assert.equal(exists('static/brand/logo-sundowner.png'), true);
+    assert.equal(exists('static/brand/logo-sundowner.svg'), true);
+  });
+
   it('keeps README screenshots reproducible and present', () => {
     const packageJson = JSON.parse(readUtf8('package.json'));
     assert.equal(packageJson.scripts['capture:readme:local'], 'powershell -ExecutionPolicy Bypass -File scripts/capture-readme-screenshots.ps1');
