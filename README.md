@@ -12,6 +12,7 @@
   </p>
 
   <p>
+    <a href="README_zh.md">简体中文</a> |
     <a href="#experience">Experience</a> |
     <a href="#storage-model">Storage Model</a> |
     <a href="#architecture">Architecture</a> |
