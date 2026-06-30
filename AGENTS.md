@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-SUNDOWNER (leosDrive) — Cloudflare Pages + Workers media library. Storage backends: Telegram, Discord, S3, R2, HuggingFace. KV stores file metadata, index chunks manage file listing.
+SUNDOWNER — Cloudflare Pages + Workers media library. Storage backends: Telegram, Discord, S3, R2, HuggingFace. KV stores file metadata, index chunks manage file listing.
 
 ---
 

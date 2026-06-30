@@ -1,7 +1,7 @@
 <div align="center">
   <img src="static/readme/current-library.png" alt="SUNDOWNER current media library UI" width="960" />
 
-  <h1>SUNDOWNER / leosDrive</h1>
+  <h1>SUNDOWNER</h1>
 
   <p>
     <strong>Private media, searchable metadata, recoverable imports, and storage channels under one bright control surface.</strong>

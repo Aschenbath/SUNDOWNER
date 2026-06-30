@@ -1,7 +1,7 @@
 <div align="center">
   <img src="static/readme/current-library.png" alt="SUNDOWNER 当前媒体库界面" width="960" />
 
-  <h1>SUNDOWNER / leosDrive</h1>
+  <h1>SUNDOWNER</h1>
 
   <p>
     <strong>跑在 Cloudflare 上的私有媒体库：上传、整理、搜索、直链、迁移和恢复，都收进一个明亮的控制台。</strong>
