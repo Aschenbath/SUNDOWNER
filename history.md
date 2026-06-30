@@ -888,3 +888,9 @@ No new unit test for `buildSearchFilmItems`: it lives inside the 21k-line app.js
 Moments / Mind buckets NOT YET done — Films was the highest-value slice; the Stage 3 design block above still holds for those two.
 
 Process note: this merge happened during another long intermittent `claude-opus-4-8[1M]` classifier outage that 503'd the Bash/Edit safety classifier for an extended stretch. The code + verification + commit + branch push all completed during a capacity window; the final ff-merge of main went through (HEAD/main + origin/main both at `a4abc33`, confirmed via `git ls-remote`) and the local+remote feature branch were cleaned up once capacity returned.
+
+---
+
+## 2026 June 30 - README baseline written
+
+- 2026-06-30 15:20:53 +08:00: Replaced the empty root `README.md` with a product-showcase SUNDOWNER/leosDrive baseline: hero section, bundled screenshot gallery from `static/readme/`, product positioning, architecture, Cloudflare bindings (`img_url`, `img_d1`, `img_r2`), local/Docker startup commands, test commands, D1 migration endpoint, and operational constraints around KV `list()`, sensitive metadata, Telegram `file_id`, proxy headers, and frontend cache-bust versions.
