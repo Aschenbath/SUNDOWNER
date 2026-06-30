@@ -9,6 +9,7 @@
     "ci-test": "concurrently --kill-others \"npm start\" \"wait-on http://localhost:8787 && mocha\"",
     "ci-test:docker": "concurrently --kill-others \"npm run start:docker\" \"wait-on http://localhost:8787 && mocha\"",
     "test": "mocha",
+    "test:docs": "mocha test/publicDocsContract.test.js test/readmeScreenshotWorkflow.test.js",
     "start": "npx wrangler pages dev ./ --kv \"img_url\" --r2 \"img_r2\" --ip 0.0.0.0 --port 8787 --persist-to ./data",
     "start:docker": "D:/DevTools/nvm/v22.14.0/node.exe --import ./server/register.mjs server/index.js",
     "install": "npm --prefix ./functions install --no-package-lock --progress=false",
