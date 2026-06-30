@@ -4,7 +4,7 @@
   <h1>SUNDOWNER / leosDrive</h1>
 
   <p>
-    <strong>一个跑在 Cloudflare 上的私有媒体库：上传、整理、搜索、直链、迁移和恢复，都收进同一个明亮的控制台。</strong>
+    <strong>跑在 Cloudflare 上的私有媒体库：上传、整理、搜索、直链、迁移和恢复，都收进一个明亮的控制台。</strong>
   </p>
 
   <p>
@@ -14,8 +14,8 @@
   <p>
     <a href="README.md">English</a> |
     <a href="#产品体验">产品体验</a> |
+    <a href="#当前截图">当前截图</a> |
     <a href="#存储模型">存储模型</a> |
-    <a href="#项目结构">项目结构</a> |
     <a href="#快速开始">快速开始</a> |
     <a href="#运维提示">运维提示</a>
   </p>
@@ -23,7 +23,7 @@
 
 ## 产品体验
 
-SUNDOWNER 最早来自图床项目，但现在更接近一个私有媒体驾驶舱。它不只是把文件传上去，而是把照片、视频、音频、文档、相册、影片、动态和笔记放在同一个管理界面里，方便检索、整理、访问和恢复。
+SUNDOWNER 最早来自图床项目，但这个 fork 已经更接近一个私有媒体驾驶舱。它不只是把文件传上去，而是把照片、视频、音频、文档、相册、影片、动态和笔记放在同一个管理界面里，方便检索、整理、访问、恢复和迁移。
 
 | 模块 | 用途 |
 | --- | --- |
@@ -32,26 +32,43 @@ SUNDOWNER 最早来自图床项目，但现在更接近一个私有媒体驾驶�
 | 恢复工具 | 修复 Telegram 导入记录，恢复真实 `file_id`，扫描孤儿文件，并把 KV 元数据迁移到 D1。 |
 | 运维配置 | 管理鉴权、API token、WebDAV、公开浏览、随机 API、配额、缓存和通道配置。 |
 
-## 当前效果图
+## 当前截图
 
-这些截图由本仓库本地运行的 Wrangler Pages dev 生成，使用临时 README 截图账号和空的本地媒体数据。它们展示的是当前改造后的 media-library 界面，不是旧上游界面，也不是用户提供的截图。
+下面的截图来自本仓库本地运行的当前界面：Wrangler Pages dev + D1/KV/R2 binding + 临时 README 截图账号 + `npm run capture:readme` 生成的中性演示素材。它们不是旧上游截图，也不是用户提供的截图。
 
-| 媒体库主界面 | Style 面板 |
+| 带本地演示素材的媒体库 | 主题与样式面板 |
 | --- | --- |
-| <img src="static/readme/current-library.png" alt="当前 SUNDOWNER 媒体库主界面" width="460" /> | <img src="static/readme/current-style.png" alt="当前 SUNDOWNER Style 面板" width="460" /> |
+| <img src="static/readme/current-library.png" alt="当前 SUNDOWNER 媒体库界面" width="460" /> | <img src="static/readme/current-style.png" alt="当前 SUNDOWNER 样式面板" width="460" /> |
 
 | Films | Moments |
 | --- | --- |
 | <img src="static/readme/current-films.png" alt="当前 SUNDOWNER Films 页面" width="460" /> | <img src="static/readme/current-moments.png" alt="当前 SUNDOWNER Moments 页面" width="460" /> |
 
+刷新截图时，先用隔离的本地持久化目录启动项目：
+
+```bash
+npx wrangler pages dev ./ --kv img_url --d1 img_d1 --r2 img_r2 \
+  --binding BASIC_USER=readme-admin \
+  --binding BASIC_PASS=readme-password \
+  --binding AUTH_CODE=readme-upload-code \
+  --ip 127.0.0.1 --port 8787 \
+  --persist-to D:/Codex/tmp_toDel/_sundowner-readme-data
+```
+
+然后运行：
+
+```bash
+npm run capture:readme
+```
+
 ## 这个 Fork 的重点
 
 - D1 是当前首选的元数据和查询路径，常规列表与搜索不再依赖昂贵的 KV `list()` 扫描。
-- Hybrid 模式兼容旧的 KV 部署，同时把可查询元数据迁移到 SQL。
-- Telegram 同步被当作正式导入流水线处理，包括 `file_id` 和 `file_unique_id` 的恢复问题。
-- 文件级 metadata 不保存敏感凭证，避免 token 被扩散到普通文件记录。
+- Hybrid 模式兼容旧 KV 部署，同时把可查询元数据迁移到 SQL。
+- Telegram 同步被当作正式导入流水线处理，包括 `file_id` 与 `file_unique_id` 的恢复问题。
+- 文件级 metadata 不保存敏感凭证，避免 token 扩散到普通文件记录。
 - 前端已经从上传面板演进为媒体库：搜索、相册、影片、动态、笔记和文件管理在同一个界面中协作。
-- 安全加固覆盖常量时间比较、配置失败 fail-closed、SSRF host allowlist、Referer 检查、token 响应脱敏、代理头剥离和统一 5xx 错误返回。
+- 安全加固覆盖常量时间比较、配置失败 fail-closed、SSRF host allowlist、Referer 检查、token 响应脱敏、代理头剥离和统一 5xx 返回。
 
 ## 存储模型
 
@@ -82,7 +99,7 @@ Cloudflare 绑定名是项目约定的一部分：
 +-- database/                  本地 SQLite/D1 初始化 SQL 与迁移
 +-- server/                    模拟 Pages Functions 的本地 Node runtime
 +-- test/                      Mocha 回归测试
-+-- static/readme/             README 展示图和产品截图
++-- static/readme/             README 截图
 ```
 
 关键文件：
@@ -95,6 +112,7 @@ Cloudflare 绑定名是项目约定的一部分：
 | `functions/utils/mediaSecurity.js` | 解析通道凭证，并剥离敏感文件 metadata。 |
 | `functions/api/manage/sysConfig/upload.js` | 存储上传通道配置。 |
 | `functions/api/manage/migrate/kv-to-d1.js` | 将旧 KV metadata/settings 迁移到 D1。 |
+| `scripts/capture-readme-screenshots.mjs` | 注入中性本地演示数据并抓取当前 README 截图。 |
 
 ## 快速开始
 
@@ -194,6 +212,7 @@ npm run ci-test:docker
 对改动文件做快速语法检查：
 
 ```bash
+node --check scripts/capture-readme-screenshots.mjs
 node --check functions/utils/databaseAdapter.js
 node --check js/media-library/app.js
 ```
@@ -207,7 +226,7 @@ node --check js/media-library/app.js
 - 凭证放在 upload config 或环境变量中，不要放进文件 metadata。
 - 代理第三方媒体时，不要转发入站的 `Authorization`、`Cookie` 或 `authCode` header。
 - 修改前端入口时，同步维护 `index.html`、`js/entry-loader.js` 和相关测试中的 cache-bust 版本。
-- 公开发布前，用本地运行的当前界面刷新 `static/readme/current-*.png` 截图，避免继续沿用旧上游界面图。
+- 公开发布前，用本地运行的当前界面刷新 `static/readme/current-*.png`，避免沿用旧上游界面图。
 
 ## 许可证
 
