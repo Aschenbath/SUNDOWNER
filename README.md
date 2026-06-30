@@ -4,7 +4,7 @@
   <h1>SUNDOWNER / leosDrive</h1>
 
   <p>
-    <strong>A private media cockpit for photos, files, films, moments, notes, and long-lived storage operations.</strong>
+    <strong>Private media, searchable metadata, recoverable imports, and storage channels under one bright control surface.</strong>
   </p>
 
   <p>
@@ -22,7 +22,7 @@
 
 ## Experience
 
-SUNDOWNER started from the image-bed idea, but the current shape is closer to a private media operating room. It uploads, catalogs, searches, serves, recovers, and migrates media across storage backends while keeping the daily surface quiet enough to actually use.
+SUNDOWNER started from the image-bed idea, but the current shape is closer to a private media cockpit. It uploads, catalogs, searches, serves, recovers, and migrates media across storage backends while keeping the daily surface quiet enough to actually use.
 
 | Surface | What it is for |
 | --- | --- |
