@@ -176,6 +176,27 @@ describe('public documentation contract', () => {
     assert.equal(exists('static/brand/logo-sundowner.svg'), true);
   });
 
+  it('keeps auxiliary tool pages out of the repository root with route shims', async () => {
+    const rootHtmlFiles = fs
+      .readdirSync(root)
+      .filter((name) => /\.html$/i.test(name))
+      .sort();
+
+    assert.deepEqual(rootHtmlFiles, ['health.html', 'index.html']);
+    assert.equal(exists('static/tools/telegram-sync-admin.html'), true);
+    assert.equal(exists('functions/telegram-sync-admin.html.js'), true);
+    assert.match(readUtf8('static/tools/telegram-sync-admin.html'), /<title>SUNDOWNER Telegram Sync<\/title>/);
+    assert.match(readUtf8('static/tools/telegram-sync-admin.html'), /<h1>SUNDOWNER Telegram Sync<\/h1>/);
+
+    const route = await import(new URL(`functions/telegram-sync-admin.html.js?test=${Date.now()}`, root));
+    const response = await route.onRequestGet({
+      request: new Request('https://sundowner.example/telegram-sync-admin.html'),
+    });
+
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get('location'), 'https://sundowner.example/static/tools/telegram-sync-admin.html');
+  });
+
   it('keeps README screenshots reproducible and present', () => {
     const packageJson = JSON.parse(readUtf8('package.json'));
     assert.equal(packageJson.scripts['capture:readme:local'], 'powershell -ExecutionPolicy Bypass -File scripts/capture-readme-screenshots.ps1');

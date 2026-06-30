@@ -110,6 +110,7 @@ Do not store tokens in file metadata. Non-`manage@` keys are sanitized before wr
 +-- static/brand/              SUNDOWNER brand artwork
 +-- static/icons/              favicon and PWA icon assets
 +-- static/readme/             README screenshots
++-- static/tools/              standalone operator tools
 ```
 
 Key files:

@@ -110,6 +110,7 @@ Cloudflare 绑定名是项目约定的一部分：
 +-- static/brand/              SUNDOWNER 品牌图
 +-- static/icons/              favicon 与 PWA 图标资源
 +-- static/readme/             README 截图
++-- static/tools/              独立运维工具页
 ```
 
 关键文件：
