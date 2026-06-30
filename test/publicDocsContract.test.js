@@ -14,6 +14,12 @@ const currentReadmeScreenshots = [
   'static/readme/current-films.png',
   'static/readme/current-moments.png',
 ];
+const legacyBundleImageAssets = [
+  '404.8ed11fb3.png',
+  'background.ea1b7ee7.jpg',
+  'background-light.f17603bc.jpg',
+  'logo.e8dbfa27.png',
+];
 
 function githubSlug(heading) {
   return heading
@@ -193,6 +199,34 @@ describe('public documentation contract', () => {
       assert.equal(response.status, 302);
       assert.equal(response.headers.get('location'), `https://sundowner.example/static/brand/${logo}`);
     }
+  });
+
+  it('keeps legacy bundle image assets out of the repository root with route shims', async () => {
+    assert.equal(exists('img'), false, 'legacy bundle images should live under static/legacy/img');
+
+    for (const asset of legacyBundleImageAssets) {
+      assert.equal(exists(`static/legacy/img/${asset}`), true, `static/legacy/img/${asset} should exist`);
+    }
+
+    const legacyChunks = fs
+      .readdirSync(new URL('js/', root))
+      .filter((name) => name.endsWith('.js'))
+      .map((name) => `js/${name}`);
+
+    for (const file of legacyChunks) {
+      const source = readUtf8(file);
+      assert.doesNotMatch(source, /["']img\//, `${file} should not hardcode root img/ assets`);
+    }
+
+    assert.equal(exists('functions/img/[[path]].js'), true);
+    const route = await import(new URL(`functions/img/[[path]].js?test=${Date.now()}`, root));
+    const response = await route.onRequestGet({
+      request: new Request('https://sundowner.example/img/background.ea1b7ee7.jpg'),
+      params: { path: ['background.ea1b7ee7.jpg'] },
+    });
+
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get('location'), 'https://sundowner.example/static/legacy/img/background.ea1b7ee7.jpg');
   });
 
   it('keeps auxiliary tool pages out of the repository root with route shims', async () => {
