@@ -1,8 +1,10 @@
-version: '3.8'
+name: sundowner
 
 services:
-  imgbed:
-    image: marseventh/cloudflare-imgbed:latest
+  sundowner:
+    build:
+      context: .
+    image: sundowner:local
     ports:
       - "7658:8080"
     volumes:

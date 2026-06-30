@@ -128,6 +128,19 @@ describe('public documentation contract', () => {
     assert.equal(packageLock.packages[''].name, 'sundowner');
   });
 
+  it('uses SUNDOWNER Docker Compose metadata and builds this repository', () => {
+    const compose = readUtf8('docker-compose.yml');
+
+    assert.match(compose, /^name:\s*sundowner\s*$/m);
+    assert.doesNotMatch(compose, /^version:\s*/m);
+    assert.match(compose, /^\s{2}sundowner:\s*$/m);
+    assert.match(compose, /^\s{4}build:\s*$/m);
+    assert.match(compose, /^\s{6}context:\s*\.\s*$/m);
+    assert.match(compose, /^\s{4}image:\s*sundowner:local\s*$/m);
+    assert.doesNotMatch(compose, /cloudflare-imgbed/i);
+    assert.doesNotMatch(compose, /^\s{2}imgbed:\s*$/m);
+  });
+
   it('keeps README screenshots reproducible and present', () => {
     const packageJson = JSON.parse(readUtf8('package.json'));
     assert.equal(packageJson.scripts['capture:readme:local'], 'powershell -ExecutionPolicy Bypass -File scripts/capture-readme-screenshots.ps1');
