@@ -119,6 +119,15 @@ describe('public documentation contract', () => {
     assert.match(readUtf8('README_zh.md'), /<h1>SUNDOWNER<\/h1>/);
   });
 
+  it('uses SUNDOWNER package metadata for the root project', () => {
+    const packageJson = JSON.parse(readUtf8('package.json'));
+    const packageLock = JSON.parse(readUtf8('package-lock.json'));
+
+    assert.equal(packageJson.name, 'sundowner');
+    assert.equal(packageLock.name, 'sundowner');
+    assert.equal(packageLock.packages[''].name, 'sundowner');
+  });
+
   it('keeps README screenshots reproducible and present', () => {
     const packageJson = JSON.parse(readUtf8('package.json'));
     assert.equal(packageJson.scripts['capture:readme:local'], 'powershell -ExecutionPolicy Bypass -File scripts/capture-readme-screenshots.ps1');
