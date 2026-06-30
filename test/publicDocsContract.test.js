@@ -8,6 +8,12 @@ const exists = (path) => fs.existsSync(new URL(path, root));
 
 const publicDocs = ['README.md', 'README_zh.md', 'AGENTS.md'];
 const readmes = ['README.md', 'README_zh.md'];
+const currentReadmeScreenshots = [
+  'static/readme/current-library.png',
+  'static/readme/current-style.png',
+  'static/readme/current-films.png',
+  'static/readme/current-moments.png',
+];
 
 function githubSlug(heading) {
   return heading
@@ -71,6 +77,25 @@ function collectMarkdownReferences(markdown) {
     .map(({ kind, target }) => ({ kind, target }));
 }
 
+function collectReadmeImageTargets(markdown) {
+  const targets = [];
+
+  for (const match of markdown.matchAll(/<img\s+[^>]*src="([^"]+)"/g)) {
+    const target = localReferenceTarget(match[1]);
+    if (target) {
+      targets.push(target);
+    }
+  }
+
+  for (const reference of collectMarkdownReferences(markdown)) {
+    if (reference.kind === 'image') {
+      targets.push(reference.target.split('#')[0]);
+    }
+  }
+
+  return [...new Set(targets)];
+}
+
 describe('public documentation contract', () => {
   it('uses SUNDOWNER as the only public product name', () => {
     for (const file of publicDocs) {
@@ -90,13 +115,17 @@ describe('public documentation contract', () => {
     assert.match(readUtf8('README.md'), /npm run test:docs/);
     assert.match(readUtf8('README_zh.md'), /npm run test:docs/);
 
-    for (const file of [
-      'static/readme/current-library.png',
-      'static/readme/current-style.png',
-      'static/readme/current-films.png',
-      'static/readme/current-moments.png',
-    ]) {
+    for (const file of currentReadmeScreenshots) {
       assert.equal(exists(file), true, `${file} should be tracked for the README`);
+    }
+
+    for (const file of readmes) {
+      const imageTargets = collectReadmeImageTargets(readUtf8(file));
+      for (const screenshot of currentReadmeScreenshots) {
+        assert.equal(imageTargets.includes(screenshot), true, `${file} should display ${screenshot}`);
+      }
+      assert.equal(imageTargets.some((target) => target.startsWith('static/readme/legacy/')), false, `${file} should not display legacy README screenshots`);
+      assert.equal(imageTargets.includes('static/readme/showcase.png'), false, `${file} should not display the retired composite showcase`);
     }
   });
 
@@ -166,6 +195,19 @@ describe('public documentation contract', () => {
     assert.deepEqual(collectMarkdownReferences(markdown), [
       { kind: 'link', target: 'LICENSE' },
       { kind: 'image', target: 'static/readme/current-library.png' },
+    ]);
+  });
+
+  it('collects README image targets from HTML and Markdown markup', () => {
+    const markdown = [
+      '<img src="static/readme/current-library.png" alt="Library" />',
+      '![Style](static/readme/current-style.png)',
+      '[Plain link](static/readme/not-an-image.png)',
+    ].join('\n');
+
+    assert.deepEqual(collectReadmeImageTargets(markdown), [
+      'static/readme/current-library.png',
+      'static/readme/current-style.png',
     ]);
   });
 });
