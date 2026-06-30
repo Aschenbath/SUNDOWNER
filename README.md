@@ -109,6 +109,7 @@ Do not store tokens in file metadata. Non-`manage@` keys are sanitized before wr
 +-- test/                      Mocha regression tests
 +-- static/brand/              SUNDOWNER brand artwork
 +-- static/icons/              favicon and PWA icon assets
++-- static/fonts/              web font assets
 +-- static/legacy/img/         legacy bundle image assets
 +-- static/readme/             README screenshots
 +-- static/tools/              standalone operator tools
@@ -153,6 +154,8 @@ Run the Cloudflare Pages development server:
 ```bash
 npm start
 ```
+
+`npm start` writes Wrangler local state under `./.local/data`, keeping generated development data out of the repository root.
 
 Wrangler serves the app at:
 

@@ -1,5 +1,6 @@
 ﻿.wrangler/*
 data/*
+.local/
 node_modules
 wrangler.toml
 .DS_Store

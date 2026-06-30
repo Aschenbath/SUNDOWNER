@@ -14,6 +14,42 @@ const currentReadmeScreenshots = [
   'static/readme/current-films.png',
   'static/readme/current-moments.png',
 ];
+const allowedRootEntries = [
+  '.dockerignore',
+  '.github',
+  '.gitignore',
+  'AGENTS.md',
+  'Dockerfile',
+  'LICENSE',
+  'README.md',
+  'README_zh.md',
+  'css',
+  'database',
+  'docker-compose.yml',
+  'docs',
+  'functions',
+  'history.md',
+  'index.html',
+  'js',
+  'manifest.json',
+  'package-lock.json',
+  'package.json',
+  'scripts',
+  'server',
+  'static',
+  'sw.js',
+  'test',
+];
+const ignoredLocalRootEntries = [
+  '.claude',
+  '.git',
+  '.local',
+  '.superpowers',
+  '.worktrees',
+  '.wrangler',
+  'data',
+  'node_modules',
+];
 const legacyBundleImageAssets = [
   '404.8ed11fb3.png',
   'background.ea1b7ee7.jpg',
@@ -156,6 +192,15 @@ describe('public documentation contract', () => {
     assert.deepEqual(rootImageAssets, []);
   });
 
+  it('keeps the repository root limited to canonical project entrypoints', () => {
+    const rootEntries = fs
+      .readdirSync(root)
+      .filter((name) => !ignoredLocalRootEntries.includes(name))
+      .sort();
+
+    assert.deepEqual(rootEntries, allowedRootEntries);
+  });
+
   it('loads organized app icon and brand assets from static folders', () => {
     const indexHtml = readUtf8('index.html');
     const manifest = JSON.parse(readUtf8('manifest.json'));
@@ -229,6 +274,25 @@ describe('public documentation contract', () => {
     assert.equal(response.headers.get('location'), 'https://sundowner.example/static/legacy/img/background.ea1b7ee7.jpg');
   });
 
+  it('keeps web font assets under static/fonts with a legacy route shim', async () => {
+    assert.equal(exists('fonts'), false, 'web font assets should live under static/fonts');
+    assert.equal(exists('static/fonts/Righteous.207a66c3.woff2'), true);
+
+    const legacyCss = readUtf8('css/app.75711fde.css');
+    assert.match(legacyCss, /url\(\/static\/fonts\/Righteous\.207a66c3\.woff2\)/);
+    assert.doesNotMatch(legacyCss, /url\(\/fonts\//);
+
+    assert.equal(exists('functions/fonts/[[path]].js'), true);
+    const route = await import(new URL(`functions/fonts/[[path]].js?test=${Date.now()}`, root));
+    const response = await route.onRequestGet({
+      request: new Request('https://sundowner.example/fonts/Righteous.207a66c3.woff2'),
+      params: { path: ['Righteous.207a66c3.woff2'] },
+    });
+
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get('location'), 'https://sundowner.example/static/fonts/Righteous.207a66c3.woff2');
+  });
+
   it('keeps auxiliary tool pages out of the repository root with route shims', async () => {
     const rootHtmlFiles = fs
       .readdirSync(root)
@@ -299,6 +363,10 @@ describe('public documentation contract', () => {
       assert.match(zhReadme, new RegExp(`\\b${binding}\\b`), `README_zh.md should document ${binding}`);
       assert.match(startScript, new RegExp(`\\b${binding}\\b`), `npm start should bind ${binding}`);
     }
+
+    assert.match(startScript, /--persist-to \.\/\.local\/data/);
+    assert.doesNotMatch(startScript, /--persist-to \.\/data\b/);
+    assert.match(readUtf8('.gitignore'), /^\.local\/$/m);
   });
 
   it('keeps README local links, anchors, and images resolvable', () => {
