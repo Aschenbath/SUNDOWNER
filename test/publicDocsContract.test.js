@@ -235,11 +235,24 @@ describe('public documentation contract', () => {
       .filter((name) => /\.html$/i.test(name))
       .sort();
 
-    assert.deepEqual(rootHtmlFiles, ['health.html', 'index.html']);
+    assert.deepEqual(rootHtmlFiles, ['index.html']);
+    assert.equal(exists('functions/health.js'), true);
+    assert.equal(exists('functions/health.html.js'), true);
     assert.equal(exists('static/tools/telegram-sync-admin.html'), true);
     assert.equal(exists('functions/telegram-sync-admin.html.js'), true);
     assert.match(readUtf8('static/tools/telegram-sync-admin.html'), /<title>SUNDOWNER Telegram Sync<\/title>/);
     assert.match(readUtf8('static/tools/telegram-sync-admin.html'), /<h1>SUNDOWNER Telegram Sync<\/h1>/);
+
+    for (const routeFile of ['functions/health.js', 'functions/health.html.js']) {
+      const route = await import(new URL(`${routeFile}?test=${Date.now()}`, root));
+      const response = await route.onRequestGet({
+        request: new Request(`https://sundowner.example/${routeFile.endsWith('.html.js') ? 'health.html' : 'health'}`),
+      });
+
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('content-type'), 'text/plain; charset=utf-8');
+      assert.equal(await response.text(), 'OK');
+    }
 
     const route = await import(new URL(`functions/telegram-sync-admin.html.js?test=${Date.now()}`, root));
     const response = await route.onRequestGet({
