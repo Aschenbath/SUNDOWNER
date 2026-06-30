@@ -1,6 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 
 const chromePath = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const baseOrigin = process.env.README_SCREENSHOT_BASE_URL || 'http://127.0.0.1:8787';
@@ -8,7 +9,7 @@ const username = process.env.README_SCREENSHOT_USER || 'readme-admin';
 const password = process.env.README_SCREENSHOT_PASS || 'readme-password';
 const outDir = resolve('static/readme');
 const profileDir = process.env.README_SCREENSHOT_PROFILE || 'D:\\Codex\\tmp_toDel\\_chrome\\sundowner-readme-shots';
-const cdpPort = Number(process.env.README_SCREENSHOT_CDP_PORT || 9227);
+const preferredCdpPort = Number(process.env.README_SCREENSHOT_CDP_PORT || 9227);
 
 const screenshotTargets = [
   {
@@ -66,6 +67,30 @@ const screenshotTargets = [
 
 function delay(ms) {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
+}
+
+function trimLog(text) {
+  return String(text || '').slice(-4000);
+}
+
+function canListenOnPort(port) {
+  return new Promise((resolvePort) => {
+    const server = createServer();
+    server.once('error', () => resolvePort(false));
+    server.once('listening', () => {
+      server.close(() => resolvePort(true));
+    });
+    server.listen(port, '127.0.0.1');
+  });
+}
+
+async function findAvailablePort(preferredPort) {
+  for (let port = preferredPort; port < preferredPort + 40; port += 1) {
+    if (await canListenOnPort(port)) {
+      return port;
+    }
+  }
+  throw new Error(`No available Chrome CDP port found near ${preferredPort}`);
 }
 
 function svgAsset({ title, subtitle, colors }) {
@@ -295,16 +320,32 @@ async function seedDemoContent(cookie) {
   return uploaded;
 }
 
-async function waitForCdp() {
+async function waitForCdp(cdpPort, getChromeState) {
   const url = `http://127.0.0.1:${cdpPort}/json/version`;
   for (let i = 0; i < 80; i += 1) {
+    const state = getChromeState();
+    if (state.launchError) {
+      throw new Error(`Chrome failed to launch: ${state.launchError.message}`);
+    }
     try {
       return await fetchJson(url);
     } catch {
+      if (state.exit) {
+        throw new Error([
+          `Chrome exited before CDP started: code=${state.exit.code ?? 'null'} signal=${state.exit.signal ?? 'null'}`,
+          state.chromeStderr ? `stderr:\n${trimLog(state.chromeStderr)}` : '',
+          state.chromeStdout ? `stdout:\n${trimLog(state.chromeStdout)}` : '',
+        ].filter(Boolean).join('\n'));
+      }
       await delay(250);
     }
   }
-  throw new Error('Chrome CDP endpoint did not start');
+  const state = getChromeState();
+  throw new Error([
+    `Chrome CDP endpoint did not start on port ${cdpPort}`,
+    state.chromeStderr ? `stderr:\n${trimLog(state.chromeStderr)}` : '',
+    state.chromeStdout ? `stdout:\n${trimLog(state.chromeStdout)}` : '',
+  ].filter(Boolean).join('\n'));
 }
 
 function connect(wsUrl) {
@@ -376,6 +417,7 @@ async function captureScreenshots(cookie) {
   mkdirSync(outDir, { recursive: true });
   rmSync(profileDir, { recursive: true, force: true });
   mkdirSync(profileDir, { recursive: true });
+  const cdpPort = await findAvailablePort(preferredCdpPort);
 
   const chrome = spawn(chromePath, [
     '--headless=new',
@@ -389,9 +431,27 @@ async function captureScreenshots(cookie) {
     '--window-size=1800,1100',
     'about:blank',
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let chromeStdout = '';
+  let chromeStderr = '';
+  let launchError = null;
+  let exit = null;
+  chrome.stdout?.setEncoding('utf8');
+  chrome.stderr?.setEncoding('utf8');
+  chrome.stdout?.on('data', (chunk) => {
+    chromeStdout = trimLog(chromeStdout + chunk);
+  });
+  chrome.stderr?.on('data', (chunk) => {
+    chromeStderr = trimLog(chromeStderr + chunk);
+  });
+  chrome.once('error', (error) => {
+    launchError = error;
+  });
+  chrome.once('exit', (code, signal) => {
+    exit = { code, signal };
+  });
 
   try {
-    const version = await waitForCdp();
+    const version = await waitForCdp(cdpPort, () => ({ chromeStdout, chromeStderr, launchError, exit }));
     const browser = await connect(version.webSocketDebuggerUrl);
     const target = await browser.send('Target.createTarget', { url: 'about:blank' });
     const pages = await fetchJson(`http://127.0.0.1:${cdpPort}/json/list`);

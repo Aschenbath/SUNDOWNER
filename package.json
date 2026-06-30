@@ -12,7 +12,8 @@
     "start": "npx wrangler pages dev ./ --kv \"img_url\" --r2 \"img_r2\" --ip 0.0.0.0 --port 8787 --persist-to ./data",
     "start:docker": "D:/DevTools/nvm/v22.14.0/node.exe --import ./server/register.mjs server/index.js",
     "install": "npm --prefix ./functions install --no-package-lock --progress=false",
-    "capture:readme": "node scripts/capture-readme-screenshots.mjs"
+    "capture:readme": "node scripts/capture-readme-screenshots.mjs",
+    "capture:readme:local": "powershell -ExecutionPolicy Bypass -File scripts/capture-readme-screenshots.ps1"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.726.1",

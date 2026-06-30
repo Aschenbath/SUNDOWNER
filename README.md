@@ -44,7 +44,15 @@ The screenshots below are captured from this repository running locally with Wra
 | --- | --- |
 | <img src="static/readme/current-films.png" alt="Current SUNDOWNER Films view" width="460" /> | <img src="static/readme/current-moments.png" alt="Current SUNDOWNER Moments view" width="460" /> |
 
-Refresh the captures with an isolated local persistence directory:
+On Windows, refresh the captures with one command:
+
+```powershell
+npm run capture:readme:local
+```
+
+The wrapper starts Wrangler with an isolated local persistence directory, runs the screenshot capture script, and stops the local server when it finishes.
+
+If you need to run the steps manually, start the local app first:
 
 ```bash
 npx wrangler pages dev ./ --kv img_url --d1 img_d1 --r2 img_r2 \
@@ -55,7 +63,7 @@ npx wrangler pages dev ./ --kv img_url --d1 img_d1 --r2 img_r2 \
   --persist-to D:/Codex/tmp_toDel/_sundowner-readme-data
 ```
 
-Then run:
+Then, in another terminal, run:
 
 ```bash
 npm run capture:readme
@@ -113,6 +121,7 @@ Key files:
 | `functions/api/manage/sysConfig/upload.js` | Stores upload-channel configuration. |
 | `functions/api/manage/migrate/kv-to-d1.js` | Migrates legacy KV metadata/settings into D1. |
 | `scripts/capture-readme-screenshots.mjs` | Seeds neutral local demo data and captures the current README screenshots. |
+| `scripts/capture-readme-screenshots.ps1` | Starts an isolated local Wrangler session, runs the screenshot capture, and cleans up the server. |
 
 ## Quick Start
 
@@ -213,6 +222,7 @@ For quick syntax checks on touched files:
 
 ```bash
 node --check scripts/capture-readme-screenshots.mjs
+npx mocha test/readmeScreenshotWorkflow.test.js
 node --check functions/utils/databaseAdapter.js
 node --check js/media-library/app.js
 ```

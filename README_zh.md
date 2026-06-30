@@ -44,7 +44,15 @@ SUNDOWNER 最早来自图床项目，但这个 fork 已经更接近一个私有�
 | --- | --- |
 | <img src="static/readme/current-films.png" alt="当前 SUNDOWNER Films 页面" width="460" /> | <img src="static/readme/current-moments.png" alt="当前 SUNDOWNER Moments 页面" width="460" /> |
 
-刷新截图时，先用隔离的本地持久化目录启动项目：
+在 Windows 上，一条命令即可刷新截图：
+
+```powershell
+npm run capture:readme:local
+```
+
+这个包装脚本会用隔离的本地持久化目录启动 Wrangler，直接执行截图脚本，完成后停止本地服务。
+
+如果需要手动分步执行，先启动本地项目：
 
 ```bash
 npx wrangler pages dev ./ --kv img_url --d1 img_d1 --r2 img_r2 \
@@ -55,7 +63,7 @@ npx wrangler pages dev ./ --kv img_url --d1 img_d1 --r2 img_r2 \
   --persist-to D:/Codex/tmp_toDel/_sundowner-readme-data
 ```
 
-然后运行：
+然后在另一个终端运行：
 
 ```bash
 npm run capture:readme
@@ -113,6 +121,7 @@ Cloudflare 绑定名是项目约定的一部分：
 | `functions/api/manage/sysConfig/upload.js` | 存储上传通道配置。 |
 | `functions/api/manage/migrate/kv-to-d1.js` | 将旧 KV metadata/settings 迁移到 D1。 |
 | `scripts/capture-readme-screenshots.mjs` | 注入中性本地演示数据并抓取当前 README 截图。 |
+| `scripts/capture-readme-screenshots.ps1` | 启动隔离的本地 Wrangler 会话，运行截图抓取，并在结束后清理服务。 |
 
 ## 快速开始
 
@@ -213,6 +222,7 @@ npm run ci-test:docker
 
 ```bash
 node --check scripts/capture-readme-screenshots.mjs
+npx mocha test/readmeScreenshotWorkflow.test.js
 node --check functions/utils/databaseAdapter.js
 node --check js/media-library/app.js
 ```
