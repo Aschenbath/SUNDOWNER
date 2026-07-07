@@ -1,3 +1,5 @@
+import { constantTimeEqual } from './constantTimeEqual.js';
+
 export const ADMIN_SESSION_COOKIE_NAME = 'admin_auth';
 export const ADMIN_SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
@@ -68,14 +70,7 @@ export async function verifyAdminSessionToken(token, username, password) {
   try {
     const expectedSignature = await signData(encodedPayload, password);
     // 常量时间比较，防止 timing attack
-    if (expectedSignature.length !== signature.length) {
-      return false;
-    }
-    let mismatch = 0;
-    for (let i = 0; i < expectedSignature.length; i++) {
-      mismatch |= expectedSignature.charCodeAt(i) ^ signature.charCodeAt(i);
-    }
-    if (mismatch !== 0) {
+    if (!constantTimeEqual(signature, expectedSignature)) {
       return false;
     }
 

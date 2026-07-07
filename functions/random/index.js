@@ -41,10 +41,10 @@ export async function onRequest(context) {
     }
 
     // 处理允许的目录，每个目录调整为标准格式，去掉首尾空格，去掉开头的/，替换多个连续的/为单个/，去掉末尾的/
-    const allowedDirList = allowedDir.split(',');
+    const allowedDirList = String(allowedDir || '').split(',');
     const allowedDirListFormatted = allowedDirList.map(item => {
         return item.trim().replace(/^\/+/, '').replace(/\/{2,}/g, '/').replace(/\/$/, '');
-    });
+    }).filter(item => item !== '');
 
     // 从params中读取返回的文件类型
     let fileType = requestUrl.searchParams.get('content');
@@ -80,7 +80,7 @@ export async function onRequest(context) {
     // 检查是否在允许的目录中，或是允许目录的子目录
     let dirAllowed = false;
     for (let i = 0; i < allowedDirListFormatted.length; i++) {
-        if (allowedDirListFormatted[i] === '' || dir === allowedDirListFormatted[i] || dir.startsWith(allowedDirListFormatted[i] + '/')) {
+        if (dir === allowedDirListFormatted[i] || dir.startsWith(allowedDirListFormatted[i] + '/')) {
             dirAllowed = true;
             break;
         }
@@ -150,14 +150,24 @@ export async function onRequest(context) {
         if (randomType == 'img') {
             // Return an image response
             randomUrl = requestUrl.origin + randomPath;
-            let contentType = 'image/jpeg';
+            const fileResponse = await fetch(randomUrl, { redirect: 'manual' });
+            if (fileResponse.status >= 300 && fileResponse.status < 400) {
+                const redirectLocation = fileResponse.headers.get('Location');
+                if (redirectLocation) {
+                    const redirectHeaders = new Headers(responseHeaders);
+                    redirectHeaders.set('Location', redirectLocation);
+                    return new Response(null, {
+                        status: fileResponse.status,
+                        headers: redirectHeaders,
+                    });
+                }
+            }
+
+            const contentType = fileResponse.headers.get('content-type') || 'image/jpeg';
             const imgHeaders = new Headers(responseHeaders);
-            return new Response(await fetch(randomUrl).then(res => {
-                contentType = res.headers.get('content-type');
-                return res.blob();
-            }), {
+            return new Response(await fileResponse.blob(), {
                 headers: (() => {
-                    imgHeaders.set('Content-Type', contentType || 'image/jpeg');
+                    imgHeaders.set('Content-Type', contentType);
                     return imgHeaders;
                 })(),
                 status: 200

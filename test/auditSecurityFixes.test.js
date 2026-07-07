@@ -569,6 +569,109 @@ describe('audit security hardening', () => {
     assert.deepEqual(await response.json(), { error: 'Random is disabled' });
   });
 
+  it('fails closed when random image is enabled without an allowed directory', async () => {
+    const env = createEnv();
+    const originalCaches = globalThis.caches;
+    globalThis.caches = {
+      default: {
+        async match() { return undefined; },
+        async put() {},
+      },
+    };
+    await env.img_url.put('manage@sysConfig@others', JSON.stringify({
+      randomImageAPI: {
+        enabled: true,
+        allowedDir: '',
+      },
+    }));
+    await env.img_url.put('manage@index@meta', JSON.stringify({ chunkCount: 1 }));
+    await env.img_url.put('manage@index_0', createIndexChunk([
+      {
+        id: 'photos/open.jpg',
+        metadata: {
+          FileName: 'open.jpg',
+          FileType: 'image/jpeg',
+          Directory: 'photos/',
+          TimeStamp: 1,
+        },
+      },
+    ]));
+
+    let response;
+    try {
+      response = await randomOnRequest({
+        env,
+        request: new Request('http://localhost/random?dir=photos', { method: 'GET' }),
+        waitUntil: async () => {}
+      });
+    } finally {
+      if (originalCaches === undefined) {
+        delete globalThis.caches;
+      } else {
+        globalThis.caches = originalCaches;
+      }
+    }
+
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: 'Directory not allowed' });
+  });
+
+  it('does not server-follow external redirects when random image returns inline content', async () => {
+    const env = createEnv();
+    const originalCaches = globalThis.caches;
+    const originalFetch = globalThis.fetch;
+    let observedFetchOptions;
+    globalThis.caches = {
+      default: {
+        async match() { return undefined; },
+        async put() {},
+      },
+    };
+    globalThis.fetch = async (url, options) => {
+      observedFetchOptions = options || {};
+      assert.equal(String(url), 'http://localhost/file/links/external.jpg');
+      return Response.redirect('http://169.254.169.254/latest/meta-data', 302);
+    };
+    await env.img_url.put('manage@sysConfig@others', JSON.stringify({
+      randomImageAPI: {
+        enabled: true,
+        allowedDir: 'links',
+      },
+    }));
+    await env.img_url.put('manage@index@meta', JSON.stringify({ chunkCount: 1 }));
+    await env.img_url.put('manage@index_0', createIndexChunk([
+      {
+        id: 'links/external.jpg',
+        metadata: {
+          FileName: 'external.jpg',
+          FileType: 'image/jpeg',
+          Directory: 'links/',
+          TimeStamp: 1,
+        },
+      },
+    ]));
+
+    let response;
+    try {
+      response = await randomOnRequest({
+        env,
+        request: new Request('http://localhost/random?dir=links&type=img', { method: 'GET' }),
+        waitUntil: async () => {}
+      });
+    } finally {
+      if (originalCaches === undefined) {
+        delete globalThis.caches;
+      } else {
+        globalThis.caches = originalCaches;
+      }
+      globalThis.fetch = originalFetch;
+    }
+
+    assert.equal(observedFetchOptions.redirect, 'manual');
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get('Location'), 'http://169.254.169.254/latest/meta-data');
+  });
+
   it('returns 404 instead of crashing when block-listing a missing file', async () => {
     const response = await blockOnRequest({
       env: createEnv(),

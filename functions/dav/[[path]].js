@@ -138,8 +138,23 @@ async function handleGet(request, env) {
             const fileUrl = new URL(`/file${path}`, request.url);
 
             const fileResponse = await fetch(fileUrl.toString(), {
-                headers: await getApiHeaders(env)
+                headers: await getApiHeaders(env),
+                redirect: 'manual',
             });
+
+            if (fileResponse.status >= 300 && fileResponse.status < 400) {
+                const redirectLocation = fileResponse.headers.get('Location');
+                if (redirectLocation) {
+                    const redirectHeaders = new Headers(fileResponse.headers);
+                    redirectHeaders.set('Location', redirectLocation);
+                    redirectHeaders.set('Access-Control-Allow-Origin', '*');
+                    return new Response(null, {
+                        status: fileResponse.status,
+                        statusText: fileResponse.statusText,
+                        headers: redirectHeaders,
+                    });
+                }
+            }
 
             if (!fileResponse.ok) {
                  return new Response('File not found', { status: fileResponse.status, statusText: fileResponse.statusText });

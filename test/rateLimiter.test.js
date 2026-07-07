@@ -104,33 +104,42 @@ describe('Rate Limiter', () => {
   describe('getClientIp', () => {
     it('should extract CF-Connecting-IP', () => {
       const request = {
-        headers: new Map([
+        headers: new Headers([
           ['CF-Connecting-IP', '1.2.3.4'],
         ]),
       };
-      request.headers.get = function(key) { return this.get(key); };
 
       const ip = getClientIp(request);
       assert.equal(ip, '1.2.3.4');
     });
 
-    it('should fallback to X-Forwarded-For', () => {
+    it('should ignore spoofable proxy IP headers without CF-Connecting-IP', () => {
       const request = {
-        headers: new Map([
+        headers: new Headers([
           ['X-Forwarded-For', '5.6.7.8, 9.10.11.12'],
+          ['X-Real-IP', '5.6.7.9'],
         ]),
       };
-      request.headers.get = function(key) { return this.get(key); };
 
       const ip = getClientIp(request);
-      assert.equal(ip, '5.6.7.8');
+      assert.equal(ip, 'unknown');
+    });
+
+    it('should reject ambiguous CF-Connecting-IP values', () => {
+      const request = {
+        headers: new Headers([
+          ['CF-Connecting-IP', '1.2.3.4, 5.6.7.8'],
+        ]),
+      };
+
+      const ip = getClientIp(request);
+      assert.equal(ip, 'unknown');
     });
 
     it('should return unknown if no IP headers', () => {
       const request = {
-        headers: new Map(),
+        headers: new Headers(),
       };
-      request.headers.get = function(key) { return this.get(key); };
 
       const ip = getClientIp(request);
       assert.equal(ip, 'unknown');

@@ -82,22 +82,11 @@ export async function checkRateLimit(key, kv, options = {}) {
  * @returns {string} - Client IP address
  */
 export function getClientIp(request) {
-  // Cloudflare Workers provides CF-Connecting-IP header
-  const cfIp = request.headers.get('CF-Connecting-IP');
-  if (cfIp) {
+  // Trust only Cloudflare's edge-populated client IP header. Proxy-style
+  // headers such as X-Forwarded-For are caller-controlled in this app.
+  const cfIp = String(request.headers.get('CF-Connecting-IP') || '').trim();
+  if (cfIp && !cfIp.includes(',')) {
     return cfIp;
-  }
-
-  // Fallback to X-Forwarded-For
-  const forwardedFor = request.headers.get('X-Forwarded-For');
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
-  }
-
-  // Fallback to X-Real-IP
-  const realIp = request.headers.get('X-Real-IP');
-  if (realIp) {
-    return realIp;
   }
 
   return 'unknown';

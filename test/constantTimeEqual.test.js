@@ -27,7 +27,9 @@ describe('constant-time secret comparison', () => {
     const loginSource = readSource('../functions/api/login.js');
     const manageMiddlewareSource = readSource('../functions/api/manage/_middleware.js');
     const authSessionSource = readSource('../functions/api/manage/auth-session.js');
+    const adminSessionHelperSource = readSource('../functions/utils/adminSession.js');
     const dualAuthSource = readSource('../functions/utils/dualAuth.js');
+    const userAuthSource = readSource('../functions/utils/userAuth.js');
     const webDavSource = readSource('../functions/dav/[[path]].js');
     const telegramSource = readSource('../functions/utils/telegramSync.js');
     const tokenValidatorSource = readSource('../functions/utils/tokenValidator.js');
@@ -44,9 +46,15 @@ describe('constant-time secret comparison', () => {
     assert.match(authSessionSource, /constantTimeEqual\(password,\s*rightPass\)/);
     assert.doesNotMatch(authSessionSource, /username\s*!==\s*rightUser\s*\|\|\s*password\s*!==\s*rightPass/);
 
+    assert.match(adminSessionHelperSource, /constantTimeEqual\(signature,\s*expectedSignature\)/);
+    assert.doesNotMatch(adminSessionHelperSource, /expectedSignature\.length\s*!==\s*signature\.length/);
+
     assert.match(dualAuthSource, /constantTimeEqual\(user,\s*basicUser\)/);
     assert.match(dualAuthSource, /constantTimeEqual\(pass,\s*basicPass\)/);
     assert.doesNotMatch(dualAuthSource, /user\s*===\s*basicUser\s*&&\s*pass\s*===\s*basicPass/);
+
+    assert.match(userAuthSource, /constantTimeEqual\(authCode,\s*rightAuthCode\)/);
+    assert.doesNotMatch(userAuthSource, /authCode\.length\s*!==\s*rightAuthCode\.length/);
 
     assert.match(webDavSource, /constantTimeEqual\(user,\s*davUser\)/);
     assert.match(webDavSource, /constantTimeEqual\(pass,\s*davPass\)/);

@@ -102,6 +102,38 @@ describe('WebDAV route', () => {
     assert.equal(calls[0].options.headers.authCode, 'user-code');
   });
 
+  it('does not server-follow file redirects when proxying downloads', async () => {
+    const calls = [];
+    global.fetch = async (url, options = {}) => {
+      calls.push({ url, options });
+      return Response.redirect('http://169.254.169.254/latest/meta-data', 302);
+    };
+
+    const response = await onRequest({
+      env: createEnv({
+        BASIC_USER: 'admin',
+        BASIC_PASS: 'secret',
+        AUTH_CODE: 'user-code',
+        kvEntries: {
+          'manage@sysConfig@others': JSON.stringify({
+            webDAV: { enabled: true, username: 'dav', password: 'dav-pass' }
+          })
+        }
+      }),
+      request: createWebDavRequest('/dav/links/external.jpg', {
+        headers: {
+          Authorization: `Basic ${Buffer.from('dav:dav-pass').toString('base64')}`
+        }
+      }),
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'http://localhost/file/links/external.jpg');
+    assert.equal(calls[0].options.redirect, 'manual');
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get('Location'), 'http://169.254.169.254/latest/meta-data');
+  });
+
   it('returns 400 for malformed Basic auth instead of throwing', async () => {
     const response = await onRequest({
       env: createEnv({

@@ -6,6 +6,7 @@ import {
 } from './sysConfig.js';
 import { validateApiToken } from './tokenValidator.js';
 import { getDatabase } from './databaseAdapter.js';
+import { constantTimeEqual } from './constantTimeEqual.js';
 
 export async function userAuthCheck(env, url, request, requiredPermission = null, { allowCookieAuthCode = true } = {}) {
     const securityConfig = await fetchSecurityConfig(env);
@@ -32,7 +33,7 @@ export async function userAuthCheck(env, url, request, requiredPermission = null
         }
     }
 
-    if (!isValidAuthCode(rightAuthCode, authCode)) {
+    if (!constantTimeEqual(authCode, rightAuthCode)) {
         return false;
     }
 
@@ -52,20 +53,6 @@ export function UnauthorizedResponse(reason) {
             "Content-Length": reason.length,
         },
     });
-}
-
-function isValidAuthCode(rightAuthCode, authCode) {
-    if (typeof authCode !== 'string' || typeof rightAuthCode !== 'string') {
-        return false;
-    }
-    if (authCode.length !== rightAuthCode.length) {
-        return false;
-    }
-    let mismatch = 0;
-    for (let i = 0; i < authCode.length; i++) {
-        mismatch |= authCode.charCodeAt(i) ^ rightAuthCode.charCodeAt(i);
-    }
-    return mismatch === 0;
 }
 
 function getCookieValue(cookies, name) {
