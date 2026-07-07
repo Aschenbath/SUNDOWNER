@@ -45,6 +45,12 @@ async function runRootMiddleware({ request, env = createEnv(), finalHandler = as
   });
 }
 
+function assertBaselineSecurityHeaders(response) {
+  assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
+  assert.equal(response.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin');
+  assert.equal(response.headers.get('X-Frame-Options'), 'SAMEORIGIN');
+}
+
 async function runManageMiddleware({
   request,
   env = createEnv(),
@@ -84,6 +90,17 @@ describe('dashboard auth gate', () => {
 
     assert.equal(response.status, 302);
     assert.equal(response.headers.get('Location'), 'http://localhost/login?next=%2Fdashboard');
+  });
+
+  it('adds baseline security headers to dashboard auth redirects', async () => {
+    const response = await runRootMiddleware({
+      request: new Request('http://localhost/dashboard', {
+        headers: { Accept: 'text/html' },
+      }),
+    });
+
+    assert.equal(response.status, 302);
+    assertBaselineSecurityHeaders(response);
   });
 
   it('passes authenticated dashboard requests through to the static app', async () => {
@@ -131,6 +148,16 @@ describe('dashboard auth gate', () => {
 
     assert.equal(response.status, 200);
     assert.equal(await response.text(), 'login shell');
+  });
+
+  it('adds baseline security headers to pass-through responses', async () => {
+    const response = await runRootMiddleware({
+      request: new Request('http://localhost/login'),
+      finalHandler: async () => new Response('login shell'),
+    });
+
+    assert.equal(response.status, 200);
+    assertBaselineSecurityHeaders(response);
   });
 
   it('keeps the obsolete manage login endpoint out of the dashboard chain', async () => {
