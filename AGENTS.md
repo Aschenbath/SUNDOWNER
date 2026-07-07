@@ -63,6 +63,10 @@ Ensure at least one supported path exists before adding Telegram download or mig
 
 `functions/file/[[path]].js` must not blindly fetch per-file `metadata.S3CdnFileUrl`. Use `resolveS3CdnFileUrl(metadata, s3Access, fileId)` so S3 CDN reads stay under the current channel `cdnDomain`; untrusted or malformed metadata URLs must fall back to the channel-derived CDN path or S3 API.
 
+### 7. Cloudflare Catch-All Params
+
+Cloudflare Pages catch-all route params can appear as either a string or an array in tests/runtime adapters. Normalize `params.path` before indexing, decoding, or joining it; do not use `params.path[0]` unless the array shape has been verified.
+
 ## Key Files
 
 ```text

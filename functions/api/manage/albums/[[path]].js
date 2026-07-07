@@ -11,7 +11,9 @@ import {
 import { jsonResponse, optionsResponse } from '../../../utils/cors.js';
 
 function resolveAlbumId(params) {
-  const pathSegments = Array.isArray(params?.path) ? params.path.filter(Boolean) : [];
+  const pathSegments = Array.isArray(params?.path)
+    ? params.path.filter(Boolean)
+    : String(params?.path || '').split('/').filter(Boolean);
   return pathSegments.length ? decodeURIComponent(pathSegments[0]) : '';
 }
 

@@ -164,4 +164,40 @@ describe('telegram sync API generic 500 errors', () => {
 
     await assertGenericInternalError(response);
   });
+
+  it('parses string catch-all webhook paths as the full channel name', async () => {
+    const env = {
+      img_url: new MemoryKV({
+        'manage@sysConfig@upload': JSON.stringify({
+          telegram: {
+            channels: [
+              {
+                name: 'Main',
+                enabled: true,
+                syncEnabled: true,
+                webhookSecret: 'expected-secret',
+                botToken: 'secret-bot-token',
+                chatId: '-100',
+              },
+            ],
+          },
+        }),
+      }),
+    };
+
+    const response = await webhookDeliveryOnRequest({
+      env,
+      params: { path: 'Main' },
+      request: request('https://example.com/api/manage/telegram-sync/webhook/Main', {
+        method: 'POST',
+        headers: { 'X-Telegram-Bot-Api-Secret-Token': 'wrong-secret' },
+        body: { update_id: 1, channel_post: { message_id: 2, chat: { id: '-100' } } },
+      }),
+    });
+
+    assert.equal(response.status, 401);
+    const payload = await response.json();
+    assert.equal(payload.success, false);
+    assert.equal(payload.error, 'Invalid Telegram webhook secret');
+  });
 });

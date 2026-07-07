@@ -1,5 +1,9 @@
 import { asJsonResponse, asTelegramSyncErrorResponse, handleTelegramWebhook } from '../../../../utils/telegramSync.js'
 
+function normalizeCatchAllPath(path) {
+    return Array.isArray(path) ? path.join('/') : String(path || '')
+}
+
 export async function onRequest(context) {
     const { request, params } = context
     if (request.method === 'OPTIONS') {
@@ -9,7 +13,7 @@ export async function onRequest(context) {
         return asJsonResponse({ error: 'Method not allowed' }, 405)
     }
 
-    const channelName = decodeURIComponent((params.path && params.path[0]) || '')
+    const channelName = decodeURIComponent(normalizeCatchAllPath(params.path))
     if (!channelName) {
         return asJsonResponse({ success: false, error: 'channelName is required' }, 400)
     }

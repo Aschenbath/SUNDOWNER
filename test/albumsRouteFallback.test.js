@@ -66,4 +66,39 @@ describe('albums [[path]] fallback route', () => {
     const getPayload = await getResponse.json();
     assert.deepEqual(getPayload.favorites, ['managed-a', 'managed-b']);
   });
+
+  it('parses string catch-all paths as the album id', async () => {
+    const env = createEnv();
+
+    await onRequest({
+      env,
+      params: {},
+      request: new Request('http://localhost/api/manage/albums', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          state: {
+            albumNames: ['Trips'],
+            albumAssignments: {
+              'photo-a.jpg': ['Trips'],
+              'photo-b.jpg': ['Trips'],
+            },
+          },
+        }),
+      }),
+    });
+
+    const response = await onRequest({
+      env,
+      params: { path: 'Trips' },
+      request: new Request('http://localhost/api/manage/albums/Trips', {
+        method: 'GET',
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.album.name, 'Trips');
+    assert.deepEqual(payload.fileIds, ['photo-a.jpg', 'photo-b.jpg']);
+  });
 });
