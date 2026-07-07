@@ -1,7 +1,6 @@
 // API Token权限验证工具函数
 import { getTokenData } from '../api/manage/apiTokens.js';
 import { isExpired } from './tokenExpiration.js';
-import { constantTimeEqual } from './constantTimeEqual.js';
 
 /**
  * 验证API Token权限
@@ -76,22 +75,5 @@ export async function getTokenInfo(request, kv) {
         return null;
     }
 
-    // 从KV中获取Token信息
-    const settingsStr = await kv.get('manage@sysConfig@security');
-    const settings = settingsStr ? JSON.parse(settingsStr) : {};
-    const tokens = settings.apiTokens?.tokens || {};
-    
-    // 查找匹配的token
-    for (const tokenId in tokens) {
-        if (constantTimeEqual(tokens[tokenId].token, token)) {
-            const t = tokens[tokenId];
-            return {
-                ...t,
-                expiresAt: t.expiresAt ?? null,
-                autoDelete: t.autoDelete ?? false
-            };
-        }
-    }
-    
-    return null;
+    return getTokenData(kv, token);
 }

@@ -55,10 +55,11 @@ describe('constant-time secret comparison', () => {
     assert.match(telegramSource, /constantTimeEqual\(providedSecret,\s*channel\.webhookSecret\)/);
     assert.doesNotMatch(telegramSource, /providedSecret\s*!==\s*channel\.webhookSecret/);
 
-    assert.match(tokenValidatorSource, /constantTimeEqual\(tokens\[tokenId\]\.token,\s*token\)/);
     assert.doesNotMatch(tokenValidatorSource, /tokens\[tokenId\]\.token\s*===\s*token/);
+    assert.doesNotMatch(tokenValidatorSource, /constantTimeEqual\(tokens\[tokenId\]\.token,\s*token\)/);
 
-    assert.match(apiTokensSource, /constantTimeEqual\(tokens\[tokenId\]\.token,\s*token\)/);
+    assert.match(apiTokensSource, /constantTimeEqual\(computedHash,\s*tokenData\.tokenHash\)/);
+    assert.match(apiTokensSource, /constantTimeEqual\(tokenData\.token,\s*token\)/);
     assert.doesNotMatch(apiTokensSource, /tokens\[tokenId\]\.token\s*===\s*token/);
   });
 });

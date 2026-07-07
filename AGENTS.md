@@ -55,6 +55,10 @@ Cloudflare KV `list()` calls are quota-sensitive and can cascade into dashboard/
 
 Ensure at least one supported path exists before adding Telegram download or migration behavior.
 
+### 5. API Token Storage
+
+`manage@sysConfig@security.apiTokens.tokens` must not store raw API token strings. New records store `tokenHash`, `tokenSalt`, and `tokenHashAlgorithm: sha256-salted-v1`; token creation may return the raw token once for operator copy. Legacy records with a `token` field are read-compatible and migrate lazily on successful validation, management listing, or token metadata update. Do not reintroduce plaintext token persistence.
+
 ## Key Files
 
 ```text
@@ -87,3 +91,4 @@ functions/api/manage/migrate/recover-tg-file-ids.js
 - `/file/*` direct URLs are effectively bearerless unless domain allowlists or whitelist mode are configured. Treat direct file IDs as sensitive capability URLs.
 - Raw secret exposure on upload/others config GET routes was fixed on 2026-07-07; preserve masked-placeholder round trips so admin edits do not clobber stored credentials.
 - Upload IP attribution should trust only Cloudflare `CF-Connecting-IP`; do not reintroduce `X-Forwarded-For`, `X-Real-IP`, or caller-supplied proxy headers into blocklist or metadata decisions.
+- API token plaintext-at-rest was fixed on 2026-07-07; preserve salted-hash storage and legacy lazy migration.

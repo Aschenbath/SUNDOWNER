@@ -2,6 +2,9 @@ import { getDatabase } from '../../utils/databaseAdapter.js';
 import { filterAutoDeleteTokens } from '../../utils/tokenExpiration.js';
 import { constantTimeEqual } from '../../utils/constantTimeEqual.js';
 
+const TOKEN_HASH_ALGORITHM = 'sha256-salted-v1';
+const TOKEN_SALT_BYTES = 16;
+
 export async function onRequest(context) {
     // API Token管理，支持创建、删除、列出Token
     const {
@@ -96,6 +99,13 @@ async function getApiTokens(db) {
     const settingsStr = await db.get('manage@sysConfig@security')
     const settings = settingsStr ? JSON.parse(settingsStr) : {}
     const tokens = settings.apiTokens?.tokens || {}
+    let shouldSave = false
+
+    for (const tokenId in tokens) {
+        if (await ensureTokenStoredAsHash(tokens[tokenId])) {
+            shouldSave = true
+        }
+    }
     
     // 将 tokens 对象转为数组，并应用向后兼容默认值
     const tokenArray = Object.keys(tokens).map(id => {
@@ -107,7 +117,6 @@ async function getApiTokens(db) {
             permissions: token.permissions,
             createdAt: token.createdAt,
             updatedAt: token.updatedAt,
-            token: token.token,
             expiresAt: token.expiresAt ?? null,
             autoDelete: token.autoDelete ?? false
         }
@@ -121,6 +130,10 @@ async function getApiTokens(db) {
         for (const t of toDelete) {
             delete settings.apiTokens.tokens[t.id]
         }
+        shouldSave = true
+    }
+
+    if (shouldSave) {
         await db.put('manage@sysConfig@security', JSON.stringify(settings))
     }
     
@@ -155,17 +168,18 @@ async function createApiToken(db, name, permissions, owner, expiresAt = null, au
     const tokenId = generateTokenId()
     const token = generateApiToken()
     const now = new Date().toISOString()
+    const tokenHashFields = await createTokenHashFields(token)
     
     const tokenData = {
         id: tokenId,
         name,
-        token,
         owner,
         permissions,
         createdAt: now,
         updatedAt: now,
         expiresAt: expiresAt ?? null,
-        autoDelete: autoDelete === true
+        autoDelete: autoDelete === true,
+        ...tokenHashFields
     }
     
     settings.apiTokens.tokens[tokenId] = tokenData
@@ -212,6 +226,7 @@ async function updateApiToken(db, tokenId, permissions, expiresAt = null, autoDe
         return { error: 'Token 不存在' }
     }
     
+    await ensureTokenStoredAsHash(settings.apiTokens.tokens[tokenId])
     settings.apiTokens.tokens[tokenId].permissions = permissions
     settings.apiTokens.tokens[tokenId].updatedAt = new Date().toISOString()
     settings.apiTokens.tokens[tokenId].expiresAt = expiresAt ?? null
@@ -240,6 +255,79 @@ function generateTokenId() {
     return crypto.randomUUID();
 }
 
+function bytesToHex(bytes) {
+    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateTokenSalt() {
+    const bytes = new Uint8Array(TOKEN_SALT_BYTES);
+    crypto.getRandomValues(bytes);
+    return bytesToHex(bytes);
+}
+
+async function computeTokenHash(token, salt) {
+    const data = new TextEncoder().encode(`${salt}:${token}`);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return bytesToHex(new Uint8Array(digest));
+}
+
+async function createTokenHashFields(token) {
+    const tokenSalt = generateTokenSalt();
+    const tokenHash = await computeTokenHash(token, tokenSalt);
+    return {
+        tokenHashAlgorithm: TOKEN_HASH_ALGORITHM,
+        tokenSalt,
+        tokenHash
+    };
+}
+
+function hasUsableTokenHash(tokenData) {
+    return typeof tokenData?.tokenHash === 'string'
+        && typeof tokenData?.tokenSalt === 'string'
+        && tokenData.tokenHash.length > 0
+        && tokenData.tokenSalt.length > 0;
+}
+
+async function ensureTokenStoredAsHash(tokenData) {
+    if (!tokenData) {
+        return false;
+    }
+
+    if (hasUsableTokenHash(tokenData)) {
+        if (Object.prototype.hasOwnProperty.call(tokenData, 'token')) {
+            delete tokenData.token;
+            return true;
+        }
+        return false;
+    }
+
+    if (typeof tokenData.token !== 'string' || !tokenData.token) {
+        return false;
+    }
+
+    const tokenHashFields = await createTokenHashFields(tokenData.token);
+    Object.assign(tokenData, tokenHashFields);
+    delete tokenData.token;
+    return true;
+}
+
+async function storedTokenMatches(tokenData, token) {
+    if (!tokenData || typeof token !== 'string' || !token) {
+        return false;
+    }
+
+    if (hasUsableTokenHash(tokenData)) {
+        const computedHash = await computeTokenHash(token, tokenData.tokenSalt);
+        return constantTimeEqual(computedHash, tokenData.tokenHash);
+    }
+
+    if (typeof tokenData.token === 'string') {
+        return constantTimeEqual(tokenData.token, token);
+    }
+
+    return false;
+}
+
 // 根据Token获取权限（供其他API使用）
 export async function getTokenPermissions(db, token) {
     const settingsStr = await db.get('manage@sysConfig@security')
@@ -248,7 +336,10 @@ export async function getTokenPermissions(db, token) {
     
     // 查找匹配的token
     for (const tokenId in tokens) {
-        if (constantTimeEqual(tokens[tokenId].token, token)) {
+        if (await storedTokenMatches(tokens[tokenId], token)) {
+            if (await ensureTokenStoredAsHash(tokens[tokenId])) {
+                await db.put('manage@sysConfig@security', JSON.stringify(settings))
+            }
             return tokens[tokenId].permissions
         }
     }
@@ -264,12 +355,14 @@ export async function getTokenData(db, token) {
     
     // 查找匹配的token
     for (const tokenId in tokens) {
-        if (constantTimeEqual(tokens[tokenId].token, token)) {
-            const t = tokens[tokenId]
+        const t = tokens[tokenId]
+        if (await storedTokenMatches(t, token)) {
+            if (await ensureTokenStoredAsHash(t)) {
+                await db.put('manage@sysConfig@security', JSON.stringify(settings))
+            }
             return {
-                id: t.id,
+                id: t.id || tokenId,
                 name: t.name,
-                token: t.token,
                 owner: t.owner,
                 permissions: t.permissions,
                 createdAt: t.createdAt,
