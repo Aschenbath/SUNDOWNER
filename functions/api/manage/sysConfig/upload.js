@@ -7,6 +7,15 @@ const corsHeaders = {
     'Access-Control-Max-Age': '86400',
 }
 
+const SECRET_PLACEHOLDER = 'Configured'
+
+const UPLOAD_SECRET_FIELDS = {
+    telegram: ['botToken', 'webhookSecret'],
+    s3: ['accessKeyId', 'secretAccessKey'],
+    discord: ['botToken'],
+    huggingface: ['token'],
+}
+
 function createJsonResponse(body, init = {}) {
     const { headers = {}, ...rest } = init
     return new Response(JSON.stringify(body), {
@@ -33,7 +42,7 @@ export async function onRequest(context) {
     if (request.method === 'GET') {
         try {
             const settings = await getUploadConfig(db, env)
-            return createJsonResponse(settings)
+            return createJsonResponse(buildPublicUploadConfig(settings))
         } catch (error) {
             if (error instanceof SyntaxError) {
                 return createJsonResponse({
@@ -66,10 +75,11 @@ export async function onRequest(context) {
             })
         }
 
-        const settings = normalizeUploadSettings(body)
+        const currentSettings = await getStoredUploadSettings(db)
+        const settings = preserveUploadSecrets(normalizeUploadSettings(body), currentSettings)
         await db.put('manage@sysConfig@upload', JSON.stringify(settings))
 
-        return createJsonResponse(settings)
+        return createJsonResponse(buildPublicUploadConfig(await getUploadConfig(db, env)))
     }
 
     return new Response('Method Not Allowed', {
@@ -138,6 +148,59 @@ function normalizeChannelSection(section = {}, options = {}) {
     }
 
     return normalized
+}
+
+async function getStoredUploadSettings(db) {
+    const settingsStr = await db.get('manage@sysConfig@upload')
+    return normalizeUploadSettings(settingsStr ? JSON.parse(settingsStr) : {})
+}
+
+function findExistingChannel(channels = [], channel = {}) {
+    return channels.find((item) => {
+        if (item?.id != null && channel?.id != null && String(item.id) === String(channel.id)) {
+            return true
+        }
+        if (item?.name && channel?.name && item.name === channel.name) {
+            return true
+        }
+        return item?.type && channel?.type
+            && item.type === channel.type
+            && item?.savePath
+            && channel?.savePath
+            && item.savePath === channel.savePath
+    }) || null
+}
+
+function preserveUploadSecrets(nextSettings, currentSettings) {
+    const next = normalizeUploadSettings(nextSettings)
+    for (const [sectionKey, secretFields] of Object.entries(UPLOAD_SECRET_FIELDS)) {
+        const nextChannels = next[sectionKey]?.channels || []
+        const currentChannels = currentSettings?.[sectionKey]?.channels || []
+        nextChannels.forEach((channel) => {
+            const existing = findExistingChannel(currentChannels, channel)
+            for (const field of secretFields) {
+                if (channel[field] === SECRET_PLACEHOLDER) {
+                    channel[field] = existing?.[field] || ''
+                }
+            }
+        })
+    }
+    return next
+}
+
+function buildPublicUploadConfig(settings = {}) {
+    const publicSettings = normalizeUploadSettings(settings)
+    for (const [sectionKey, secretFields] of Object.entries(UPLOAD_SECRET_FIELDS)) {
+        const channels = publicSettings[sectionKey]?.channels || []
+        channels.forEach((channel) => {
+            for (const field of secretFields) {
+                if (channel[field]) {
+                    channel[field] = SECRET_PLACEHOLDER
+                }
+            }
+        })
+    }
+    return publicSettings
 }
 
 export function normalizeUploadSettings(settings = {}) {

@@ -1,5 +1,62 @@
 import { getDatabase } from '../../../utils/databaseAdapter.js';
 
+const SECRET_PLACEHOLDER = 'Configured';
+
+function maskSecret(value) {
+    return value ? SECRET_PLACEHOLDER : '';
+}
+
+function buildPublicOthersConfig(settings = {}) {
+    return {
+        ...settings,
+        cloudflareApiToken: {
+            ...(settings.cloudflareApiToken || {}),
+            CF_API_KEY: maskSecret(settings.cloudflareApiToken?.CF_API_KEY),
+        },
+        webDAV: {
+            ...(settings.webDAV || {}),
+            password: maskSecret(settings.webDAV?.password),
+        },
+    };
+}
+
+function preserveSecretPlaceholder(nextValue, currentValue) {
+    if (nextValue === SECRET_PLACEHOLDER) {
+        return currentValue || '';
+    }
+    return nextValue || '';
+}
+
+async function getStoredOthersSettings(db) {
+    const settingsStr = await db.get('manage@sysConfig@others');
+    return settingsStr ? JSON.parse(settingsStr) : {};
+}
+
+async function mergePostedOthersSettings(db, postedSettings) {
+    const settings = postedSettings && typeof postedSettings === 'object' ? { ...postedSettings } : {};
+    const current = await getStoredOthersSettings(db);
+
+    const nextCloudflare = settings.cloudflareApiToken && typeof settings.cloudflareApiToken === 'object'
+        ? { ...settings.cloudflareApiToken }
+        : {};
+    const currentCloudflare = current.cloudflareApiToken || {};
+    if (Object.prototype.hasOwnProperty.call(nextCloudflare, 'CF_API_KEY')) {
+        nextCloudflare.CF_API_KEY = preserveSecretPlaceholder(nextCloudflare.CF_API_KEY, currentCloudflare.CF_API_KEY);
+    }
+    settings.cloudflareApiToken = nextCloudflare;
+
+    const nextWebDAV = settings.webDAV && typeof settings.webDAV === 'object'
+        ? { ...settings.webDAV }
+        : {};
+    const currentWebDAV = current.webDAV || {};
+    if (Object.prototype.hasOwnProperty.call(nextWebDAV, 'password')) {
+        nextWebDAV.password = preserveSecretPlaceholder(nextWebDAV.password, currentWebDAV.password);
+    }
+    settings.webDAV = nextWebDAV;
+
+    return settings;
+}
+
 export async function onRequest(context) {
     // 其他设置相关，GET方法读取设置，POST方法保存设置
     const {
@@ -17,7 +74,7 @@ export async function onRequest(context) {
     if (request.method === 'GET') {
         const settings = await getOthersConfig(db, env)
 
-        return new Response(JSON.stringify(settings), {
+        return new Response(JSON.stringify(buildPublicOthersConfig(settings)), {
             headers: {
                 'content-type': 'application/json',
             },
@@ -27,12 +84,12 @@ export async function onRequest(context) {
     // POST保存设置
     if (request.method === 'POST') {
         const body = await request.json()
-        const settings = body
+        const settings = await mergePostedOthersSettings(db, body)
 
         // 写入数据库
         await db.put('manage@sysConfig@others', JSON.stringify(settings))
 
-        return new Response(JSON.stringify(settings), {
+        return new Response(JSON.stringify(buildPublicOthersConfig(await getOthersConfig(db, env))), {
             headers: {
                 'content-type': 'application/json',
             },
