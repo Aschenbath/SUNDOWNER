@@ -491,6 +491,71 @@ describe('audit security hardening', () => {
     assert.deepEqual(payload.files.map((file) => file.name).sort(), ['photos/a.jpg', 'photos/b.jpg']);
   });
 
+  it('does not expose sensitive metadata from stale public browse cache entries', async () => {
+    const env = createEnv();
+    const originalCaches = globalThis.caches;
+    await env.img_url.put('manage@sysConfig@others', JSON.stringify({
+      publicBrowse: {
+        enabled: true,
+        allowedDir: 'photos'
+      }
+    }));
+
+    globalThis.caches = {
+      default: {
+        async match() {
+          return new Response(JSON.stringify({
+            files: [{
+              id: 'photos/private.jpg',
+              metadata: {
+                FileName: 'private.jpg',
+                FileType: 'image/jpeg',
+                TimeStamp: 123,
+                FileSize: '42',
+                TgBotToken: 'telegram-secret',
+                S3SecretAccessKey: 's3-secret',
+                HfToken: 'hf-secret',
+              },
+            }],
+            directories: [],
+            totalCount: 1,
+          }));
+        },
+        async put() {
+          throw new Error('cache put should not run on cache hit');
+        },
+      },
+    };
+
+    let response;
+    let payload;
+    try {
+      response = await publicListOnRequest({
+        env,
+        waitUntil: async () => {},
+        request: new Request('http://localhost/api/public/list?dir=photos', { method: 'GET' })
+      });
+      payload = await response.json();
+    } finally {
+      if (originalCaches === undefined) {
+        delete globalThis.caches;
+      } else {
+        globalThis.caches = originalCaches;
+      }
+    }
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.fromCache, true);
+    assert.deepEqual(payload.files, [{
+      name: 'photos/private.jpg',
+      metadata: {
+        FileType: 'image/jpeg',
+        TimeStamp: 123,
+        FileSize: '42',
+      },
+    }]);
+  });
+
   it('treats encoded percent signs in public browse search as literal text', async () => {
     const env = createEnv();
     await env.img_url.put('manage@sysConfig@others', JSON.stringify({
@@ -762,6 +827,95 @@ describe('audit security hardening', () => {
 
     assert.equal(response.status, 404);
     assert.deepEqual(await response.json(), { success: false, message: 'File not found.' });
+  });
+
+  it('rejects malformed block and white paths without throwing', async () => {
+    const env = createEnv();
+    const blockResponse = await blockOnRequest({
+      env,
+      request: new Request('http://localhost/api/manage/block/%', { method: 'GET' }),
+      params: { path: '%' },
+      waitUntil: async () => {}
+    });
+    const whiteResponse = await whiteOnRequest({
+      env,
+      request: new Request('http://localhost/api/manage/white/%', { method: 'GET' }),
+      params: { path: '%' },
+      waitUntil: async () => {}
+    });
+
+    assert.equal(blockResponse.status, 400);
+    assert.equal(whiteResponse.status, 400);
+    assert.deepEqual(await blockResponse.json(), { success: false, message: 'Invalid file path.' });
+    assert.deepEqual(await whiteResponse.json(), { success: false, message: 'Invalid file path.' });
+  });
+
+  it('masks sensitive file metadata when block and white updates succeed', async () => {
+    const env = createEnv();
+    await env.img_url.put('photos/private.jpg', 'image-bytes', {
+      metadata: {
+        FileName: 'private.jpg',
+        FileType: 'image/jpeg',
+        TgBotToken: 'telegram-secret',
+        S3SecretAccessKey: 's3-secret',
+        HfToken: 'hf-secret',
+      },
+    });
+
+    const blockResponse = await blockOnRequest({
+      env,
+      request: new Request('http://localhost/api/manage/block/photos/private.jpg', { method: 'GET' }),
+      params: { path: 'photos,private.jpg' },
+      waitUntil: async () => {}
+    });
+    const whiteResponse = await whiteOnRequest({
+      env,
+      request: new Request('http://localhost/api/manage/white/photos/private.jpg', { method: 'GET' }),
+      params: { path: 'photos,private.jpg' },
+      waitUntil: async () => {}
+    });
+
+    assert.equal(blockResponse.status, 200);
+    assert.equal(whiteResponse.status, 200);
+    const blockPayload = await blockResponse.json();
+    const whitePayload = await whiteResponse.json();
+    assert.equal(blockPayload.ListType, 'Block');
+    assert.equal(whitePayload.ListType, 'White');
+    assert.equal(blockPayload.TgBotToken, undefined);
+    assert.equal(blockPayload.S3SecretAccessKey, undefined);
+    assert.equal(blockPayload.HfToken, undefined);
+    assert.equal(whitePayload.TgBotToken, undefined);
+    assert.equal(whitePayload.S3SecretAccessKey, undefined);
+    assert.equal(whitePayload.HfToken, undefined);
+  });
+
+  it('does not leak storage errors from block and white responses', async () => {
+    const env = createEnv();
+    await env.img_url.put('photos/private.jpg', 'image-bytes', {
+      metadata: {
+        FileName: 'private.jpg',
+        FileType: 'image/jpeg',
+      },
+    });
+    env.img_url.failPuts.add('photos/private.jpg');
+
+    const blockResponse = await blockOnRequest({
+      env,
+      request: new Request('http://localhost/api/manage/block/photos/private.jpg', { method: 'GET' }),
+      params: { path: 'photos,private.jpg' },
+      waitUntil: async () => {}
+    });
+    const whiteResponse = await whiteOnRequest({
+      env,
+      request: new Request('http://localhost/api/manage/white/photos/private.jpg', { method: 'GET' }),
+      params: { path: 'photos,private.jpg' },
+      waitUntil: async () => {}
+    });
+
+    assert.equal(blockResponse.status, 500);
+    assert.equal(whiteResponse.status, 500);
+    assert.deepEqual(await blockResponse.json(), { success: false, message: 'Internal server error.' });
+    assert.deepEqual(await whiteResponse.json(), { success: false, message: 'Internal server error.' });
   });
 
   it('returns 404 instead of crashing when white-listing a missing file', async () => {

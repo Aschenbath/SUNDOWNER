@@ -79,6 +79,14 @@ function ensureAsyncContext(context) {
     return context;
 }
 
+function serializePublicMetadata(metadata = {}) {
+    return {
+        FileType: metadata?.FileType,
+        TimeStamp: metadata?.TimeStamp,
+        FileSize: metadata?.FileSize,
+    };
+}
+
 async function getPublicFileList(context, url, dir, recursive) {
     // 构建缓存键（目录格式去掉末尾的/，与清除缓存时的格式一致）
     const cacheDir = dir.replace(/\/$/, '');
@@ -109,11 +117,7 @@ async function getPublicFileList(context, url, dir, recursive) {
     // 转换文件格式（只保留必要信息）
     const files = result.files.map(file => ({
         id: file.id,
-        metadata: {
-            FileType: file.metadata?.FileType,
-            TimeStamp: file.metadata?.TimeStamp,
-            FileSize: file.metadata?.FileSize,
-        }
+        metadata: serializePublicMetadata(file.metadata)
     }));
 
     const cacheData = {
@@ -258,7 +262,7 @@ export async function onRequest(context) {
         // 转换文件格式
         const safeFiles = filteredFiles.map(file => ({
             name: file.id,
-            metadata: file.metadata
+            metadata: serializePublicMetadata(file.metadata)
         }));
 
         return new Response(JSON.stringify({

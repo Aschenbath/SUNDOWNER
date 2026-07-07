@@ -1,57 +1,71 @@
 import { purgeCFCache, purgeRandomFileListCache, purgePublicFileListCache } from "../../../utils/purgeCache.js";
 import { addFileToIndex } from "../../../utils/indexManager.js";
 import { getDatabase } from "../../../utils/databaseAdapter.js";
+import { sanitizeExposedMetadata } from "../../../utils/mediaSecurity.js";
+
+function jsonResponse(payload, status = 200) {
+    return new Response(JSON.stringify(payload), {
+        status,
+        headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+        },
+    });
+}
+
+function decodeFilePath(rawPath) {
+    try {
+        return decodeURIComponent(String(rawPath || '').split(',').join('/'));
+    } catch {
+        return null;
+    }
+}
+
+function buildFileUrl(origin, fileId) {
+    return `${origin}/file/${String(fileId).split('/').map(encodeURIComponent).join('/')}`;
+}
 
 export async function onRequest(context) {
-    // Contents of context object
-    const {
-      request, // same as existing Worker API
-      env, // same as existing Worker API
-      params, // if filename includes [id] or [[path]]
-      waitUntil, // same as ctx.waitUntil in existing Worker API
-      next, // used for middleware or to fetch assets
-      data, // arbitrary space for passing data between middlewares
-    } = context;
-
-    // 组装 CDN URL
+    const { request, env, params, waitUntil } = context;
     const url = new URL(request.url);
+    const fileId = decodeFilePath(params.path);
 
-    if (params.path) {
-      params.path = String(params.path).split(',').join('/');
-    }
-    const cdnUrl = `https://${url.hostname}/file/${params.path}`;
-
-    // 解码params.path
-    params.path = decodeURIComponent(params.path);
-
-    //read the metadata
-    const db = getDatabase(env);
-    const value = await db.getWithMetadata(params.path);
-    if (!value || !value.metadata) {
-        return new Response(JSON.stringify({
+    if (!fileId) {
+        return jsonResponse({
             success: false,
-            message: 'File not found.',
-        }), {
-            status: 404,
-            headers: { 'Content-Type': 'application/json' },
-        });
+            message: 'Invalid file path.',
+        }, 400);
     }
 
-    //change the metadata
-    value.metadata.ListType = "Block"
-    await db.put(params.path, value.value, {metadata: value.metadata});
-    const info = JSON.stringify(value.metadata);
+    try {
+        const db = getDatabase(env);
+        const value = await db.getWithMetadata(fileId);
 
-    // 清除CDN缓存
-    await purgeCFCache(env, cdnUrl);
+        if (!value || !value.metadata) {
+            return jsonResponse({
+                success: false,
+                message: 'File not found.',
+            }, 404);
+        }
 
-    // 清除 randomFileList 等API缓存
-    const normalizedFolder = params.path.split('/').slice(0, -1).join('/');
-    await purgeRandomFileListCache(url.origin, normalizedFolder);
-    await purgePublicFileListCache(url.origin, normalizedFolder);
+        const nextMetadata = { ...value.metadata, ListType: "Block" };
+        await db.put(fileId, value.value, { metadata: nextMetadata });
 
-    // 更新索引
-    waitUntil(addFileToIndex(context, params.path, value.metadata));
+        const cdnUrl = buildFileUrl(url.origin, fileId);
+        await purgeCFCache(env, cdnUrl);
 
-    return new Response(info);
+        const normalizedFolder = fileId.split('/').slice(0, -1).join('/');
+        await purgeRandomFileListCache(url.origin, normalizedFolder);
+        await purgePublicFileListCache(url.origin, normalizedFolder);
+
+        waitUntil(addFileToIndex(context, fileId, nextMetadata));
+
+        return jsonResponse(sanitizeExposedMetadata(nextMetadata));
+    } catch (error) {
+        console.error('Block-list update failed:', error);
+        return jsonResponse({
+            success: false,
+            message: 'Internal server error.',
+        }, 500);
+    }
 }
