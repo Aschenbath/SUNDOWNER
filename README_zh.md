@@ -76,7 +76,7 @@ npm run capture:readme
 - Telegram 同步被当作正式导入流水线处理，包括 `file_id` 与 `file_unique_id` 的恢复问题。
 - 文件级 metadata 不保存敏感凭证，避免 token 扩散到普通文件记录。
 - 前端已经从上传面板演进为媒体库：搜索、相册、影片、动态、笔记和文件管理在同一个界面中协作。
-- 安全加固覆盖常量时间比较、配置失败 fail-closed、SSRF host allowlist、Referer 检查、token 响应脱敏、代理头剥离和统一 5xx 返回。
+- 安全加固覆盖常量时间比较、配置失败 fail-closed、SSRF host allowlist、文件直链访问检查、token 响应脱敏、代理头剥离和统一 5xx 返回。
 
 ## 存储模型
 
@@ -195,6 +195,7 @@ http://localhost:7658
 
 - `TG_BOT_TOKEN`：当 upload config 中没有可用 Telegram token 时的兜底 bot token。
 - `FETCH_RES_ALLOWED_HOSTS`：`/api/fetchRes` 的 host allowlist；不设置时该代理保持禁用。
+- `ALLOW_BEARERLESS_FILE_ACCESS`：`/file/*` 的旧部署兼容开关；默认不要设置或设为 `false`，让无 `Referer` 的文件直链请求必须带 `authCode`。
 - 管理员/用户鉴权、上传通道、WebDAV、公开浏览、随机 API、API token、配额和页面选项通过系统配置 API/UI 管理，并存放在 `manage@sysConfig@...` 下。
 
 给已有 KV 部署绑定 D1 后，用迁移接口分批迁移 metadata：
@@ -247,6 +248,7 @@ node --check js/media-library/app.js
 - 新代码尽量不要依赖大范围 KV `list()` 扫描，优先使用 D1 SQL 查询或基于 chunk 的 `kv.get()` 读取。
 - Telegram `file_id` 和 `file_unique_id` 不能混用；只有真实 `file_id` 可以调用 Telegram `getFile` 下载。
 - 凭证放在 upload config 或环境变量中，不要放进文件 metadata。
+- `/file/*` 文件直链默认不是 bearerless：使用同源/白名单 `Referer`、有效 `authCode`，或显式开启旧部署兼容开关。
 - 代理第三方媒体时，不要转发入站的 `Authorization`、`Cookie` 或 `authCode` header。
 - 修改前端入口时，同步维护 `index.html`、`js/entry-loader.js` 和相关测试中的 cache-bust 版本。
 - 公开发布前，用本地运行的当前界面刷新 `static/readme/current-*.png`，避免沿用旧上游界面图。

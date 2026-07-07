@@ -76,7 +76,7 @@ npm run capture:readme
 - Telegram sync is treated as a first-class import pipeline, including the `file_id` vs `file_unique_id` recovery problem.
 - Sensitive channel credentials are kept out of per-file metadata by design.
 - The frontend is evolving from upload panel to media library: richer search, albums, films, moments, notes, and file management live together.
-- Security hardening covers constant-time comparisons, fail-closed config handling, SSRF host allowlists, referer checks, token response shaping, proxy header stripping, and generic 5xx responses.
+- Security hardening covers constant-time comparisons, fail-closed config handling, SSRF host allowlists, direct-file access checks, token response shaping, proxy header stripping, and generic 5xx responses.
 
 ## Storage Model
 
@@ -195,6 +195,7 @@ Common optional settings:
 
 - `TG_BOT_TOKEN`: fallback Telegram bot token when upload config does not provide one.
 - `FETCH_RES_ALLOWED_HOSTS`: explicit host allowlist for `/api/fetchRes`; leave unset to keep that proxy disabled.
+- `ALLOW_BEARERLESS_FILE_ACCESS`: legacy compatibility opt-out for `/file/*`; leave unset or `false` so no-`Referer` direct file requests require `authCode`.
 - Admin/user auth, upload channels, WebDAV, public browsing, random API, API tokens, quotas, and page options are managed through system config APIs/UI and stored under `manage@sysConfig@...`.
 
 After binding D1 to an existing KV-backed deployment, migrate metadata in batches:
@@ -247,6 +248,7 @@ Some local environments can fail the full suite because the native `better-sqlit
 - Avoid new code paths that depend on broad KV `list()` scans. Prefer D1 SQL queries or chunk-based `kv.get()` reads.
 - Telegram `file_id` and `file_unique_id` are not interchangeable. Only the real `file_id` can be used with Telegram `getFile`.
 - Keep credentials in upload config or environment variables, not in file metadata.
+- `/file/*` direct access is not bearerless by default: use same-origin/allowed-domain `Referer`, valid `authCode`, or an explicit legacy opt-out.
 - If a route proxies third-party media, do not forward inbound `Authorization`, `Cookie`, or `authCode` headers.
 - Keep cache-busted frontend module versions in `index.html`, `js/entry-loader.js`, and related tests synchronized.
 - Refresh `static/readme/current-*.png` from a local run before a public-facing release.

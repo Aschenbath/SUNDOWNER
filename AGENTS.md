@@ -79,6 +79,10 @@ When a route proxies to another same-origin route with a user-derived path, enco
 
 Do not build CSS `url(...)` values with plain `escapeHtml()` or string interpolation. CSS string context is separate from HTML attribute context. Mind wallpaper rendering and live preview must use `renderCssImageUrl()` from `js/media-library/components.js`, which only emits safe `/file/`, `http(s)`, or strict base64 `data:image` URLs.
 
+### 11. Direct File Access Policy
+
+`/file/*` direct requests must not be bearerless by default. No-`Referer` requests are allowed only with a valid configured `authCode` header/cookie or the explicit legacy opt-out `access.allowBearerlessFileAccess: true` / `ALLOW_BEARERLESS_FILE_ACCESS=true`. Same-origin and allowed-domain `Referer` requests remain supported. Keep the fallback default `false`, and preserve stored opt-out state during partial security-config POSTs.
+
 ## Key Files
 
 ```text
@@ -108,7 +112,7 @@ functions/api/manage/migrate/recover-tg-file-ids.js
 ## Known Project Risks
 
 - Timestamp-named files such as `1775628424666_*.jpg` are not `tg_` keys, so message IDs cannot always be extracted automatically. `GET /api/manage/migrate/scan-orphan-files` can locate candidates, but automatic recovery is not guaranteed.
-- `/file/*` direct URLs are effectively bearerless unless domain allowlists or whitelist mode are configured. Treat direct file IDs as sensitive capability URLs.
+- `/file/*` direct URLs are no longer bearerless by default. Treat `ALLOW_BEARERLESS_FILE_ACCESS=true` / `access.allowBearerlessFileAccess: true` as a deliberate legacy compatibility opt-out.
 - Raw secret exposure on upload/others config GET routes was fixed on 2026-07-07; preserve masked-placeholder round trips so admin edits do not clobber stored credentials.
 - Upload IP attribution should trust only Cloudflare `CF-Connecting-IP`; do not reintroduce `X-Forwarded-For`, `X-Real-IP`, or caller-supplied proxy headers into blocklist or metadata decisions.
 - API token plaintext-at-rest was fixed on 2026-07-07; preserve salted-hash storage and legacy lazy migration.
