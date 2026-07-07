@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
   resolveHuggingFaceFileUrl,
+  resolveS3CdnFileUrl,
   resolveTelegramAccess,
 } from '../functions/utils/mediaSecurity.js';
 
@@ -89,5 +90,38 @@ describe('resolveHuggingFaceFileUrl', () => {
     }, 'owner/private-repo', 'photos/private.jpg');
 
     assert.equal(fileUrl, 'https://huggingface.co/datasets/owner/private-repo/resolve/main/photos/private.jpg?download=1');
+  });
+});
+
+describe('resolveS3CdnFileUrl', () => {
+  it('falls back to the canonical channel CDN URL for untrusted metadata URLs', () => {
+    const fileUrl = resolveS3CdnFileUrl({
+      S3CdnFileUrl: 'https://evil.example.com/proxy/private.jpg',
+      S3FileKey: 'photos/private.jpg',
+    }, {
+      cdnDomain: 'https://cdn.example.com/media',
+    }, 's3/private.jpg');
+
+    assert.equal(fileUrl, 'https://cdn.example.com/media/photos/private.jpg');
+  });
+
+  it('allows metadata CDN URLs under the configured channel CDN base', () => {
+    const fileUrl = resolveS3CdnFileUrl({
+      S3CdnFileUrl: 'https://cdn.example.com/media/photos/private.jpg?version=1',
+      S3FileKey: 'photos/private.jpg',
+    }, {
+      cdnDomain: 'https://cdn.example.com/media',
+    }, 's3/private.jpg');
+
+    assert.equal(fileUrl, 'https://cdn.example.com/media/photos/private.jpg?version=1');
+  });
+
+  it('returns null when no channel CDN base is configured', () => {
+    const fileUrl = resolveS3CdnFileUrl({
+      S3CdnFileUrl: 'https://cdn.example.com/media/photos/private.jpg',
+      S3FileKey: 'photos/private.jpg',
+    }, {}, 's3/private.jpg');
+
+    assert.equal(fileUrl, null);
   });
 });

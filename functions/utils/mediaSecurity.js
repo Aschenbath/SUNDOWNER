@@ -70,6 +70,39 @@ function isTrustedHuggingFaceHostname(hostname = '') {
   ));
 }
 
+function normalizeUrlLike(value = '') {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return '';
+  }
+  if (/^https?:\/\//i.test(normalized)) {
+    return normalized;
+  }
+  return `https://${normalized}`;
+}
+
+function buildCdnUrl(cdnDomain, fileKey) {
+  const base = normalizeUrlLike(cdnDomain).replace(/\/+$/, '');
+  const key = String(fileKey || '').replace(/^\/+/, '');
+  if (!base || !key) {
+    return null;
+  }
+  return `${base}/${key}`;
+}
+
+function isUrlUnderBase(candidate, base) {
+  if (candidate.protocol !== base.protocol || candidate.hostname !== base.hostname || candidate.port !== base.port) {
+    return false;
+  }
+
+  const basePath = base.pathname.replace(/\/+$/, '');
+  if (!basePath) {
+    return true;
+  }
+
+  return candidate.pathname === basePath || candidate.pathname.startsWith(`${basePath}/`);
+}
+
 export function buildCanonicalHuggingFaceFileUrl(repo, filePath) {
   return `https://huggingface.co/datasets/${repo}/resolve/main/${filePath}`;
 }
@@ -84,6 +117,25 @@ export function resolveHuggingFaceFileUrl(metadata = {}, repo, filePath) {
   } catch {
     // Ignore malformed or missing metadata URLs and fall back to repo/path.
   }
+  return canonicalUrl;
+}
+
+export function resolveS3CdnFileUrl(metadata = {}, s3Access = {}, fileId = '') {
+  const canonicalUrl = buildCdnUrl(s3Access?.cdnDomain, metadata?.S3FileKey || fileId);
+  if (!canonicalUrl) {
+    return null;
+  }
+
+  try {
+    const baseUrl = new URL(normalizeUrlLike(s3Access.cdnDomain));
+    const metadataUrl = new URL(String(metadata.S3CdnFileUrl || '').trim());
+    if ((metadataUrl.protocol === 'https:' || metadataUrl.protocol === 'http:') && isUrlUnderBase(metadataUrl, baseUrl)) {
+      return metadataUrl.toString();
+    }
+  } catch {
+    // Ignore malformed or missing metadata URLs and fall back to channel-derived CDN path.
+  }
+
   return canonicalUrl;
 }
 

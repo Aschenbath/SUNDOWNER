@@ -13,6 +13,7 @@ import {
     resolveDiscordAccess,
     resolveHuggingFaceAccess,
     resolveHuggingFaceFileUrl,
+    resolveS3CdnFileUrl,
     resolveS3Access,
     resolveTelegramAccess,
 } from '../utils/mediaSecurity.js';
@@ -1045,9 +1046,10 @@ async function handleR2File(context, fileId, encodedFileName, fileType) {
 // 处理S3文件读取
 async function handleS3File(context, metadata, encodedFileName, fileType, fileId) {
     const { Referer, url, request } = context;
+    const s3Access = await resolveS3Access(context.env, metadata || {});
 
     // 检查是否配置了 CDN 文件完整路径
-    const cdnFileUrl = metadata?.S3CdnFileUrl;
+    const cdnFileUrl = resolveS3CdnFileUrl(metadata || {}, s3Access || {}, fileId);
 
     // 如果配置了 CDN 文件路径，通过 CDN 读取文件
     if (cdnFileUrl) {
@@ -1077,7 +1079,7 @@ async function handleS3File(context, metadata, encodedFileName, fileType, fileId
             if (!response.ok && response.status !== 206) {
                 // CDN 读取失败，回退到 S3 API
                 console.warn(`CDN fetch failed (${response.status}), falling back to S3 API`);
-                return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId);
+                return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId, s3Access);
             }
 
             // 构建响应头
@@ -1100,19 +1102,19 @@ async function handleS3File(context, metadata, encodedFileName, fileType, fileId
         } catch (error) {
             // CDN 读取出错，回退到 S3 API
             console.error(`CDN fetch error: ${error.message}, falling back to S3 API`);
-            return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId);
+            return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId, s3Access);
         }
     }
 
     // 没有配置 CDN 文件路径，使用 S3 API
-    return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId);
+    return await handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId, s3Access);
 }
 
 // 通过 S3 API 读取文件
-async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId) {
+async function handleS3FileViaAPI(context, metadata, encodedFileName, fileType, fileId, resolvedS3Access = null) {
     const { Referer, url, request } = context;
 
-    const s3Access = await resolveS3Access(context.env, metadata || {});
+    const s3Access = resolvedS3Access || await resolveS3Access(context.env, metadata || {});
     if (!s3Access?.accessKeyId || !s3Access?.secretAccessKey) {
         return new Response('Error: S3 channel credentials not available', { status: 500 });
     }

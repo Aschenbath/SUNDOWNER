@@ -273,6 +273,81 @@ describe('public file metadata parsing', () => {
     assert.deepEqual(sentCommands[0], { Bucket: 'media', Key: 's3/default-endpoint.jpg' });
   });
 
+  it('uses the channel CDN base instead of untrusted S3 CDN metadata URLs', async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchCalls = [];
+    const sentCommands = [];
+    globalThis.fetch = async (url) => {
+      fetchCalls.push(String(url));
+      return new Response('cdn-bytes', {
+        status: 200,
+        headers: { 'Content-Length': '9' },
+      });
+    };
+    __setS3ClientFactoryForTests(() => ({
+      async send(command) {
+        sentCommands.push(command.input);
+        return {
+          Body: new Uint8Array([1, 2, 3, 4]),
+          ContentLength: 4,
+        };
+      },
+    }));
+
+    try {
+      const response = await onRequest({
+        env: {
+          img_url: new MemoryKV(new Map([
+            ['manage@sysConfig@upload', {
+              value: JSON.stringify({
+                s3: {
+                  channels: [
+                    {
+                      name: 'Archive S3',
+                      accessKeyId: 'config-access',
+                      secretAccessKey: 'config-secret',
+                      bucketName: 'media',
+                      endpoint: 'https://s3.example.com',
+                      region: 'auto',
+                      pathStyle: false,
+                      cdnDomain: 'https://cdn.example.com/media',
+                      enabled: true,
+                    },
+                  ],
+                },
+              }),
+            }],
+            ['s3/private.jpg', {
+              value: '',
+              metadata: {
+                Channel: 'S3',
+                ChannelName: 'Archive S3',
+                FileName: 'private.jpg',
+                FileType: 'image/jpeg',
+                S3FileKey: 'photos/private.jpg',
+                S3CdnFileUrl: 'https://evil.example.com/proxy/private.jpg',
+                ListType: 'None',
+                Label: 'safe',
+              },
+            }],
+          ])),
+        },
+        params: { path: 's3/private.jpg' },
+        request: new Request('http://localhost/file/s3/private.jpg'),
+        waitUntil() {},
+        next() {},
+        data: {},
+      });
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(fetchCalls, ['https://cdn.example.com/media/photos/private.jpg']);
+      assert.deepEqual(sentCommands, []);
+      assert.equal((await response.arrayBuffer()).byteLength, 9);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('does not send private HuggingFace tokens to untrusted metadata URLs', async () => {
     const originalFetch = globalThis.fetch;
     const calls = [];

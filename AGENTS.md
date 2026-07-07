@@ -59,6 +59,10 @@ Ensure at least one supported path exists before adding Telegram download or mig
 
 `manage@sysConfig@security.apiTokens.tokens` must not store raw API token strings. New records store `tokenHash`, `tokenSalt`, and `tokenHashAlgorithm: sha256-salted-v1`; token creation may return the raw token once for operator copy. Legacy records with a `token` field are read-compatible and migrate lazily on successful validation, management listing, or token metadata update. Do not reintroduce plaintext token persistence.
 
+### 6. S3 CDN URL Trust
+
+`functions/file/[[path]].js` must not blindly fetch per-file `metadata.S3CdnFileUrl`. Use `resolveS3CdnFileUrl(metadata, s3Access, fileId)` so S3 CDN reads stay under the current channel `cdnDomain`; untrusted or malformed metadata URLs must fall back to the channel-derived CDN path or S3 API.
+
 ## Key Files
 
 ```text
