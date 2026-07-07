@@ -102,6 +102,42 @@ describe('WebDAV route', () => {
     assert.equal(calls[0].options.headers.authCode, 'user-code');
   });
 
+  it('encodes WebDAV download paths before proxying to the internal file API', async () => {
+    const calls = [];
+    global.fetch = async (url, options = {}) => {
+      calls.push({ url: String(url), options });
+      return new Response('file-data', {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain',
+        }
+      });
+    };
+
+    const response = await onRequest({
+      env: createEnv({
+        BASIC_USER: 'admin',
+        BASIC_PASS: 'secret',
+        AUTH_CODE: 'user-code',
+        kvEntries: {
+          'manage@sysConfig@others': JSON.stringify({
+            webDAV: { enabled: true, username: 'dav', password: 'dav-pass' }
+          })
+        }
+      }),
+      request: createWebDavRequest('/dav/docs/a%3Fevil%3D1%23frag.txt', {
+        headers: {
+          Authorization: `Basic ${Buffer.from('dav:dav-pass').toString('base64')}`
+        }
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), 'file-data');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'http://localhost/file/docs/a%3Fevil%3D1%23frag.txt');
+  });
+
   it('does not server-follow file redirects when proxying downloads', async () => {
     const calls = [];
     global.fetch = async (url, options = {}) => {
@@ -247,5 +283,49 @@ describe('WebDAV route', () => {
     assert.equal(response.status, 500);
     assert.equal(body, 'Deletion failed');
     assert.doesNotMatch(body, /private_token_456/);
+  });
+
+  it('encodes WebDAV delete paths before proxying to the internal delete API', async () => {
+    const calls = [];
+    global.fetch = async (url, options = {}) => {
+      calls.push({ url: String(url), options });
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    };
+
+    const response = await onRequest({
+      env: createEnv({
+        BASIC_USER: 'admin',
+        BASIC_PASS: 'secret',
+        AUTH_CODE: 'user-code',
+        kvEntries: {
+          'manage@sysConfig@others': JSON.stringify({
+            webDAV: { enabled: true, username: 'dav', password: 'dav-pass' }
+          }),
+          'manage@sysConfig@security': JSON.stringify({
+            auth: {
+              user: { authCode: 'user-code' },
+              admin: { adminUsername: 'admin', adminPassword: 'secret' }
+            },
+            upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+            access: { allowedDomains: '', whiteListMode: false },
+            apiTokens: { tokens: {} }
+          })
+        }
+      }),
+      request: createWebDavRequest('/dav/docs/a%3Fevil%3D1%23frag.txt', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Basic ${Buffer.from('dav:dav-pass').toString('base64')}`
+        }
+      }),
+    });
+
+    assert.equal(response.status, 204);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'http://localhost/api/manage/delete/docs/a%3Fevil%3D1%23frag.txt');
+    assert.equal(calls[0].options.method, 'DELETE');
   });
 });

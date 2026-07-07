@@ -66,7 +66,9 @@ export async function onRequest(context) {
             while (folderQueue.length > 0) {
                 const currentFolder = folderQueue.shift();
 
-                const listUrl = new URL(`${url.origin}/api/manage/list?count=-1&dir=${currentFolder.path}`);
+                const listUrl = new URL('/api/manage/list', url.origin);
+                listUrl.searchParams.set('count', '-1');
+                listUrl.searchParams.set('dir', currentFolder.path);
                 const listRequest = new Request(listUrl, {
                     headers: request.headers,
                 });

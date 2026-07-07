@@ -119,6 +119,13 @@ function createRequest(url, body, headers = {}) {
   });
 }
 
+function buildValidHuggingFaceDirectPath(fullId, uuid = '123e4567-e89b-42d3-a456-426614174000') {
+  const lastSlashIndex = fullId.lastIndexOf('/');
+  return lastSlashIndex === -1
+    ? `${uuid}_${fullId}`
+    : `${fullId.substring(0, lastSlashIndex + 1)}${uuid}_${fullId.substring(lastSlashIndex + 1)}`;
+}
+
 async function withFetchStub(run) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
@@ -238,7 +245,7 @@ describe('upload API generic 500 errors', () => {
         },
         body: JSON.stringify({
           fullId: 'photos/private.jpg',
-          filePath: 'photos/private-lfs.jpg',
+          filePath: buildValidHuggingFaceDirectPath('photos/private.jpg'),
           sha256: 'abc123',
           fileSize: 4,
           fileName: 'private.jpg',

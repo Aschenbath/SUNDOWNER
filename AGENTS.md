@@ -67,6 +67,14 @@ Ensure at least one supported path exists before adding Telegram download or mig
 
 Cloudflare Pages catch-all route params can appear as either a string or an array in tests/runtime adapters. Normalize `params.path` before indexing, decoding, or joining it; do not use `params.path[0]` unless the array shape has been verified.
 
+### 8. Internal Proxy URL Construction
+
+When a route proxies to another same-origin route with a user-derived path, encode each path segment before constructing the `URL`. Do not interpolate decoded paths containing `?`, `#`, or `&` into path/query strings. Existing regression anchors: folder delete/move list requests and WebDAV GET/DELETE internal proxies.
+
+### 9. HuggingFace Direct Upload Commit Paths
+
+`functions/upload/huggingface/getUploadUrl.js` generates direct-upload `filePath` values as `<directory>/<uuid>_<basename>`. `commitUpload.js` must reject client-supplied paths that do not match that generated path for the submitted `fullId`; otherwise an upload-capable client could commit LFS pointers to arbitrary HuggingFace repo paths.
+
 ## Key Files
 
 ```text
@@ -101,3 +109,4 @@ functions/api/manage/migrate/recover-tg-file-ids.js
 - Upload IP attribution should trust only Cloudflare `CF-Connecting-IP`; do not reintroduce `X-Forwarded-For`, `X-Real-IP`, or caller-supplied proxy headers into blocklist or metadata decisions.
 - API token plaintext-at-rest was fixed on 2026-07-07; preserve salted-hash storage and legacy lazy migration.
 - Chunk upload status raw-error exposure was fixed on 2026-07-07; keep status responses and failure metadata generic while preserving internal server logs.
+- `fetchRes` SSRF filtering blocks private/local IPv4, IPv6, bracketed IPv6, and IPv4-mapped IPv6 literals before any outbound fetch. Keep redirect re-validation in place for every hop.

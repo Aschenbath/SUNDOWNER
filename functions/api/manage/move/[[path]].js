@@ -49,7 +49,9 @@ export async function onRequest(context) {
                 const curFolderName = currentFolder.path.split('/').pop();
 
                 // 获取指定目录下的所有文件
-                const listUrl = new URL(`${url.origin}/api/manage/list?count=-1&dir=${currentFolder.path}`);
+                const listUrl = new URL('/api/manage/list', url.origin);
+                listUrl.searchParams.set('count', '-1');
+                listUrl.searchParams.set('dir', currentFolder.path);
                 const listRequest = new Request(listUrl, {
                     headers: request.headers,
                 });

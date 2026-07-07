@@ -21,6 +21,14 @@ function isIpLiteral(hostname) {
     return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname) || hostname.includes(':');
 }
 
+function normalizeIpHostname(hostname) {
+    const normalized = String(hostname || '').trim().toLowerCase();
+    if (normalized.startsWith('[') && normalized.endsWith(']')) {
+        return normalized.slice(1, -1);
+    }
+    return normalized;
+}
+
 function isPrivateIpv4(hostname) {
     const parts = hostname.split('.').map((part) => Number(part));
     if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
@@ -38,12 +46,46 @@ function isPrivateIpv4(hostname) {
 }
 
 function isPrivateIpv6(hostname) {
-    const normalized = hostname.toLowerCase();
-    return normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80:');
+    const normalized = normalizeIpHostname(hostname);
+    if (
+        normalized === '::'
+        || normalized === '::1'
+        || normalized.startsWith('fc')
+        || normalized.startsWith('fd')
+        || normalized.startsWith('fe80:')
+    ) {
+        return true;
+    }
+
+    if (normalized.startsWith('::ffff:')) {
+        const mapped = normalized.slice('::ffff:'.length);
+        if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(mapped)) {
+            return isPrivateIpv4(mapped);
+        }
+
+        const hexParts = mapped.split(':');
+        if (
+            hexParts.length === 2
+            && hexParts.every((part) => /^[0-9a-f]{1,4}$/.test(part))
+        ) {
+            const high = parseInt(hexParts[0], 16);
+            const low = parseInt(hexParts[1], 16);
+            const value = (high << 16) | low;
+            const ipv4 = [
+                (value >>> 24) & 255,
+                (value >>> 16) & 255,
+                (value >>> 8) & 255,
+                value & 255,
+            ].join('.');
+            return isPrivateIpv4(ipv4);
+        }
+    }
+
+    return false;
 }
 
 function isLocalHostname(hostname) {
-    const normalized = hostname.toLowerCase();
+    const normalized = String(hostname || '').trim().toLowerCase();
     return normalized === 'localhost' || normalized.endsWith('.localhost') || normalized.endsWith('.local') || normalized.endsWith('.internal');
 }
 

@@ -127,6 +127,13 @@ async function seedHuggingFaceDirectUploadConfig(env) {
   }));
 }
 
+function buildValidHuggingFaceDirectPath(fullId, uuid = '123e4567-e89b-42d3-a456-426614174000') {
+  const lastSlashIndex = fullId.lastIndexOf('/');
+  return lastSlashIndex === -1
+    ? `${uuid}_${fullId}`
+    : `${fullId.substring(0, lastSlashIndex + 1)}${uuid}_${fullId.substring(lastSlashIndex + 1)}`;
+}
+
 describe('audit security hardening', () => {
   afterEach(() => {
     resetCommitHuggingFaceAPIFactory();
@@ -231,7 +238,7 @@ describe('audit security hardening', () => {
           },
           body: JSON.stringify({
             fullId: 'photos/direct.jpg',
-            filePath: 'photos/direct-lfs.jpg',
+            filePath: buildValidHuggingFaceDirectPath('photos/direct.jpg'),
             sha256: 'a'.repeat(64),
             fileSize: 2048,
             fileName: 'direct.jpg',
@@ -245,7 +252,7 @@ describe('audit security hardening', () => {
       const stored = await env.img_url.getWithMetadata('photos/direct.jpg');
       assert.equal(stored.metadata.HfToken, undefined);
       assert.equal(stored.metadata.HfRepo, 'owner/repo');
-      assert.equal(stored.metadata.HfFilePath, 'photos/direct-lfs.jpg');
+      assert.equal(stored.metadata.HfFilePath, buildValidHuggingFaceDirectPath('photos/direct.jpg'));
 
       await Promise.all(waitUntilPromises);
       const indexOperationValues = [...env.img_url.store.entries()]
@@ -295,7 +302,7 @@ describe('audit security hardening', () => {
           },
           body: JSON.stringify({
             fullId: 'photos/direct-fail.jpg',
-            filePath: 'photos/direct-fail-lfs.jpg',
+            filePath: buildValidHuggingFaceDirectPath('photos/direct-fail.jpg'),
             sha256: 'b'.repeat(64),
             fileSize: 4096,
             fileName: 'direct-fail.jpg',
@@ -307,13 +314,54 @@ describe('audit security hardening', () => {
       assert.equal(response.status, 500);
       assert.deepEqual(deletedFiles, [
         {
-          filePath: 'photos/direct-fail-lfs.jpg',
-          commitMessage: 'Delete photos/direct-fail-lfs.jpg',
+          filePath: buildValidHuggingFaceDirectPath('photos/direct-fail.jpg'),
+          commitMessage: `Delete ${buildValidHuggingFaceDirectPath('photos/direct-fail.jpg')}`,
         },
       ]);
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it('rejects HuggingFace direct commit paths that were not generated from the file id', async () => {
+    const env = createEnv({ dev_mode: 'true' });
+    await seedHuggingFaceDirectUploadConfig(env);
+    let commitCalled = false;
+    setCommitHuggingFaceAPIFactory(() => ({
+      async commitLfsFile() {
+        commitCalled = true;
+        return { success: true };
+      },
+      async deleteFile() {
+        throw new Error('deleteFile must not be called before a successful commit');
+      },
+    }));
+
+    const response = await hfCommitUploadPost({
+      env,
+      waitUntil() {
+        throw new Error('endUpload must not be scheduled for rejected direct commit paths');
+      },
+      request: new Request('http://localhost/upload/huggingface/commitUpload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer upload-token',
+        },
+        body: JSON.stringify({
+          fullId: 'photos/direct.jpg',
+          filePath: 'README.md',
+          sha256: 'c'.repeat(64),
+          fileSize: 2048,
+          fileName: 'direct.jpg',
+          fileType: 'image/jpeg',
+        }),
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: 'Invalid filePath: does not match generated upload path' });
+    assert.equal(commitCalled, false);
   });
 
   it('masks sensitive fields in security config responses', async () => {

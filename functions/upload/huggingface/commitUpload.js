@@ -23,6 +23,30 @@ export function __resetHuggingFaceAPIFactoryForTests() {
     createHuggingFaceAPI = (token, repo, isPrivate) => new HuggingFaceAPI(token, repo, isPrivate);
 }
 
+function isGeneratedHuggingFaceFilePath(fullId, filePath) {
+    const normalizedFullId = String(fullId || '').replace(/\\/g, '/');
+    const normalizedFilePath = String(filePath || '').trim().replace(/\\/g, '/');
+    if (!normalizedFullId || !normalizedFilePath || normalizedFilePath.startsWith('/') || normalizedFilePath.includes('//')) {
+        return false;
+    }
+
+    const lastSlashIndex = normalizedFullId.lastIndexOf('/');
+    const expectedDirectory = lastSlashIndex === -1 ? '' : normalizedFullId.substring(0, lastSlashIndex + 1);
+    const expectedFileName = lastSlashIndex === -1 ? normalizedFullId : normalizedFullId.substring(lastSlashIndex + 1);
+    if (!expectedFileName || !normalizedFilePath.startsWith(expectedDirectory)) {
+        return false;
+    }
+
+    const relativeName = normalizedFilePath.substring(expectedDirectory.length);
+    const expectedSuffix = `_${expectedFileName}`;
+    if (!relativeName.endsWith(expectedSuffix)) {
+        return false;
+    }
+
+    const uuid = relativeName.slice(0, -expectedSuffix.length);
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
+}
+
 export async function onRequestPost(context) {
     const { request, env, waitUntil } = context;
     const url = new URL(request.url);
@@ -60,6 +84,15 @@ export async function onRequestPost(context) {
         }
 
         // 获取 HuggingFace 配置
+        if (!isGeneratedHuggingFaceFilePath(fullId, filePath)) {
+            return new Response(JSON.stringify({
+                error: 'Invalid filePath: does not match generated upload path'
+            }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
         const uploadConfig = await fetchUploadConfig(env);
         const hfSettings = uploadConfig.huggingface;
 

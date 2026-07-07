@@ -31,6 +31,13 @@ function parseBasicAuthHeader(authHeader) {
     };
 }
 
+function encodeInternalPath(path) {
+    return String(path || '')
+        .split('/')
+        .map(segment => encodeURIComponent(segment))
+        .join('/');
+}
+
 export async function onRequest(context) {
     const { request, env } = context;
 
@@ -135,7 +142,7 @@ async function handleGet(request, env) {
         }
     } else { // File download
         try {
-            const fileUrl = new URL(`/file${path}`, request.url);
+            const fileUrl = new URL(`/file${encodeInternalPath(path)}`, request.url);
 
             const fileResponse = await fetch(fileUrl.toString(), {
                 headers: await getApiHeaders(env),
@@ -240,7 +247,7 @@ async function handleDelete(request, env) {
     const isFolder = path.endsWith('/');
     const cleanPath = isFolder ? path.slice(0, -1) : path;
     
-    const deleteUrl = new URL(`/api/manage/delete/${cleanPath}`, request.url);
+    const deleteUrl = new URL(`/api/manage/delete/${encodeInternalPath(cleanPath)}`, request.url);
     if (isFolder) deleteUrl.searchParams.set('folder', 'true');
 
     try {

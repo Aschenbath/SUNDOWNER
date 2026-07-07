@@ -118,4 +118,21 @@ describe('fetchRes route', () => {
     assert.equal(calls.length, 1);
     assert.equal(calls[0].options?.redirect, 'manual');
   });
+
+  it('blocks allowlisted private IPv6 literal targets before fetching', async () => {
+    let fetched = false;
+    global.fetch = async () => {
+      fetched = true;
+      return new Response('internal-data', { status: 200 });
+    };
+
+    const response = await onRequest({
+      env: createEnv({ FETCH_RES_ALLOWED_HOSTS: '[fc00::1]' }),
+      request: createRequest('http://[fc00::1]/internal'),
+    });
+
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: 'Private or local targets are blocked' });
+    assert.equal(fetched, false);
+  });
 });
