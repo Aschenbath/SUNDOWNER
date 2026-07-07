@@ -35,6 +35,7 @@ import {
   MusicSummary,
   PrivateAlbumGate,
   PrivateAlbumSummary,
+  renderCssImageUrl,
   renderMediaRows,
   PreviewModal,
   SearchResultsView,
@@ -53,7 +54,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=121';
+} from './components.js?v=122';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -4964,9 +4965,9 @@ function patchMindDraftPreview() {
   });
   applyMindSendButtonTheme(section.querySelector('.cml-mind__send'), draftSettings.sendButtonColor);
   const wallpaperUrl = resolveMindWallpaperUrl(draftSettings);
-  if (wallpaperUrl) {
-    const escapedUrl = String(wallpaperUrl).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    section.style.setProperty('--cml-mind-wallpaper-image', `url("${escapedUrl}")`);
+  const wallpaperImage = renderCssImageUrl(wallpaperUrl);
+  if (wallpaperImage) {
+    section.style.setProperty('--cml-mind-wallpaper-image', wallpaperImage);
   } else {
     section.style.removeProperty('--cml-mind-wallpaper-image');
   }
@@ -21135,7 +21136,7 @@ function pushNavigationHash({ mode = 'replace' } = {}) {
 }
 
 function restoreNavigationFromHash() {
-  const rawHash = decodeURIComponent(window.location.hash || '').replace(/^#\/?/, '');
+  const rawHash = decodeValue(window.location.hash || '').replace(/^#\/?/, '');
   if (/^films(?:\/|$)/.test(rawHash)) {
     pendingFilmsRoutePerfAction = startPerfAction('films route enter');
   }

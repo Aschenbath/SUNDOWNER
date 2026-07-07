@@ -75,6 +75,10 @@ When a route proxies to another same-origin route with a user-derived path, enco
 
 `functions/upload/huggingface/getUploadUrl.js` generates direct-upload `filePath` values as `<directory>/<uuid>_<basename>`. `commitUpload.js` must reject client-supplied paths that do not match that generated path for the submitted `fullId`; otherwise an upload-capable client could commit LFS pointers to arbitrary HuggingFace repo paths.
 
+### 10. Frontend CSS URL Contexts
+
+Do not build CSS `url(...)` values with plain `escapeHtml()` or string interpolation. CSS string context is separate from HTML attribute context. Mind wallpaper rendering and live preview must use `renderCssImageUrl()` from `js/media-library/components.js`, which only emits safe `/file/`, `http(s)`, or strict base64 `data:image` URLs.
+
 ## Key Files
 
 ```text

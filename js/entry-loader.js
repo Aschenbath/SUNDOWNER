@@ -3,8 +3,8 @@
   var search = window.location.search || '';
   var hash = window.location.hash || '';
   var mediaPreloadHrefs = [
-    '/js/media-library/app.js?v=355',
-    '/js/media-library/components.js?v=121',
+    '/js/media-library/app.js?v=356',
+    '/js/media-library/components.js?v=122',
     '/js/media-library/films-components.js?v=81',
     '/js/theme-system.js?v=2'
   ];
@@ -96,7 +96,7 @@
     mediaPreloadHrefs.forEach(function (href) {
       appendLink('modulepreload', href);
     });
-    loadScript('/js/media-library/app.js?v=355', null, null, 'module');
+    loadScript('/js/media-library/app.js?v=356', null, null, 'module');
   }
 
   if (shouldLoadMediaLibrary()) {

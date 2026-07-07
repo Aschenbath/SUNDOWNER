@@ -4184,7 +4184,7 @@ describe('media library download actions', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
     const pickerStateSource = fs.readFileSync(new URL('../js/media-library/picker-state.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /const rawHash = decodeURIComponent\(window\.location\.hash \|\| ''\)\.replace\(\/\^#\\\/\?\/, ''\);/);
+    assert.match(appSource, /const rawHash = decodeValue\(window\.location\.hash \|\| ''\)\.replace\(\/\^#\\\/\?\/, ''\);/);
     assert.match(pickerStateSource, /export function isPhotosRouteReplay\(rawHash\) \{/);
     assert.match(pickerStateSource, /return \/\^photos\(\?:\\\/\|\$\)\/i\.test\(rawHash \|\| 'photos'\);/);
     assert.match(pickerStateSource, /export function buildPickerPreserveFlags\(state, rawHash\) \{/);

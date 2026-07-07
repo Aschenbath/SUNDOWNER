@@ -78,6 +78,32 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+const SAFE_CSS_IMAGE_URL_PATTERN = /^(?:\/file\/[^\s"'()\\<>]*|https?:\/\/[^\s"'()\\<>]+|data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+)$/i;
+const SAFE_MIND_BACKGROUND_POSITION_PATTERN = /^(?:left|center|right) (?:top|center|bottom)$/;
+
+export function renderCssImageUrl(value = '') {
+  const normalized = String(value || '').trim();
+  if (!normalized || !SAFE_CSS_IMAGE_URL_PATTERN.test(normalized)) {
+    return '';
+  }
+  return `url("${normalized.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}")`;
+}
+
+function normalizeMindBackgroundPosition(value = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  return SAFE_MIND_BACKGROUND_POSITION_PATTERN.test(normalized) ? normalized : 'center center';
+}
+
+function renderMindWallpaperStyle(wallpaperUrl = '', backgroundPosition = '') {
+  const wallpaperImage = renderCssImageUrl(wallpaperUrl);
+  const declarations = [];
+  if (wallpaperImage) {
+    declarations.push(`--cml-mind-wallpaper-image:${escapeHtml(wallpaperImage)}`);
+  }
+  declarations.push(`--cml-mind-wallpaper-position:${escapeHtml(normalizeMindBackgroundPosition(backgroundPosition))}`);
+  return ` style="${declarations.join(';')}"`;
+}
+
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
@@ -2375,9 +2401,7 @@ export function MindLoadingView({ settings = {}, wallpaperUrl = '' } = {}) {
   const allowedSendButtonColors = new Set(['default', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple', 'black']);
   const backgroundPreset = allowedBackgroundPresets.has(settings.backgroundPreset) ? settings.backgroundPreset : 'ios-sky';
   const sendButtonColor = allowedSendButtonColors.has(settings.sendButtonColor) ? settings.sendButtonColor : 'green';
-  const wallpaperStyle = wallpaperUrl
-    ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(wallpaperUrl)}');--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`
-    : ` style="--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`;
+  const wallpaperStyle = renderMindWallpaperStyle(wallpaperUrl, settings.backgroundPosition);
   const avatarHtml = contactAvatarData
     ? `<span class="cml-mind-loading__avatar"><img src="${contactAvatarData}" alt="${contactName}" class="cml-mind-loading__avatar-image"></span>`
     : `<span class="cml-mind-loading__avatar cml-mind-loading__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`;
@@ -2647,9 +2671,7 @@ export function MindChatView({
   const sendButtonColor = escapeHtml(settings.sendButtonColor || 'green');
   const sendButtonStyle = buildMindSendButtonStyle(settings.sendButtonColor || 'green');
   const isMobileMind = Number(layoutWidth || 0) <= 960;
-  const wallpaperStyle = wallpaperUrl
-    ? ` style="--cml-mind-wallpaper-image:url('${escapeHtml(wallpaperUrl)}');--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`
-    : ` style="--cml-mind-wallpaper-position:${escapeHtml(settings.backgroundPosition || 'center center')}"`;
+  const wallpaperStyle = renderMindWallpaperStyle(wallpaperUrl, settings.backgroundPosition);
   const headerAvatar = contactAvatarData
     ? `<span class="cml-mind-header__avatar"><img src="${contactAvatarData}" alt="${contactName}" class="cml-mind-header__avatar-image"></span>`
     : `<span class="cml-mind-header__avatar cml-mind-header__avatar--fallback">${contactName.charAt(0).toUpperCase() || 'M'}</span>`;
@@ -3499,6 +3521,7 @@ export function PrivateAlbumGate({ error = '', value = '' }) {
         <div>
           <p class="cml-private-access__eyebrow">Private</p>
           <h2 class="cml-private-access__title">Unlock private album</h2>
+          <p class="cml-private-access__copy">Enter your password to view hidden photos and videos.</p>
         </div>
       </div>
       <form class="cml-private-access__form" data-form="private-access">
@@ -3519,6 +3542,7 @@ export function PrivateAlbumGate({ error = '', value = '' }) {
           autocomplete="current-password"
           value="${escapeHtml(value)}"
         />
+        <button type="submit" class="cml-private-access__submit">Unlock</button>
       </form>
       ${error ? `<p class="cml-private-access__error">${escapeHtml(error)}</p>` : ''}
     </section>

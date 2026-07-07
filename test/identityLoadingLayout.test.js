@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { MindLoadingView } from '../js/media-library/components.js';
+import { MindChatView, MindLoadingView } from '../js/media-library/components.js';
 
 const css = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
 
@@ -55,6 +55,40 @@ describe('identity and loading layout', () => {
     assert.match(titleRule, /color:\s*#ffffff;/);
     assert.match(titleRule, /text-shadow:\s*0 2px 12px rgba\(0, 0, 0, 0\.55\);/);
     assert.match(metaRule, /color:\s*rgba\(255, 255, 255, 0\.82\);/);
+  });
+
+  it('does not render unsafe Mind wallpaper CSS declarations from stored image URLs', () => {
+    const unsafeWallpaperUrl = "data:image/png;base64,AAAA');--cml-mind-send-bg:red;/*";
+    const loadingHtml = MindLoadingView({
+      wallpaperUrl: unsafeWallpaperUrl,
+      settings: {
+        contactName: 'Mind',
+        backgroundPreset: 'ios-sky',
+        sendButtonColor: 'green',
+        backgroundPosition: 'center center',
+      },
+    });
+    const chatHtml = MindChatView({
+      messages: [],
+      wallpaperUrl: unsafeWallpaperUrl,
+      settings: {
+        contactName: 'Mind',
+        backgroundPreset: 'ios-sky',
+        sendButtonColor: 'green',
+        backgroundPosition: 'center center',
+      },
+      settingsDraft: {
+        contactName: 'Mind',
+        backgroundPreset: 'ios-sky',
+        sendButtonColor: 'green',
+        backgroundPosition: 'center center',
+      },
+    });
+
+    assert.doesNotMatch(loadingHtml, /--cml-mind-send-bg:red/);
+    assert.doesNotMatch(chatHtml, /--cml-mind-send-bg:red/);
+    assert.doesNotMatch(loadingHtml, /--cml-mind-wallpaper-image:url/);
+    assert.doesNotMatch(chatHtml, /--cml-mind-wallpaper-image:url/);
   });
 
   it('gives the Documents list a defined file-manager surface instead of loose rows', () => {
