@@ -364,7 +364,7 @@ export async function onRequestPost(context) {
 
   } catch (error) {
     console.error('Error in BatchIndexChunkAPI:', error);
-    return errorResponse(`Database write error: ${error.message}`, 500);
+    return errorResponse('Database write error', 500);
   }
 }
 

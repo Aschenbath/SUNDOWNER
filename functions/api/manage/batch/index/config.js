@@ -47,7 +47,8 @@ export async function onRequestGet(context) {
       databaseType: config.usingD1 ? 'd1' : 'kv',
     });
   } catch (error) {
-    return jsonResponse({ success: false, error: error.message }, 500);
+    console.error('Error in BatchIndexConfigAPI:', error);
+    return jsonResponse({ success: false, error: 'Unable to read index configuration' }, 500);
   }
 }
 

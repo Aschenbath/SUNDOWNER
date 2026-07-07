@@ -172,7 +172,7 @@ export async function onRequestGet(context) {
 
   } catch (error) {
     console.error('Error in BatchSettingsAPI:', error);
-    return errorResponse(`Database read error: ${error.message}`, 500);
+    return errorResponse('Database read error', 500);
   }
 }
 

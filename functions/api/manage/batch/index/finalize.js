@@ -353,7 +353,7 @@ export async function onRequestPost(context) {
       // 保存空索引
       const saveResult = await saveIndex(db, [], env);
       if (!saveResult.success) {
-        return errorResponse('Failed to save empty index', 500, saveResult.error);
+        return errorResponse('Failed to save empty index', 500);
       }
 
       // 清理旧的索引分块
@@ -388,7 +388,7 @@ export async function onRequestPost(context) {
     // 10. 保存新索引
     const saveResult = await saveIndex(db, allFiles, env);
     if (!saveResult.success) {
-      return errorResponse('Failed to save index', 500, saveResult.error);
+      return errorResponse('Failed to save index', 500);
     }
 
     await cleanupOldIndexChunksFromCount(db, oldChunkCount, newChunkCount);
@@ -410,7 +410,7 @@ export async function onRequestPost(context) {
 
   } catch (error) {
     console.error('Error in BatchIndexFinalizeAPI:', error);
-    return errorResponse(`Server error: ${error.message}`, 500);
+    return errorResponse('Server error', 500);
   }
 }
 

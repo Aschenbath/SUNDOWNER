@@ -93,7 +93,8 @@ export async function onRequestPost(context) {
           }
           return { success: true };
         } catch (error) {
-          return { success: false, key, error: error.message };
+          console.error(`Failed to restore file ${key}:`, error);
+          return { success: false, key, error: 'Failed to restore file' };
         }
       });
 
@@ -118,7 +119,8 @@ export async function onRequestPost(context) {
           await db.put(fullKey, valueToStore);
           return { success: true };
         } catch (error) {
-          return { success: false, key, error: error.message };
+          console.error(`Failed to restore setting ${key}:`, error);
+          return { success: false, key, error: 'Failed to restore setting' };
         }
       });
 
@@ -142,7 +144,7 @@ export async function onRequestPost(context) {
 
   } catch (error) {
     console.error('Error in BatchRestoreChunkAPI:', error);
-    return errorResponse(`Server error: ${error.message}`, 500);
+    return errorResponse('Server error', 500);
   }
 }
 
