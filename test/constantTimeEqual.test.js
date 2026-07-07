@@ -27,6 +27,7 @@ describe('constant-time secret comparison', () => {
     const loginSource = readSource('../functions/api/login.js');
     const manageMiddlewareSource = readSource('../functions/api/manage/_middleware.js');
     const authSessionSource = readSource('../functions/api/manage/auth-session.js');
+    const accountSource = readSource('../functions/api/manage/account.js');
     const adminSessionHelperSource = readSource('../functions/utils/adminSession.js');
     const dualAuthSource = readSource('../functions/utils/dualAuth.js');
     const userAuthSource = readSource('../functions/utils/userAuth.js');
@@ -45,6 +46,11 @@ describe('constant-time secret comparison', () => {
     assert.match(authSessionSource, /constantTimeEqual\(username,\s*rightUser\)/);
     assert.match(authSessionSource, /constantTimeEqual\(password,\s*rightPass\)/);
     assert.doesNotMatch(authSessionSource, /username\s*!==\s*rightUser\s*\|\|\s*password\s*!==\s*rightPass/);
+
+    assert.match(accountSource, /constantTimeEqual\(providedCurrentPassword,\s*currentPassword\)/);
+    assert.match(accountSource, /constantTimeEqual\(nextPassword,\s*currentPassword\)/);
+    assert.doesNotMatch(accountSource, /providedCurrentPassword\s*!==\s*currentPassword/);
+    assert.doesNotMatch(accountSource, /nextPassword\s*!==\s*currentPassword/);
 
     assert.match(adminSessionHelperSource, /constantTimeEqual\(signature,\s*expectedSignature\)/);
     assert.doesNotMatch(adminSessionHelperSource, /expectedSignature\.length\s*!==\s*signature\.length/);

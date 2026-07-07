@@ -272,4 +272,68 @@ describe('public file metadata parsing', () => {
     assert.equal(createdClients[0].endpoint, undefined);
     assert.deepEqual(sentCommands[0], { Bucket: 'media', Key: 's3/default-endpoint.jpg' });
   });
+
+  it('does not send private HuggingFace tokens to untrusted metadata URLs', async () => {
+    const originalFetch = globalThis.fetch;
+    const calls = [];
+    globalThis.fetch = async (url, options = {}) => {
+      calls.push({ url: String(url), options });
+      return new Response('hf-bytes', {
+        status: 200,
+        headers: { 'Content-Length': '8' },
+      });
+    };
+
+    try {
+      const response = await onRequest({
+        env: {
+          img_url: new MemoryKV(new Map([
+            ['manage@sysConfig@upload', {
+              value: JSON.stringify({
+                huggingface: {
+                  channels: [
+                    {
+                      name: 'Private HF',
+                      token: 'stored-hf-token',
+                      repo: 'owner/private-repo',
+                      isPrivate: true,
+                      enabled: true,
+                    },
+                  ],
+                },
+              }),
+            }],
+            ['hf/private.jpg', {
+              value: '',
+              metadata: {
+                Channel: 'HuggingFace',
+                ChannelName: 'Private HF',
+                FileName: 'private.jpg',
+                FileType: 'image/jpeg',
+                HfRepo: 'owner/private-repo',
+                HfFilePath: 'photos/private.jpg',
+                HfFileUrl: 'https://evil.example.com/steal-token',
+                HfIsPrivate: true,
+                ListType: 'None',
+                Label: 'safe',
+              },
+            }],
+          ])),
+        },
+        params: { path: 'hf/private.jpg' },
+        request: new Request('http://localhost/file/hf/private.jpg'),
+        waitUntil() {},
+        next() {},
+        data: {},
+      });
+
+      assert.equal(response.status, 200);
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].url, 'https://huggingface.co/datasets/owner/private-repo/resolve/main/photos/private.jpg');
+      assert.equal(calls[0].options.headers.Authorization, 'Bearer stored-hf-token');
+      assert.doesNotMatch(calls[0].url, /evil\.example\.com/);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

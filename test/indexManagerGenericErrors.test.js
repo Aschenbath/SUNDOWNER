@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import { onRequest as listOnRequest } from '../functions/api/manage/list.js';
 
@@ -41,5 +43,15 @@ describe('index manager generic errors', () => {
     assert.equal(payload.success, false);
     assert.equal(payload.error, 'Failed to retrieve index storage stats');
     assert.ok(!JSON.stringify(payload).includes(INTERNAL_MESSAGE));
+  });
+
+  it('does not keep raw list errors in legacy list fallback payloads', () => {
+    const source = readFileSync(
+      fileURLToPath(new URL('../functions/api/manage/list.js', import.meta.url)),
+      'utf8'
+    );
+
+    assert.doesNotMatch(source, /error:\s*error\.message/);
+    assert.match(source, /error:\s*'Failed to list files'/);
   });
 });

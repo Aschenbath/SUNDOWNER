@@ -6,6 +6,7 @@ import {
   createAdminSessionToken,
   makeAdminSessionCookie,
 } from '../../utils/adminSession.js';
+import { constantTimeEqual } from '../../utils/constantTimeEqual.js';
 
 function jsonResponse(payload, init = {}) {
   const headers = new Headers(init.headers || {});
@@ -143,7 +144,7 @@ export async function onRequest(context) {
       let nextPassword = currentPassword;
       if (wantsCredentialChange) {
         const providedCurrentPassword = String(body?.currentPassword || '');
-        if (!providedCurrentPassword || providedCurrentPassword !== currentPassword) {
+        if (!providedCurrentPassword || !constantTimeEqual(providedCurrentPassword, currentPassword)) {
           return jsonResponse({ error: 'Current password is incorrect' }, { status: 400 });
         }
         if (normalizeCredential(body?.newPassword)) {
@@ -157,7 +158,7 @@ export async function onRequest(context) {
       });
 
       const headers = new Headers();
-      if (requestedUsername !== currentUsername || nextPassword !== currentPassword) {
+      if (requestedUsername !== currentUsername || !constantTimeEqual(nextPassword, currentPassword)) {
         const updatedSettings = buildSecurityConfigPayload(securityConfig, requestedUsername, nextPassword);
         await db.put('manage@sysConfig@security', JSON.stringify(updatedSettings));
         const sessionToken = await createAdminSessionToken(requestedUsername, nextPassword, ADMIN_SESSION_MAX_AGE);

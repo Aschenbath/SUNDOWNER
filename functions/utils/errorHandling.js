@@ -86,16 +86,14 @@ export function withErrorHandling(handler) {
       if (error.name === 'DatabaseError' || error.message?.includes('D1')) {
         return createErrorResponse(
           ErrorTypes.DATABASE_ERROR,
-          'Database operation failed',
-          { originalError: error.message }
+          'Database operation failed'
         );
       }
 
       if (error.message?.includes('rate limit') || error.message?.includes('429')) {
         return createErrorResponse(
           ErrorTypes.RATE_LIMIT,
-          'Too many requests',
-          { originalError: error.message }
+          'Too many requests'
         );
       }
 
@@ -103,7 +101,7 @@ export function withErrorHandling(handler) {
       return createErrorResponse(
         ErrorTypes.INTERNAL_ERROR,
         'An unexpected error occurred',
-        process.env.NODE_ENV === 'development' ? { stack: error.stack } : null
+        globalThis.process?.env?.NODE_ENV === 'development' ? { stack: error.stack } : null
       );
     }
   };

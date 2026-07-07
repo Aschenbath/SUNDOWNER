@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 
-import { resolveTelegramAccess } from '../functions/utils/mediaSecurity.js';
+import {
+  resolveHuggingFaceFileUrl,
+  resolveTelegramAccess,
+} from '../functions/utils/mediaSecurity.js';
 
 class MemoryKV {
   constructor() {
@@ -68,5 +71,23 @@ describe('resolveTelegramAccess', () => {
       chatId: 'env-chat',
       proxyUrl: 'env-proxy.example.com',
     });
+  });
+});
+
+describe('resolveHuggingFaceFileUrl', () => {
+  it('falls back to the canonical repo path for untrusted metadata URLs', () => {
+    const fileUrl = resolveHuggingFaceFileUrl({
+      HfFileUrl: 'https://evil.example.com/steal-token',
+    }, 'owner/private-repo', 'photos/private.jpg');
+
+    assert.equal(fileUrl, 'https://huggingface.co/datasets/owner/private-repo/resolve/main/photos/private.jpg');
+  });
+
+  it('allows HTTPS HuggingFace metadata URLs', () => {
+    const fileUrl = resolveHuggingFaceFileUrl({
+      HfFileUrl: 'https://huggingface.co/datasets/owner/private-repo/resolve/main/photos/private.jpg?download=1',
+    }, 'owner/private-repo', 'photos/private.jpg');
+
+    assert.equal(fileUrl, 'https://huggingface.co/datasets/owner/private-repo/resolve/main/photos/private.jpg?download=1');
   });
 });

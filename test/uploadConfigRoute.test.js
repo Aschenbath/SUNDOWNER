@@ -90,6 +90,7 @@ describe('sysConfig upload route', () => {
       S3_BUCKET_NAME: 'env-bucket',
       DISCORD_BOT_TOKEN: 'env-discord-token',
       DISCORD_CHANNEL_ID: 'env-discord-channel',
+      DISCORD_PROXY_URL: 'https://env-discord-user:env-discord-pass@discord-proxy.example.com',
       HF_TOKEN: 'env-hf-token',
       HF_REPO: 'env/repo',
       img_url: new MemoryKV({
@@ -101,7 +102,7 @@ describe('sysConfig upload route', () => {
               type: 'telegram',
               botToken: 'kv-tg-token',
               webhookSecret: 'kv-webhook-secret',
-              proxyUrl: 'https://kv-tg-proxy.example.com',
+              proxyUrl: 'https://proxy-user:proxy-pass@kv-tg-proxy.example.com',
               enabled: true,
             }],
           },
@@ -124,6 +125,7 @@ describe('sysConfig upload route', () => {
               type: 'discord',
               botToken: 'kv-discord-token',
               channelId: 'discord-channel',
+              proxyUrl: 'https://discord-user:discord-pass@kv-discord-proxy.example.com',
               enabled: true,
             }],
           },
@@ -155,9 +157,15 @@ describe('sysConfig upload route', () => {
       'env-s3-key',
       'env-s3-secret',
       'env-discord-token',
+      'env-discord-user',
+      'env-discord-pass',
       'env-hf-token',
       'kv-tg-token',
       'kv-webhook-secret',
+      'proxy-user',
+      'proxy-pass',
+      'discord-user',
+      'discord-pass',
       'kv-s3-key',
       'kv-s3-secret',
       'kv-discord-token',
@@ -168,17 +176,20 @@ describe('sysConfig upload route', () => {
 
     const payload = JSON.parse(text);
     assert.equal(payload.telegram.channels[0].botToken, 'Configured');
+    assert.equal(payload.telegram.channels[0].proxyUrl, 'Configured');
     assert.equal(payload.telegram.channels[1].botToken, 'Configured');
     assert.equal(payload.telegram.channels[1].webhookSecret, 'Configured');
+    assert.equal(payload.telegram.channels[1].proxyUrl, 'Configured');
     assert.equal(payload.s3.channels[0].accessKeyId, 'Configured');
     assert.equal(payload.s3.channels[0].secretAccessKey, 'Configured');
     assert.equal(payload.s3.channels[1].accessKeyId, 'Configured');
     assert.equal(payload.s3.channels[1].secretAccessKey, 'Configured');
     assert.equal(payload.discord.channels[0].botToken, 'Configured');
+    assert.equal(payload.discord.channels[0].proxyUrl, 'Configured');
     assert.equal(payload.discord.channels[1].botToken, 'Configured');
+    assert.equal(payload.discord.channels[1].proxyUrl, 'Configured');
     assert.equal(payload.huggingface.channels[0].token, 'Configured');
     assert.equal(payload.huggingface.channels[1].token, 'Configured');
-    assert.equal(payload.telegram.channels[1].proxyUrl, 'https://kv-tg-proxy.example.com');
     assert.equal(payload.s3.channels[1].endpoint, 'https://s3.example.com');
   });
 
@@ -231,6 +242,7 @@ describe('sysConfig upload route', () => {
             type: 'telegram',
             botToken: 'stored-tg-token',
             webhookSecret: 'stored-webhook-secret',
+            proxyUrl: 'https://stored-tg-proxy.example.com',
             enabled: true,
           }],
         },
@@ -250,6 +262,7 @@ describe('sysConfig upload route', () => {
             name: 'PrivateDiscord',
             type: 'discord',
             botToken: 'stored-discord-token',
+            proxyUrl: 'https://stored-discord-proxy.example.com',
             enabled: true,
           }],
         },
@@ -278,6 +291,7 @@ describe('sysConfig upload route', () => {
               type: 'telegram',
               botToken: 'Configured',
               webhookSecret: 'Configured',
+              proxyUrl: 'Configured',
               enabled: false,
             }],
           },
@@ -297,6 +311,7 @@ describe('sysConfig upload route', () => {
               name: 'PrivateDiscord',
               type: 'discord',
               botToken: 'Configured',
+              proxyUrl: 'Configured',
               enabled: true,
             }],
           },
@@ -321,10 +336,64 @@ describe('sysConfig upload route', () => {
     const stored = JSON.parse(await kv.get('manage@sysConfig@upload'));
     assert.equal(stored.telegram.channels[0].botToken, 'stored-tg-token');
     assert.equal(stored.telegram.channels[0].webhookSecret, 'stored-webhook-secret');
+    assert.equal(stored.telegram.channels[0].proxyUrl, 'https://stored-tg-proxy.example.com');
     assert.equal(stored.s3.channels[0].accessKeyId, 'stored-s3-key');
     assert.equal(stored.s3.channels[0].secretAccessKey, 'stored-s3-secret');
     assert.equal(stored.discord.channels[0].botToken, 'stored-discord-token');
+    assert.equal(stored.discord.channels[0].proxyUrl, 'https://stored-discord-proxy.example.com');
     assert.equal(stored.huggingface.channels[0].token, 'stored-hf-token');
     assert.equal(stored.telegram.channels[0].enabled, false);
+  });
+
+  it('keeps env proxy URLs effective without persisting them when management posts masked placeholders', async () => {
+    const kv = new MemoryKV();
+    const env = createEnv({
+      img_url: kv,
+      TG_BOT_TOKEN: 'env-tg-token',
+      TG_PROXY_URL: 'https://env-tg-user:env-tg-pass@tg-proxy.example.com',
+      DISCORD_BOT_TOKEN: 'env-discord-token',
+      DISCORD_CHANNEL_ID: 'env-discord-channel',
+      DISCORD_PROXY_URL: 'https://env-discord-user:env-discord-pass@discord-proxy.example.com',
+    });
+
+    const response = await onRequest({
+      env,
+      request: new Request('http://localhost/api/manage/sysConfig/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          telegram: {
+            channels: [{
+              name: 'Telegram_env',
+              type: 'telegram',
+              savePath: 'environment variable',
+              botToken: 'Configured',
+              proxyUrl: 'Configured',
+              enabled: true,
+            }],
+          },
+          discord: {
+            channels: [{
+              name: 'Discord_env',
+              type: 'discord',
+              savePath: 'environment variable',
+              botToken: 'Configured',
+              proxyUrl: 'Configured',
+              enabled: true,
+            }],
+          },
+        }),
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    const storedRaw = await kv.get('manage@sysConfig@upload');
+    assert.equal(storedRaw.includes('env-tg-user'), false);
+    assert.equal(storedRaw.includes('env-discord-user'), false);
+    assert.equal(storedRaw.includes('Configured'), false);
+
+    const config = await getUploadConfig(kv, env);
+    assert.equal(config.telegram.channels[0].proxyUrl, 'https://env-tg-user:env-tg-pass@tg-proxy.example.com');
+    assert.equal(config.discord.channels[0].proxyUrl, 'https://env-discord-user:env-discord-pass@discord-proxy.example.com');
   });
 });

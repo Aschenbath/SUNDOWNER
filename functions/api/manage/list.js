@@ -978,7 +978,7 @@ async function getAllFileRecords(env, dir, recycleBinMode = 'exclude') {
             directFileCount: 0,
             directFolderCount: 0,
             returnedCount: 0,
-            error: error.message
+            error: 'Failed to list files'
         };
     }
 }

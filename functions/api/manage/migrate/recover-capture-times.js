@@ -7,6 +7,7 @@ import { DiscordAPI, resolveDiscordFileUrl } from '../../../utils/discordAPI.js'
 import {
     resolveDiscordAccess,
     resolveHuggingFaceAccess,
+    resolveHuggingFaceFileUrl,
     resolveS3Access,
     resolveTelegramAccess,
 } from '../../../utils/mediaSecurity.js';
@@ -377,7 +378,7 @@ async function fetchHuggingFaceHeaderBuffer(env, metadata = {}) {
         return null;
     }
 
-    const fileUrl = metadata.HfFileUrl || `https://huggingface.co/datasets/${repo}/resolve/main/${filePath}`;
+    const fileUrl = resolveHuggingFaceFileUrl(metadata, repo, filePath);
     const headers = {
         Range: `bytes=0-${MAX_HEADER_BYTES - 1}`,
     };

@@ -12,6 +12,7 @@ import { extractEmbeddedPreview, supportsEmbeddedPreviewExtraction } from '../up
 import {
     resolveDiscordAccess,
     resolveHuggingFaceAccess,
+    resolveHuggingFaceFileUrl,
     resolveS3Access,
     resolveTelegramAccess,
 } from '../utils/mediaSecurity.js';
@@ -1267,7 +1268,7 @@ async function handleHuggingFaceFile(context, metadata, encodedFileName, fileTyp
         }
 
         // 构建文件 URL
-        const fileUrl = metadata.HfFileUrl || `https://huggingface.co/datasets/${hfRepo}/resolve/main/${hfFilePath}`;
+        const fileUrl = resolveHuggingFaceFileUrl(metadata, hfRepo, hfFilePath);
 
         // 处理 HEAD 请求
         if (request.method === 'HEAD') {

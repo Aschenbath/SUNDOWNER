@@ -11,6 +11,11 @@ const SENSITIVE_METADATA_KEYS = [
   'HfToken',
 ];
 
+const TRUSTED_HUGGINGFACE_HOSTS = [
+  'huggingface.co',
+  'hf.co',
+];
+
 function cloneMetadata(metadata = {}) {
   return metadata && typeof metadata === 'object' ? { ...metadata } : {};
 }
@@ -56,6 +61,30 @@ export function stripSensitiveMetadata(metadata = {}) {
 
 export function sanitizeExposedMetadata(metadata = {}) {
   return stripSensitiveMetadata(metadata);
+}
+
+function isTrustedHuggingFaceHostname(hostname = '') {
+  const normalized = String(hostname || '').trim().toLowerCase();
+  return TRUSTED_HUGGINGFACE_HOSTS.some((trustedHost) => (
+    normalized === trustedHost || normalized.endsWith(`.${trustedHost}`)
+  ));
+}
+
+export function buildCanonicalHuggingFaceFileUrl(repo, filePath) {
+  return `https://huggingface.co/datasets/${repo}/resolve/main/${filePath}`;
+}
+
+export function resolveHuggingFaceFileUrl(metadata = {}, repo, filePath) {
+  const canonicalUrl = buildCanonicalHuggingFaceFileUrl(repo, filePath);
+  try {
+    const metadataUrl = new URL(String(metadata.HfFileUrl || '').trim());
+    if (metadataUrl.protocol === 'https:' && isTrustedHuggingFaceHostname(metadataUrl.hostname)) {
+      return metadataUrl.toString();
+    }
+  } catch {
+    // Ignore malformed or missing metadata URLs and fall back to repo/path.
+  }
+  return canonicalUrl;
 }
 
 export async function resolveTelegramAccess(env, metadata = {}) {

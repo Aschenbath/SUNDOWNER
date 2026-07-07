@@ -1,6 +1,16 @@
 import { getDatabase } from '../../../utils/databaseAdapter.js';
 
-function maskSecret(value, { reveal = 0, placeholder = 'Configured' } = {}) {
+const SECRET_PLACEHOLDER = 'Configured';
+
+function isPlainObject(value) {
+    return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasOwn(value, key) {
+    return Object.prototype.hasOwnProperty.call(value || {}, key);
+}
+
+function maskSecret(value, { reveal = 0, placeholder = SECRET_PLACEHOLDER } = {}) {
     const normalized = typeof value === 'string' ? value : '';
     if (!normalized) {
         return '';
@@ -12,25 +22,11 @@ function maskSecret(value, { reveal = 0, placeholder = 'Configured' } = {}) {
     return placeholder;
 }
 
-function buildPublicSecuritySettings(settings) {
-    return {
-        auth: {
-            user: {
-                authCode: maskSecret(settings?.auth?.user?.authCode, { placeholder: 'Configured' }),
-                configured: Boolean(settings?.auth?.user?.authCode),
-            },
-            admin: {
-                adminUsername: normalizeAdminUsername(settings?.auth?.admin?.adminUsername),
-                adminPassword: maskSecret(settings?.auth?.admin?.adminPassword, { placeholder: 'Configured' }),
-                configured: Boolean(settings?.auth?.admin?.adminUsername) && Boolean(settings?.auth?.admin?.adminPassword),
-            }
-        },
-        upload: settings?.upload || {},
-        access: settings?.access || {},
-        apiTokens: {
-            tokens: {}
-        }
+function preserveSecretPlaceholder(nextValue, storedValue) {
+    if (nextValue === SECRET_PLACEHOLDER) {
+        return storedValue || '';
     }
+    return nextValue || '';
 }
 
 function normalizeAdminUsername(value) {
@@ -38,63 +34,145 @@ function normalizeAdminUsername(value) {
     return normalized ? normalized : '';
 }
 
-export async function onRequest(context) {
-    // 安全设置相关，GET方法读取设置，POST方法保存设置
-    const {
-      request, // same as existing Worker API
-      env, // same as existing Worker API
-      params, // if filename includes [id] or [[path]]
-      waitUntil, // same as ctx.waitUntil in existing Worker API
-      next, // used for middleware or to fetch assets
-      data, // arbitrary space for passing data between middlewares
-    } = context;
+function buildPublicUploadSettings(settings = {}) {
+    const upload = isPlainObject(settings) ? { ...settings } : {};
+    if (isPlainObject(upload.moderate)) {
+        upload.moderate = { ...upload.moderate };
+        upload.moderate.moderateContentApiKey = maskSecret(upload.moderate.moderateContentApiKey);
+        if (hasOwn(upload.moderate, 'apiKey')) {
+            upload.moderate.apiKey = maskSecret(upload.moderate.apiKey);
+        }
+    }
+    return upload;
+}
 
+function buildPublicSecuritySettings(settings) {
+    return {
+        auth: {
+            user: {
+                authCode: maskSecret(settings?.auth?.user?.authCode),
+                configured: Boolean(settings?.auth?.user?.authCode),
+            },
+            admin: {
+                adminUsername: normalizeAdminUsername(settings?.auth?.admin?.adminUsername),
+                adminPassword: maskSecret(settings?.auth?.admin?.adminPassword),
+                configured: Boolean(settings?.auth?.admin?.adminUsername) && Boolean(settings?.auth?.admin?.adminPassword),
+            }
+        },
+        upload: buildPublicUploadSettings(settings?.upload || {}),
+        access: settings?.access || {},
+        apiTokens: {
+            tokens: {}
+        }
+    };
+}
+
+async function getStoredSecuritySettings(db) {
+    const settingsStr = await db.get('manage@sysConfig@security');
+    return settingsStr ? JSON.parse(settingsStr) : {};
+}
+
+function mergePostedAuthSettings(storedAuth = {}, postedAuth) {
+    const nextAuth = isPlainObject(storedAuth) ? { ...storedAuth } : {};
+    if (!isPlainObject(postedAuth)) {
+        return nextAuth;
+    }
+
+    if (isPlainObject(postedAuth.user)) {
+        nextAuth.user = { ...(nextAuth.user || {}), ...postedAuth.user };
+        if (hasOwn(postedAuth.user, 'authCode')) {
+            nextAuth.user.authCode = preserveSecretPlaceholder(
+                postedAuth.user.authCode,
+                storedAuth?.user?.authCode
+            );
+        }
+    }
+    if (isPlainObject(postedAuth.admin)) {
+        nextAuth.admin = { ...(nextAuth.admin || {}), ...postedAuth.admin };
+        if (hasOwn(postedAuth.admin, 'adminPassword')) {
+            nextAuth.admin.adminPassword = preserveSecretPlaceholder(
+                postedAuth.admin.adminPassword,
+                storedAuth?.admin?.adminPassword
+            );
+        }
+    }
+    return nextAuth;
+}
+
+function mergePostedUploadSettings(storedUpload = {}, postedUpload) {
+    const nextUpload = isPlainObject(storedUpload) ? { ...storedUpload } : {};
+    if (!isPlainObject(postedUpload)) {
+        return nextUpload;
+    }
+
+    Object.assign(nextUpload, postedUpload);
+    if (isPlainObject(postedUpload.moderate)) {
+        const storedModerate = storedUpload?.moderate || {};
+        const storedModerationKey = storedModerate.moderateContentApiKey || storedModerate.apiKey || '';
+        nextUpload.moderate = { ...(nextUpload.moderate || {}), ...postedUpload.moderate };
+        if (hasOwn(postedUpload.moderate, 'moderateContentApiKey')) {
+            nextUpload.moderate.moderateContentApiKey = preserveSecretPlaceholder(
+                postedUpload.moderate.moderateContentApiKey,
+                storedModerationKey
+            );
+        }
+        if (hasOwn(postedUpload.moderate, 'apiKey')) {
+            nextUpload.moderate.apiKey = preserveSecretPlaceholder(
+                postedUpload.moderate.apiKey,
+                storedModerationKey
+            );
+        }
+    }
+    return nextUpload;
+}
+
+function mergePostedSecuritySettings(currentSettings = {}, postedSettings = {}, storedSettings = {}) {
+    const nextSettings = isPlainObject(storedSettings) ? { ...storedSettings } : {};
+    nextSettings.auth = mergePostedAuthSettings(storedSettings.auth, postedSettings.auth);
+    nextSettings.upload = mergePostedUploadSettings(storedSettings.upload, postedSettings.upload);
+    nextSettings.access = isPlainObject(postedSettings.access)
+        ? postedSettings.access
+        : (isPlainObject(storedSettings.access) ? storedSettings.access : {});
+    nextSettings.apiTokens = storedSettings.apiTokens || currentSettings.apiTokens || { tokens: {} };
+    return nextSettings;
+}
+
+export async function onRequest(context) {
+    const { request, env } = context;
     const db = getDatabase(env);
 
-    // GET读取设置
     if (request.method === 'GET') {
-        const settings = await getSecurityConfig(db, env)
-
+        const settings = await getSecurityConfig(db, env);
         return new Response(JSON.stringify(buildPublicSecuritySettings(settings)), {
             headers: {
                 'content-type': 'application/json',
             },
-        })
+        });
     }
 
-    // POST保存设置
     if (request.method === 'POST') {
-        const settings = await getSecurityConfig(db, env) // 先读取已有设置，再进行覆盖
+        const body = await request.json();
+        const currentSettings = await getSecurityConfig(db, env);
+        const storedSettings = await getStoredSecuritySettings(db);
+        const settings = mergePostedSecuritySettings(currentSettings, body, storedSettings);
 
-        const body = await request.json()
-        const newSettings = body
-
-        // 覆盖设置，apiTokens不在这里修改
-        settings.auth = newSettings.auth || settings.auth
-        settings.upload = newSettings.upload || settings.upload
-        settings.access = newSettings.access || settings.access
-
-        // 写入数据库
-        await db.put('manage@sysConfig@security', JSON.stringify(settings))
+        await db.put('manage@sysConfig@security', JSON.stringify(settings));
 
         return new Response('security settings saved', {
             headers: {
                 'content-type': 'application/json',
             },
-        })
+        });
     }
-
 }
 
 export async function getSecurityConfig(db, env) {
-    const settings = {}
-    // 读取数据库中的设置
-    const settingsStr = await db.get('manage@sysConfig@security')
-    const settingsKV = settingsStr ? JSON.parse(settingsStr) : {}
+    const settings = {};
+    const settingsStr = await db.get('manage@sysConfig@security');
+    const settingsKV = settingsStr ? JSON.parse(settingsStr) : {};
 
-    // 认证管理
-    const kvAuth = settingsKV.auth || {}
-    const auth = {
+    const kvAuth = settingsKV.auth || {};
+    settings.auth = {
         user: {
             authCode: kvAuth.user?.authCode || env.AUTH_CODE || '',
         },
@@ -102,35 +180,28 @@ export async function getSecurityConfig(db, env) {
             adminUsername: kvAuth.admin?.adminUsername || env.BASIC_USER || '',
             adminPassword: kvAuth.admin?.adminPassword || env.BASIC_PASS || '',
         }
-    }
-    settings.auth = auth
+    };
 
-    // 上传管理
-    const kvUpload = settingsKV.upload || {}
-    const upload = {
+    const kvUpload = settingsKV.upload || {};
+    settings.upload = {
         moderate: {
             enabled: kvUpload.moderate?.enabled ?? false,
-            channel: kvUpload.moderate?.channel || 'moderatecontent.com', // [moderatecontent.com, nsfwjs]
+            channel: kvUpload.moderate?.channel || 'moderatecontent.com',
             moderateContentApiKey: kvUpload.moderate?.moderateContentApiKey || kvUpload.moderate?.apiKey || env.ModerateContentApiKey || '',
             nsfwApiPath: kvUpload.moderate?.nsfwApiPath || '',
         }
-    }
-    settings.upload = upload
+    };
 
-    // 访问管理
-    const kvAccess = settingsKV.access || {}
-    const access = {
+    const kvAccess = settingsKV.access || {};
+    settings.access = {
         allowedDomains: kvAccess.allowedDomains || env.ALLOWED_DOMAINS || '',
         whiteListMode: kvAccess.whiteListMode ?? env.WhiteList_Mode === 'true',
-    }
-    settings.access = access
+    };
 
-    // API Token 管理
-    const kvApiTokens = settingsKV.apiTokens || {}
-    const apiTokens = {
+    const kvApiTokens = settingsKV.apiTokens || {};
+    settings.apiTokens = {
         tokens: kvApiTokens.tokens || {}
-    }
-    settings.apiTokens = apiTokens
+    };
 
     return settings;
 }

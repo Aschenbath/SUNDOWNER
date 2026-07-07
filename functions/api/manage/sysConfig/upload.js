@@ -10,9 +10,9 @@ const corsHeaders = {
 const SECRET_PLACEHOLDER = 'Configured'
 
 const UPLOAD_SECRET_FIELDS = {
-    telegram: ['botToken', 'webhookSecret'],
+    telegram: ['botToken', 'webhookSecret', 'proxyUrl'],
     s3: ['accessKeyId', 'secretAccessKey'],
-    discord: ['botToken'],
+    discord: ['botToken', 'proxyUrl'],
     huggingface: ['token'],
 }
 
@@ -171,6 +171,16 @@ function findExistingChannel(channels = [], channel = {}) {
     }) || null
 }
 
+function hasOwn(value, key) {
+    return Object.prototype.hasOwnProperty.call(value || {}, key)
+}
+
+function applyOptionalOverride(target, source, key) {
+    if (hasOwn(source, key)) {
+        target[key] = source[key]
+    }
+}
+
 function preserveUploadSecrets(nextSettings, currentSettings) {
     const next = normalizeUploadSettings(nextSettings)
     for (const [sectionKey, secretFields] of Object.entries(UPLOAD_SECRET_FIELDS)) {
@@ -180,7 +190,11 @@ function preserveUploadSecrets(nextSettings, currentSettings) {
             const existing = findExistingChannel(currentChannels, channel)
             for (const field of secretFields) {
                 if (channel[field] === SECRET_PLACEHOLDER) {
-                    channel[field] = existing?.[field] || ''
+                    if (existing?.[field]) {
+                        channel[field] = existing[field]
+                    } else {
+                        delete channel[field]
+                    }
                 }
             }
         })
@@ -238,10 +252,10 @@ export async function getUploadConfig(db, env) {
         if (tg.savePath === 'environment variable') {
             if (telegramChannels[0]) {
                 telegramChannels[0].enabled = tg.enabled
-                telegramChannels[0].proxyUrl = tg.proxyUrl
+                applyOptionalOverride(telegramChannels[0], tg, 'proxyUrl')
                 telegramChannels[0].syncEnabled = tg.syncEnabled
                 telegramChannels[0].importDirectory = tg.importDirectory
-                telegramChannels[0].webhookSecret = tg.webhookSecret
+                applyOptionalOverride(telegramChannels[0], tg, 'webhookSecret')
                 telegramChannels[0].syncMode = tg.syncMode
                 telegramChannels[0].lastUpdateId = tg.lastUpdateId
                 telegramChannels[0].lastSyncAt = tg.lastSyncAt
@@ -349,7 +363,7 @@ export async function getUploadConfig(db, env) {
         if (dc.savePath === 'environment variable') {
             if (discordChannels[0]) {
                 discordChannels[0].enabled = dc.enabled
-                discordChannels[0].proxyUrl = dc.proxyUrl
+                applyOptionalOverride(discordChannels[0], dc, 'proxyUrl')
                 discordChannels[0].isNitro = dc.isNitro
             }
             continue
