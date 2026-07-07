@@ -238,7 +238,7 @@ async function handleDelete(request, env) {
             return new Response(null, { status: 204 }); // No Content
         } else {
             console.error('Delete API error:', JSON.stringify(result));
-            return new Response(`Deletion failed: ${result.error || 'API error'}`, { status: 500 });
+            return new Response('Deletion failed', { status: 500 });
         }
     } catch (error) {
         console.error('Delete operation failed:', error.stack);

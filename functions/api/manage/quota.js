@@ -66,9 +66,10 @@ async function recalculateQuota(context) {
         const result = await rebuildIndex(context);
 
         if (!result.success) {
+            console.error('quota rebuild failed:', result.error || result);
             return new Response(JSON.stringify({
                 success: false,
-                error: result.error || 'Failed to rebuild index'
+                error: 'Failed to rebuild index'
             }), {
                 status: 500,
                 headers: { 'Content-Type': 'application/json', ...corsHeaders }

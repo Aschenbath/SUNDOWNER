@@ -172,4 +172,48 @@ describe('WebDAV route', () => {
     assert.doesNotMatch(body, /<D:displayname>x&y<dir><\/D:displayname>/);
     assert.doesNotMatch(body, /<D:displayname>a&b<evil>\.txt<\/D:displayname>/);
   });
+
+  it('does not forward internal delete API errors to WebDAV clients', async () => {
+    const internalMessage = 'D1 shard failed for private_token_456';
+    global.fetch = async () => new Response(JSON.stringify({
+      success: false,
+      error: internalMessage
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const response = await onRequest({
+      env: createEnv({
+        BASIC_USER: 'admin',
+        BASIC_PASS: 'secret',
+        AUTH_CODE: 'user-code',
+        kvEntries: {
+          'manage@sysConfig@others': JSON.stringify({
+            webDAV: { enabled: true, username: 'dav', password: 'dav-pass' }
+          }),
+          'manage@sysConfig@security': JSON.stringify({
+            auth: {
+              user: { authCode: 'user-code' },
+              admin: { adminUsername: 'admin', adminPassword: 'secret' }
+            },
+            upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+            access: { allowedDomains: '', whiteListMode: false },
+            apiTokens: { tokens: {} }
+          })
+        }
+      }),
+      request: createWebDavRequest('/dav/docs/private.txt', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Basic ${Buffer.from('dav:dav-pass').toString('base64')}`
+        }
+      }),
+    });
+
+    const body = await response.text();
+    assert.equal(response.status, 500);
+    assert.equal(body, 'Deletion failed');
+    assert.doesNotMatch(body, /private_token_456/);
+  });
 });

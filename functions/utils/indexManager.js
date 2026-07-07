@@ -2202,7 +2202,7 @@ export async function getIndexStorageStats(context) {
         console.error('Error getting index storage stats:', error);
         return {
             success: false,
-            error: error.message,
+            error: 'Failed to retrieve index storage stats',
             isChunked: false
         };
     }
