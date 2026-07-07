@@ -57,5 +57,12 @@ export function UnauthorizedResponse(reason) {
 
 function getCookieValue(cookies, name) {
     const match = cookies.match(new RegExp('(^| )' + name + '=([^;]+)'));
-    return match ? decodeURIComponent(match[2]) : null;
+    if (!match) {
+        return null;
+    }
+    try {
+        return decodeURIComponent(match[2]);
+    } catch {
+        return null;
+    }
 }

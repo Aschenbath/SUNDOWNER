@@ -36,6 +36,21 @@ describe('fail-closed auth helpers', () => {
     assert.equal(authorized, false);
   });
 
+  it('rejects malformed authCode cookies without throwing', async () => {
+    const request = new Request('http://localhost/upload', {
+      headers: {
+        Cookie: 'authCode=%',
+      },
+    });
+    const authorized = await userAuthCheck(
+      createEnv({ AUTH_CODE: 'secret' }),
+      new URL(request.url),
+      request,
+      'upload',
+    );
+    assert.equal(authorized, false);
+  });
+
   it('rejects dual auth checks when neither admin nor user credentials are configured', async () => {
     const request = new Request('http://localhost/api/directoryTree');
     const result = await dualAuthCheck(createEnv(), new URL(request.url), request);

@@ -623,7 +623,7 @@ export async function onRequest(context) {
 
     // 处理搜索关键字
     if (search) {
-        search = decodeURIComponent(search).trim();
+        search = search.trim();
     }
 
     // 处理标签参数

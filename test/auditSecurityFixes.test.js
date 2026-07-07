@@ -491,6 +491,38 @@ describe('audit security hardening', () => {
     assert.deepEqual(payload.files.map((file) => file.name).sort(), ['photos/a.jpg', 'photos/b.jpg']);
   });
 
+  it('treats encoded percent signs in public browse search as literal text', async () => {
+    const env = createEnv();
+    await env.img_url.put('manage@sysConfig@others', JSON.stringify({
+      publicBrowse: {
+        enabled: true,
+        allowedDir: 'photos'
+      }
+    }));
+    await env.img_url.put('manage@index@meta', JSON.stringify({ chunkCount: 1 }));
+    await env.img_url.put('manage@index_0', createIndexChunk([
+      {
+        id: 'photos/100%.jpg',
+        metadata: {
+          FileName: '100%.jpg',
+          FileType: 'image/jpeg',
+          Directory: 'photos/',
+          TimeStamp: 1,
+        },
+      },
+    ]));
+
+    const response = await publicListOnRequest({
+      env,
+      waitUntil: async () => {},
+      request: new Request('http://localhost/api/public/list?dir=photos&search=%25', { method: 'GET' })
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.deepEqual(payload.files.map((file) => file.name), ['photos/100%.jpg']);
+  });
+
   it('normalizes directory tree cacheTime before writing Cache-Control', async () => {
     const env = createEnv();
     await env.img_url.put('manage@sysConfig@security', JSON.stringify({

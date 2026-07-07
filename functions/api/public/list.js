@@ -176,7 +176,7 @@ export async function onRequest(context) {
         let dir = url.searchParams.get('dir') || '';
         let search = url.searchParams.get('search') || '';
         if (search) {
-            search = decodeURIComponent(search).trim().toLowerCase();
+            search = search.trim().toLowerCase();
         }
 
         // 获取高级搜索参数
