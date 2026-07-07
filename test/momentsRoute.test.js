@@ -5,6 +5,32 @@ import { D1Database } from '../functions/utils/d1Database.js';
 import { SqliteD1 } from '../server/sqliteD1.js';
 import { createAdminSessionToken } from '../functions/utils/adminSession.js';
 
+class MemoryKV {
+  constructor(initialEntries = {}) {
+    this.store = new Map(Object.entries(initialEntries));
+  }
+
+  async get(key) {
+    return this.store.has(key) ? this.store.get(key) : null;
+  }
+
+  async put(key, value) {
+    this.store.set(key, String(value));
+  }
+}
+
+function createMomentStore() {
+  return {
+    async createPost(mutation) {
+      return {
+        id: 'moment-1',
+        body: mutation.body,
+        attachments: mutation.fileIds.map((fileId) => ({ fileId })),
+      };
+    },
+  };
+}
+
 async function seedFile(d1, id, metadata = {}) {
   const db = new D1Database(d1);
   await db.put(id, '', {
@@ -176,17 +202,17 @@ describe('manage moments route', () => {
   });
 
   it('does not forward outer multipart content-type or cookies to the default internal upload path', async () => {
-    const d1 = new SqliteD1(':memory:');
-    const db = new D1Database(d1);
-    await db.put('manage@sysConfig@security', JSON.stringify({
-      auth: {
-        user: { authCode: 'moments-secret' },
-        admin: { adminUsername: '', adminPassword: '' },
-      },
-      upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
-      access: { allowedDomains: '', whiteListMode: false },
-      apiTokens: { tokens: {} },
-    }));
+    const kv = new MemoryKV({
+      'manage@sysConfig@security': JSON.stringify({
+        auth: {
+          user: { authCode: 'moments-secret' },
+          admin: { adminUsername: '', adminPassword: '' },
+        },
+        upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+        access: { allowedDomains: '', whiteListMode: false },
+        apiTokens: { tokens: {} },
+      }),
+    });
 
     const form = new FormData();
     form.set('body', 'header sanitation');
@@ -196,6 +222,7 @@ describe('manage moments route', () => {
       headers: {
         authCode: 'moments-secret',
         Cookie: 'authCode=moments-secret',
+        'cf-connecting-ip': '203.0.113.9',
         'x-forwarded-for': '198.51.100.8, 198.51.100.9',
         'x-unrelated-header': 'ignore-me',
       },
@@ -207,24 +234,26 @@ describe('manage moments route', () => {
     let observedCookie = null;
     let observedAuthCode = null;
     let observedForwardedFor = null;
+    let observedCfConnectingIp = null;
 
     const response = await onRequest(createContext({
       env: {
-        img_d1: d1,
+        img_url: kv,
         TG_BOT_TOKEN: 'bot-token',
         TG_CHAT_ID: '123456',
       },
       now: '2026-05-16T20:15:00.000Z',
       request: outerRequest,
+      store: createMomentStore(),
       processUploadFile: async ({ request: uploadRequest }, uploadForm) => {
         observedContentType = uploadRequest.headers.get('Content-Type');
         observedCookie = uploadRequest.headers.get('Cookie');
         observedAuthCode = uploadRequest.headers.get('authCode');
         observedForwardedFor = uploadRequest.headers.get('x-forwarded-for');
+        observedCfConnectingIp = uploadRequest.headers.get('cf-connecting-ip');
         assert.equal(uploadRequest.headers.get('x-unrelated-header'), null);
         assert.equal(uploadRequest.headers.get('Authorization'), null);
         assert.equal(uploadForm.get('file').name, 'header.jpg');
-        await seedFile(d1, 'Moments/2026-05-16/header.jpg', { FileName: 'header.jpg', FileType: 'image/jpeg' });
         return new Response(JSON.stringify([{ src: '/file/Moments/2026-05-16/header.jpg' }]), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -238,23 +267,24 @@ describe('manage moments route', () => {
     assert.notEqual(observedContentType, outerContentType);
     assert.equal(observedCookie, null);
     assert.equal(observedAuthCode, 'moments-secret');
-    assert.equal(observedForwardedFor, '198.51.100.8, 198.51.100.9');
+    assert.equal(observedForwardedFor, null);
+    assert.equal(observedCfConnectingIp, '203.0.113.9');
     assert.equal(payload.post.attachments[0].fileId, 'Moments/2026-05-16/header.jpg');
   });
 
   it('blocks the default internal upload path for blocked upload IPs', async () => {
-    const d1 = new SqliteD1(':memory:');
-    const db = new D1Database(d1);
-    await db.put('manage@sysConfig@security', JSON.stringify({
-      auth: {
-        user: { authCode: 'moments-secret' },
-        admin: { adminUsername: '', adminPassword: '' },
-      },
-      upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
-      access: { allowedDomains: '', whiteListMode: false },
-      apiTokens: { tokens: {} },
-    }));
-    await db.put('manage@blockipList', '203.0.113.77');
+    const kv = new MemoryKV({
+      'manage@sysConfig@security': JSON.stringify({
+        auth: {
+          user: { authCode: 'moments-secret' },
+          admin: { adminUsername: '', adminPassword: '' },
+        },
+        upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+        access: { allowedDomains: '', whiteListMode: false },
+        apiTokens: { tokens: {} },
+      }),
+      'manage@blockipList': '203.0.113.77',
+    });
 
     const form = new FormData();
     form.set('body', 'blocked ip');
@@ -263,16 +293,18 @@ describe('manage moments route', () => {
     let processCalled = false;
     const response = await onRequest(createContext({
       env: {
-        img_d1: d1,
+        img_url: kv,
         TG_BOT_TOKEN: 'bot-token',
         TG_CHAT_ID: '123456',
       },
       now: '2026-05-16T20:15:00.000Z',
+      store: createMomentStore(),
       request: new Request('https://example.com/api/manage/moments', {
         method: 'POST',
         headers: {
           authCode: 'moments-secret',
-          'x-forwarded-for': '203.0.113.77',
+          'cf-connecting-ip': '203.0.113.77',
+          'x-forwarded-for': '198.51.100.8',
         },
         body: form,
       }),

@@ -395,16 +395,16 @@ export async function endUpload(context, fileId, metadata) {
 
 // 从 request 中解析 ip 地址
 export function getUploadIp(request) {
-    const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || request.headers.get("x-forwarded-for") || request.headers.get("x-client-ip") || request.headers.get("x-host") || request.headers.get("x-originating-ip") || request.headers.get("x-cluster-client-ip") || request.headers.get("forwarded-for") || request.headers.get("forwarded") || request.headers.get("via") || request.headers.get("requester") || request.headers.get("true-client-ip") || request.headers.get("client-ip") || request.headers.get("x-remote-ip") || request.headers.get("x-originating-ip") || request.headers.get("fastly-client-ip") || request.headers.get("akamai-origin-hop") || request.headers.get("x-remote-addr") || request.headers.get("x-remote-host") || request.headers.get("x-client-ips")
+    const ip = request.headers.get("cf-connecting-ip")
 
     if (!ip) {
         return null;
     }
 
-    // 处理多个IP地址的情况
-    const ips = ip.split(',').map(i => i.trim());
+    // Only trust Cloudflare's canonical client IP header; forwarded headers are client-controlled.
+    const normalizedIp = ip.trim();
 
-    return ips[0]; // 返回第一个IP地址
+    return normalizedIp && !normalizedIp.includes(',') ? normalizedIp : null;
 }
 
 // 检查上传IP是否被封禁
