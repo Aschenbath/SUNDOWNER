@@ -9,6 +9,22 @@ import { resolveMimeType } from '../utils/mimeTypes.js';
 
 const CHUNK_STATUS_READ_CONCURRENCY = 3;
 
+function getPublicChunkStatusError(status, rawError) {
+    if (!rawError && status !== 'failed' && status !== 'timeout' && status !== 'retry_failed' && status !== 'retry_timeout') {
+        return undefined;
+    }
+
+    if (status === 'timeout' || status === 'retry_timeout') {
+        return 'Chunk upload timed out';
+    }
+
+    if (status === 'failed' || status === 'retry_failed') {
+        return 'Chunk upload failed';
+    }
+
+    return 'Chunk upload status unavailable';
+}
+
 // 初始化分块上传
 export async function initializeChunkedUpload(context) {
     const { request, env, url } = context;
@@ -214,12 +230,13 @@ async function uploadChunkToStorageWithTimeout(context, chunkIndex, totalChunks,
     const { env } = context;
     const db = getDatabase(env);
     const chunkKey = `chunk_${uploadId}_${chunkIndex.toString().padStart(3, '0')}`;
+    let timeoutId = null;
     const UPLOAD_TIMEOUT = 180000; // 3分钟超时
 
     try {
         // 设置超时 Promise
         const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Upload timeout')), UPLOAD_TIMEOUT);
+            timeoutId = setTimeout(() => reject(new Error('Upload timeout')), UPLOAD_TIMEOUT);
         });
 
         // 执行实际上传
@@ -239,7 +256,7 @@ async function uploadChunkToStorageWithTimeout(context, chunkIndex, totalChunks,
                 const errorMetadata = {
                     ...chunkRecord.metadata,
                     status: isTimeout ? 'timeout' : 'failed',
-                    error: error.message,
+                    error: getPublicChunkStatusError(isTimeout ? 'timeout' : 'failed', error.message),
                     failedTime: Date.now(),
                     isTimeout: isTimeout
                 };
@@ -252,6 +269,10 @@ async function uploadChunkToStorageWithTimeout(context, chunkIndex, totalChunks,
             }
         } catch (metaError) {
             console.error('Failed to save timeout/error metadata:', metaError);
+        }
+    } finally {
+        if (timeoutId !== null) {
+            clearTimeout(timeoutId);
         }
     }
 }
@@ -320,7 +341,7 @@ async function uploadChunkToStorage(context, chunkIndex, totalChunks, uploadId, 
                 const failedMetadata = {
                     ...chunkMetadata,
                     status: 'failed',
-                    error: uploadResult ? uploadResult.error : 'Unknown error',
+                    error: getPublicChunkStatusError('failed', uploadResult ? uploadResult.error : 'Unknown error'),
                     failedTime: Date.now()
                 };
 
@@ -344,7 +365,7 @@ async function uploadChunkToStorage(context, chunkIndex, totalChunks, uploadId, 
                 const errorMetadata = {
                     ...chunkRecord.metadata,
                     status: 'failed',
-                    error: error.message,
+                    error: getPublicChunkStatusError('failed', error.message),
                     failedTime: Date.now()
                 };
 
@@ -1069,7 +1090,7 @@ export async function checkChunkUploadStatuses(env, uploadId, totalChunks) {
                     key: chunkKey,
                     status: status,
                     uploadResult: chunkRecord.metadata.uploadResult,
-                    error: chunkRecord.metadata.error,
+                    error: getPublicChunkStatusError(status, chunkRecord.metadata.error),
                     hasData: hasData,
                     chunkSize: chunkRecord.metadata.chunkSize,
                     uploadTime: chunkRecord.metadata.uploadTime,
@@ -1091,7 +1112,7 @@ export async function checkChunkUploadStatuses(env, uploadId, totalChunks) {
                 index,
                 key: chunkKey,
                 status: 'error',
-                error: error.message,
+                error: 'Failed to read chunk status',
                 hasData: false
             };
         }

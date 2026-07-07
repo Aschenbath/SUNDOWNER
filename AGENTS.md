@@ -92,3 +92,4 @@ functions/api/manage/migrate/recover-tg-file-ids.js
 - Raw secret exposure on upload/others config GET routes was fixed on 2026-07-07; preserve masked-placeholder round trips so admin edits do not clobber stored credentials.
 - Upload IP attribution should trust only Cloudflare `CF-Connecting-IP`; do not reintroduce `X-Forwarded-For`, `X-Real-IP`, or caller-supplied proxy headers into blocklist or metadata decisions.
 - API token plaintext-at-rest was fixed on 2026-07-07; preserve salted-hash storage and legacy lazy migration.
+- Chunk upload status raw-error exposure was fixed on 2026-07-07; keep status responses and failure metadata generic while preserving internal server logs.
