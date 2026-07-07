@@ -2010,6 +2010,29 @@ describe('media library download actions', () => {
     assert.match(html, /<img class="cml-media-tile__image"/);
   });
 
+  it('keeps HEIC fallback MIME labels out of inline error-handler code', () => {
+    const html = MediaTile({
+      item: {
+        id: 'managed-heic-unsafe-mime',
+        type: 'photo',
+        label: 'IMG_unsafe.HEIC',
+        sourceUrl: '/file/IMG_unsafe.HEIC',
+        thumbnailUrl: '/file/IMG_unsafe.HEIC?preview=1',
+        width: 3024,
+        height: 4032,
+        mimeType: "image/heic';this.dataset.pwned='1';//",
+        browserPreviewSupported: false,
+      },
+      selected: false,
+      layout: { width: 220, height: 280 }
+    });
+
+    assert.match(html, /onerror=/);
+    assert.match(html, /data-mime-tag=/);
+    assert.doesNotMatch(html, /this\.dataset\.pwned/);
+    assert.doesNotMatch(html, /dataset\.mimeTag='[^"]*HEIC/);
+  });
+
   it('renders media tiles with a direct preview opener on the tile element', () => {
     const html = MediaTile({
       item: {
@@ -2471,6 +2494,27 @@ describe('media library download actions', () => {
     assert.match(html, /Select a track/);
   });
 
+  it('sanitizes audio player cover image URLs', () => {
+    const html = AudioPlayerPanel({
+      currentItem: {
+        id: 'audio-unsafe-cover',
+        type: 'audio',
+        audioTitle: 'Unsafe Cover',
+        thumbnailUrl: 'javascript:alert(1)'
+      },
+      queueItems: [],
+      currentTime: 0,
+      duration: 1,
+      isPlaying: false,
+      mode: 'queue',
+      volume: 1
+    });
+
+    assert.match(html, /cml-audio-panel__cover--fallback/);
+    assert.doesNotMatch(html, /javascript:/i);
+    assert.doesNotMatch(html, /cml-audio-panel__cover-image/);
+  });
+
   it('shows a mobile mini player entry point for the current track', () => {
     const html = MobileAudioMiniPlayer({
       currentItem: {
@@ -2546,8 +2590,28 @@ describe('media library download actions', () => {
     assert.match(html, /data-music-cover/);
     assert.match(html, /data-music-title/);
     assert.match(html, /data-music-meta/);
-    assert.match(html, /background-image: url\('https:\/\/example\.com\/cover\.jpg'\)/);
+    assert.match(html, /background-image: url\(&quot;https:\/\/example\.com\/cover\.jpg&quot;\)/);
     assert.match(html, /cml-music-summary__kicker is-playing/);
+  });
+
+  it('sanitizes gallery music ambient cover CSS URLs', () => {
+    const html = MusicSummary({
+      totalCount: 1,
+      currentItem: {
+        id: 'audio-css-url',
+        audioTitle: 'Unsafe cover',
+        thumbnailUrl: "javascript:alert('cover')"
+      },
+      queueItems: [],
+      isPlaying: false,
+      mode: 'sequence',
+      playlists: [],
+      activePlaylistName: ''
+    });
+
+    assert.match(html, /data-music-ambient-cover/);
+    assert.doesNotMatch(html, /background-image:/);
+    assert.doesNotMatch(html, /javascript:/i);
   });
 
   it('drives the gallery music hero from theme tokens without expensive blur', () => {
@@ -2849,6 +2913,26 @@ describe('media library download actions', () => {
     assert.doesNotMatch(dockHtml, /cml-sidebar-audio-player__cover/);
     assert.match(sidebarHtml, /cml-sidebar-audio-player/);
     assert.doesNotMatch(sidebarHtml, /cml-storage-strip/);
+  });
+
+  it('sanitizes sidebar audio cover image URLs', () => {
+    const dockHtml = SidebarAudioPlayer({
+      currentItem: {
+        id: 'audio-sidebar-unsafe-cover',
+        type: 'audio',
+        audioTitle: 'Unsafe Sidebar Cover',
+        thumbnailUrl: 'javascript:alert(1)'
+      },
+      currentTime: 0,
+      duration: 1,
+      isPlaying: false,
+      mode: 'queue',
+      volume: 1
+    });
+
+    assert.match(dockHtml, /is-coverless/);
+    assert.doesNotMatch(dockHtml, /javascript:/i);
+    assert.doesNotMatch(dockHtml, /cml-sidebar-audio-player__cover-image/);
   });
 
   it('keeps the desktop style control visible in the default topbar at medium desktop widths', () => {

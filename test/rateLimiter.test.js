@@ -136,6 +136,28 @@ describe('Rate Limiter', () => {
       assert.equal(ip, 'unknown');
     });
 
+    it('should reject non-IP CF-Connecting-IP values', () => {
+      const request = {
+        headers: new Headers([
+          ['CF-Connecting-IP', '1.2.3.4&bucket=private'],
+        ]),
+      };
+
+      const ip = getClientIp(request);
+      assert.equal(ip, 'unknown');
+    });
+
+    it('should accept canonical IPv6 CF-Connecting-IP values', () => {
+      const request = {
+        headers: new Headers([
+          ['CF-Connecting-IP', '2001:db8::2'],
+        ]),
+      };
+
+      const ip = getClientIp(request);
+      assert.equal(ip, '2001:db8::2');
+    });
+
     it('should return unknown if no IP headers', () => {
       const request = {
         headers: new Headers(),

@@ -3,6 +3,8 @@
  * Tracks requests per IP address with sliding window
  */
 
+import { isValidIpAddress } from './ipAddress.js';
+
 const DEFAULT_WINDOW_MS = 60 * 1000; // 1 minute
 const DEFAULT_MAX_REQUESTS = 60; // 60 requests per minute
 
@@ -85,7 +87,7 @@ export function getClientIp(request) {
   // Trust only Cloudflare's edge-populated client IP header. Proxy-style
   // headers such as X-Forwarded-For are caller-controlled in this app.
   const cfIp = String(request.headers.get('CF-Connecting-IP') || '').trim();
-  if (cfIp && !cfIp.includes(',')) {
+  if (cfIp && !cfIp.includes(',') && isValidIpAddress(cfIp)) {
     return cfIp;
   }
 

@@ -46,4 +46,24 @@ describe('upload tools', () => {
 
     assert.equal(getUploadIp(request), null);
   });
+
+  it('rejects non-IP Cloudflare upload IP values', () => {
+    const request = new Request('https://example.com/upload', {
+      headers: {
+        'CF-Connecting-IP': '203.0.113.10&debug=private',
+      },
+    });
+
+    assert.equal(getUploadIp(request), null);
+  });
+
+  it('accepts canonical IPv6 Cloudflare upload IP values', () => {
+    const request = new Request('https://example.com/upload', {
+      headers: {
+        'CF-Connecting-IP': '2001:db8::1',
+      },
+    });
+
+    assert.equal(getUploadIp(request), '2001:db8::1');
+  });
 });

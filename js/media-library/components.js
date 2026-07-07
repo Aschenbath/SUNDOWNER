@@ -78,15 +78,25 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-const SAFE_CSS_IMAGE_URL_PATTERN = /^(?:\/file\/[^\s"'()\\<>]*|https?:\/\/[^\s"'()\\<>]+|data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+)$/i;
+const SAFE_IMAGE_RESOURCE_URL_PATTERN = /^(?:\/file\/[^\s"'()\\<>]*|https?:\/\/[^\s"'()\\<>]+|data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+)$/i;
 const SAFE_MIND_BACKGROUND_POSITION_PATTERN = /^(?:left|center|right) (?:top|center|bottom)$/;
 
-export function renderCssImageUrl(value = '') {
+function sanitizeImageResourceUrl(value = '') {
   const normalized = String(value || '').trim();
-  if (!normalized || !SAFE_CSS_IMAGE_URL_PATTERN.test(normalized)) {
+  return SAFE_IMAGE_RESOURCE_URL_PATTERN.test(normalized) ? normalized : '';
+}
+
+export function renderCssImageUrl(value = '') {
+  const normalized = sanitizeImageResourceUrl(value);
+  if (!normalized) {
     return '';
   }
   return `url("${normalized.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}")`;
+}
+
+function formatSafeImageMimeTag(value = '') {
+  const subtype = String(value || 'image').replace(/^image\//i, '').toUpperCase();
+  return subtype.replace(/[^A-Z0-9+-]+/g, '').slice(0, 24) || 'IMAGE';
 }
 
 function normalizeMindBackgroundPosition(value = '') {
@@ -440,8 +450,8 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       const includeIntrinsicSize = !withControls;
       const w = includeIntrinsicSize && item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
       const h = includeIntrinsicSize && item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
-      const mimeTag = String(item.mimeType || 'image').replace(/^image\//i, '').toUpperCase();
-      const errorHandler = `this.style.display='none';this.parentElement.classList.add('is-heic-fallback');this.parentElement.dataset.mimeTag='${escapeHtml(mimeTag)}'`;
+      const mimeTag = formatSafeImageMimeTag(item.mimeType);
+      const errorHandler = "this.style.display='none';this.parentElement.classList.add('is-heic-fallback');this.parentElement.dataset.mimeTag=this.dataset.mimeTag||'IMAGE'";
       // In the lightbox/modal, also expose the original HEIC URL so the
       // client-side decoder can swap the IFD1 thumbnail with a real-resolution
       // JPEG once the WASM bundle finishes decoding. Tiles keep the cheap
@@ -456,7 +466,7 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       const heicClassNames = withControls && item.sourceUrl
         ? `${className} is-heic-decode-pending`
         : className;
-      return `<img class="${heicClassNames}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}"${w}${h}${heicDecodeAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
+      return `<img class="${heicClassNames}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}" data-mime-tag="${escapeHtml(mimeTag)}"${w}${h}${heicDecodeAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
     }
   }
   if (item.type === 'video' && item.thumbnailUrl === sourceUrl) {
@@ -2082,7 +2092,7 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
   const countLabel = formatItemCount(totalCount);
   const modeLabel = mode === 'repeat-one' ? 'Repeat one' : (mode === 'shuffle' ? 'Shuffle' : 'Sequence');
   const focusItem = currentItem || queueItems[0] || null;
-  const coverUrl = String(focusItem?.thumbnailUrl || focusItem?.posterUrl || '').trim();
+  const coverUrl = sanitizeImageResourceUrl(focusItem?.thumbnailUrl || focusItem?.posterUrl || '');
   const subtitle = focusItem
     ? (formatAudioSubtitle(focusItem) || 'Unknown artist · Unknown album')
     : 'Select a track to begin playback.';
@@ -2090,7 +2100,7 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
   const playlistPreview = playlists.slice(0, 4);
   const kicker = currentItem ? (isPlaying ? 'Playing now' : 'Paused') : 'Ready when you are';
   const trackTitle = focusItem ? getAudioDisplayTitle(focusItem) : 'Nothing playing';
-  const coverCssUrl = coverUrl ? escapeHtml(coverUrl.replace(/['"\\]/g, encodeURIComponent)) : '';
+  const coverCssImage = renderCssImageUrl(coverUrl);
   const queuedLabel = queueItems.length
     ? (queueItems.length === 1 ? '1 queued' : `${queueItems.length} queued`)
     : '';
@@ -2099,7 +2109,7 @@ export function MusicSummary({ totalCount = 0, isMobile = false, currentItem = n
   return `
     <section class="cml-view-summary cml-view-summary--music cml-music-summary" data-music-hero>
       <div class="cml-music-summary__ambient" aria-hidden="true">
-        <span class="cml-music-summary__ambient-cover ${coverUrl ? 'is-active' : ''}" data-music-ambient-cover${coverCssUrl ? ` style="background-image: url('${coverCssUrl}')"` : ''}></span>
+        <span class="cml-music-summary__ambient-cover ${coverUrl ? 'is-active' : ''}" data-music-ambient-cover${coverCssImage ? ` style="background-image: ${escapeHtml(coverCssImage)}"` : ''}></span>
       </div>
       <div class="cml-music-summary__hero">
         <div class="cml-music-summary__hero-main">
@@ -2277,7 +2287,7 @@ export function AudioPlayerPanel({ currentItem = null, queueItems = [], currentT
   const subtitle = formatAudioSubtitle(currentItem) || 'Choose music from the list to start playback.';
   const resolvedDuration = Math.max(0, Number(duration) || Number(currentItem?.audioDuration) || 0);
   const resolvedCurrentTime = Math.min(Math.max(0, Number(currentTime) || 0), resolvedDuration || Number.MAX_SAFE_INTEGER);
-  const coverUrl = String(currentItem?.thumbnailUrl || currentItem?.posterUrl || '').trim();
+  const coverUrl = sanitizeImageResourceUrl(currentItem?.thumbnailUrl || currentItem?.posterUrl || '');
   return `
     <section class="cml-audio-panel" aria-label="Audio player">
       <div class="cml-audio-panel__left">
@@ -2337,7 +2347,7 @@ export function SidebarAudioPlayer({ currentItem = null, currentTime = 0, durati
   const subtitle = formatAudioSubtitle(currentItem);
   const resolvedDuration = Math.max(0, Number(duration) || Number(currentItem?.audioDuration) || 0);
   const resolvedCurrentTime = Math.min(Math.max(0, Number(currentTime) || 0), resolvedDuration || Number.MAX_SAFE_INTEGER);
-  const coverUrl = String(currentItem?.thumbnailUrl || currentItem?.posterUrl || '').trim();
+  const coverUrl = sanitizeImageResourceUrl(currentItem?.thumbnailUrl || currentItem?.posterUrl || '');
   return `
     <section class="cml-sidebar-audio-player" aria-label="Now playing">
       <div class="cml-sidebar-audio-player__meta ${coverUrl ? '' : 'is-coverless'}">

@@ -2,6 +2,7 @@ import { fetchSecurityConfig } from "../utils/sysConfig.js";
 import { purgeCFCache, purgeRandomFileListCache, purgePublicFileListCache } from "../utils/purgeCache.js";
 import { addFileToIndex } from "../utils/indexManager.js";
 import { getDatabase } from '../utils/databaseAdapter.js';
+import { isValidIpAddress } from '../utils/ipAddress.js';
 
 // 统一的响应创建函数
 export function createResponse(body, options = {}) {
@@ -36,8 +37,12 @@ export function generateShortId(length = 8) {
 // 获取IP地址
 export async function getIPAddress(ip) {
     let address = '未知';
+    if (!isValidIpAddress(ip)) {
+        return address;
+    }
     try {
-        const ipInfo = await fetch(`https://apimobile.meituan.com/locate/v2/ip/loc?rgeo=true&ip=${ip}`, {
+        const encodedIp = encodeURIComponent(String(ip).trim());
+        const ipInfo = await fetch(`https://apimobile.meituan.com/locate/v2/ip/loc?rgeo=true&ip=${encodedIp}`, {
             signal: AbortSignal.timeout(3000),
         });
         const ipData = await ipInfo.json();
@@ -404,7 +409,11 @@ export function getUploadIp(request) {
     // Only trust Cloudflare's canonical client IP header; forwarded headers are client-controlled.
     const normalizedIp = ip.trim();
 
-    return normalizedIp && !normalizedIp.includes(',') ? normalizedIp : null;
+    if (!normalizedIp || normalizedIp.includes(',') || !isValidIpAddress(normalizedIp)) {
+        return null;
+    }
+
+    return normalizedIp;
 }
 
 // 检查上传IP是否被封禁
