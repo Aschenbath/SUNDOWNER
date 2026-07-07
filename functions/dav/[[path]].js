@@ -38,6 +38,20 @@ function encodeInternalPath(path) {
         .join('/');
 }
 
+function decodeRequestPath(request, { stripLeadingSlash = false } = {}) {
+    try {
+        const pathname = new URL(request.url).pathname;
+        const rawPath = stripLeadingSlash ? pathname.substring(1) : pathname;
+        return decodeURIComponent(rawPath);
+    } catch {
+        return null;
+    }
+}
+
+function InvalidPathResponse() {
+    return new Response('Invalid path', { status: 400 });
+}
+
 export async function onRequest(context) {
     const { request, env } = context;
 
@@ -128,7 +142,8 @@ function handleOptions(request) {
 }
 
 async function handleGet(request, env) {
-    const path = decodeURIComponent(new URL(request.url).pathname);
+    const path = decodeRequestPath(request);
+    if (path === null) return InvalidPathResponse();
 
     if (path.endsWith('/')) { // Directory listing
         try {
@@ -179,7 +194,8 @@ async function handleGet(request, env) {
 }
 
 async function handlePut(request, env) {
-    const fullPath = decodeURIComponent(new URL(request.url).pathname.substring(1));
+    const fullPath = decodeRequestPath(request, { stripLeadingSlash: true });
+    if (fullPath === null) return InvalidPathResponse();
     if (!fullPath || fullPath.endsWith('/')) {
         return new Response('Invalid file name', { status: 400 });
     }
@@ -241,7 +257,8 @@ async function handlePut(request, env) {
 }
 
 async function handleDelete(request, env) {
-    const path = decodeURIComponent(new URL(request.url).pathname.substring(1));
+    const path = decodeRequestPath(request, { stripLeadingSlash: true });
+    if (path === null) return InvalidPathResponse();
     if (!path) return new Response('Invalid path for DELETE', { status: 400 });
 
     const isFolder = path.endsWith('/');
@@ -269,7 +286,8 @@ async function handleDelete(request, env) {
 }
 
 async function handlePropfind(request, env) {
-    const path = decodeURIComponent(new URL(request.url).pathname);
+    const path = decodeRequestPath(request);
+    if (path === null) return InvalidPathResponse();
     try {
         const dir = path === '/' ? '' : path.substring(1, path.endsWith('/') ? path.length - 1 : path.length);
         const contents = await fetchDirectoryContents(dir, env, request);

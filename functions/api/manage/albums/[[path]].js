@@ -42,7 +42,12 @@ export async function onRequest(context) {
     return optionsResponse();
   }
 
-  const albumId = resolveAlbumId(params);
+  let albumId = '';
+  try {
+    albumId = resolveAlbumId(params);
+  } catch {
+    return jsonResponse({ error: 'Invalid album id' }, { status: 400, headers: NO_STORE_HEADERS });
+  }
 
   if (!albumId) {
     if (request.method === 'GET') {

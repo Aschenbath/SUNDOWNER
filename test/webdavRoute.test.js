@@ -190,6 +190,35 @@ describe('WebDAV route', () => {
     assert.equal(await response.text(), 'Invalid Authorization value');
   });
 
+  it('returns 400 for malformed percent-encoded WebDAV paths', async () => {
+    const authHeaders = {
+      Authorization: `Basic ${Buffer.from('dav:dav-pass').toString('base64')}`
+    };
+    const env = createEnv({
+      BASIC_USER: 'admin',
+      BASIC_PASS: 'secret',
+      AUTH_CODE: 'user-code',
+      kvEntries: {
+        'manage@sysConfig@others': JSON.stringify({
+          webDAV: { enabled: true, username: 'dav', password: 'dav-pass' }
+        })
+      }
+    });
+
+    for (const method of ['GET', 'PUT', 'DELETE', 'PROPFIND']) {
+      const response = await onRequest({
+        env,
+        request: createWebDavRequest('/dav/%', {
+          method,
+          headers: authHeaders
+        }),
+      });
+
+      assert.equal(response.status, 400, `${method} should reject malformed paths`);
+      assert.equal(await response.text(), 'Invalid path');
+    }
+  });
+
   it('escapes PROPFIND XML text values from file metadata', async () => {
     global.fetch = async () => new Response(JSON.stringify({
       files: [

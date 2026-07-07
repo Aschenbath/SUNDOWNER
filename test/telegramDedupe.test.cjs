@@ -37,6 +37,11 @@ describe('telegramSync dedupe helpers', () => {
     assert.equal(key, 'telegram-sync@dedupe@My_Channel@42');
   });
 
+  it('does not throw on literal percent sequences in channel names', () => {
+    const key = buildTelegramDedupeKey('Main%bad Channel', 43);
+    assert.equal(key, 'telegram-sync@dedupe@Main_bad_Channel@43');
+  });
+
   it('skips duplicate messages when file unique id matches', async () => {
     const db = new MemoryKV();
     await saveTelegramDedupeRecord(db, 'main', 1001, {

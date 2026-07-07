@@ -47,7 +47,14 @@ function extractFileIdFromSrc(src = '') {
   const marker = '/file/';
   const markerIndex = normalized.indexOf(marker);
   if (markerIndex >= 0) {
-    return decodeURIComponent(normalized.slice(markerIndex + marker.length));
+    try {
+      return decodeURIComponent(normalized.slice(markerIndex + marker.length));
+    } catch {
+      const error = new Error('Invalid photo file path');
+      error.status = 400;
+      error.expose = true;
+      throw error;
+    }
   }
   return normalized.replace(/^\/+file\//, '');
 }

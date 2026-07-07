@@ -1,7 +1,12 @@
 const TELEGRAM_DEDUPE_PREFIX = 'telegram-sync@dedupe@'
 
 function sanitizeFileName(fileName) {
-    let value = decodeURIComponent(String(fileName || ''))
+    let value = String(fileName || '')
+    try {
+        value = decodeURIComponent(value)
+    } catch {
+        // Channel names may contain literal percent sequences; sanitize them instead of aborting sync.
+    }
     value = value.split('/').pop()
     const unsafeCharsRe = /[\\\/:\*\?"'<>\| \(\)\[\]\{\}#%\^`~;@&=\+\$,]/g
     return value.replace(unsafeCharsRe, '_')

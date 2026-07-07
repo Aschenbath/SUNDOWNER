@@ -144,6 +144,22 @@ describe('manage API generic 500 errors', () => {
     await assertGenericInternalError(response);
   });
 
+  it('rejects malformed metadata paths as client errors', async () => {
+    const response = await metadataOnRequest({
+      env: { img_url: kvThatThrowsOnFileRead() },
+      params: { path: 'photos%bad.jpg' },
+      request: patchRequest('https://example.com/api/manage/metadata/photos%bad.jpg', {
+        Title: 'Private title',
+      }),
+      waitUntil() {},
+    });
+
+    assert.equal(response.status, 400);
+    const payload = await response.json();
+    assert.equal(payload.success, false);
+    assert.equal(payload.message, 'Invalid file path');
+  });
+
   it('hides raw database errors from rename responses', async () => {
     const fileId = 'photos/private.jpg';
     const response = await renameOnRequest({
@@ -158,6 +174,22 @@ describe('manage API generic 500 errors', () => {
     await assertGenericInternalError(response);
   });
 
+  it('rejects malformed rename paths as client errors', async () => {
+    const response = await renameOnRequest({
+      env: { img_url: kvThatThrowsOnFileRead() },
+      params: { path: 'photos%bad.jpg' },
+      request: postRequest('https://example.com/api/manage/rename/photos%bad.jpg', {
+        newFileId: 'photos/renamed.jpg',
+      }),
+      waitUntil() {},
+    });
+
+    assert.equal(response.status, 400);
+    const payload = await response.json();
+    assert.equal(payload.success, false);
+    assert.equal(payload.message, 'Invalid file path');
+  });
+
   it('hides raw database errors from move responses', async () => {
     const fileId = 'photos/private.jpg';
     const response = await moveOnRequest({
@@ -168,6 +200,20 @@ describe('manage API generic 500 errors', () => {
     });
 
     await assertGenericInternalError(response, 'error');
+  });
+
+  it('rejects malformed move paths as client errors', async () => {
+    const response = await moveOnRequest({
+      env: { img_url: kvThatThrowsOnFileRead() },
+      params: { path: 'photos%bad.jpg' },
+      request: new Request('https://example.com/api/manage/move/photos%bad.jpg?dist=archive'),
+      waitUntil() {},
+    });
+
+    assert.equal(response.status, 400);
+    const payload = await response.json();
+    assert.equal(payload.success, false);
+    assert.equal(payload.error, 'Invalid path');
   });
 
   it('hides raw folder delete traversal errors from responses', async () => {

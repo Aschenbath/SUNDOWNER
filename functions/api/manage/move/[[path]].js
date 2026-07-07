@@ -17,6 +17,14 @@ export function __resetS3ClientFactoryForTests() {
     createS3Client = (options) => new S3Client(options);
 }
 
+function decodeMovePath(rawPath) {
+    try {
+        return decodeURIComponent(rawPath || '');
+    } catch {
+        throw new Error('Invalid path');
+    }
+}
+
 export async function onRequest(context) {
     const { request, env, params, waitUntil } = context;
 
@@ -30,7 +38,7 @@ export async function onRequest(context) {
     const folder = url.searchParams.get('folder');
     if (folder === 'true') {
         try {
-            params.path = decodeURIComponent(params.path);
+            params.path = decodeMovePath(params.path);
             if (!isPathSafe(params.path)) {
                 throw new Error('Invalid path');
             }
@@ -126,7 +134,7 @@ export async function onRequest(context) {
     // 单个文件移动处理
     try {
         // 解码params.path
-        params.path = decodeURIComponent(params.path);
+        params.path = decodeMovePath(params.path);
         if (!isPathSafe(params.path)) {
             throw new Error('Invalid path');
         }

@@ -272,6 +272,47 @@ describe('manage moments route', () => {
     assert.equal(payload.post.attachments[0].fileId, 'Moments/2026-05-16/header.jpg');
   });
 
+  it('rejects malformed uploaded file src paths as client errors', async () => {
+    const kv = new MemoryKV({
+      'manage@sysConfig@security': JSON.stringify({
+        auth: {
+          user: { authCode: 'moments-secret' },
+          admin: { adminUsername: '', adminPassword: '' },
+        },
+        upload: { moderate: { enabled: false, channel: 'default', moderateContentApiKey: '', nsfwApiPath: '' } },
+        access: { allowedDomains: '', whiteListMode: false },
+        apiTokens: { tokens: {} },
+      }),
+    });
+
+    const form = new FormData();
+    form.set('body', 'bad upload src');
+    form.append('photos[]', new File(['fake image'], 'bad.jpg', { type: 'image/jpeg' }));
+
+    const response = await onRequest(createContext({
+      env: {
+        img_url: kv,
+        TG_BOT_TOKEN: 'bot-token',
+        TG_CHAT_ID: '123456',
+      },
+      now: '2026-05-16T20:15:00.000Z',
+      store: createMomentStore(),
+      request: new Request('https://example.com/api/manage/moments', {
+        method: 'POST',
+        headers: { authCode: 'moments-secret' },
+        body: form,
+      }),
+      processUploadFile: async () => new Response(JSON.stringify([{ src: '/file/Moments/2026-05-16/%E0%A4%A' }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    }));
+    const payload = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(payload.error, 'Invalid photo file path');
+  });
+
   it('blocks the default internal upload path for blocked upload IPs', async () => {
     const kv = new MemoryKV({
       'manage@sysConfig@security': JSON.stringify({

@@ -200,4 +200,21 @@ describe('telegram sync API generic 500 errors', () => {
     assert.equal(payload.success, false);
     assert.equal(payload.error, 'Invalid Telegram webhook secret');
   });
+
+  it('rejects malformed webhook channel paths as client errors', async () => {
+    const response = await webhookDeliveryOnRequest({
+      env: envWithThrowingConfig(),
+      params: { path: 'Main%bad' },
+      request: request('https://example.com/api/manage/telegram-sync/webhook/Main%bad', {
+        method: 'POST',
+        headers: { 'X-Telegram-Bot-Api-Secret-Token': 'secret' },
+        body: { update_id: 1 },
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    const payload = await response.json();
+    assert.equal(payload.success, false);
+    assert.equal(payload.error, 'Invalid channel path');
+  });
 });

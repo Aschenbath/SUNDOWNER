@@ -25,6 +25,14 @@ export function __resetS3ClientFactoryForTests() {
     createS3Client = (options) => new S3Client(options);
 }
 
+function decodeFileId(rawPath) {
+    try {
+        return decodeURIComponent(rawPath || '').split(',').join('/');
+    } catch {
+        throw new Error('Invalid file path');
+    }
+}
+
 export async function onRequest(context) {
     const { request, env, params, waitUntil } = context;
 
@@ -49,7 +57,7 @@ export async function onRequest(context) {
 
     try {
         // 从 params.path 解析 fileId（需要 decodeURIComponent 处理中文等特殊字符）
-        const fileId = decodeURIComponent(params.path).split(',').join('/');
+        const fileId = decodeFileId(params.path);
 
         if (!fileId) {
             return new Response(JSON.stringify({
@@ -244,6 +252,16 @@ export async function onRequest(context) {
         });
 
     } catch (error) {
+        if (error?.message === 'Invalid file path') {
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'Invalid file path',
+            }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+        }
+
         console.error('Error renaming file:', error);
         return new Response(JSON.stringify({
             success: false,

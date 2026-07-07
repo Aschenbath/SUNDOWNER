@@ -13,7 +13,12 @@ export async function onRequest(context) {
         return asJsonResponse({ error: 'Method not allowed' }, 405)
     }
 
-    const channelName = decodeURIComponent(normalizeCatchAllPath(params.path))
+    let channelName = ''
+    try {
+        channelName = decodeURIComponent(normalizeCatchAllPath(params.path))
+    } catch {
+        return asJsonResponse({ success: false, error: 'Invalid channel path' }, 400)
+    }
     if (!channelName) {
         return asJsonResponse({ success: false, error: 'channelName is required' }, 400)
     }

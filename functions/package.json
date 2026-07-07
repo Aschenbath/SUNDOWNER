@@ -4,5 +4,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "3.726.1",
     "hono": "^4.7.4"
+  },
+  "overrides": {
+    "fast-xml-parser": "^5.3.6"
   }
 }

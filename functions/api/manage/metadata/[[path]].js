@@ -38,6 +38,14 @@ function isPhotoMetadata(fileId, metadata = {}) {
     return PHOTO_EXTENSIONS.some((extension) => nameHaystack.endsWith(extension));
 }
 
+function decodeFileId(rawPath) {
+    try {
+        return decodeURIComponent(rawPath || '').split(',').join('/');
+    } catch {
+        throw new Error('Invalid file path');
+    }
+}
+
 export async function onRequest(context) {
     const { request, env, params, waitUntil } = context;
 
@@ -59,7 +67,7 @@ export async function onRequest(context) {
     }
 
     try {
-        const fileId = decodeURIComponent(params.path).split(',').join('/');
+        const fileId = decodeFileId(params.path);
 
         if (!fileId) {
             return new Response(JSON.stringify({
@@ -217,6 +225,16 @@ export async function onRequest(context) {
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
     } catch (error) {
+        if (error?.message === 'Invalid file path') {
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'Invalid file path',
+            }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+        }
+
         console.error('Error updating metadata:', error);
         return new Response(JSON.stringify({
             success: false,

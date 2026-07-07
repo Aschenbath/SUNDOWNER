@@ -101,4 +101,18 @@ describe('albums [[path]] fallback route', () => {
     assert.equal(payload.album.name, 'Trips');
     assert.deepEqual(payload.fileIds, ['photo-a.jpg', 'photo-b.jpg']);
   });
+
+  it('rejects malformed album ids as client errors', async () => {
+    const response = await onRequest({
+      env: createEnv(),
+      params: { path: 'Trips%bad' },
+      request: new Request('http://localhost/api/manage/albums/Trips%bad', {
+        method: 'GET',
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    const payload = await response.json();
+    assert.equal(payload.error, 'Invalid album id');
+  });
 });
