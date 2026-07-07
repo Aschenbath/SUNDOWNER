@@ -138,4 +138,78 @@ describe('sysConfig security route', () => {
     assert.deepEqual(stored.upload, {});
     assert.deepEqual(stored.access, { allowedDomains: 'example.org', whiteListMode: true });
   });
+
+  it('defaults direct file access to non-bearerless and preserves explicit legacy opt-out', async () => {
+    const env = createEnvWithSecurityConfig({
+      auth: { user: { authCode: '' }, admin: { adminUsername: '', adminPassword: '' } },
+      access: { allowedDomains: '', whiteListMode: false },
+      apiTokens: { tokens: {} },
+    });
+
+    const getResponse = await onRequest({
+      env,
+      request: new Request('http://localhost/api/manage/sysConfig/security', { method: 'GET' }),
+    });
+
+    assert.equal(getResponse.status, 200);
+    const payload = await getResponse.json();
+    assert.equal(payload.access.allowBearerlessFileAccess, false);
+
+    const postResponse = await onRequest({
+      env,
+      request: new Request('http://localhost/api/manage/sysConfig/security', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          access: {
+            allowedDomains: '',
+            whiteListMode: false,
+            allowBearerlessFileAccess: true,
+          },
+        }),
+      }),
+    });
+
+    assert.equal(postResponse.status, 200);
+    const stored = JSON.parse(await env.img_url.get('manage@sysConfig@security'));
+    assert.deepEqual(stored.access, {
+      allowedDomains: '',
+      whiteListMode: false,
+      allowBearerlessFileAccess: true,
+    });
+  });
+
+  it('preserves stored bearerless file access opt-out when access POST omits the field', async () => {
+    const env = createEnvWithSecurityConfig({
+      auth: { user: { authCode: '' }, admin: { adminUsername: '', adminPassword: '' } },
+      access: {
+        allowedDomains: 'old.example.com',
+        whiteListMode: false,
+        allowBearerlessFileAccess: true,
+      },
+      apiTokens: { tokens: {} },
+    });
+
+    const response = await onRequest({
+      env,
+      request: new Request('http://localhost/api/manage/sysConfig/security', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          access: {
+            allowedDomains: 'new.example.com',
+            whiteListMode: true,
+          },
+        }),
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    const stored = JSON.parse(await env.img_url.get('manage@sysConfig@security'));
+    assert.deepEqual(stored.access, {
+      allowedDomains: 'new.example.com',
+      whiteListMode: true,
+      allowBearerlessFileAccess: true,
+    });
+  });
 });

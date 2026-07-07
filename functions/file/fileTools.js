@@ -1,14 +1,55 @@
 /* ======== 文件读取工具函数 ======== */
 
 // 判断请求域名是否在允许的域名列表中
+import { getConfiguredUserAuthCode } from '../utils/sysConfig.js';
+import { constantTimeEqual } from '../utils/constantTimeEqual.js';
+
+function getCookieValue(cookies, name) {
+    const escapedName = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = String(cookies || '').match(new RegExp('(?:^|;\\s*)' + escapedName + '=([^;]*)'));
+    if (!match) {
+        return null;
+    }
+    try {
+        return decodeURIComponent(match[1]);
+    } catch {
+        return null;
+    }
+}
+
+function hasFileAccessCredential(context) {
+    const authCode = getConfiguredUserAuthCode(context?.securityConfig || {});
+    if (!authCode) {
+        return false;
+    }
+
+    const request = context?.request;
+    if (!request?.headers || typeof request.headers.get !== 'function') {
+        return false;
+    }
+
+    const headerAuthCode = request.headers.get('authCode');
+    if (constantTimeEqual(headerAuthCode, authCode)) {
+        return true;
+    }
+
+    const cookieAuthCode = getCookieValue(request.headers.get('Cookie'), 'authCode');
+    return constantTimeEqual(cookieAuthCode, authCode);
+}
+
 export function isDomainAllowed(context) {
     const { Referer, securityConfig, url } = context;
 
+    if (hasFileAccessCredential(context)) {
+        return true;
+    }
+
     const allowedDomains = securityConfig.access.allowedDomains;
     const hasAllowlist = Boolean(allowedDomains && allowedDomains.trim() !== '');
+    const allowBearerlessFileAccess = securityConfig.access.allowBearerlessFileAccess === true;
 
     if (!Referer) {
-        return !hasAllowlist;
+        return allowBearerlessFileAccess;
     }
 
     if (Referer) {
@@ -214,8 +255,13 @@ export async function returnWithCheck(context, imgRecord) {
 
 
 export async function return404(url) {
-    const Img404 = await fetch(url.origin + "/static/404.png");
-    if (!Img404.ok) {
+    let Img404;
+    try {
+        Img404 = await fetch(url.origin + "/static/404.png");
+    } catch {
+        Img404 = null;
+    }
+    if (!Img404 || !Img404.ok) {
         return new Response('Error: Image Not Found',
             {
                 status: 404,
@@ -237,8 +283,13 @@ export async function return404(url) {
 }
 
 export async function returnBlockImg(url) {
-    const blockImg = await fetch(url.origin + "/static/BlockImg.png");
-    if (!blockImg.ok) {
+    let blockImg;
+    try {
+        blockImg = await fetch(url.origin + "/static/BlockImg.png");
+    } catch {
+        blockImg = null;
+    }
+    if (!blockImg || !blockImg.ok) {
         return new Response(null, {
             status: 302,
             headers: {
@@ -259,8 +310,13 @@ export async function returnBlockImg(url) {
 }
 
 export async function returnWhiteListImg(url) {
-    const WhiteListImg = await fetch(url.origin + "/static/WhiteListOn.png");
-    if (!WhiteListImg.ok) {
+    let WhiteListImg;
+    try {
+        WhiteListImg = await fetch(url.origin + "/static/WhiteListOn.png");
+    } catch {
+        WhiteListImg = null;
+    }
+    if (!WhiteListImg || !WhiteListImg.ok) {
         return new Response(null, {
             status: 302,
             headers: {

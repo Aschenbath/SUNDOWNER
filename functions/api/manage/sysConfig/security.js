@@ -126,13 +126,19 @@ function mergePostedUploadSettings(storedUpload = {}, postedUpload) {
     return nextUpload;
 }
 
+function mergePostedAccessSettings(storedAccess = {}, postedAccess) {
+    const nextAccess = isPlainObject(storedAccess) ? { ...storedAccess } : {};
+    if (!isPlainObject(postedAccess)) {
+        return nextAccess;
+    }
+    return { ...nextAccess, ...postedAccess };
+}
+
 function mergePostedSecuritySettings(currentSettings = {}, postedSettings = {}, storedSettings = {}) {
     const nextSettings = isPlainObject(storedSettings) ? { ...storedSettings } : {};
     nextSettings.auth = mergePostedAuthSettings(storedSettings.auth, postedSettings.auth);
     nextSettings.upload = mergePostedUploadSettings(storedSettings.upload, postedSettings.upload);
-    nextSettings.access = isPlainObject(postedSettings.access)
-        ? postedSettings.access
-        : (isPlainObject(storedSettings.access) ? storedSettings.access : {});
+    nextSettings.access = mergePostedAccessSettings(storedSettings.access, postedSettings.access);
     nextSettings.apiTokens = storedSettings.apiTokens || currentSettings.apiTokens || { tokens: {} };
     return nextSettings;
 }
@@ -196,6 +202,7 @@ export async function getSecurityConfig(db, env) {
     settings.access = {
         allowedDomains: kvAccess.allowedDomains || env.ALLOWED_DOMAINS || '',
         whiteListMode: kvAccess.whiteListMode ?? env.WhiteList_Mode === 'true',
+        allowBearerlessFileAccess: kvAccess.allowBearerlessFileAccess ?? env.ALLOW_BEARERLESS_FILE_ACCESS === 'true',
     };
 
     const kvApiTokens = settingsKV.apiTokens || {};

@@ -53,7 +53,9 @@ describe('External file route', () => {
     const response = await onRequest({
       env: createExternalEnv('not a url'),
       params: { path: 'external/photo.jpg' },
-      request: new Request('http://localhost/file/external/photo.jpg'),
+      request: new Request('http://localhost/file/external/photo.jpg', {
+        headers: { Referer: 'http://localhost/dashboard' },
+      }),
       waitUntil() {},
       next() {},
       data: {},
@@ -67,7 +69,9 @@ describe('External file route', () => {
     const response = await onRequest({
       env: createExternalEnv('https://cdn.example.com/photo.jpg'),
       params: { path: 'external/photo.jpg' },
-      request: new Request('http://localhost/file/external/photo.jpg'),
+      request: new Request('http://localhost/file/external/photo.jpg', {
+        headers: { Referer: 'http://localhost/dashboard' },
+      }),
       waitUntil() {},
       next() {},
       data: {},
@@ -75,5 +79,22 @@ describe('External file route', () => {
 
     assert.equal(response.status, 302);
     assert.equal(response.headers.get('Location'), 'https://cdn.example.com/photo.jpg');
+  });
+
+  it('blocks valid external redirects on bearerless direct file requests by default', async () => {
+    const response = await onRequest({
+      env: createExternalEnv('https://cdn.example.com/photo.jpg'),
+      params: { path: 'external/photo.jpg' },
+      request: new Request('http://localhost/file/external/photo.jpg'),
+      waitUntil() {},
+      next() {},
+      data: {},
+    });
+
+    assert.ok([302, 403].includes(response.status));
+    assert.notEqual(response.headers.get('Location'), 'https://cdn.example.com/photo.jpg');
+    if (response.status === 302) {
+      assert.equal(response.headers.get('Location'), 'http://localhost/blockimg');
+    }
   });
 });

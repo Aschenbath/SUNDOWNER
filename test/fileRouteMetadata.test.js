@@ -64,6 +64,12 @@ function createChunkedRecord({ rawValue, totalChunks = 2, channel = 'TelegramNew
   };
 }
 
+function fileRequest(path) {
+  return new Request(`http://localhost/file/${path}`, {
+    headers: { Referer: 'http://localhost/dashboard' },
+  });
+}
+
 describe('public file metadata parsing', () => {
   afterEach(() => {
     __resetS3ClientFactoryForTests();
@@ -73,7 +79,7 @@ describe('public file metadata parsing', () => {
     const response = await onRequest({
       env: createEnvWithRecord(createChunkedRecord({ rawValue: '{bad' })),
       params: { path: 'chunked/test.mp4' },
-      request: new Request('http://localhost/file/chunked/test.mp4'),
+      request: fileRequest('chunked/test.mp4'),
       waitUntil() {},
       next() {},
       data: {},
@@ -89,7 +95,7 @@ describe('public file metadata parsing', () => {
     const response = await onRequest({
       env: createEnvWithRecord(createChunkedRecord({ rawValue: '{"index":0}' })),
       params: { path: 'chunked/test.mp4' },
-      request: new Request('http://localhost/file/chunked/test.mp4'),
+      request: fileRequest('chunked/test.mp4'),
       waitUntil() {},
       next() {},
       data: {},
@@ -108,7 +114,7 @@ describe('public file metadata parsing', () => {
         totalChunks: 2,
       })),
       params: { path: 'chunked/test.mp4' },
-      request: new Request('http://localhost/file/chunked/test.mp4'),
+      request: fileRequest('chunked/test.mp4'),
       waitUntil() {},
       next() {},
       data: {},
@@ -152,7 +158,7 @@ describe('public file metadata parsing', () => {
         S3_SECRET_ACCESS_KEY: 'test-secret-key',
       },
       params: { path: 's3/missing.jpg' },
-      request: new Request('http://localhost/file/s3/missing.jpg'),
+      request: fileRequest('s3/missing.jpg'),
       waitUntil() {},
       next() {},
       data: {},
@@ -213,7 +219,7 @@ describe('public file metadata parsing', () => {
         ])),
       },
       params: { path: 's3/trimmed.jpg' },
-      request: new Request('http://localhost/file/s3/trimmed.jpg'),
+      request: fileRequest('s3/trimmed.jpg'),
       waitUntil() {},
       next() {},
       data: {},
@@ -262,7 +268,7 @@ describe('public file metadata parsing', () => {
         S3_REGION: 'us-east-1',
       },
       params: { path: 's3/default-endpoint.jpg' },
-      request: new Request('http://localhost/file/s3/default-endpoint.jpg'),
+      request: fileRequest('s3/default-endpoint.jpg'),
       waitUntil() {},
       next() {},
       data: {},
@@ -333,7 +339,7 @@ describe('public file metadata parsing', () => {
           ])),
         },
         params: { path: 's3/private.jpg' },
-        request: new Request('http://localhost/file/s3/private.jpg'),
+        request: fileRequest('s3/private.jpg'),
         waitUntil() {},
         next() {},
         data: {},
@@ -396,7 +402,7 @@ describe('public file metadata parsing', () => {
           ])),
         },
         params: { path: 'hf/private.jpg' },
-        request: new Request('http://localhost/file/hf/private.jpg'),
+        request: fileRequest('hf/private.jpg'),
         waitUntil() {},
         next() {},
         data: {},

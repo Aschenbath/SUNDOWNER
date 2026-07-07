@@ -24,7 +24,7 @@ function buildSecurityConfigFallback(error = null) {
         upload: {
             moderate: { enabled: false, channel: "default", moderateContentApiKey: "", nsfwApiPath: "" }
         },
-        access: { allowedDomains: "", whiteListMode: false },
+        access: { allowedDomains: "", whiteListMode: false, allowBearerlessFileAccess: false },
         apiTokens: { tokens: {} },
     };
     return defineHiddenProperty(fallback, '__securityConfigLoadError', error || true);
