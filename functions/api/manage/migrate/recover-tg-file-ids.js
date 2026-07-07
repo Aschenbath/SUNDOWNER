@@ -286,7 +286,8 @@ export async function onRequestPost(context) {
             candidates = await scanIndexForCandidates(db, recoveryHints);
         }
     } catch (error) {
-        return jsonResponse({ success: false, error: `Failed to scan candidates: ${error.message}` }, 500);
+        console.error('[recover-tg-file-ids] Failed to scan candidates:', error);
+        return jsonResponse({ success: false, error: 'Failed to scan candidates' }, 500);
     }
 
     const results = {
@@ -400,7 +401,8 @@ export async function onRequestPost(context) {
             await addFileToIndex(context, id, patchedMetadata);
             results.recovered += 1;
         } catch (error) {
-            results.failed.push({ id, reason: error.message });
+            console.error(`[recover-tg-file-ids] Failed to recover ${id}:`, error);
+            results.failed.push({ id, reason: 'Failed to recover Telegram file_id' });
         } finally {
             if (tgApi && forwardedMessageId !== null) {
                 try {

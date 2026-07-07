@@ -13,6 +13,37 @@ const corsHeaders = {
     'Access-Control-Max-Age': '86400',
 };
 
+function jsonResponse(payload, status = 200) {
+    return new Response(JSON.stringify(payload), {
+        status,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+}
+
+function decodeSafePath(rawPath) {
+    try {
+        return decodeURIComponent(rawPath || '');
+    } catch {
+        throw new Error('Invalid file path');
+    }
+}
+
+function restoreErrorResponse(error) {
+    const message = error?.message || '';
+    if (message === 'File not found' || message === 'Invalid file path') {
+        return jsonResponse({
+            success: false,
+            error: message
+        }, 400);
+    }
+
+    console.error('Restore failed:', error);
+    return jsonResponse({
+        success: false,
+        error: 'Internal server error.'
+    }, 500);
+}
+
 export async function onRequest(context) {
     const { request, env, params, waitUntil } = context;
 
@@ -21,19 +52,16 @@ export async function onRequest(context) {
     }
 
     if (request.method !== 'POST') {
-        return new Response(JSON.stringify({
+        return jsonResponse({
             success: false,
             error: 'Method not allowed'
-        }), {
-            status: 405,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders }
-        });
+        }, 405);
     }
 
     waitUntil(cleanupExpiredRecycleBin(context));
 
     try {
-        params.path = decodeURIComponent(params.path);
+        params.path = decodeSafePath(params.path);
         const fileId = params.path.split(',').join('/');
         const db = getDatabase(env);
         const record = await db.getWithMetadata(fileId);
@@ -43,13 +71,11 @@ export async function onRequest(context) {
         }
 
         if (!isRecycleBinMetadata(record.metadata || {})) {
-            return new Response(JSON.stringify({
+            return jsonResponse({
                 success: true,
                 fileId,
                 restored: false,
                 message: 'File is not in recycle bin'
-            }), {
-                headers: { 'Content-Type': 'application/json', ...corsHeaders }
             });
         }
 
@@ -57,20 +83,12 @@ export async function onRequest(context) {
         await db.put(fileId, record.value || '', { metadata: nextMetadata });
         waitUntil(addFileToIndex(context, fileId, nextMetadata));
 
-        return new Response(JSON.stringify({
+        return jsonResponse({
             success: true,
             fileId,
             restored: true
-        }), {
-            headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     } catch (error) {
-        return new Response(JSON.stringify({
-            success: false,
-            error: error.message
-        }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders }
-        });
+        return restoreErrorResponse(error);
     }
 }

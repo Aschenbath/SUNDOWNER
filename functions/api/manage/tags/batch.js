@@ -168,10 +168,11 @@ export async function onRequest(context) {
                 };
 
             } catch (error) {
+                console.error(`Batch tag update failed for ${fileId}:`, error);
                 return {
                     success: false,
                     fileId: fileId,
-                    error: error.message
+                    error: 'Failed to update tags'
                 };
             }
         });

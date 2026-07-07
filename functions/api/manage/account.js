@@ -65,6 +65,31 @@ function validatePassword(password) {
   return value;
 }
 
+const ACCOUNT_CLIENT_ERRORS = new Set([
+  'Username is required',
+  'Username is too long',
+  'Username cannot contain ":"',
+  'Username contains invalid characters',
+  'Display name is required',
+  'Display name is too long',
+  'New password is required',
+  'New password must be at least 6 characters',
+  'New password is too long',
+  'New password contains invalid characters',
+  'Avatar image is too large',
+  'Avatar must be an image data URL or http(s) URL',
+]);
+
+function accountErrorResponse(error) {
+  const message = error?.message || '';
+  if (ACCOUNT_CLIENT_ERRORS.has(message)) {
+    return jsonResponse({ error: message }, { status: 400 });
+  }
+
+  console.error('Account update failed:', error);
+  return jsonResponse({ error: 'Internal server error.' }, { status: 500 });
+}
+
 function buildSecurityConfigPayload(settings, username, password) {
   return {
     ...settings,
@@ -141,7 +166,7 @@ export async function onRequest(context) {
 
       return jsonResponse(nextProfile, { headers });
     } catch (error) {
-      return jsonResponse({ error: error.message || 'Failed to update account' }, { status: 400 });
+      return accountErrorResponse(error);
     }
   }
 

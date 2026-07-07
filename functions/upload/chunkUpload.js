@@ -78,7 +78,8 @@ export async function initializeChunkedUpload(context) {
         });
 
     } catch (error) {
-        return createResponse(`Error: Failed to initialize chunked upload - ${error.message}`, { status: 500 });
+        console.error('Failed to initialize chunked upload:', error);
+        return createResponse('Error: Failed to initialize chunked upload', { status: 500 });
     }
 }
 
@@ -170,7 +171,8 @@ export async function handleChunkUpload(context) {
         });
 
     } catch (error) {
-        return createResponse(`Error: Failed to upload chunk - ${error.message}`, { status: 500 });
+        console.error('Failed to upload chunk:', error);
+        return createResponse('Error: Failed to upload chunk', { status: 500 });
     }
 }
 
@@ -197,8 +199,9 @@ export async function handleCleanupRequest(context, uploadId, totalChunks) {
         });
 
     } catch (error) {
+        console.error('Cleanup failed:', error);
         return createResponse(JSON.stringify({
-            error: `Cleanup failed: ${error.message}`,
+            error: 'Cleanup failed',
             uploadId: uploadId
         }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
@@ -1303,7 +1306,8 @@ export async function uploadLargeFileToTelegram(context, file, fullId, metadata,
         );
 
     } catch (error) {
-        return createResponse(`Telegram Channel Error: Large file upload failed - ${error.message}`, { status: 500 });
+        console.error('Telegram large file upload failed:', error);
+        return createResponse('Telegram Channel Error: Large file upload failed', { status: 500 });
     }
 }
 

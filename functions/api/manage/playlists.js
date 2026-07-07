@@ -18,6 +18,23 @@ function jsonResponse(payload, init = {}) {
   });
 }
 
+const PLAYLIST_CLIENT_ERRORS = new Set([
+  'Playlist name is required',
+  'A playlist with that name already exists',
+  'Playlist not found',
+  'At least one fileId is required',
+]);
+
+function playlistErrorResponse(error, operation) {
+  const message = error?.message || '';
+  if (PLAYLIST_CLIENT_ERRORS.has(message)) {
+    return jsonResponse({ error: message }, { status: 400 });
+  }
+
+  console.error(`${operation} failed:`, error);
+  return jsonResponse({ error: 'Internal server error.' }, { status: 500 });
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -57,7 +74,7 @@ export async function onRequest(context) {
       await invalidateCache(env.img_url, CACHE_CONFIG.playlists.key);
       return jsonResponse(result);
     } catch (error) {
-      return jsonResponse({ error: error.message || 'Failed to update playlists' }, { status: 400 });
+      return playlistErrorResponse(error, 'Update playlists');
     }
   }
 
@@ -79,7 +96,7 @@ export async function onRequest(context) {
       await invalidateCache(env.img_url, CACHE_CONFIG.playlists.key);
       return jsonResponse(result);
     } catch (error) {
-      return jsonResponse({ error: error.message || 'Failed to rename playlist' }, { status: 400 });
+      return playlistErrorResponse(error, 'Rename playlist');
     }
   }
 
@@ -94,7 +111,7 @@ export async function onRequest(context) {
       await invalidateCache(env.img_url, CACHE_CONFIG.playlists.key);
       return jsonResponse(result);
     } catch (error) {
-      return jsonResponse({ error: error.message || 'Failed to delete playlist' }, { status: 400 });
+      return playlistErrorResponse(error, 'Delete playlist');
     }
   }
 

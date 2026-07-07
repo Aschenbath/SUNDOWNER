@@ -154,7 +154,8 @@ export async function onRequestPost(context) {
             } catch (cleanupError) {
                 console.warn(`Failed to clean up committed HuggingFace file ${filePath}:`, cleanupError);
             }
-            return new Response(JSON.stringify({ error: metadataError.message || 'Failed to write metadata' }), {
+            console.error('commitUpload metadata write failed:', metadataError);
+            return new Response(JSON.stringify({ error: 'Failed to write metadata' }), {
                 status: 500,
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -182,8 +183,8 @@ export async function onRequestPost(context) {
         });
 
     } catch (error) {
-        console.error('commitUpload error:', error.message);
-        return new Response(JSON.stringify({ error: error.message }), {
+        console.error('commitUpload error:', error);
+        return new Response(JSON.stringify({ error: 'Internal server error.' }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }
         });

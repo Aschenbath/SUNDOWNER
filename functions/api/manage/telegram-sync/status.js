@@ -1,4 +1,4 @@
-import { asJsonResponse, getTelegramSyncStatus } from '../../../utils/telegramSync.js'
+import { asJsonResponse, asTelegramSyncErrorResponse, getTelegramSyncStatus } from '../../../utils/telegramSync.js'
 
 export async function onRequest(context) {
     const { request } = context
@@ -14,6 +14,6 @@ export async function onRequest(context) {
         const status = await getTelegramSyncStatus(context.env, channelName)
         return asJsonResponse({ success: true, data: status })
     } catch (error) {
-        return asJsonResponse({ success: false, error: error.message }, 500)
+        return asTelegramSyncErrorResponse(error, 500, '[telegram-sync/status] Request failed:')
     }
 }

@@ -107,10 +107,17 @@ export async function onRequest(context) {
             }));
 
         } catch (e) {
+            if (e?.message === 'Invalid path') {
+                return new Response(JSON.stringify({
+                    success: false,
+                    error: e.message
+                }), { status: 400 });
+            }
+            console.error('Folder move failed:', e);
             return new Response(JSON.stringify({
                 success: false,
-                error: e.message
-            }), { status: 400 });
+                error: 'Internal server error.'
+            }), { status: 500 });
         }
     }
 
@@ -148,10 +155,17 @@ export async function onRequest(context) {
             newFileId: newFileId
         }));
     } catch (e) {
+        if (e?.message === 'Invalid path' || e?.message === 'Move file failed') {
+            return new Response(JSON.stringify({
+                success: false,
+                error: e.message
+            }), { status: 400 });
+        }
+        console.error('Move request failed:', e);
         return new Response(JSON.stringify({
             success: false,
-            error: e.message
-        }), { status: 400 });
+            error: 'Internal server error.'
+        }), { status: 500 });
     }
 }
 

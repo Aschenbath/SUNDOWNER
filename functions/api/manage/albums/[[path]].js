@@ -15,6 +15,25 @@ function resolveAlbumId(params) {
   return pathSegments.length ? decodeURIComponent(pathSegments[0]) : '';
 }
 
+const ALBUM_CLIENT_ERRORS = new Set([
+  'Album not found',
+  'Album name is required',
+  'Cannot rename favourites',
+  'An album with that name already exists',
+]);
+
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
+
+function albumErrorResponse(error, operation) {
+  const message = error?.message || '';
+  if (ALBUM_CLIENT_ERRORS.has(message)) {
+    return jsonResponse({ error: message }, { status: 400, headers: NO_STORE_HEADERS });
+  }
+
+  console.error(`${operation} failed:`, error);
+  return jsonResponse({ error: 'Internal server error.' }, { status: 500, headers: NO_STORE_HEADERS });
+}
+
 export async function onRequest(context) {
   const { request, env, params } = context;
   if (request.method === 'OPTIONS') {
@@ -51,7 +70,7 @@ export async function onRequest(context) {
 
         return jsonResponse({ error: 'Album id is required' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
       } catch (error) {
-        return jsonResponse({ error: error.message || 'Failed to update albums' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+        return albumErrorResponse(error, 'Update albums');
       }
     }
 
@@ -71,7 +90,7 @@ export async function onRequest(context) {
         const state = await renamePersistedAlbum(env, renameId, newName);
         return jsonResponse(state, { headers: { 'Cache-Control': 'no-store' } });
       } catch (error) {
-        return jsonResponse({ error: error.message || 'Failed to rename album' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+        return albumErrorResponse(error, 'Rename album');
       }
     }
 
@@ -85,7 +104,7 @@ export async function onRequest(context) {
         const state = await deletePersistedAlbum(env, deleteId);
         return jsonResponse(state, { headers: { 'Cache-Control': 'no-store' } });
       } catch (error) {
-        return jsonResponse({ error: error.message || 'Failed to delete album' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+        return albumErrorResponse(error, 'Delete album');
       }
     }
 
@@ -112,7 +131,7 @@ export async function onRequest(context) {
       const state = await applyPersistedAlbumFileMutation(env, albumId, body || {});
       return jsonResponse(state, { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
-      return jsonResponse({ error: error.message || 'Failed to update album files' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+      return albumErrorResponse(error, 'Update album files');
     }
   }
 

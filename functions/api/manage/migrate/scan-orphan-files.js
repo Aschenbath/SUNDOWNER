@@ -151,9 +151,10 @@ export async function onRequestGet(context) {
     try {
         files = await scanIndexFiles(db);
     } catch (error) {
+        console.error('[scan-orphan-files] Failed to scan index:', error);
         return jsonResponse({
             success: false,
-            error: `Failed to scan index: ${error.message}`,
+            error: 'Failed to scan index',
         }, 500);
     }
 

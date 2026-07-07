@@ -43,6 +43,16 @@ function asJsonResponse(body, status = 200) {
     })
 }
 
+function asTelegramSyncErrorResponse(error, fallbackStatus = 500, label = 'Telegram sync request failed') {
+    const status = Number(error?.status || fallbackStatus) || 500
+    if (status >= 500) {
+        console.error(label, error)
+        return asJsonResponse({ success: false, error: 'Internal server error.' }, status)
+    }
+
+    return asJsonResponse({ success: false, error: error?.message || 'Request failed' }, status)
+}
+
 function normalizeChatId(value) {
     return String(value ?? '').trim()
 }
@@ -872,7 +882,8 @@ export async function getTelegramSyncStatus(env, channelName = '') {
                     const telegramAPI = new TelegramAPI(channel.botToken, channel.proxyUrl || '')
                     webhookInfoCache.set(cacheKey, await telegramAPI.getWebhookInfo())
                 } catch (error) {
-                    webhookInfoCache.set(cacheKey, { error: error.message, url: '' })
+                    console.error(`[telegram-sync/status] Failed to load webhook info for ${channel.name}:`, error)
+                    webhookInfoCache.set(cacheKey, { error: 'Webhook info unavailable', url: '' })
                 }
             }
             webhookInfo = webhookInfoCache.get(cacheKey)
@@ -1069,4 +1080,4 @@ export async function handleTelegramWebhook(context, channelName, providedSecret
     }
 }
 
-export { asJsonResponse, TELEGRAM_SYNC_RESPONSE_HEADERS }
+export { asJsonResponse, asTelegramSyncErrorResponse, TELEGRAM_SYNC_RESPONSE_HEADERS }

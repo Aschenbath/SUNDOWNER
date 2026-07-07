@@ -11,6 +11,37 @@ const corsHeaders = {
     'Access-Control-Max-Age': '86400',
 };
 
+function jsonResponse(payload, status = 200) {
+    return new Response(JSON.stringify(payload), {
+        status,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+}
+
+function decodeSafePath(rawPath) {
+    try {
+        return decodeURIComponent(rawPath || '');
+    } catch {
+        throw new Error('Invalid path');
+    }
+}
+
+function deleteErrorResponse(error, operation) {
+    const message = error?.message || '';
+    if (message === 'Invalid path' || message === 'Delete file failed') {
+        return jsonResponse({
+            success: false,
+            error: message
+        }, 400);
+    }
+
+    console.error(`${operation} failed:`, error);
+    return jsonResponse({
+        success: false,
+        error: 'Internal server error.'
+    }, 500);
+}
+
 export async function onRequest(context) {
     const { request, env, params, waitUntil } = context;
 
@@ -21,7 +52,7 @@ export async function onRequest(context) {
     const folder = url.searchParams.get('folder');
     if (folder === 'true') {
         try {
-            params.path = decodeURIComponent(params.path);
+            params.path = decodeSafePath(params.path);
             if (!isPathSafe(params.path)) {
                 throw new Error('Invalid path');
             }
@@ -63,29 +94,21 @@ export async function onRequest(context) {
                 waitUntil(batchRemoveFilesFromIndex(context, deletedFiles));
             }
 
-            return new Response(JSON.stringify({
+            return jsonResponse({
                 success: true,
                 deleted: deletedFiles,
                 failed: failedFiles,
                 recycled: !permanent
-            }), {
-                headers: { 'Content-Type': 'application/json', ...corsHeaders }
             });
 
         } catch (e) {
-            return new Response(JSON.stringify({
-                success: false,
-                error: e.message
-            }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json', ...corsHeaders }
-            });
+            return deleteErrorResponse(e, 'Folder delete');
         }
     }
 
     // 单个文件删除
     try {
-        params.path = decodeURIComponent(params.path);
+        params.path = decodeSafePath(params.path);
         if (!isPathSafe(params.path)) {
             throw new Error('Invalid path');
         }
@@ -101,21 +124,13 @@ export async function onRequest(context) {
 
         waitUntil(removeFileFromIndex(context, fileId));
 
-        return new Response(JSON.stringify({
+        return jsonResponse({
             success: true,
             fileId,
             recycled: !permanent
-        }), {
-            headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     } catch (e) {
-        return new Response(JSON.stringify({
-            success: false,
-            error: e.message
-        }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders }
-        });
+        return deleteErrorResponse(e, 'File delete');
     }
 }
 

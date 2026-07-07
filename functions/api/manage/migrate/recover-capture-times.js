@@ -462,7 +462,8 @@ export async function onRequestPost(context) {
             candidates = await scanIndexCandidates(db, filters);
         }
     } catch (error) {
-        return jsonResponse({ success: false, error: `Failed to scan candidates: ${error.message}` }, 500);
+        console.error('[recover-capture-times] Failed to scan candidates:', error);
+        return jsonResponse({ success: false, error: 'Failed to scan candidates' }, 500);
     }
 
     const results = {
@@ -554,9 +555,10 @@ export async function onRequestPost(context) {
             await addFileToIndex(context, candidate.id, patchedMetadata);
             results.recovered += 1;
         } catch (error) {
+            console.error(`[recover-capture-times] Failed to recover ${candidate.id}:`, error);
             results.failed.push({
                 id: candidate.id,
-                reason: error.message || String(error),
+                reason: 'Failed to recover capture metadata',
             });
         }
     }

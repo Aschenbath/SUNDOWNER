@@ -1,4 +1,4 @@
-import { asJsonResponse, handleTelegramWebhook } from '../../../../utils/telegramSync.js'
+import { asJsonResponse, asTelegramSyncErrorResponse, handleTelegramWebhook } from '../../../../utils/telegramSync.js'
 
 export async function onRequest(context) {
     const { request, params } = context
@@ -20,6 +20,6 @@ export async function onRequest(context) {
         const result = await handleTelegramWebhook(context, channelName, secret, payload)
         return asJsonResponse(result)
     } catch (error) {
-        return asJsonResponse({ success: false, error: error.message }, error.status || 500)
+        return asTelegramSyncErrorResponse(error, error.status || 500, '[telegram-sync/webhook] Request failed:')
     }
 }

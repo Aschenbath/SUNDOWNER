@@ -247,7 +247,7 @@ export async function onRequest(context) {
         console.error('Error renaming file:', error);
         return new Response(JSON.stringify({
             success: false,
-            message: error.message || 'Internal server error.',
+            message: 'Internal server error.',
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', ...corsHeaders },

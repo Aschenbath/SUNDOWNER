@@ -16,6 +16,21 @@ function jsonResponse(payload, init = {}) {
   });
 }
 
+const MIND_CLIENT_ERRORS = new Set([
+  'Message text is required',
+  'Message id is required',
+]);
+
+function mindErrorResponse(error) {
+  const message = error?.message || '';
+  if (MIND_CLIENT_ERRORS.has(message)) {
+    return jsonResponse({ error: message }, { status: 400 });
+  }
+
+  console.error('Mind update failed:', error);
+  return jsonResponse({ error: 'Internal server error.' }, { status: 500 });
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
 
@@ -55,7 +70,7 @@ export async function onRequest(context) {
 
       return jsonResponse({ error: 'Unsupported Mind action' }, { status: 400 });
     } catch (error) {
-      return jsonResponse({ error: error.message || 'Failed to update Mind' }, { status: 400 });
+      return mindErrorResponse(error);
     }
   }
 

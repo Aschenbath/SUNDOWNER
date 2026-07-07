@@ -118,7 +118,8 @@ export async function handleChunkMerge(context) {
         // 清理上传会话
         waitUntil(cleanupUploadSession(env, uploadId));
 
-        return createResponse(`Error: Failed to merge chunks - ${error.message}`, { status: 500 });
+        console.error('Failed to merge chunks:', error);
+        return createResponse('Error: Failed to merge chunks', { status: 500 });
     }
 }
 
@@ -184,7 +185,8 @@ export async function startMerge(context, uploadId, totalChunks, originalFileNam
         // 清理上传会话
         await cleanupSession(env, uploadId);
 
-        return createResponse(`Error: Failed to merge chunks - ${error.message}`, { status: 500 });
+        console.error('Failed to merge chunks:', error);
+        return createResponse('Error: Failed to merge chunks', { status: 500 });
     }
 }
 
@@ -259,9 +261,10 @@ async function handleChannelBasedMerge(context, uploadId, totalChunks, originalF
         return result;
 
     } catch (error) {
+        console.error('Channel merge failed:', error);
         return {
             success: false,
-            error: error.message
+            error: 'Merge failed'
         };
     }
 }
@@ -344,7 +347,8 @@ async function mergeR2ChunksInfo(context, uploadId, completedChunks, metadata) {
         };
 
     } catch (error) {
-        throw new Error(`R2 merge failed: ${error.message}`);
+        console.error('R2 merge failed:', error);
+        throw new Error('R2 merge failed');
     }
 }
 
@@ -453,7 +457,8 @@ async function mergeS3ChunksInfo(context, uploadId, completedChunks, metadata) {
         };
 
     } catch (error) {
-        throw new Error(`S3 merge failed: ${error.message}`);
+        console.error('S3 merge failed:', error);
+        throw new Error('S3 merge failed');
     }
 }
 
@@ -530,7 +535,8 @@ async function mergeTelegramChunksInfo(context, uploadId, completedChunks, metad
         };
 
     } catch (error) {
-        throw new Error(`Telegram merge failed: ${error.message}`);
+        console.error('Telegram merge failed:', error);
+        throw new Error('Telegram merge failed');
     }
 }
 
@@ -608,6 +614,7 @@ async function mergeDiscordChunksInfo(context, uploadId, completedChunks, metada
         };
 
     } catch (error) {
-        throw new Error(`Discord merge failed: ${error.message}`);
+        console.error('Discord merge failed:', error);
+        throw new Error('Discord merge failed');
     }
 }

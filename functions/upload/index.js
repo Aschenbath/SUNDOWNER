@@ -598,7 +598,8 @@ async function uploadFileToS3(context, fullId, metadata, returnLink) {
         if (s3ObjectUploaded && !metadataWritten) {
             await cleanupRemoteAfterMetadataFailure(`S3 object ${s3FileName}`, cleanupS3Object);
         }
-        return createResponse(`Error: Failed to upload to S3 - ${error.message}`, { status: 500 });
+        console.error('S3 upload error:', error);
+        return createResponse('Error: Failed to upload to S3', { status: 500 });
     }
 }
 
@@ -875,8 +876,8 @@ async function uploadFileToDiscord(context, fullId, metadata, returnLink) {
         );
 
     } catch (error) {
-        console.error('Discord upload error:', error.message);
-        return createResponse(`Error: Discord upload failed - ${error.message}`, { status: 500 });
+        console.error('Discord upload error:', error);
+        return createResponse('Error: Discord upload failed', { status: 500 });
     }
 }
 
@@ -1012,8 +1013,8 @@ async function uploadFileToHuggingFace(context, fullId, metadata, returnLink) {
         );
 
     } catch (error) {
-        console.error('HuggingFace upload error:', error.message);
-        return createResponse(`Error: HuggingFace upload failed - ${error.message}`, { status: 500 });
+        console.error('HuggingFace upload error:', error);
+        return createResponse('Error: HuggingFace upload failed', { status: 500 });
     }
 }
 

@@ -19,6 +19,23 @@ function jsonResponse(payload, init = {}) {
   });
 }
 
+const ALBUM_CLIENT_ERRORS = new Set([
+  'Album not found',
+  'Album name is required',
+  'Cannot rename favourites',
+  'An album with that name already exists',
+]);
+
+function albumErrorResponse(error, fallbackMessage, operation) {
+  const message = error?.message || '';
+  if (ALBUM_CLIENT_ERRORS.has(message)) {
+    return jsonResponse({ error: message }, { status: 400 });
+  }
+
+  console.error(`${operation} failed:`, error);
+  return jsonResponse({ error: fallbackMessage }, { status: 500 });
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -67,7 +84,7 @@ export async function onRequest(context) {
 
       return jsonResponse({ error: 'Unsupported album operation' }, { status: 400 });
     } catch (error) {
-      return jsonResponse({ error: error.message || 'Failed to update albums' }, { status: 400 });
+      return albumErrorResponse(error, 'Internal server error.', 'Update albums');
     }
   }
 
@@ -91,7 +108,7 @@ export async function onRequest(context) {
       await invalidateCache(env.img_url, CACHE_CONFIG.albums.key);
       return jsonResponse(state);
     } catch (error) {
-      return jsonResponse({ error: error.message || 'Failed to rename album' }, { status: 400 });
+      return albumErrorResponse(error, 'Internal server error.', 'Rename album');
     }
   }
 
@@ -107,7 +124,7 @@ export async function onRequest(context) {
       await invalidateCache(env.img_url, CACHE_CONFIG.albums.key);
       return jsonResponse(state);
     } catch (error) {
-      return jsonResponse({ error: error.message || 'Failed to delete album' }, { status: 400 });
+      return albumErrorResponse(error, 'Internal server error.', 'Delete album');
     }
   }
 

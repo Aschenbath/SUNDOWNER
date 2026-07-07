@@ -190,7 +190,8 @@ export async function onRequestPost(context) {
             candidates = await scanIndexForCandidates(db);
         }
     } catch (error) {
-        return jsonResponse({ success: false, error: `Failed to scan candidates: ${error.message}` }, 500);
+        console.error('[recover-tg-thumbnails] Failed to scan candidates:', error);
+        return jsonResponse({ success: false, error: 'Failed to scan candidates' }, 500);
     }
 
     const results = {
@@ -278,7 +279,8 @@ export async function onRequestPost(context) {
             await addFileToIndex(context, candidate.id, patchedMetadata);
             results.recovered += 1;
         } catch (error) {
-            results.failed.push({ id: candidate.id, reason: error.message });
+            console.error(`[recover-tg-thumbnails] Failed to recover ${candidate.id}:`, error);
+            results.failed.push({ id: candidate.id, reason: 'Failed to recover Telegram thumbnail' });
         } finally {
             if (forwardedMessageId !== null) {
                 try {
