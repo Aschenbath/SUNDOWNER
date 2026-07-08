@@ -17,6 +17,12 @@ Do not recreate `COLLABORATION.md`, `Function_History.md`, runtime-truth docs, o
 - Keep the repository root limited to canonical entrypoints. `test/publicDocsContract.test.js` guards the root allowlist.
 - For meaningful work, append a compact result entry to `history.md` and update its final Tail Capsule when useful.
 
+## Completion Protocol
+
+- Do not leave project state in chat only. For meaningful work, write a timestamped completion/result entry to `history.md` before the final user report.
+- Update the final Tail Capsule when the current state, validation baseline, or next follow-up changes.
+- Check `D:\Codex\codexRules.md` after completion only for durable cross-project facts or user preferences; avoid duplicating one-off project logs there.
+
 ## Project Overview
 
 SUNDOWNER is a Cloudflare Pages + Functions media library/dashboard. It supports Telegram, Discord, S3, R2, and HuggingFace-backed storage. KV stores file values/settings; D1 stores/query metadata when available; index chunks remain part of the rollback-compatible KV path.

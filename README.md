@@ -195,7 +195,7 @@ Common optional settings:
 
 - `TG_BOT_TOKEN`: fallback Telegram bot token when upload config does not provide one.
 - `FETCH_RES_ALLOWED_HOSTS`: explicit host allowlist for `/api/fetchRes`; leave unset to keep that proxy disabled.
-- `ALLOW_BEARERLESS_FILE_ACCESS`: legacy compatibility opt-out for `/file/*`; leave unset or `false` so no-`Referer` direct file requests require `authCode`.
+- `ALLOW_BEARERLESS_FILE_ACCESS` / `access.allowBearerlessFileAccess`: legacy compatibility opt-out for `/file/*`; leave unset or `false` so no-`Referer` direct file requests require `authCode`.
 - Admin/user auth, upload channels, WebDAV, public browsing, random API, API tokens, quotas, and page options are managed through system config APIs/UI and stored under `manage@sysConfig@...`.
 
 After binding D1 to an existing KV-backed deployment, migrate metadata in batches:

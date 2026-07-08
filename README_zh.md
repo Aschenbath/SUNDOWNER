@@ -195,7 +195,7 @@ http://localhost:7658
 
 - `TG_BOT_TOKEN`：当 upload config 中没有可用 Telegram token 时的兜底 bot token。
 - `FETCH_RES_ALLOWED_HOSTS`：`/api/fetchRes` 的 host allowlist；不设置时该代理保持禁用。
-- `ALLOW_BEARERLESS_FILE_ACCESS`：`/file/*` 的旧部署兼容开关；默认不要设置或设为 `false`，让无 `Referer` 的文件直链请求必须带 `authCode`。
+- `ALLOW_BEARERLESS_FILE_ACCESS` / `access.allowBearerlessFileAccess`：`/file/*` 的旧部署兼容开关；默认不要设置或设为 `false`，让无 `Referer` 的文件直链请求必须带 `authCode`。
 - 管理员/用户鉴权、上传通道、WebDAV、公开浏览、随机 API、API token、配额和页面选项通过系统配置 API/UI 管理，并存放在 `manage@sysConfig@...` 下。
 
 给已有 KV 部署绑定 D1 后，用迁移接口分批迁移 metadata：

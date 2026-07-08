@@ -399,6 +399,17 @@ describe('public documentation contract', () => {
     assert.match(readUtf8('.gitignore'), /^\.local\/$/m);
   });
 
+  it('documents direct file access as non-bearerless by default', () => {
+    const staleBearerlessRisk = /\/file\/\*\s+direct URLs are effectively bearerless/i;
+
+    for (const file of publicDocs) {
+      const text = readUtf8(file);
+      assert.match(text, /ALLOW_BEARERLESS_FILE_ACCESS/, `${file} should document the legacy direct-file opt-out env var`);
+      assert.match(text, /allowBearerlessFileAccess/, `${file} should document the stored direct-file opt-out key`);
+      assert.doesNotMatch(text, staleBearerlessRisk, `${file} should not describe /file/* as bearerless by default`);
+    }
+  });
+
   it('keeps README local links, anchors, and images resolvable', () => {
     for (const file of readmes) {
       const markdown = readUtf8(file);
