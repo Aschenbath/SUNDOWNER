@@ -20,6 +20,7 @@ Do not recreate `COLLABORATION.md`, `Function_History.md`, runtime-truth docs, o
 ## Completion Protocol
 
 - Do not leave project state in chat only. For meaningful work, write a timestamped completion/result entry to `history.md` before the final user report.
+- When the user provides stable project instructions or durable context, update the right source document directly (`AGENTS.md`, `history.md`, README/docs, or `D:\Codex\codexRules.md` for cross-project facts) instead of treating chat as the source of truth.
 - Update the final Tail Capsule when the current state, validation baseline, or next follow-up changes.
 - Check `D:\Codex\codexRules.md` after completion only for durable cross-project facts or user preferences; avoid duplicating one-off project logs there.
 
