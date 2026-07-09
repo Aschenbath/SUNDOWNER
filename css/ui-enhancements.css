@@ -1,0 +1,41 @@
+/* UI Enhancements for smoother interactions */
+
+/* Icon hover effect */
+.cml-icon {
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.cml-icon:hover {
+  transform: scale(1.12);
+  color: var(--cml-primary-color, #4a90e2);
+}
+
+/* Button hover and focus */
+.cml-button {
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.cml-button:hover,
+.cml-button:focus {
+  background-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Panel reveal animation */
+.cml-panel {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.cml-panel.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Input focus styling */
+.cml-input {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.cml-input:focus {
+  border-color: var(--cml-primary-color, #4a90e2);
+  box-shadow: 0 0 0 2px rgba(74,144,226,0.2);
+}

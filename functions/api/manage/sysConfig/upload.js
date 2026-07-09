@@ -1,11 +1,13 @@
 import { getDatabase } from '../../../utils/databaseAdapter.js'
+import { getCache, setCache, clearCache } from '../../../utils/cache.js'
 
+const CACHE_TTL_MS = 60_000; // 1 minute cache for upload config
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
-}
+};
 
 const SECRET_PLACEHOLDER = 'Configured'
 
@@ -40,9 +42,15 @@ export async function onRequest(context) {
     const db = getDatabase(env)
 
     if (request.method === 'GET') {
+        // Try cache first
+        const cached = getCache(CACHE_TTL_MS);
+        if (cached) {
+            return createJsonResponse(buildPublicUploadConfig(cached));
+        }
         try {
-            const settings = await getUploadConfig(db, env)
-            return createJsonResponse(buildPublicUploadConfig(settings))
+            const settings = await getUploadConfig(db, env);
+            setCache(settings, CACHE_TTL_MS);
+            return createJsonResponse(buildPublicUploadConfig(settings));
         } catch (error) {
             if (error instanceof SyntaxError) {
                 return createJsonResponse({
@@ -50,15 +58,14 @@ export async function onRequest(context) {
                     error: 'Corrupted config data',
                 }, {
                     status: 500,
-                })
+                });
             }
-
             return createJsonResponse({
                 success: false,
                 error: 'Failed to load upload config',
             }, {
                 status: 500,
-            })
+            });
         }
     }
 
@@ -77,7 +84,9 @@ export async function onRequest(context) {
 
         const currentSettings = await getStoredUploadSettings(db)
         const settings = preserveUploadSecrets(normalizeUploadSettings(body), currentSettings)
-        await db.put('manage@sysConfig@upload', JSON.stringify(settings))
+        await db.put('manage@sysConfig@upload', JSON.stringify(settings));
+        // Invalidate cache after mutation
+        clearCache();
 
         return createJsonResponse(buildPublicUploadConfig(await getUploadConfig(db, env)))
     }

@@ -1189,12 +1189,13 @@ body.codex-media-library-active #app {
   color: var(--cml-theme-secondary-text);
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 160ms ease;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), color 200ms cubic-bezier(0.4, 0, 0.2, 1), transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #codex-media-library-root .cml-topbar__icon-button:hover {
   background: var(--cml-theme-hover);
   color: var(--cml-theme-text);
+  transform: translateY(-1px);
 }
 
 #codex-media-library-root .cml-topbar__search {
@@ -1211,13 +1212,19 @@ body.codex-media-library-active #app {
   background: var(--cml-theme-search-bg);
   border: 1px solid var(--cml-theme-search-border);
   cursor: text;
-  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  transition: background 220ms cubic-bezier(0.4, 0, 0.2, 1), border-color 220ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1), transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#codex-media-library-root .cml-topbar__search:hover {
+  background: color-mix(in srgb, var(--cml-theme-search-bg) 85%, var(--cml-theme-search-focus-bg) 15%);
+  border-color: color-mix(in srgb, var(--cml-theme-search-border) 70%, var(--cml-theme-search-focus-border) 30%);
 }
 
 #codex-media-library-root .cml-topbar__search:focus-within {
   background: var(--cml-theme-search-focus-bg);
   border-color: var(--cml-theme-search-focus-border);
-  box-shadow: 0 0 0 1px var(--cml-theme-search-focus-border), 0 2px 8px var(--cml-theme-search-focus-ring);
+  box-shadow: 0 0 0 1px var(--cml-theme-search-focus-border), 0 2px 12px var(--cml-theme-search-focus-ring);
+  transform: translateY(-1px);
 }
 
 #codex-media-library-root .cml-topbar__search-icon {
@@ -1225,6 +1232,12 @@ body.codex-media-library-active #app {
   color: var(--cml-theme-search-icon);
   width: 18px;
   height: 18px;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1), transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#codex-media-library-root .cml-topbar__search:focus-within .cml-topbar__search-icon {
+  color: var(--cml-theme-accent);
+  transform: scale(1.08);
 }
 
 #codex-media-library-root .cml-topbar__search-input {
@@ -1271,12 +1284,15 @@ body.codex-media-library-active #app {
   background: color-mix(in srgb, var(--cml-theme-card) 82%, transparent 18%);
   color: var(--cml-theme-text-muted);
   cursor: pointer;
-  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), color 200ms cubic-bezier(0.4, 0, 0.2, 1), transform 200ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #codex-media-library-root .cml-search-clear:hover,
 #codex-media-library-root .cml-search-clear:focus-visible {
   background: color-mix(in srgb, var(--cml-theme-accent-soft) 82%, transparent 18%);
+  color: var(--cml-theme-accent);
+  transform: scale(1.1) rotate(90deg);
+}
   color: var(--cml-theme-text);
   transform: scale(1.04);
 }
@@ -2506,12 +2522,16 @@ body.codex-media-library-active #app {
   color: inherit;
   cursor: pointer;
   text-align: left;
-  transition: transform 180ms ease, opacity 180ms ease;
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1), opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #codex-media-library-root .cml-collection-card:hover {
-  transform: translateY(-3px);
-  opacity: 0.96;
+  transform: translateY(-4px);
+  opacity: 1;
+}
+
+#codex-media-library-root .cml-collection-card:hover .cml-collection-card__cover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
 }
 
 #codex-media-library-root .cml-collection-card--system {
@@ -2590,6 +2610,7 @@ body.codex-media-library-active #app {
   overflow: hidden;
   border-radius: 18px;
   background: transparent;
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #codex-media-library-root .cml-collection-card__cover.is-empty {
@@ -2790,11 +2811,17 @@ body.codex-media-library-active #app {
   transform: translateZ(0);
   backface-visibility: hidden;
   contain: paint;
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#codex-media-library-root .cml-media-tile:hover {
+  transform: translateZ(0) scale(1.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
 }
 
 #codex-media-library-root .cml-media-tile.is-selected {
   background: #202124;
-  box-shadow: inset 0 0 0 1px rgba(168, 199, 250, 0.16);
+  box-shadow: inset 0 0 0 2px rgba(168, 199, 250, 0.48);
 }
 
 #codex-media-library-root .cml-media-tile__image {
