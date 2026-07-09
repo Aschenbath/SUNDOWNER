@@ -6,6 +6,7 @@
     "hono": "^4.7.4"
   },
   "overrides": {
-    "fast-xml-parser": "^5.3.6"
+    "fast-xml-parser": "^5.3.6",
+    "is-unsafe": "1.0.2"
   }
 }
