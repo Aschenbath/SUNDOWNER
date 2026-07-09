@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "postinstall": "node -e \"try{require('fs').rmSync('node_modules/is-unsafe/src/index.d.ts',{force:true})}catch(e){}\""
+    "postinstall": "node -e \"const fs=require('fs');['node_modules/is-unsafe/src/index.d.ts','node_modules/@nodable/entities/src/index.d.ts'].forEach(f=>{try{fs.rmSync(f,{force:true})}catch(e){}})\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.726.1",
