@@ -424,6 +424,7 @@ export async function onRequest(context) {  // Contents of context object
     const db = getDatabase(env);
     const imgRecord = await db.getWithMetadata(fileId);
     if (!imgRecord) {
+        console.warn(`Image metadata not found in database: ${fileId}`);
         return imageNotFoundResponse();
     }
 
