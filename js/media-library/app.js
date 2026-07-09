@@ -2459,8 +2459,10 @@ function setupImageLoadAnimations() {
         revealLoadedPreviewImage(img, tile);
         swapTileToFullImage(img, tile, fullSrc);
       }, { once: true });
-      img.addEventListener('error', () => {
+      img.addEventListener('error', (e) => {
+        console.warn('Image load failed:', img.src, 'tile:', tile.dataset?.tileId, e);
         tile.classList.add('is-img-loaded');
+        tile.classList.add('has-load-error');
         rememberLoaded();
       }, { once: true });
     } else {
@@ -2469,8 +2471,10 @@ function setupImageLoadAnimations() {
         rememberLoaded({ fullLoaded: true });
         captureDimension(img, tile);
       }, { once: true });
-      img.addEventListener('error', () => {
+      img.addEventListener('error', (e) => {
+        console.warn('Image load failed:', img.src, 'tile:', tile.dataset?.tileId, e);
         tile.classList.add('is-img-loaded');
+        tile.classList.add('has-load-error');
         rememberLoaded();
       }, { once: true });
     }
@@ -19671,6 +19675,24 @@ function handleAction(actionTarget, event = null) {
 }
 
 function handleClick(event) {
+  // Handle click on failed image tiles to retry loading
+  const failedTile = event.target instanceof Element ? event.target.closest('.cml-media-tile.has-load-error, .is-heic-fallback') : null;
+  if (failedTile instanceof HTMLElement) {
+    const img = failedTile.querySelector('img');
+    if (img instanceof HTMLImageElement && img.src) {
+      event.preventDefault();
+      event.stopPropagation();
+      console.log('Retrying failed image:', img.src);
+      failedTile.classList.remove('has-load-error', 'is-heic-fallback');
+      const originalSrc = img.src;
+      img.src = '';
+      window.setTimeout(() => {
+        img.src = originalSrc + (originalSrc.includes('?') ? '&' : '?') + 'retry=' + Date.now();
+      }, 50);
+      return;
+    }
+  }
+
   const pointerStartEditSurface = filmPointerStartEditSurface;
   filmPointerStartEditSurface = '';
   const actionTarget = event.target instanceof Element ? event.target.closest('[data-action], [data-primary], [data-secondary], [data-year], [data-anchor]') : null;

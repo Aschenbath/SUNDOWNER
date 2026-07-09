@@ -451,7 +451,7 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       const w = includeIntrinsicSize && item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
       const h = includeIntrinsicSize && item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
       const mimeTag = formatSafeImageMimeTag(item.mimeType);
-      const errorHandler = "this.style.display='none';this.parentElement.classList.add('is-heic-fallback');this.parentElement.dataset.mimeTag=this.dataset.mimeTag||'IMAGE'";
+      const errorHandler = "console.error('Image load error:',this.src,event);this.style.display='none';this.parentElement.classList.add('is-heic-fallback');this.parentElement.dataset.mimeTag=this.dataset.mimeTag||'IMAGE';this.parentElement.title='Click to retry: '+this.src";
       // In the lightbox/modal, also expose the original HEIC URL so the
       // client-side decoder can swap the IFD1 thumbnail with a real-resolution
       // JPEG once the WASM bundle finishes decoding. Tiles keep the cheap
