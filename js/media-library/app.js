@@ -19676,14 +19676,14 @@ function handleAction(actionTarget, event = null) {
 
 function handleClick(event) {
   // Handle click on failed image tiles to retry loading
-  const failedTile = event.target instanceof Element ? event.target.closest('.cml-media-tile.has-load-error, .is-heic-fallback') : null;
+  const failedTile = event.target instanceof Element ? event.target.closest('.cml-media-tile.has-load-error') : null;
   if (failedTile instanceof HTMLElement) {
     const img = failedTile.querySelector('img');
     if (img instanceof HTMLImageElement && img.src) {
       event.preventDefault();
       event.stopPropagation();
       console.log('Retrying failed image:', img.src);
-      failedTile.classList.remove('has-load-error', 'is-heic-fallback');
+      failedTile.classList.remove('has-load-error');
       const originalSrc = img.src;
       img.src = '';
       window.setTimeout(() => {
