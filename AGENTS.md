@@ -90,6 +90,10 @@ Do not build CSS `url(...)` values with plain `escapeHtml()` or string interpola
 
 `/file/*` direct requests must not be bearerless by default. No-`Referer` requests are allowed only with a valid configured `authCode` header/cookie or the explicit legacy opt-out `access.allowBearerlessFileAccess: true` / `ALLOW_BEARERLESS_FILE_ACCESS=true`. Same-origin and allowed-domain `Referer` requests remain supported. Keep the fallback default `false`, and preserve stored opt-out state during partial security-config POSTs.
 
+### 12. Functions Dependency Determinism
+
+Cloudflare Pages installs the repository root and `functions/` as separate npm roots. Keep `fast-xml-parser` pinned to the exact same verified version in both `package.json` and `functions/package.json`; do not replace the exact pin with a caret range. Older 5.x resolutions import `HTML` and `XML` names that `is-unsafe@1.0.1` does not export, causing Pages Functions bundling to fail. `test/deploymentDependencies.test.js` guards this contract.
+
 ## Key Files
 
 ```text

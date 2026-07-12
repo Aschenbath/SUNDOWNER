@@ -2010,6 +2010,31 @@ describe('media library download actions', () => {
     assert.match(html, /<img class="cml-media-tile__image"/);
   });
 
+  it('keeps a renderable blur thumbnail visible when the HEIC tile preview cannot load', () => {
+    const html = MediaTile({
+      item: {
+        id: 'managed-heic-progressive',
+        type: 'photo',
+        label: 'IMG_progressive.HEIC',
+        sourceUrl: '/file/IMG_progressive.HEIC',
+        thumbnailUrl: '/file/IMG_progressive.HEIC?preview=1',
+        blurThumbUrl: 'data:image/jpeg;base64,ZmFrZS1qcGVn',
+        width: 3024,
+        height: 4032,
+        mimeType: 'image/heic',
+        browserPreviewSupported: false,
+      },
+      selected: false,
+      layout: { width: 220, height: 280 },
+    });
+
+    assert.match(html, /class="cml-media-tile__image is-blur-placeholder"/);
+    assert.match(html, /src="data:image\/jpeg;base64,ZmFrZS1qcGVn"/);
+    assert.match(html, /data-full-src="\/file\/IMG_progressive\.HEIC\?preview=1"/);
+    assert.doesNotMatch(html, /HEIC original/);
+    assert.doesNotMatch(html, /onerror=/);
+  });
+
   it('keeps HEIC fallback MIME labels out of inline error-handler code', () => {
     const html = MediaTile({
       item: {

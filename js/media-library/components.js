@@ -441,18 +441,27 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
   }
   if (item.type === 'photo' && item.browserPreviewSupported === false) {
     // HEIC/HEIF: prefer the full preview route in the modal, keep tiles on the lighter thumbnail
+    const includeIntrinsicSize = !withControls;
+    const w = includeIntrinsicSize && item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
+    const h = includeIntrinsicSize && item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
     const fallbackUrl = withControls && item.fullPreviewUrl
       ? item.fullPreviewUrl
       : item.thumbnailUrl && item.thumbnailUrl !== item.sourceUrl
         ? item.thumbnailUrl
       : (item.posterUrl || '');
+    const heicTileBlurUrl = !withControls
+      && item.blurThumbUrl
+      && item.blurThumbUrl !== item.sourceUrl
+      ? item.blurThumbUrl
+      : '';
+    if (heicTileBlurUrl) {
+      const heicTileUpgradeUrl = fallbackUrl || item.sourceUrl || '';
+      return `<img class="${className} is-blur-placeholder" src="${escapeHtml(heicTileBlurUrl)}" alt="${alt}"${w}${h} data-canonical-src="${escapeHtml(heicTileBlurUrl)}" data-original-src="${escapeHtml(heicTileUpgradeUrl)}" data-full-src="${escapeHtml(heicTileUpgradeUrl)}"${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" />`;
+    }
     const imgSrc = escapeHtml(fallbackUrl || (item.sourceUrl || ''));
     if (imgSrc) {
       // Try rendering — Safari supports HEIC natively; on failure, onerror
       // hides the broken img and reveals a CSS fallback label on the tile.
-      const includeIntrinsicSize = !withControls;
-      const w = includeIntrinsicSize && item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
-      const h = includeIntrinsicSize && item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
       const mimeTag = formatSafeImageMimeTag(item.mimeType);
       const errorHandler = "console.error('Image load error:',this.src,event);this.style.display='none';this.parentElement.classList.add('is-heic-fallback');this.parentElement.dataset.mimeTag=this.dataset.mimeTag||'IMAGE';this.parentElement.title='Click to retry: '+this.src";
       // In the lightbox/modal, also expose the original HEIC URL so the
