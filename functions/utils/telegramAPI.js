@@ -361,7 +361,7 @@ function buildTelegramFilePathCacheKey(fileId) {
     );
 }
 
-export async function resolveTelegramFilePathCached(telegramAPI, fileId, cache = null) {
+export async function resolveTelegramFilePathCached(telegramAPI, fileId, cache = null, options = {}) {
     if (!telegramAPI || !fileId) {
         return null;
     }
@@ -369,16 +369,18 @@ export async function resolveTelegramFilePathCached(telegramAPI, fileId, cache =
     let cacheKey = null;
     if (cache) {
         cacheKey = buildTelegramFilePathCacheKey(fileId);
-        try {
-            const cached = await cache.match(cacheKey);
-            if (cached) {
-                const cachedPath = (await cached.text()).trim();
-                if (cachedPath) {
-                    return cachedPath;
+        if (options?.forceRefresh !== true) {
+            try {
+                const cached = await cache.match(cacheKey);
+                if (cached) {
+                    const cachedPath = (await cached.text()).trim();
+                    if (cachedPath) {
+                        return cachedPath;
+                    }
                 }
+            } catch (error) {
+                console.warn('Telegram file_path cache lookup failed:', error?.message || error);
             }
-        } catch (error) {
-            console.warn('Telegram file_path cache lookup failed:', error?.message || error);
         }
     }
 

@@ -959,3 +959,5 @@ Process note: this merge happened during another long intermittent `claude-opus-
 - latest-validation: 2026-07-12 21:16 Node 22 frontend/entry/dependency `170 passing / 1 pending`; file-route/media-security `19 passing`; changed JS/test syntax checks clean; root production audit `0 vulnerabilities`; `git diff --check` clean; Pages Functions bundle compiled successfully.
 - current-security-followups: Legacy plaintext API-token records migrate lazily on successful token validation, management list, or token metadata update. Current upload/direct-upload/auth/file/WebDAV/dependency/header/frontend-rendering/direct-file review found no further confirmed code-level security follow-up beyond the fixes above.
 - read-protocol: start with `Get-Content history.md -Tail 14`, then inspect the latest relevant work log and verify live code/tests before editing.
+
+- 2026-07-12 21:48:00 +08:00: 修复 Telegram 文件路径缓存过期导致 HEIC/照片持续 404 的问题。文件路由在 Telegram 上游返回 404 时强制刷新 file_path 缓存并仅重试一次；预览请求刷新成功后直接提取 JPEG，避免把原始 HEIC 返回给浏览器。新增 forceRefresh 缓存回归测试。验证：Telegram 缓存、HEIC 预览、文件元数据与媒体安全测试 34 passing；Node 22 syntax check 通过；wrangler pages functions build functions 成功。

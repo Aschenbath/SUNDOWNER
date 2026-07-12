@@ -34,6 +34,25 @@ class FakeTelegramAPI {
 }
 
 describe('resolveTelegramFilePathCached', () => {
+    it('bypasses and replaces a stale cached path when forceRefresh is requested', async () => {
+        const cache = new MemoryCache();
+        await cache.put(new Request('https://internal.cache/tg-file-path/v1/tg-id-stale'), new Response('documents/stale.heic'));
+        let calls = 0;
+        const api = {
+            async getFilePath() {
+                calls += 1;
+                return 'documents/fresh.heic';
+            },
+        };
+
+        const refreshed = await resolveTelegramFilePathCached(api, 'tg-id-stale', cache, { forceRefresh: true });
+        const cached = await resolveTelegramFilePathCached(api, 'tg-id-stale', cache);
+
+        assert.equal(refreshed, 'documents/fresh.heic');
+        assert.equal(cached, 'documents/fresh.heic');
+        assert.equal(calls, 1);
+    });
+
     it('returns null without calling getFilePath when telegramAPI is missing', async () => {
         const result = await resolveTelegramFilePathCached(null, 'abc', new MemoryCache());
         assert.equal(result, null);

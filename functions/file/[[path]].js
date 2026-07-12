@@ -546,7 +546,7 @@ export async function onRequest(context) {  // Contents of context object
         const TgBotToken = telegramAccess.botToken;
         const TgProxyUrl = telegramAccess.proxyUrl || '';
         const tgApi = new TelegramAPI(TgBotToken, TgProxyUrl);
-        const filePath = await resolveTelegramFilePathCached(tgApi, TgFileID, getWorkerEdgeCache());
+        let filePath = await resolveTelegramFilePathCached(tgApi, TgFileID, getWorkerEdgeCache());
         if (filePath === null) {
             const fallbackPreview = await tryFallbackTelegramPreviewRead(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
             if (fallbackPreview) {
@@ -556,6 +556,10 @@ export async function onRequest(context) {  // Contents of context object
         }
         // 使用代理域名或官方域名
         targetUrl = buildTelegramFileUrl(TgBotToken, filePath, TgProxyUrl);
+        context.telegramPathRefresh = async () => {
+            const refreshedPath = await resolveTelegramFilePathCached(tgApi, TgFileID, getWorkerEdgeCache(), { forceRefresh: true });
+            return refreshedPath ? buildTelegramFileUrl(TgBotToken, refreshedPath, TgProxyUrl) : '';
+        };
     } else {
         targetUrl = 'https://telegra.ph/' + url.pathname + url.search;
     }
@@ -570,6 +574,28 @@ export async function onRequest(context) {  // Contents of context object
             }
             return new Response('Error: Failed to fetch image', { status: 500 });
         } else if (response.status === 404) {
+            const refreshedTargetUrl = typeof context.telegramPathRefresh === 'function'
+                ? await context.telegramPathRefresh()
+                : '';
+            if (refreshedTargetUrl && refreshedTargetUrl !== targetUrl) {
+                const refreshedResponse = await getFileContent(request, refreshedTargetUrl);
+                if (refreshedResponse && refreshedResponse.status !== 404) {
+                    if (wantsPreview && supportsEmbeddedPreviewExtraction(fileType)) {
+                        const refreshedBytes = new Uint8Array(await refreshedResponse.arrayBuffer());
+                        const refreshedPreview = await extractEmbeddedPreview(refreshedBytes, fileType);
+                        if (refreshedPreview?.bytes?.byteLength) {
+                            return buildEmbeddedPreviewResponse(context, fileName, refreshedPreview);
+                        }
+                    }
+                    const refreshedHeaders = new Headers(refreshedResponse.headers);
+                    applyFileResponseHeaders(context, refreshedHeaders, encodedFileName, responseFileType);
+                    return new Response(refreshedResponse.body, {
+                        status: refreshedResponse.status,
+                        statusText: refreshedResponse.statusText,
+                        headers: refreshedHeaders,
+                    });
+                }
+            }
             const fallbackPreview = await tryFallbackTelegramPreviewRead(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
             if (fallbackPreview) {
                 return fallbackPreview;
