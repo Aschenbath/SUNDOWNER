@@ -54,7 +54,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=123';
+} from './components.js?v=124';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -87,6 +87,11 @@ import { findPreviewMatch } from './preview-resolution.js?v=1';
 import { getLookupKeys as buildMediaLookupKeys } from './media-lookup.js?v=1';
 import { shouldDisplayMediaItem, supportsBrowserImagePreview } from './media-support.js?v=1';
 import { resolveMediaCaptureTimestamp } from './time-resolution.js?v=1';
+import {
+  buildImageRetryUrl,
+  canRetryImage,
+  getNextImageSource,
+} from './image-load-state.js?v=1';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
@@ -229,6 +234,7 @@ const BIN_TIMELINE_SECTION_GAP = 24;
 const TIMELINE_VIRTUAL_OVERSCAN = 960;
 const TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD = 720;
 const PHOTOS_PRIORITY_TILE_LIMIT = 8;
+const MAX_IMAGE_RETRY_ATTEMPTS = 3;
 const TILE_SELECTION_CHECK_MARKUP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 12.8 3.7 3.7 7.5-8.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
 const TILE_SELECTION_RING_MARKUP = '<span class="cml-media-tile__select-ring"></span>';
 const VIDEO_CATEGORY_MAX_LENGTH = 48;
@@ -2366,6 +2372,62 @@ function revealLoadedPreviewImage(img, tile) {
   tile.classList.add('is-preview-loaded');
 }
 
+function markTileImageLoaded(img, tile, { fullLoaded = false } = {}) {
+  tile.classList.remove('has-load-error', 'is-retrying');
+  tile.removeAttribute('aria-busy');
+  tile.classList.add('is-img-loaded');
+  const tileId = normalizeText(tile.dataset?.tileId || tile.dataset?.id || '');
+  if (tileId) {
+    state.loadedMediaIds.add(tileId);
+    if (fullLoaded) {
+      state.fullLoadedMediaIds.add(tileId);
+    }
+  }
+  if (img instanceof HTMLImageElement) {
+    img.dataset.retryAttempt = '0';
+  }
+}
+
+function markTileImageFailed(img, tile, event) {
+  const nextSource = getNextImageSource(img.dataset);
+  if (nextSource.usesOriginal) {
+    img.dataset.triedOriginal = '1';
+    img.src = nextSource.source;
+    return;
+  }
+  console.warn('Image load failed:', img.src, 'tile:', tile.dataset?.tileId, event);
+  tile.classList.remove('is-retrying');
+  tile.removeAttribute('aria-busy');
+  tile.classList.add('is-img-loaded', 'has-load-error');
+}
+
+function retryFailedImageTile(tile) {
+  const img = tile?.querySelector('img');
+  if (!(tile instanceof HTMLElement) || !(img instanceof HTMLImageElement)) {
+    return false;
+  }
+  const currentAttempt = Number.parseInt(img.dataset.retryAttempt || '0', 10);
+  if (!canRetryImage(currentAttempt, MAX_IMAGE_RETRY_ATTEMPTS)) {
+    tile.classList.add('is-retry-exhausted');
+    return false;
+  }
+  const nextAttempt = currentAttempt + 1;
+  const nextSource = getNextImageSource(img.dataset);
+  const retryUrl = buildImageRetryUrl(nextSource.source, nextAttempt, window.location.origin);
+  if (!retryUrl) {
+    return false;
+  }
+  if (nextSource.usesOriginal) {
+    img.dataset.triedOriginal = '1';
+  }
+  img.dataset.retryAttempt = String(nextAttempt);
+  tile.classList.remove('has-load-error', 'is-retry-exhausted');
+  tile.classList.add('is-retrying');
+  tile.setAttribute('aria-busy', 'true');
+  img.src = retryUrl;
+  return true;
+}
+
 function swapTileToFullImage(img, tile, fullSrc) {
   if (!(img instanceof HTMLImageElement) || !fullSrc) {
     return;
@@ -2415,15 +2477,7 @@ function setupImageLoadAnimations() {
       return;
     }
     const tileId = normalizeText(tile.dataset?.tileId || tile.dataset?.id || '');
-    const rememberLoaded = ({ fullLoaded = false } = {}) => {
-      if (!tileId) {
-        return;
-      }
-      state.loadedMediaIds.add(tileId);
-      if (fullLoaded) {
-        state.fullLoadedMediaIds.add(tileId);
-      }
-    };
+    const rememberLoaded = ({ fullLoaded = false } = {}) => markTileImageLoaded(img, tile, { fullLoaded });
     const fullSrc = img.dataset.fullSrc || '';
     if (img.complete && img.naturalWidth > 0) {
       // Skip fade-in for already-cached images (avoids flash on every render)
@@ -2451,6 +2505,10 @@ function setupImageLoadAnimations() {
       }
       return;
     }
+    if (img.dataset.loadStateBound === '1') {
+      return;
+    }
+    img.dataset.loadStateBound = '1';
     if (fullSrc) {
       // Blur-up: load tiny thumbnail first, then swap to full
       img.addEventListener('load', function onBlurLoad() {
@@ -2459,24 +2517,14 @@ function setupImageLoadAnimations() {
         revealLoadedPreviewImage(img, tile);
         swapTileToFullImage(img, tile, fullSrc);
       }, { once: true });
-      img.addEventListener('error', (e) => {
-        console.warn('Image load failed:', img.src, 'tile:', tile.dataset?.tileId, e);
-        tile.classList.add('is-img-loaded');
-        tile.classList.add('has-load-error');
-        rememberLoaded();
-      }, { once: true });
+      img.addEventListener('error', (event) => markTileImageFailed(img, tile, event));
     } else {
       img.addEventListener('load', () => {
         tile.classList.add('is-img-loaded');
         rememberLoaded({ fullLoaded: true });
         captureDimension(img, tile);
       }, { once: true });
-      img.addEventListener('error', (e) => {
-        console.warn('Image load failed:', img.src, 'tile:', tile.dataset?.tileId, e);
-        tile.classList.add('is-img-loaded');
-        tile.classList.add('has-load-error');
-        rememberLoaded();
-      }, { once: true });
+      img.addEventListener('error', (event) => markTileImageFailed(img, tile, event));
     }
   });
   // Apply cached mismatches synchronously — render() runs before the browser
@@ -19678,17 +19726,9 @@ function handleClick(event) {
   // Handle click on failed image tiles to retry loading
   const failedTile = event.target instanceof Element ? event.target.closest('.cml-media-tile.has-load-error') : null;
   if (failedTile instanceof HTMLElement) {
-    const img = failedTile.querySelector('img');
-    if (img instanceof HTMLImageElement && img.src) {
+    if (retryFailedImageTile(failedTile)) {
       event.preventDefault();
       event.stopPropagation();
-      console.log('Retrying failed image:', img.src);
-      failedTile.classList.remove('has-load-error');
-      const originalSrc = img.src;
-      img.src = '';
-      window.setTimeout(() => {
-        img.src = originalSrc + (originalSrc.includes('?') ? '&' : '?') + 'retry=' + Date.now();
-      }, 50);
       return;
     }
   }
@@ -20529,6 +20569,17 @@ function moveFocus(delta) {
 
 function handleKeyDown(event) {
   if (!document.body.classList.contains('codex-media-library-active')) {
+    return;
+  }
+
+  const failedTile = event.target instanceof Element
+    ? event.target.closest('.cml-media-tile.has-load-error')
+    : null;
+  if (failedTile instanceof HTMLElement && (event.key === 'Enter' || event.key === ' ')) {
+    if (retryFailedImageTile(failedTile)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     return;
   }
 

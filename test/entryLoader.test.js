@@ -126,12 +126,12 @@ describe('legacy entry loader', () => {
     const harness = createHarness('/dashboard');
 
     assert.equal(harness.scripts.length, 1);
-    assert.equal(harness.scripts[0].src, '/js/media-library/app.js?v=357');
+    assert.equal(harness.scripts[0].src, '/js/media-library/app.js?v=358');
     assert.equal(harness.scripts[0].type, 'module');
-    assert.equal(harness.links.find((link) => link.rel === 'stylesheet')?.href, '/css/media-library.css?v=293');
+    assert.equal(harness.links.find((link) => link.rel === 'stylesheet')?.href, '/css/media-library.css?v=294');
     assert.deepEqual(harness.links.filter((link) => link.rel === 'modulepreload').map((link) => link.href), [
-      '/js/media-library/app.js?v=357',
-      '/js/media-library/components.js?v=123',
+      '/js/media-library/app.js?v=358',
+      '/js/media-library/components.js?v=124',
       '/js/media-library/films-components.js?v=81',
       '/js/theme-system.js?v=2'
     ]);
@@ -142,7 +142,7 @@ describe('legacy entry loader', () => {
     const harness = createHarness('/dashboard/stats');
 
     assert.equal(harness.scripts.length, 1);
-    assert.equal(harness.scripts[0].src, '/js/media-library/app.js?v=357');
+    assert.equal(harness.scripts[0].src, '/js/media-library/app.js?v=358');
     assert.equal(harness.scripts[0].type, 'module');
     assert.equal(harness.parse, harness.nativeParse);
   });
@@ -151,7 +151,7 @@ describe('legacy entry loader', () => {
     const harness = createHarness('/');
 
     assert.equal(harness.scripts.length, 1);
-    assert.equal(harness.scripts[0].src, '/js/media-library/app.js?v=357');
+    assert.equal(harness.scripts[0].src, '/js/media-library/app.js?v=358');
     assert.equal(harness.scripts[0].type, 'module');
     assert.equal(harness.parse, harness.nativeParse);
   });
@@ -277,7 +277,7 @@ describe('app shell script loading contract', () => {
     const importedFilms = mediaAppSource.match(/from '\.\/films-components\.js\?v=(\d+)'/)?.[1];
     const importedTheme = mediaAppSource.match(/from '\.\.\/theme-system\.js\?v=(\d+)'/)?.[1];
 
-    assert.match(entryLoaderSource, /\/js\/media-library\/app\.js\?v=357/);
+    assert.match(entryLoaderSource, /\/js\/media-library\/app\.js\?v=358/);
     assert.ok(entryLoaderSource.includes(`/js/media-library/components.js?v=${importedComponents}`));
     assert.ok(entryLoaderSource.includes(`/js/media-library/films-components.js?v=${importedFilms}`));
     assert.ok(entryLoaderSource.includes(`/js/theme-system.js?v=${importedTheme}`));

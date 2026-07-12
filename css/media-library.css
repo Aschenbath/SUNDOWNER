@@ -2329,6 +2329,7 @@ body.codex-media-library-active #app {
   display: grid;
   gap: 4px;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 #codex-media-library-root .cml-library-loading__head-copy .cml-empty-state__copy {
@@ -2866,7 +2867,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-media-tile.has-load-error::after {
-  content: "Load failed\A Click to retry";
+  content: attr(data-load-error-label);
   white-space: pre;
   position: absolute;
   inset: 0;
@@ -2884,6 +2885,31 @@ body.codex-media-library-active #app {
   pointer-events: none;
   background: rgba(0, 0, 0, 0.35);
   z-index: 2;
+}
+
+#codex-media-library-root .cml-media-tile.is-retrying {
+  position: relative;
+  background: #1a1a1a;
+}
+
+#codex-media-library-root .cml-media-tile.is-retrying::after {
+  content: "Retrying...";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e8eaed;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.52);
+  pointer-events: none;
+}
+
+#codex-media-library-root .cml-media-tile.has-load-error:focus-visible {
+  outline: 3px solid #8ab4f8;
+  outline-offset: 2px;
 }
 
 #codex-media-library-root .cml-media-tile.has-load-error:hover::after {
@@ -4977,6 +5003,22 @@ body.codex-media-library-active #app {
 }
 
 @media (max-width: 640px) {
+  #codex-media-library-root .cml-library-loading__head {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    width: 100%;
+    gap: 12px;
+    align-items: center;
+  }
+
+  #codex-media-library-root .cml-library-loading__head-copy .cml-empty-state__title,
+  #codex-media-library-root .cml-library-loading__head-copy .cml-empty-state__copy {
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    text-align: left;
+  }
+
   #codex-media-library-root .cml-topbar--mobile-albums {
     padding: 8px 12px 8px;
   }

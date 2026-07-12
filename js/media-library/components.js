@@ -405,6 +405,9 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
   const originalPhotoUrl = item.type === 'photo' && sourceUrl && (sourceUrl !== imageUrl || previewProgressiveUrl)
     ? escapeHtml(sourceUrl)
     : '';
+  const canonicalPhotoUrl = item.type === 'photo' && imageUrl
+    ? escapeHtml(imageUrl)
+    : '';
   const previewActionAttr = (withControls || noAction)
     ? ''
     : ` data-action="open-preview" data-id="${escapeHtml(item.id)}"`;
@@ -480,21 +483,18 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
   const w = includeIntrinsicSize && item.width > 0 ? ` width="${Math.round(item.width)}"` : '';
   const h = includeIntrinsicSize && item.height > 0 ? ` height="${Math.round(item.height)}"` : '';
   const fallbackAttr = originalPhotoUrl ? ` data-original-src="${originalPhotoUrl}"` : '';
-  const genericErrorHandler = item.type === 'photo'
-    ? `if(!this.dataset.retryOriginal&&this.dataset.originalSrc){this.dataset.retryOriginal='1';this.src=this.dataset.originalSrc;}`
-    : '';
-  const errorAttr = genericErrorHandler ? ` onerror="${escapeHtml(genericErrorHandler)}"` : '';
+  const canonicalAttr = canonicalPhotoUrl ? ` data-canonical-src="${canonicalPhotoUrl}"` : '';
   if (previewProgressiveUrl) {
-    return `<img class="${className} is-blur-placeholder" src="${escapeHtml(previewProgressiveUrl)}" alt="${alt}"${w}${h}${fallbackAttr} data-full-src="${escapeHtml(sourceUrl)}" loading="${imageLoading}"${imagePriorityAttr} decoding="async"${errorAttr} />`;
+    return `<img class="${className} is-blur-placeholder" src="${escapeHtml(previewProgressiveUrl)}" alt="${alt}"${w}${h}${canonicalAttr}${fallbackAttr} data-full-src="${escapeHtml(sourceUrl)}" loading="${imageLoading}"${imagePriorityAttr} decoding="async" />`;
   }
   // Blur-up: load tiny Telegram thumbnail first, then swap to full image
   const blurThumb = !preferFullImage && !withControls && item.blurThumbUrl && item.blurThumbUrl !== imageUrl
     ? item.blurThumbUrl : '';
   if (blurThumb) {
     const fullSrcAttr = ` data-full-src="${mediaUrl}"`;
-    return `<img class="${className} is-blur-placeholder" src="${escapeHtml(blurThumb)}" alt="${alt}"${w}${h}${fallbackAttr}${fullSrcAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async"${errorAttr} />`;
+    return `<img class="${className} is-blur-placeholder" src="${escapeHtml(blurThumb)}" alt="${alt}"${w}${h}${canonicalAttr}${fallbackAttr}${fullSrcAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" />`;
   }
-  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${fallbackAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async"${errorAttr} />`;
+  return `<img class="${className}" src="${mediaUrl}" alt="${alt}"${w}${h}${canonicalAttr}${fallbackAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" />`;
 }
 
 function formatItemCount(count) {
@@ -956,7 +956,7 @@ export function MediaTile({ item, selected, layout, isCover = false, state = nul
     return '';
   }
   const previewLabel = `${safeDisplayLabel(item)} - ${formatTakenAt(item)}`;
-  const style = `width:${layout.width}px;height:${layout.height}px;`;
+  const style = `width:${layout.width}px;height:${layout.height}px;aspect-ratio:${layout.width}/${layout.height};`;
   const tileId = String(item.id || '');
   const loadedMediaIds = state?.loadedMediaIds instanceof Set ? state.loadedMediaIds : null;
   const fullLoadedMediaIds = state?.fullLoadedMediaIds instanceof Set ? state.fullLoadedMediaIds : null;
@@ -966,7 +966,7 @@ export function MediaTile({ item, selected, layout, isCover = false, state = nul
     .filter(Boolean)
     .join(' ');
   return `
-    <article class="${tileClassName}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" style="${style}">
+    <article class="${tileClassName}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" data-load-error-label="Load failed&#10;Press Enter or click to retry" tabindex="0" aria-label="${escapeHtml(previewLabel)}" aria-busy="false" style="${style}">
       <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
