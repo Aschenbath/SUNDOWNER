@@ -185,6 +185,18 @@ describe('public documentation contract', () => {
     assert.equal(packageLock.packages[''].name, 'sundowner');
   });
 
+  it('documents the open-source lineage in both readmes', () => {
+    for (const file of readmes) {
+      const text = readUtf8(file);
+      assert.match(text, /https:\/\/github\.com\/MarSeventh\/CloudFlare-ImgBed/);
+      assert.match(text, /https:\/\/github\.com\/cf-pages\/Telegraph-Image/);
+      assert.match(text, /MIT/);
+    }
+
+    assert.match(readUtf8('README.md'), /independent, long-term open-source second development/i);
+    assert.match(readUtf8('README_zh.md'), /独立、长期维护的开源二次开发/);
+  });
+
   it('uses SUNDOWNER Docker Compose metadata and builds this repository', () => {
     const compose = readUtf8('docker-compose.yml');
 

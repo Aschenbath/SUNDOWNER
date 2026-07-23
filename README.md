@@ -13,6 +13,7 @@
 
   <p>
     <a href="README_zh.md">简体中文</a> |
+    <a href="#open-source-origin">Open-source origin</a> |
     <a href="#experience">Experience</a> |
     <a href="#screenshots">Screenshots</a> |
     <a href="#storage-model">Storage Model</a> |
@@ -21,9 +22,17 @@
   </p>
 </div>
 
+## Open-source Origin
+
+> **SUNDOWNER is an independent, long-term open-source second development based on [MarSeventh/CloudFlare-ImgBed](https://github.com/MarSeventh/CloudFlare-ImgBed).** That upstream project is itself a remake of [cf-pages/Telegraph-Image](https://github.com/cf-pages/Telegraph-Image). SUNDOWNER retains the upstream MIT license and attribution, but is maintained independently and is not an official upstream release.
+
+This is more than a renamed deployment copy. The public codebase has expanded the original image-bed foundation into a private media library with D1/KV hybrid metadata, multi-channel storage, Telegram recovery and migration tooling, WebDAV, security hardening, and a dedicated dashboard. Source code, documentation, deployment scripts, regression tests, and issue tracking remain open in this repository.
+
+[Source code](https://github.com/Aschenbath/SUNDOWNER) | [Issues](https://github.com/Aschenbath/SUNDOWNER/issues) | [Pull requests](https://github.com/Aschenbath/SUNDOWNER/pulls) | [MIT License](LICENSE)
+
 ## Experience
 
-SUNDOWNER started as an image-bed project. This fork has grown into a private media cockpit: upload, catalog, search, serve, recover, and migrate media across storage backends from one admin surface.
+Building on that image-bed foundation, SUNDOWNER has grown into a private media cockpit: upload, catalog, search, serve, recover, and migrate media across storage backends from one admin surface.
 
 | Surface | What it is for |
 | --- | --- |

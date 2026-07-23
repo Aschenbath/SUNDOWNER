@@ -13,6 +13,7 @@
 
   <p>
     <a href="README.md">English</a> |
+    <a href="#开源来源">开源来源</a> |
     <a href="#产品体验">产品体验</a> |
     <a href="#当前截图">当前截图</a> |
     <a href="#存储模型">存储模型</a> |
@@ -21,9 +22,17 @@
   </p>
 </div>
 
+## 开源来源
+
+> **SUNDOWNER 是基于 [MarSeventh/CloudFlare-ImgBed](https://github.com/MarSeventh/CloudFlare-ImgBed) 的独立、长期维护的开源二次开发。** 该上游项目本身重制自 [cf-pages/Telegraph-Image](https://github.com/cf-pages/Telegraph-Image)。SUNDOWNER 延续上游的 MIT 许可证与署名要求，但由我独立维护，并非上游官方版本。
+
+这不是只改名称或重新部署的副本。公开代码已经在原图床基础上扩展出 D1/KV 混合元数据、多存储通道、Telegram 恢复与迁移工具、WebDAV、安全加固和独立媒体库控制台。源代码、文档、部署脚本、回归测试与问题追踪都在本仓库公开，欢迎通过 Issue 和 Pull Request 参与。
+
+[源代码](https://github.com/Aschenbath/SUNDOWNER) | [问题反馈](https://github.com/Aschenbath/SUNDOWNER/issues) | [Pull Requests](https://github.com/Aschenbath/SUNDOWNER/pulls) | [MIT 许可证](LICENSE)
+
 ## 产品体验
 
-SUNDOWNER 最早来自图床项目，但这个 fork 已经更接近一个私有媒体驾驶舱。它不只是把文件传上去，而是把照片、视频、音频、文档、相册、影片、动态和笔记放在同一个管理界面里，方便检索、整理、访问、恢复和迁移。
+沿着原图床项目的基础继续开发，SUNDOWNER 已经成长为一个私有媒体驾驶舱。它不只是把文件传上去，而是把照片、视频、音频、文档、相册、影片、动态和笔记放在同一个管理界面里，方便检索、整理、访问、恢复和迁移。
 
 | 模块 | 用途 |
 | --- | --- |
