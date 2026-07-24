@@ -233,8 +233,10 @@ const TIMELINE_SECTION_GAP = 28;
 const BIN_TIMELINE_SECTION_GAP = 24;
 const TIMELINE_VIRTUAL_OVERSCAN = 960;
 const TIMELINE_VIRTUALIZATION_ITEM_THRESHOLD = 720;
-const PHOTOS_PRIORITY_TILE_LIMIT = 8;
+const PHOTOS_PRIORITY_TILE_LIMIT = 16;
+const PHOTOS_VIEWPORT_PRELOAD_COUNT = 8;
 const MAX_IMAGE_RETRY_ATTEMPTS = 3;
+const IMAGE_DECODE_CONCURRENCY = 4;
 const TILE_SELECTION_CHECK_MARKUP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 12.8 3.7 3.7 7.5-8.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
 const TILE_SELECTION_RING_MARKUP = '<span class="cml-media-tile__select-ring"></span>';
 const VIDEO_CATEGORY_MAX_LENGTH = 48;
@@ -2428,10 +2430,55 @@ function retryFailedImageTile(tile) {
   return true;
 }
 
+// Batched image decode queue for controlled concurrency
+const decodeQueue = {
+  pending: [],
+  active: 0,
+  maxConcurrent: IMAGE_DECODE_CONCURRENCY,
+
+  enqueue(img, tile, fullSrc, applyCallback) {
+    this.pending.push({ img, tile, fullSrc, applyCallback });
+    this.processNext();
+  },
+
+  processNext() {
+    while (this.active < this.maxConcurrent && this.pending.length > 0) {
+      const task = this.pending.shift();
+      if (!task) break;
+
+      this.active++;
+      this.decodeImage(task);
+    }
+  },
+
+  async decodeImage({ img, tile, fullSrc, applyCallback }) {
+    try {
+      const full = new Image();
+      full.decoding = 'async';
+      full.src = fullSrc;
+
+      await full.decode();
+
+      if (tile?.isConnected && img?.isConnected) {
+        applyCallback(full);
+      }
+    } catch (error) {
+      // Decode failed, keep blur thumbnail visible
+      if (img?.isConnected) {
+        captureDimension(img, tile);
+      }
+    } finally {
+      this.active--;
+      this.processNext();
+    }
+  }
+};
+
 function swapTileToFullImage(img, tile, fullSrc) {
   if (!(img instanceof HTMLImageElement) || !fullSrc) {
     return;
   }
+
   const applyLoadedFullImage = (source) => {
     if (!refs.root || !tile?.isConnected || !img.isConnected) {
       return;
@@ -2450,18 +2497,9 @@ function swapTileToFullImage(img, tile, fullSrc) {
       captureDimension(img, tile);
     }
   };
-  const full = new Image();
-  full.decoding = 'async';
-  full.addEventListener('load', () => applyLoadedFullImage(full), { once: true });
-  full.addEventListener('error', () => {
-    // Keep the blur thumbnail visible when the full image fails, but still try
-    // to reconcile the tile with whatever dimensions are currently available.
-    captureDimension(img, tile);
-  }, { once: true });
-  full.src = fullSrc;
-  if (full.complete && full.naturalWidth > 0) {
-    applyLoadedFullImage(full);
-  }
+
+  // Use batched decode queue for better performance
+  decodeQueue.enqueue(img, tile, fullSrc, applyLoadedFullImage);
 }
 
 function setupImageLoadAnimations() {
