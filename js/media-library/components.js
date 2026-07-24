@@ -975,7 +975,7 @@ export function MediaTile({ item, selected, layout, isCover = false, state = nul
     .filter(Boolean)
     .join(' ');
   return `
-    <article class="${tileClassName}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" data-load-error-label="Load failed&#10;Press Enter or click to retry" tabindex="0" aria-label="${escapeHtml(previewLabel)}" aria-busy="false" style="${style}">
+    <article class="${tileClassName}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" aria-busy="false" style="${style}">
       <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>

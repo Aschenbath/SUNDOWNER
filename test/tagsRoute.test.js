@@ -125,6 +125,52 @@ describe('manage tags route', () => {
     assert.deepEqual(readPayload.tags, ['summer']);
   });
 
+  it('encodes file path segments before purging tagged file URLs', async () => {
+    const originalFetch = globalThis.fetch;
+    let observedPurgeBody = '';
+    globalThis.fetch = async (_url, options = {}) => {
+      observedPurgeBody = options.body;
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    };
+
+    try {
+      const fileId = 'photos/a?b#c.jpg';
+      const kv = new MemoryKV({
+        [fileId]: JSON.stringify({ value: 'bytes', metadata: { FileName: 'a?b#c.jpg', Tags: [] } }),
+        'manage@sysConfig@others': JSON.stringify({
+          cloudflareApiToken: {
+            CF_ZONE_ID: 'zone',
+            CF_EMAIL: 'gilbert@example.com',
+            CF_API_KEY: 'secret',
+          },
+        }),
+      });
+      const waitUntilPromises = [];
+      const response = await onRequest({
+        env: { img_url: kv },
+        params: { path: 'photos,a%3Fb%23c.jpg' },
+        waitUntil(promise) {
+          waitUntilPromises.push(Promise.resolve(promise));
+        },
+        request: new Request('https://example.com/api/manage/tags/photos/a%3Fb%23c.jpg', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'add',
+            tags: ['summer'],
+          }),
+        }),
+      });
+
+      assert.equal(response.status, 200);
+      await Promise.all(waitUntilPromises);
+      assert.deepEqual(JSON.parse(observedPurgeBody), {
+        files: ['https://example.com/file/photos/a%3Fb%23c.jpg'],
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('rejects oversized batch tag updates before touching storage', async () => {
     const kv = new MemoryKV();
     const response = await batchTagsOnRequest({

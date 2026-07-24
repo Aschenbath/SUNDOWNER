@@ -2844,10 +2844,40 @@ body.codex-media-library-active #app {
   opacity: 1;
 }
 
-/* HEIC fallback: when img onerror fires, parent shows format label */
+/* Apple-style skeleton loading state */
+#codex-media-library-root .cml-media-tile:not(.is-img-loaded):not(.has-load-error) {
+  background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+#codex-media-library-root .cml-media-tile:not(.is-img-loaded):not(.has-load-error)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: cml-skeleton-shimmer 1.8s ease-in-out infinite;
+  transform: translateX(-100%);
+}
+
+@keyframes cml-skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Apple-style load error state - clean and minimal */
 #codex-media-library-root .cml-media-tile.has-load-error {
   position: relative;
-  background: #1a1a1a;
+  background: linear-gradient(135deg, #1a1a1a 0%, #242424 100%);
   cursor: pointer;
 }
 
@@ -2855,66 +2885,90 @@ body.codex-media-library-active #app {
   content: "";
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(242, 139, 130, 0.05),
-    rgba(242, 139, 130, 0.05) 10px,
-    transparent 10px,
-    transparent 20px
+  background: radial-gradient(
+    circle at center,
+    rgba(138, 180, 248, 0.08) 0%,
+    transparent 70%
   );
   pointer-events: none;
   z-index: 1;
 }
 
 #codex-media-library-root .cml-media-tile.has-load-error::after {
-  content: attr(data-load-error-label);
-  white-space: pre;
+  content: "";
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 48px;
+  background: rgba(138, 180, 248, 0.12);
+  border-radius: 50%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  color: #f28b82;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  line-height: 1.4;
-  text-align: center;
   pointer-events: none;
-  background: rgba(0, 0, 0, 0.35);
   z-index: 2;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Error icon using pseudo-element positioned within the tile */
+#codex-media-library-root .cml-media-tile.has-load-error .cml-media-tile__image::before {
+  content: "!";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(138, 180, 248, 0.72);
+  font-size: 20px;
+  font-weight: 700;
+  z-index: 3;
+  pointer-events: none;
 }
 
 #codex-media-library-root .cml-media-tile.is-retrying {
   position: relative;
-  background: #1a1a1a;
+  background: linear-gradient(135deg, #1a1a1a 0%, #242424 100%);
 }
 
 #codex-media-library-root .cml-media-tile.is-retrying::after {
-  content: "Retrying...";
+  content: "";
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(138, 180, 248, 0.2);
+  border-top-color: rgba(138, 180, 248, 0.72);
+  border-radius: 50%;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #e8eaed;
-  font-size: 11px;
-  font-weight: 600;
-  background: rgba(0, 0, 0, 0.52);
   pointer-events: none;
+  animation: cml-spinner-rotate 800ms linear infinite;
+}
+
+@keyframes cml-spinner-rotate {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
 }
 
 #codex-media-library-root .cml-media-tile.has-load-error:focus-visible {
-  outline: 3px solid #8ab4f8;
+  outline: 2px solid rgba(138, 180, 248, 0.72);
   outline-offset: 2px;
 }
 
 #codex-media-library-root .cml-media-tile.has-load-error:hover::after {
-  background: rgba(0, 0, 0, 0.5);
-  color: #ff9d94;
+  background: rgba(138, 180, 248, 0.18);
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+#codex-media-library-root .cml-media-tile.has-load-error:active::after {
+  transform: translate(-50%, -50%) scale(0.96);
+  transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #codex-media-library-root .is-heic-fallback {
