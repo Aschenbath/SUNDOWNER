@@ -753,6 +753,462 @@ describe('/file HEIC preview responses', () => {
     }
   });
 
+  it('returns 415 preview-unavailable instead of raw HEIC bytes when no renderable preview exists', async () => {
+    __setEmbeddedThumbnailExtractorForTests(async () => null);
+
+    const records = new Map([
+      ['telegram-import/Telegram_env/IMG_9000.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_9000.HEIC',
+          FileType: 'image/heic',
+          Channel: 'TelegramNew',
+          ChannelName: 'Telegram_env',
+          TgFileId: 'original-file-id',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      TG_BOT_TOKEN: 'env-token',
+      TG_CHAT_ID: '-100123',
+    };
+    const fileFetches = [];
+
+    await withFetchStub(async (url, init) => {
+      const normalized = String(url);
+      if (normalized.includes('/getFile?')) {
+        return new Response(JSON.stringify({
+          ok: true,
+          result: { file_path: 'documents/original-file-id.heic' },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (normalized.includes('/file/botenv-token/documents/original-file-id.heic')) {
+        fileFetches.push(new Headers(init?.headers).get('range') || '');
+        // 上游忽略 Range，直接 200 全量
+        return new Response(new Uint8Array([0x00, 0x01, 0x02]), { status: 200 });
+      }
+      throw new Error(`Unexpected fetch: ${normalized}`);
+    }, async () => {
+      const response = await onRequest({
+        request: new Request('https://example.com/file/telegram-import/Telegram_env/IMG_9000.HEIC?preview=1', {
+          headers: { Referer: 'https://example.com/dashboard' },
+        }),
+        env,
+        params: { path: 'telegram-import/Telegram_env/IMG_9000.HEIC' },
+        waitUntil() {},
+        next() {},
+        data: {},
+      });
+
+      assert.equal(response.status, 415, 'preview route must not 200 with undecodable raw HEIC');
+      assert.equal(response.headers.get('X-Preview-Unavailable'), 'heic');
+      assert.match(response.headers.get('Cache-Control') || '', /public/);
+      assert.match(response.headers.get('Cache-Control') || '', /max-age=3600/);
+      assert.deepEqual(await response.json(), { error: 'preview-unavailable', format: 'heic' });
+    });
+
+    assert.equal(fileFetches.length, 1, 'a Range-ignoring upstream must not trigger a second full download');
+    assert.equal(fileFetches[0], 'bytes=0-262143', 'extraction source fetch must ask for a bounded Range first');
+  });
+
+  it('returns 415 for R2 HEIC embedded preview requests when extraction fails', async () => {
+    __setEmbeddedThumbnailExtractorForTests(async () => null);
+
+    const records = new Map([
+      ['photos/IMG_9001.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_9001.HEIC',
+          FileType: 'image/heic',
+          Channel: 'CloudflareR2',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      img_r2: {
+        async get(key) {
+          return key === 'photos/IMG_9001.HEIC'
+            ? new MockR2Object(new Uint8Array([0x00, 0x01]))
+            : null;
+        },
+      },
+    };
+
+    const response = await onRequest({
+      request: new Request('https://example.com/file/photos/IMG_9001.HEIC?preview=embedded', {
+        headers: { Referer: 'https://example.com/dashboard' },
+      }),
+      env,
+      params: { path: 'photos/IMG_9001.HEIC' },
+      waitUntil() {},
+      next() {},
+      data: {},
+    });
+
+    assert.equal(response.status, 415);
+    assert.equal(response.headers.get('X-Preview-Unavailable'), 'heic');
+    assert.deepEqual(await response.json(), { error: 'preview-unavailable', format: 'heic' });
+  });
+
+  it('keeps serving raw HEIC originals for non-preview reads (client-side libheif decode)', async () => {
+    __setEmbeddedThumbnailExtractorForTests(async () => null);
+
+    const rawBytes = new Uint8Array([0x10, 0x11, 0x12]);
+    const records = new Map([
+      ['telegram-import/Telegram_env/IMG_9002.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_9002.HEIC',
+          FileType: 'image/heic',
+          Channel: 'TelegramNew',
+          ChannelName: 'Telegram_env',
+          TgFileId: 'original-file-id',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      TG_BOT_TOKEN: 'env-token',
+      TG_CHAT_ID: '-100123',
+    };
+
+    await withFetchStub(async (url) => {
+      const normalized = String(url);
+      if (normalized.includes('/getFile?')) {
+        return new Response(JSON.stringify({
+          ok: true,
+          result: { file_path: 'documents/original-file-id.heic' },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (normalized.includes('/file/botenv-token/documents/original-file-id.heic')) {
+        return new Response(rawBytes, { status: 200 });
+      }
+      throw new Error(`Unexpected fetch: ${normalized}`);
+    }, async () => {
+      const response = await onRequest({
+        request: new Request('https://example.com/file/telegram-import/Telegram_env/IMG_9002.HEIC', {
+          headers: { Referer: 'https://example.com/dashboard' },
+        }),
+        env,
+        params: { path: 'telegram-import/Telegram_env/IMG_9002.HEIC' },
+        waitUntil() {},
+        next() {},
+        data: {},
+      });
+
+      assert.equal(response.status, 200, 'non-preview GET must keep returning raw originals');
+      assert.deepEqual(Array.from(new Uint8Array(await response.arrayBuffer())), Array.from(rawBytes));
+    });
+  });
+
+  it('extracts the embedded preview from a 256KB Range fetch without downloading the full original', async () => {
+    const previewBytes = new Uint8Array([0xFF, 0xD8, 0x77, 0xD9]);
+    __setEmbeddedThumbnailExtractorForTests(async (buffer) => (buffer[0] === 0xAA ? previewBytes : null));
+
+    const records = new Map([
+      ['telegram-import/Telegram_env/IMG_9003.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_9003.HEIC',
+          FileType: 'image/heic',
+          Channel: 'TelegramNew',
+          ChannelName: 'Telegram_env',
+          TgFileId: 'original-file-id',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      TG_BOT_TOKEN: 'env-token',
+      TG_CHAT_ID: '-100123',
+    };
+    const fileFetchRanges = [];
+
+    await withFetchStub(async (url, init) => {
+      const normalized = String(url);
+      if (normalized.includes('/getFile?')) {
+        return new Response(JSON.stringify({
+          ok: true,
+          result: { file_path: 'documents/original-file-id.heic' },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (normalized.includes('/file/botenv-token/documents/original-file-id.heic')) {
+        const range = new Headers(init?.headers).get('range') || '';
+        fileFetchRanges.push(range);
+        if (range) {
+          return new Response(new Uint8Array([0xAA, 0x01, 0x02]), { status: 206 });
+        }
+        return new Response(new Uint8Array([0xBB, 0x01, 0x02]), { status: 200 });
+      }
+      throw new Error(`Unexpected fetch: ${normalized}`);
+    }, async () => {
+      const response = await onRequest({
+        request: new Request('https://example.com/file/telegram-import/Telegram_env/IMG_9003.HEIC?preview=1', {
+          headers: { Referer: 'https://example.com/dashboard' },
+        }),
+        env,
+        params: { path: 'telegram-import/Telegram_env/IMG_9003.HEIC' },
+        waitUntil() {},
+        next() {},
+        data: {},
+      });
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(Array.from(new Uint8Array(await response.arrayBuffer())), Array.from(previewBytes));
+    });
+
+    assert.deepEqual(fileFetchRanges, ['bytes=0-262143'], 'only the bounded Range fetch may hit the original');
+  });
+
+  it('falls back to the full download when the ranged header holds no extractable preview', async () => {
+    const previewBytes = new Uint8Array([0xFF, 0xD8, 0x66, 0xD9]);
+    __setEmbeddedThumbnailExtractorForTests(async (buffer) => (buffer[0] === 0xBB ? previewBytes : null));
+
+    const records = new Map([
+      ['telegram-import/Telegram_env/IMG_9004.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_9004.HEIC',
+          FileType: 'image/heic',
+          Channel: 'TelegramNew',
+          ChannelName: 'Telegram_env',
+          TgFileId: 'original-file-id',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      TG_BOT_TOKEN: 'env-token',
+      TG_CHAT_ID: '-100123',
+    };
+    const fileFetchRanges = [];
+    // 206 且填满整个请求区间，代表 header 之外还有更多字节可回退下载
+    const rangedBytes = new Uint8Array(262144);
+    rangedBytes[0] = 0xAA;
+
+    await withFetchStub(async (url, init) => {
+      const normalized = String(url);
+      if (normalized.includes('/getFile?')) {
+        return new Response(JSON.stringify({
+          ok: true,
+          result: { file_path: 'documents/original-file-id.heic' },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (normalized.includes('/file/botenv-token/documents/original-file-id.heic')) {
+        const range = new Headers(init?.headers).get('range') || '';
+        fileFetchRanges.push(range);
+        if (range) {
+          return new Response(rangedBytes, { status: 206 });
+        }
+        return new Response(new Uint8Array([0xBB, 0x01, 0x02]), { status: 200 });
+      }
+      throw new Error(`Unexpected fetch: ${normalized}`);
+    }, async () => {
+      const response = await onRequest({
+        request: new Request('https://example.com/file/telegram-import/Telegram_env/IMG_9004.HEIC?preview=1', {
+          headers: { Referer: 'https://example.com/dashboard' },
+        }),
+        env,
+        params: { path: 'telegram-import/Telegram_env/IMG_9004.HEIC' },
+        waitUntil() {},
+        next() {},
+        data: {},
+      });
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(Array.from(new Uint8Array(await response.arrayBuffer())), Array.from(previewBytes));
+    });
+
+    assert.deepEqual(fileFetchRanges, ['bytes=0-262143', ''], 'ranged fetch first, full download as fallback');
+  });
+
+  it('serves the buffered refreshed body when 404-refresh preview extraction fails', async () => {
+    __setEmbeddedThumbnailExtractorForTests(async () => null);
+
+    const thumbBytes = new Uint8Array([0xFF, 0xD8, 0x21, 0x22, 0xFF, 0xD9]);
+    const records = new Map([
+      ['telegram-import/Telegram_env/IMG_9005.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_9005.HEIC',
+          FileType: 'image/heic',
+          Channel: 'TelegramNew',
+          ChannelName: 'Telegram_env',
+          TgFileId: 'original-file-id',
+          TgThumbnailFileId: 'thumb-file-id',
+          TgThumbnailFileType: 'image/jpeg',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      TG_BOT_TOKEN: 'env-token',
+      TG_CHAT_ID: '-100123',
+    };
+    let thumbGetFileCalls = 0;
+
+    await withFetchStub(async (url) => {
+      const normalized = String(url);
+      if (normalized.includes('/getFile?')) {
+        const fileId = new URL(normalized).searchParams.get('file_id');
+        if (fileId === 'thumb-file-id') {
+          thumbGetFileCalls += 1;
+          return new Response(JSON.stringify({
+            ok: true,
+            result: {
+              file_path: thumbGetFileCalls === 1 ? 'photos/stale-thumb.jpg' : 'photos/fresh-thumb.jpg',
+            },
+          }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+        throw new Error(`Unexpected getFile for ${fileId}`);
+      }
+      if (normalized.includes('/file/botenv-token/photos/stale-thumb.jpg')) {
+        return new Response('gone', { status: 404 });
+      }
+      if (normalized.includes('/file/botenv-token/photos/fresh-thumb.jpg')) {
+        return new Response(thumbBytes, { status: 200, headers: { 'Content-Type': 'image/jpeg' } });
+      }
+      throw new Error(`Unexpected fetch: ${normalized}`);
+    }, async () => {
+      const response = await onRequest({
+        request: new Request('https://example.com/file/telegram-import/Telegram_env/IMG_9005.HEIC?preview=1', {
+          headers: { Referer: 'https://example.com/dashboard' },
+        }),
+        env,
+        params: { path: 'telegram-import/Telegram_env/IMG_9005.HEIC' },
+        waitUntil() {},
+        next() {},
+        data: {},
+      });
+
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('Content-Type'), 'image/jpeg');
+      assert.deepEqual(
+        Array.from(new Uint8Array(await response.arrayBuffer())),
+        Array.from(thumbBytes),
+        'fallthrough must rebuild from the buffered bytes, not the consumed stream',
+      );
+    });
+
+    assert.equal(thumbGetFileCalls, 2);
+  });
+
+  it('stashes a freshly extracted 404-refresh preview into caches.default', async () => {
+    const previewBytes = new Uint8Array([0xFF, 0xD8, 0x31, 0x32, 0xFF, 0xD9]);
+    __setEmbeddedThumbnailExtractorForTests(async () => previewBytes);
+
+    const records = new Map([
+      ['telegram-import/Telegram_env/IMG_9006.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_9006.HEIC',
+          FileType: 'image/heic',
+          Channel: 'TelegramNew',
+          ChannelName: 'Telegram_env',
+          TgFileId: 'original-file-id',
+          TgThumbnailFileId: 'thumb-file-id',
+          TgThumbnailFileType: 'image/jpeg',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+
+    const env = {
+      img_url: new MemoryKV(records),
+      TG_BOT_TOKEN: 'env-token',
+      TG_CHAT_ID: '-100123',
+    };
+
+    const cacheStore = new Map();
+    const cachePuts = [];
+    const fakeCache = {
+      async match(request) {
+        const key = request instanceof Request ? request.url : String(request);
+        return cacheStore.get(key) || undefined;
+      },
+      async put(request, response) {
+        const key = request instanceof Request ? request.url : String(request);
+        cachePuts.push({ key, cacheControl: response.headers.get('Cache-Control') || '' });
+        cacheStore.set(key, response);
+      },
+    };
+    const originalCaches = globalThis.caches;
+    globalThis.caches = { default: fakeCache };
+    let thumbGetFileCalls = 0;
+
+    try {
+      await withFetchStub(async (url) => {
+        const normalized = String(url);
+        if (normalized.includes('/getFile?')) {
+          const fileId = new URL(normalized).searchParams.get('file_id');
+          if (fileId === 'thumb-file-id') {
+            thumbGetFileCalls += 1;
+            return new Response(JSON.stringify({
+              ok: true,
+              result: {
+                file_path: thumbGetFileCalls === 1 ? 'photos/stale-thumb.jpg' : 'photos/fresh-thumb.jpg',
+              },
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+          throw new Error(`Unexpected getFile for ${fileId}`);
+        }
+        if (normalized.includes('/file/botenv-token/photos/stale-thumb.jpg')) {
+          return new Response('gone', { status: 404 });
+        }
+        if (normalized.includes('/file/botenv-token/photos/fresh-thumb.jpg')) {
+          return new Response(new Uint8Array([0x40, 0x41]), { status: 200, headers: { 'Content-Type': 'image/jpeg' } });
+        }
+        throw new Error(`Unexpected fetch: ${normalized}`);
+      }, async () => {
+        const response = await onRequest({
+          request: new Request('https://example.com/file/telegram-import/Telegram_env/IMG_9006.HEIC?preview=1', {
+            headers: { Referer: 'https://example.com/dashboard' },
+          }),
+          env,
+          params: { path: 'telegram-import/Telegram_env/IMG_9006.HEIC' },
+          waitUntil(promise) { return Promise.resolve(promise).catch(() => {}); },
+          next() {},
+          data: {},
+        });
+
+        assert.equal(response.status, 200);
+        assert.deepEqual(Array.from(new Uint8Array(await response.arrayBuffer())), Array.from(previewBytes));
+      });
+
+      const embeddedPuts = cachePuts.filter((entry) => entry.key.includes('/file/') && entry.key.includes('preview=embedded'));
+      assert.equal(embeddedPuts.length, 1, '404-refresh extraction must stash under the canonical embedded key');
+      assert.match(embeddedPuts[0].cacheControl, /public/);
+      assert.match(embeddedPuts[0].cacheControl, /immutable/);
+    } finally {
+      if (originalCaches === undefined) {
+        delete globalThis.caches;
+      } else {
+        globalThis.caches = originalCaches;
+      }
+    }
+  });
+
   it('does not poison the GET cache when a HEAD request lands first', async () => {
     const previewBytes = new Uint8Array([0xFF, 0xD8, 0x12, 0x34, 0xFF, 0xD9]);
     let extractorCalls = 0;

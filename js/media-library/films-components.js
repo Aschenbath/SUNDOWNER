@@ -1378,10 +1378,12 @@ export function FilmCard(record = {}) {
     renderFilmCardInfoItem('', releaseLine, 'release'),
     renderFilmCardInfoItem('', watchedDate, 'watched')
   ].filter(Boolean).join('');
+  const posterUrl = getRecordPosterUrl(record);
   return `
     <article class="cml-film-card" data-film-id="${escapeHtml(record.id || '')}" data-action="open-film-detail" tabindex="0" role="button" aria-label="Open ${escapeHtml(localTitle)} details">
-      <div class="cml-film-card__poster-panel">
-        <img class="cml-film-card__poster" src="${escapeHtml(getRecordPosterUrl(record))}" alt="${escapeHtml(localTitle)}" loading="lazy" decoding="async" />
+      <div class="cml-film-card__poster-panel${posterUrl ? '' : ' is-poster-error'}">
+        ${posterUrl ? `<img class="cml-film-card__poster" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(localTitle)}" loading="lazy" decoding="async" onerror="this.parentElement.classList.add('is-poster-error')" />` : ''}
+        ${renderPosterFallback(localTitle)}
       </div>
       <div class="cml-film-card__ticket-panel">
         <span class="cml-film-card__notch cml-film-card__notch--left" aria-hidden="true"></span>
@@ -1417,10 +1419,9 @@ export function FilmPosterCard(record = {}) {
   const posterUrl = getRecordPosterUrl(record);
   return `
     <article class="cml-film-poster-card" data-film-id="${escapeHtml(record.id || '')}" data-action="open-film-detail" tabindex="0" role="button" aria-label="Open ${escapeHtml(localTitle)} details">
-      <div class="cml-film-poster-card__frame">
-        ${posterUrl
-          ? `<img class="cml-film-poster-card__image" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(localTitle)} poster" loading="lazy" decoding="async" />`
-          : renderPosterFallback(localTitle)}
+      <div class="cml-film-poster-card__frame${posterUrl ? '' : ' is-poster-error'}">
+        ${posterUrl ? `<img class="cml-film-poster-card__image" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(localTitle)} poster" loading="lazy" decoding="async" onerror="this.parentElement.classList.add('is-poster-error')" />` : ''}
+        ${renderPosterFallback(localTitle)}
       </div>
     </article>
   `;
@@ -1444,7 +1445,7 @@ export function FilmTimelineSection(section = {}, { viewMode = 'ticket' } = {}) 
   `;
 }
 
-export function FilmsPage({ records = [], totalCount = records.length, activeFilter = 'All', viewMode = 'ticket', libraryQuery = '', searchPanelHtml = '' } = {}) {
+export function FilmsPage({ records = [], totalCount = records.length, activeFilter = 'All', viewMode = 'ticket', libraryQuery = '', searchPanelHtml = '', isLoading = false, loadError = '' } = {}) {
   const sections = groupFilmsByTimeline(records);
   const librarySearchValue = escapeHtml(libraryQuery);
   const hasAnySavedFilms = Number(totalCount) > 0;
@@ -1482,6 +1483,22 @@ export function FilmsPage({ records = [], totalCount = records.length, activeFil
       <div class="cml-films-page__content">
         ${sections.length
           ? sections.map((section) => FilmTimelineSection(section, { viewMode: activeViewMode })).join('')
+          : isLoading
+          ? `
+            <section class="cml-films-empty is-loading" aria-busy="true">
+              <p class="cml-films-empty__eyebrow">Loading</p>
+              <h2 class="cml-films-empty__title">Opening your film diary&hellip;</h2>
+            </section>
+          `
+          : loadError
+          ? `
+            <section class="cml-films-empty is-error" role="alert">
+              <p class="cml-films-empty__eyebrow">Something went wrong</p>
+              <h2 class="cml-films-empty__title">Couldn't load your films</h2>
+              <p class="cml-films-empty__copy">${escapeHtml(loadError)}</p>
+              <button type="button" class="cml-films-retry-button" data-action="retry-film-entries">Try again</button>
+            </section>
+          `
           : `
             <section class="cml-films-empty" data-has-saved-films="${hasAnySavedFilms ? 'true' : 'false'}">
               <p class="cml-films-empty__eyebrow">Search to add a film</p>

@@ -457,11 +457,30 @@ class HybridAdapter {
     }
 }
 
+// 按 env 对象 memoize adapter：Pages Functions 的同一个 isolate 里 env 对象跨请求稳定，
+// 每次 getDatabase 都 new adapter 会让 D1Database 首次使用重跑整套 DDL。memo 附带
+// binding 指纹，测试里往 env 上换 img_url/img_d1 时会自动重建。要新实例的调用方
+// （测试模拟 cold start）请直接用 createDatabaseAdapter(env)。
+const ADAPTER_MEMO_BY_ENV = new WeakMap();
+
 export function getDatabase(env) {
+    const memoizable = env !== null && typeof env === 'object';
+    if (memoizable) {
+        const memo = ADAPTER_MEMO_BY_ENV.get(env);
+        if (memo && memo.kv === env.img_url && memo.d1 === env.img_d1) {
+            return memo.adapter;
+        }
+    }
+
     const adapter = createDatabaseAdapter(env);
     if (!adapter) {
         throw new Error('Database not configured. Please configure D1 database (env.img_d1) or KV storage (env.img_url).');
     }
+
+    if (memoizable) {
+        ADAPTER_MEMO_BY_ENV.set(env, { adapter, kv: env.img_url, d1: env.img_d1 });
+    }
+
     return adapter;
 }
 

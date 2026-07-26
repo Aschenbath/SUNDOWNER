@@ -197,6 +197,18 @@ function buildForwardHeaders(sourceHeaders) {
     return forwarded;
 }
 
+// 重试间隔：第一次失败后 250ms，之后 750ms。之前零间隔连打 3 次只会在上游
+// （Telegram 429 / 瞬时抖动）恢复前把配额烧得更快。
+const FILE_CONTENT_RETRY_BACKOFF_MS = [250, 750];
+
+let fileContentRetryDelay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export function __setFileContentRetryDelayForTests(delayFn) {
+    fileContentRetryDelay = typeof delayFn === 'function'
+        ? delayFn
+        : (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function getFileContent(request, targetUrl, max_retries = 2) {
     let retries = 0;
     const forwardHeaders = buildForwardHeaders(request.headers);
@@ -216,6 +228,13 @@ export async function getFileContent(request, targetUrl, max_retries = 2) {
             }
         } catch (error) {
             retries++;
+        }
+
+        if (retries <= max_retries) {
+            const backoffMs = FILE_CONTENT_RETRY_BACKOFF_MS[
+                Math.min(retries - 1, FILE_CONTENT_RETRY_BACKOFF_MS.length - 1)
+            ];
+            await fileContentRetryDelay(backoffMs);
         }
     }
     return null;

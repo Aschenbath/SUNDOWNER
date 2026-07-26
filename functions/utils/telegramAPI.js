@@ -352,13 +352,39 @@ export class TelegramAPI {
 // 不传 cache 时调用退化成直连 TelegramAPI.getFilePath，所以测试侧、upload/sync
 // 这种低频调用可以选择不带缓存。
 const TELEGRAM_FILE_PATH_CACHE_TTL_SECONDS = 3000;
+// 失败的 getFile 也要短缓存：一屏几十个 tile 同时打一个坏 file_id（或撞上 429 风暴）
+// 时，不缓存负结果会让每个 tile 都重打一次 getFile。60s 足够挡住风暴，又不会把
+// 恢复后的文件钉死太久。负结果和正结果共用同一 keyspace，用响应头标记区分。
+const TELEGRAM_FILE_PATH_NEGATIVE_TTL_SECONDS = 60;
+const TELEGRAM_FILE_PATH_NEGATIVE_HEADER = 'X-Tg-File-Path-Negative';
 const TELEGRAM_FILE_PATH_CACHE_KEY_PREFIX = 'https://internal.cache/tg-file-path/v1/';
+
+// 同一 file_id 的并发 getFile 合并成一个 in-flight 请求（module 级，settle 后清除），
+// 避免同屏 tile 并发时对同一个 file_id 重复打 Telegram getFile。
+const inflightTelegramFilePathRequests = new Map();
 
 function buildTelegramFilePathCacheKey(fileId) {
     return new Request(
         `${TELEGRAM_FILE_PATH_CACHE_KEY_PREFIX}${encodeURIComponent(fileId)}`,
         { method: 'GET' },
     );
+}
+
+function fetchTelegramFilePathCoalesced(telegramAPI, fileId, forceRefresh) {
+    const inflightKey = String(fileId);
+    let pending = inflightTelegramFilePathRequests.get(inflightKey);
+    if (!pending || forceRefresh === true) {
+        pending = Promise.resolve().then(() => telegramAPI.getFilePath(fileId));
+        inflightTelegramFilePathRequests.set(inflightKey, pending);
+        pending
+            .finally(() => {
+                if (inflightTelegramFilePathRequests.get(inflightKey) === pending) {
+                    inflightTelegramFilePathRequests.delete(inflightKey);
+                }
+            })
+            .catch(() => {});
+    }
+    return pending;
 }
 
 export async function resolveTelegramFilePathCached(telegramAPI, fileId, cache = null, options = {}) {
@@ -373,6 +399,9 @@ export async function resolveTelegramFilePathCached(telegramAPI, fileId, cache =
             try {
                 const cached = await cache.match(cacheKey);
                 if (cached) {
+                    if (cached.headers?.get?.(TELEGRAM_FILE_PATH_NEGATIVE_HEADER) === '1') {
+                        return null;
+                    }
                     const cachedPath = (await cached.text()).trim();
                     if (cachedPath) {
                         return cachedPath;
@@ -384,16 +413,26 @@ export async function resolveTelegramFilePathCached(telegramAPI, fileId, cache =
         }
     }
 
-    const filePath = await telegramAPI.getFilePath(fileId);
+    const filePath = await fetchTelegramFilePathCoalesced(telegramAPI, fileId, options?.forceRefresh);
 
-    if (filePath && cache && cacheKey) {
+    if (cache && cacheKey) {
         try {
-            await cache.put(cacheKey, new Response(filePath, {
-                headers: {
-                    'Cache-Control': `public, max-age=${TELEGRAM_FILE_PATH_CACHE_TTL_SECONDS}`,
-                    'Content-Type': 'text/plain',
-                },
-            }));
+            if (filePath) {
+                await cache.put(cacheKey, new Response(filePath, {
+                    headers: {
+                        'Cache-Control': `public, max-age=${TELEGRAM_FILE_PATH_CACHE_TTL_SECONDS}`,
+                        'Content-Type': 'text/plain',
+                    },
+                }));
+            } else {
+                await cache.put(cacheKey, new Response('', {
+                    headers: {
+                        'Cache-Control': `public, max-age=${TELEGRAM_FILE_PATH_NEGATIVE_TTL_SECONDS}`,
+                        'Content-Type': 'text/plain',
+                        [TELEGRAM_FILE_PATH_NEGATIVE_HEADER]: '1',
+                    },
+                }));
+            }
         } catch (error) {
             console.warn('Telegram file_path cache write failed:', error?.message || error);
         }

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 
 import { onRequest as listRoute } from '../functions/api/manage/list.js';
 import { onRequest as migrateKvToD1 } from '../functions/api/manage/migrate/kv-to-d1.js';
-import { KV_TO_D1_MIGRATION_STATE_KEY, getDatabase } from '../functions/utils/databaseAdapter.js';
-import { D1Database } from '../functions/utils/d1Database.js';
+import { KV_TO_D1_MIGRATION_STATE_KEY, createDatabaseAdapter, getDatabase } from '../functions/utils/databaseAdapter.js';
+import { D1Database, __resetSchemaReadyForTests } from '../functions/utils/d1Database.js';
 import { addFileToIndex, deleteAllOperations, getIndexMeta, readIndex } from '../functions/utils/indexManager.js';
 import { SqliteD1 } from '../server/sqliteD1.js';
 
@@ -492,7 +492,9 @@ describe('D1 metadata migration path', () => {
             updatedAt: Date.now(),
         }));
 
-        const afterMigrationDb = getDatabase(env);
+        // getDatabase memoizes per env; a fresh adapter models a new isolate cold start
+        // observing the freshly completed migration flag.
+        const afterMigrationDb = createDatabaseAdapter(env);
         const afterMigration = await afterMigrationDb.list({ prefix: 'photos/' });
         assert.deepEqual(afterMigration.keys.map((item) => item.name), ['photos/migrated.jpg']);
         assert.equal(env.img_url.listCalls.length, 1);
@@ -1368,8 +1370,10 @@ describe('D1 metadata migration path', () => {
             await d1.db.prepare("UPDATE files SET file_type_bucket = NULL WHERE id = 'photos/legacy.jpg'").run();
             await d1.db.prepare('DELETE FROM settings WHERE key = ?').bind('schema@d1@file_type_bucket_v1').run();
 
-            // Reset schemaReady so next queryFiles re-runs ensureSchema (which includes backfill).
+            // Reset schemaReady (instance latch + per-binding memo) so next queryFiles
+            // re-runs ensureSchema (which includes backfill).
             d1.schemaReady = null;
+            __resetSchemaReadyForTests(d1.db);
 
             const result = await d1.queryFiles({ types: ['image'] });
             assert.equal(result.total, 1, 'legacy NULL-bucket row must still surface for image type filter');

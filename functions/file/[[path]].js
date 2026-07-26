@@ -142,6 +142,53 @@ async function fetchBinaryBufferFromUrl(targetUrl) {
     return new Uint8Array(await response.arrayBuffer());
 }
 
+// 嵌入式预览抽取先只拉文件头：EXIF IFD1 缩略图几乎总在 HEIC 头部，256KB 足够，
+// 不必为一张 <100KB 的预览下完整个 3-15MB 原图。
+const EMBEDDED_PREVIEW_HEADER_RANGE_BYTES = 262144;
+
+async function fetchBinaryHeaderFromUrl(targetUrl, maxBytes) {
+    if (!targetUrl) {
+        return null;
+    }
+
+    const endByte = Math.max(0, Number(maxBytes) - 1);
+    const response = await fetch(targetUrl, {
+        method: 'GET',
+        headers: { Range: `bytes=0-${endByte}` },
+    });
+    if (!response.ok) {
+        return null;
+    }
+
+    return {
+        bytes: new Uint8Array(await response.arrayBuffer()),
+        // 200 表示上游忽略了 Range、直接给了全量，此时 bytes 已是完整文件
+        isPartial: response.status === 206,
+    };
+}
+
+// 显式 preview 请求打到无法产出可渲染预览的 HEIC/HEIF（没有存储缩略图、也抽不出
+// 嵌入式 EXIF 预览）时返回 415：Chromium 解不了 image/heic，回 200 原始字节只会
+// 让 tile 报错并无限重试满量下载原图。public 短缓存挡住客户端/CDN 的重复打击。
+function heicPreviewUnavailableResponse() {
+    return new Response(JSON.stringify({ error: 'preview-unavailable', format: 'heic' }), {
+        status: 415,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Preview-Unavailable': 'heic',
+            'Cache-Control': 'public, max-age=3600',
+        },
+    });
+}
+
+async function scheduleBackground(context, promise) {
+    if (typeof context?.waitUntil === 'function') {
+        context.waitUntil(promise);
+        return;
+    }
+    await promise;
+}
+
 function shouldAttemptEmbeddedPreview(context, metadata = {}, fileType = '', options = {}) {
     if (!supportsEmbeddedPreviewExtraction(fileType)) {
         return false;
@@ -209,6 +256,36 @@ function buildEmbeddedPreviewCacheKey(context) {
     return new Request(canonical.toString(), { method: 'GET' });
 }
 
+function buildTelegramThumbnailCacheKey(context) {
+    if (!context?.url) {
+        return null;
+    }
+    // path 内容寻址 + 只保留 preview=1，其余查询参数一律剥掉，
+    // 同一张 Telegram 缩略图跨会话共享同一个缓存键。
+    const canonical = new URL(context.url.toString());
+    canonical.search = '';
+    canonical.searchParams.set('preview', '1');
+    return new Request(canonical.toString(), { method: 'GET' });
+}
+
+function rebuildTelegramThumbnailFromCache(context, cached, encodedFileName) {
+    const headers = new Headers();
+    applyFileResponseHeaders(
+        context,
+        headers,
+        encodedFileName,
+        cached.headers.get('Content-Type') || 'image/jpeg',
+    );
+    const contentLength = cached.headers.get('Content-Length');
+    if (contentLength) {
+        headers.set('Content-Length', contentLength);
+    }
+    if (context?.request?.method === 'HEAD') {
+        return handleHeadRequest(headers);
+    }
+    return new Response(cached.body, { status: 200, headers });
+}
+
 function rebuildEmbeddedPreviewFromCache(context, cached, fileName) {
     const headers = new Headers();
     applyFileResponseHeaders(
@@ -249,6 +326,7 @@ async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fil
     }
 
     let sourceBuffer = null;
+    let preview = null;
 
     try {
         switch (metadata.Channel) {
@@ -267,7 +345,34 @@ async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fil
                 }
 
                 const originalTarget = await resolveTelegramSourceUrl(context.env, metadata, fileId, { preview: false });
-                sourceBuffer = await fetchBinaryBufferFromUrl(originalTarget?.targetUrl || '');
+                const targetUrl = originalTarget?.targetUrl || '';
+                if (!targetUrl) {
+                    return null;
+                }
+
+                // 先试 256KB Range 抽取；Range 尝试失败不终止流程，还有全量下载兜底。
+                let headerFetch = null;
+                try {
+                    headerFetch = await fetchBinaryHeaderFromUrl(targetUrl, EMBEDDED_PREVIEW_HEADER_RANGE_BYTES);
+                } catch (error) {
+                    console.warn(`Embedded preview header fetch failed for ${fileId}:`, error.message || error);
+                }
+
+                if (headerFetch?.bytes?.byteLength) {
+                    preview = await extractEmbeddedPreview(headerFetch.bytes, fileType);
+                    if (!preview?.bytes?.byteLength) {
+                        preview = null;
+                        // 上游忽略 Range（200 全量）或返回的字节数已小于请求区间时，
+                        // headerFetch.bytes 已经覆盖整个文件，再全量下载也不会有更多字节。
+                        if (!headerFetch.isPartial || headerFetch.bytes.byteLength < EMBEDDED_PREVIEW_HEADER_RANGE_BYTES) {
+                            return null;
+                        }
+                    }
+                }
+
+                if (!preview) {
+                    sourceBuffer = await fetchBinaryBufferFromUrl(targetUrl);
+                }
                 break;
             }
             default:
@@ -278,41 +383,50 @@ async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fil
         return null;
     }
 
-    if (!sourceBuffer?.byteLength) {
-        return null;
+    if (!preview) {
+        if (!sourceBuffer?.byteLength) {
+            return null;
+        }
+        preview = await extractEmbeddedPreview(sourceBuffer, fileType);
     }
-
-    const preview = await extractEmbeddedPreview(sourceBuffer, fileType);
     if (!preview?.bytes?.byteLength) {
         return null;
     }
 
-    // 写 cache 跟客户端响应必须用两个独立的 Response：
-    // 1) HEAD 请求下 buildEmbeddedPreviewResponse 返回空 body，直接 clone 会污染 GET 缓存键。
-    // 2) Dashboard 内部 Referer 触发 Cache-Control: private，CF caches.default 默认拒收 private 响应，
-    //    导致整条 HEIC 缓存在最热的路径上静默失效。
-    // 解决：缓存副本固定 GET 形状 + Cache-Control: public, immutable，客户端响应保持原本的 method/Referer 语义。
-    if (cacheKey && preview?.bytes?.byteLength) {
-        const cacheableHeaders = new Headers();
-        cacheableHeaders.set('Content-Type', preview.mimeType || 'image/jpeg');
-        cacheableHeaders.set('Content-Length', String(preview.bytes.byteLength));
-        cacheableHeaders.set('Cache-Control', 'public, max-age=86400, immutable');
-        const cacheableResponse = new Response(preview.bytes, { status: 200, headers: cacheableHeaders });
-        const stash = (async () => {
-            try {
-                await cache.put(cacheKey, cacheableResponse);
-            } catch (error) {
-                console.warn(`Failed to stash embedded preview for ${fileId}:`, error.message || error);
-            }
-        })();
-        if (typeof context.waitUntil === 'function') {
-            context.waitUntil(stash);
-        } else {
-            await stash;
-        }
-    }
+    await stashEmbeddedPreviewInEdgeCache(context, fileId, preview);
 
     return buildEmbeddedPreviewResponse(context, fileName, preview);
+}
+
+// 写 cache 跟客户端响应必须用两个独立的 Response：
+// 1) HEAD 请求下 buildEmbeddedPreviewResponse 返回空 body，直接 clone 会污染 GET 缓存键。
+// 2) Dashboard 内部 Referer 触发 Cache-Control: private，CF caches.default 默认拒收 private 响应，
+//    导致整条 HEIC 缓存在最热的路径上静默失效。
+// 解决：缓存副本固定 GET 形状 + Cache-Control: public, immutable，客户端响应保持原本的 method/Referer 语义。
+async function stashEmbeddedPreviewInEdgeCache(context, fileId, preview) {
+    if (!preview?.bytes?.byteLength) {
+        return;
+    }
+
+    const cacheKey = buildEmbeddedPreviewCacheKey(context);
+    if (!cacheKey) {
+        return;
+    }
+
+    const cache = getWorkerEdgeCache();
+    const cacheableHeaders = new Headers();
+    cacheableHeaders.set('Content-Type', preview.mimeType || 'image/jpeg');
+    cacheableHeaders.set('Content-Length', String(preview.bytes.byteLength));
+    cacheableHeaders.set('Cache-Control', 'public, max-age=86400, immutable');
+    const cacheableResponse = new Response(preview.bytes, { status: 200, headers: cacheableHeaders });
+    const stash = (async () => {
+        try {
+            await cache.put(cacheKey, cacheableResponse);
+        } catch (error) {
+            console.warn(`Failed to stash embedded preview for ${fileId}:`, error.message || error);
+        }
+    })();
+    await scheduleBackground(context, stash);
 }
 
 function shouldFallbackFromTelegramPreview(context, telegramReadTarget, fileType) {
@@ -469,6 +583,19 @@ export async function onRequest(context) {  // Contents of context object
         return embeddedPreviewResponse;
     }
 
+    // 显式 preview 请求 + HEIC/HEIF + 没有存储缩略图 + 上面的嵌入式抽取也失败时，
+    // 不再回落到原始 image/heic 字节（Chromium 渲染不了，tile 会无限重试满量重下）。
+    // 非 preview 的 GET /file/<id> 保持原样：前端 libheif 解码依赖能拿到原始字节。
+    if (wantsPreview && supportsEmbeddedPreviewExtraction(fileType)) {
+        const previewChannel = imgRecord.metadata?.Channel;
+        const isTelegramPreviewChannel = previewChannel === 'Telegram' || previewChannel === 'TelegramNew';
+        const hasStoredTelegramThumbnail = isTelegramPreviewChannel
+            && Boolean(resolveStoredTelegramThumbnail(imgRecord.metadata || {})?.fileId);
+        if ((previewChannel === 'CloudflareR2' || isTelegramPreviewChannel) && !hasStoredTelegramThumbnail) {
+            return heicPreviewUnavailableResponse();
+        }
+    }
+
     if (imgRecord.metadata?.Channel === 'CloudflareR2') {
         return await handleR2File(context, fileId, encodedFileName, fileType);
     }
@@ -508,12 +635,33 @@ export async function onRequest(context) {  // Contents of context object
     let targetUrl = '';
     let responseFileType = fileType;
     let telegramReadTarget = null;
+    let telegramThumbnailCacheKey = null;
 
     if (isTgChannel(imgRecord)) {
         telegramReadTarget = resolveStoredTelegramReadTarget(fileId, imgRecord.metadata || {}, {
             preview: wantsPreview,
         });
         responseFileType = telegramReadTarget.fileType || fileType;
+
+        // Edge-cache 小体积 Telegram 缩略图（?preview=1）：dashboard tile 响应因内部
+        // Referer 是 Cache-Control: private，不缓存的话每个会话每个 tile 都要重跑
+        // worker + getFile + Telegram 下载整条链。查缓存必须发生在 isDomainAllowed /
+        // returnWithCheck 之后（上方已完成），命中后按当前请求 method/Referer 重建
+        // 响应头，鉴权语义仍逐请求生效。
+        if (wantsPreview && telegramReadTarget.isPreview === true && !request.headers.get('Range')) {
+            telegramThumbnailCacheKey = buildTelegramThumbnailCacheKey(context);
+            if (telegramThumbnailCacheKey) {
+                try {
+                    const cachedThumbnail = await getWorkerEdgeCache().match(telegramThumbnailCacheKey);
+                    if (cachedThumbnail) {
+                        return rebuildTelegramThumbnailFromCache(context, cachedThumbnail, encodedFileName);
+                    }
+                } catch (error) {
+                    console.warn(`Telegram thumbnail cache lookup failed for ${fileId}:`, error.message || error);
+                }
+            }
+        }
+
         const resolveStoredTelegramFileId = () => telegramReadTarget.fileId;
         let TgFileID = resolveStoredTelegramFileId(fileId, imgRecord.metadata || {}); // Tg的file_id
 
@@ -581,11 +729,22 @@ export async function onRequest(context) {  // Contents of context object
                 const refreshedResponse = await getFileContent(request, refreshedTargetUrl);
                 if (refreshedResponse && refreshedResponse.status !== 404) {
                     if (wantsPreview && supportsEmbeddedPreviewExtraction(fileType)) {
+                        // body 只能读一次：整体缓冲后，抽取失败的兜底响应必须用缓冲的
+                        // 字节重建，不能再用已被 arrayBuffer() 消耗掉的流。
                         const refreshedBytes = new Uint8Array(await refreshedResponse.arrayBuffer());
                         const refreshedPreview = await extractEmbeddedPreview(refreshedBytes, fileType);
                         if (refreshedPreview?.bytes?.byteLength) {
+                            await stashEmbeddedPreviewInEdgeCache(context, fileId, refreshedPreview);
                             return buildEmbeddedPreviewResponse(context, fileName, refreshedPreview);
                         }
+                        const refreshedHeaders = new Headers(refreshedResponse.headers);
+                        applyFileResponseHeaders(context, refreshedHeaders, encodedFileName, responseFileType);
+                        refreshedHeaders.set('Content-Length', String(refreshedBytes.byteLength));
+                        return new Response(refreshedBytes, {
+                            status: refreshedResponse.status,
+                            statusText: refreshedResponse.statusText,
+                            headers: refreshedHeaders,
+                        });
                     }
                     const refreshedHeaders = new Headers(refreshedResponse.headers);
                     applyFileResponseHeaders(context, refreshedHeaders, encodedFileName, responseFileType);
@@ -601,6 +760,35 @@ export async function onRequest(context) {  // Contents of context object
                 return fallbackPreview;
             }
             return await return404(url);
+        }
+
+        // 上游拉取成功的 Telegram 缩略图存一份 public 副本进 edge cache，
+        // 与嵌入式预览的 stash 同一模式：GET 形状 + public immutable，
+        // 客户端响应仍按当前 Referer 语义（可能是 private）返回。
+        if (
+            telegramThumbnailCacheKey
+            && request.method === 'GET'
+            && response.status === 200
+        ) {
+            const cacheCopy = response.clone();
+            const cacheableHeaders = new Headers();
+            cacheableHeaders.set('Content-Type', responseFileType || 'image/jpeg');
+            const upstreamLength = cacheCopy.headers.get('Content-Length');
+            if (upstreamLength) {
+                cacheableHeaders.set('Content-Length', upstreamLength);
+            }
+            cacheableHeaders.set('Cache-Control', 'public, max-age=86400, immutable');
+            const stash = (async () => {
+                try {
+                    await getWorkerEdgeCache().put(
+                        telegramThumbnailCacheKey,
+                        new Response(cacheCopy.body, { status: 200, headers: cacheableHeaders }),
+                    );
+                } catch (error) {
+                    console.warn(`Failed to stash Telegram thumbnail for ${fileId}:`, error.message || error);
+                }
+            })();
+            await scheduleBackground(context, stash);
         }
 
         const headers = new Headers(response.headers);

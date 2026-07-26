@@ -119,6 +119,15 @@ export function buildMomentAttachmentItem(attachment = {}) {
   const browserPreviewSupported = !mimeType || supportsMomentBrowserImagePreview(mimeType);
   const thumbnailUrl = browserPreviewSupported ? sourceUrl : buildMomentFileUrl(fileId, { preview: '1' });
   const fullPreviewUrl = browserPreviewSupported ? '' : buildMomentFileUrl(fileId, { preview: 'embedded' });
+  // Feed grids blur-up from the tiny Telegram thumbnail instead of fetching
+  // every full original eagerly; renderMediaAsset + the shared upgrade binder
+  // handle the swap. Only meaningful when a stored thumbnail exists.
+  const hasStoredThumbnail = Boolean(normalizeText(
+    readMetadataValue(metadata, ['TgThumbnailFileId', 'tgThumbnailFileId'])
+  ));
+  const blurThumbUrl = browserPreviewSupported && hasStoredThumbnail
+    ? buildMomentFileUrl(fileId, { preview: '1' })
+    : '';
 
   return {
     ...(attachment.item && typeof attachment.item === 'object' ? attachment.item : {}),
@@ -130,6 +139,7 @@ export function buildMomentAttachmentItem(attachment = {}) {
     thumbnailUrl,
     fullPreviewUrl,
     browserPreviewSupported,
+    ...(blurThumbUrl ? { blurThumbUrl } : {}),
     ...(width ? { width } : {}),
     ...(height ? { height } : {}),
     ...(mimeType ? { mimeType } : {}),

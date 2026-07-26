@@ -87,6 +87,21 @@ describe('Moments app helpers', () => {
     assert.equal(item.browserPreviewSupported, false);
   });
 
+  it('exposes a blur thumbnail for feed grids only when a Telegram thumbnail is stored', () => {
+    const withThumb = buildMomentAttachmentItem({
+      fileId: 'Moments/2026-05-17/photo.jpg',
+      metadata: { FileName: 'photo.jpg', FileType: 'image/jpeg', TgThumbnailFileId: 'thumb-id' },
+    });
+    assert.equal(withThumb.blurThumbUrl, '/file/Moments/2026-05-17/photo.jpg?preview=1');
+    assert.equal(withThumb.thumbnailUrl, '/file/Moments/2026-05-17/photo.jpg');
+
+    const withoutThumb = buildMomentAttachmentItem({
+      fileId: 'Moments/2026-05-17/plain.jpg',
+      metadata: { FileName: 'plain.jpg', FileType: 'image/jpeg' },
+    });
+    assert.equal(withoutThumb.blurThumbUrl, undefined);
+  });
+
   it('normalizes mixed draft attachments from upload and existing sources', () => {
     const draft = normalizeMomentDraftAttachments([
       { source: 'existing', fileId: 'Photos/2026-05-16/a.jpg', metadata: { FileName: 'a.jpg', FileType: 'image/jpeg' } },
@@ -353,11 +368,14 @@ describe('Moments app helpers', () => {
     assert.equal(mergedResult.cacheSupplementedCount, undefined);
   });
 
-  it('applies cached Photos supplements to both first-page hydration and background backfill', () => {
+  it('applies cached Photos supplements only while the listing is incomplete', () => {
     assert.match(appSource, /mergeIndexedMediaResultWithCache\(\s*await fetchIndexedMediaItems\(domItems, cachedMediaPayload\),\s*cachedMediaPayload\s*\)/);
     assert.match(appSource, /fetchIndexedMediaItems\(domItems, cachedMediaPayload\)/);
-    assert.match(appSource, /allowCacheSupplement:\s*true/);
-    assert.match(appSource, /const mergedFullItems = mergeIndexedMediaWithCachedItems\(fullItems, \[\.\.\.state\.mediaItems, \.\.\.safeArray\(cachedMediaPayload\?\.items\)\]\);/);
+    // Cache supplement is gated on a known-incomplete listing so complete
+    // server enumerations prune files deleted in other sessions.
+    assert.match(appSource, /allowCacheSupplement: firstTotalCount > initialItems\.length/);
+    assert.match(appSource, /const syncComplete = !pagingFailed && files\.length >= totalCount && totalCount <= API_MAX_ITEMS;/);
+    assert.match(appSource, /const mergedFullItems = syncComplete\s*\? fullItems\s*: mergeIndexedMediaWithCachedItems\(fullItems, \[\.\.\.state\.mediaItems, \.\.\.safeArray\(cachedMediaPayload\?\.items\)\]\);/);
     assert.match(appSource, /items: mergedFullItems,\s*librarySyncMeta: nextLibrarySyncMeta/);
     assert.match(appSource, /state\.mediaItems = mergedFullItems;/);
     assert.match(appSource, /function pruneMediaPayloadCache\(removedKeys = \[\]\) \{/);
@@ -389,7 +407,11 @@ describe('Moments app helpers', () => {
     assert.match(appSource, /function revealLoadedPreviewImage\(img, tile\) \{/);
     assert.match(appSource, /img\.classList\.remove\('is-blur-placeholder'\);/);
     assert.match(appSource, /tile\.classList\.add\('is-preview-loaded'\);/);
-    assert.match(appSource, /if \(fullSrc && img\.src !== fullSrc\) \{[\s\S]*?revealLoadedPreviewImage\(img, tile\);[\s\S]*?swapTileToFullImage\(img, tile, fullSrc\);[\s\S]*?return;/);
-    assert.match(appSource, /img\.addEventListener\('load', function onBlurLoad\(\) \{[\s\S]*?revealLoadedPreviewImage\(img, tile\);[\s\S]*?swapTileToFullImage\(img, tile, fullSrc\);/);
+    // The cached-image branch must compare absolutized URLs (isSameImageSource),
+    // not the raw img.src property against a relative attribute value.
+    assert.match(appSource, /const fullLoadedNow = !fullSrc \|\| isSameImageSource\(img, fullSrc\);/);
+    assert.match(appSource, /if \(fullSrc && !fullLoadedNow\) \{[\s\S]*?revealLoadedPreviewImage\(img, tile\);[\s\S]*?swapTileToFullImage\(img, tile, fullSrc\);[\s\S]*?return;/);
+    // Load listeners stay persistent so retries after a failure still resolve.
+    assert.match(appSource, /img\.addEventListener\('load', \(\) => \{[\s\S]*?revealLoadedPreviewImage\(img, tile\);[\s\S]*?swapTileToFullImage\(img, tile, fullSrc\);/);
   });
 });

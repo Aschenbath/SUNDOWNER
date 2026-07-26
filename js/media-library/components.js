@@ -449,14 +449,25 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       : item.thumbnailUrl && item.thumbnailUrl !== item.sourceUrl
         ? item.thumbnailUrl
       : (item.posterUrl || '');
+    const heicTileDecodeAttr = !withControls && item.sourceUrl
+      ? ` data-heic-tile-decode-src="${escapeHtml(item.sourceUrl)}"`
+      : '';
     const heicTileBlurUrl = !withControls
       && item.blurThumbUrl
       && item.blurThumbUrl !== item.sourceUrl
       ? item.blurThumbUrl
       : '';
     if (heicTileBlurUrl) {
-      const heicTileUpgradeUrl = fallbackUrl || item.sourceUrl || '';
-      return `<img class="${className} is-blur-placeholder" src="${escapeHtml(heicTileBlurUrl)}" alt="${alt}"${w}${h} data-canonical-src="${escapeHtml(heicTileBlurUrl)}" data-original-src="${escapeHtml(heicTileUpgradeUrl)}" data-full-src="${escapeHtml(heicTileUpgradeUrl)}"${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" />`;
+      const heicTileUpgradeUrl = fallbackUrl && fallbackUrl !== heicTileBlurUrl && fallbackUrl !== item.sourceUrl
+        ? fallbackUrl
+        : '';
+      if (heicTileUpgradeUrl) {
+        return `<img class="${className} is-blur-placeholder" src="${escapeHtml(heicTileBlurUrl)}" alt="${alt}"${w}${h} data-canonical-src="${escapeHtml(heicTileBlurUrl)}" data-full-src="${escapeHtml(heicTileUpgradeUrl)}"${heicTileDecodeAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" />`;
+      }
+      // No distinct upgrade target exists (the only preview tier IS the blur
+      // thumbnail) — render it unblurred instead of enqueueing a no-op refetch
+      // of the identical URL through the decode queue.
+      return `<img class="${className}" src="${escapeHtml(heicTileBlurUrl)}" alt="${alt}"${w}${h} data-canonical-src="${escapeHtml(heicTileBlurUrl)}"${heicTileDecodeAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" />`;
     }
     const imgSrc = escapeHtml(fallbackUrl || (item.sourceUrl || ''));
     if (imgSrc) {
@@ -478,7 +489,7 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
       const heicClassNames = withControls && item.sourceUrl
         ? `${className} is-heic-decode-pending`
         : className;
-      return `<img class="${heicClassNames}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}" data-mime-tag="${escapeHtml(mimeTag)}"${w}${h}${heicDecodeAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
+      return `<img class="${heicClassNames}" src="${imgSrc}" alt="${alt}" data-format-label="${escapeHtml(`${mimeTag} original`)}" data-mime-tag="${escapeHtml(mimeTag)}" data-canonical-src="${imgSrc}"${w}${h}${heicDecodeAttr}${heicTileDecodeAttr}${previewActionAttr} loading="${imageLoading}"${imagePriorityAttr} decoding="async" onerror="${escapeHtml(errorHandler)}" />`;
     }
   }
   if (item.type === 'video' && item.thumbnailUrl === sourceUrl) {
@@ -969,13 +980,16 @@ export function MediaTile({ item, selected, layout, isCover = false, state = nul
   const tileId = String(item.id || '');
   const loadedMediaIds = state?.loadedMediaIds instanceof Set ? state.loadedMediaIds : null;
   const fullLoadedMediaIds = state?.fullLoadedMediaIds instanceof Set ? state.fullLoadedMediaIds : null;
+  const failedMediaIds = state?.failedMediaIds instanceof Set ? state.failedMediaIds : null;
   const isImgLoaded = Boolean(tileId && loadedMediaIds?.has(tileId));
   const isFullLoaded = Boolean(tileId && fullLoadedMediaIds?.has(tileId));
-  const tileClassName = ['cml-media-tile', selected ? 'is-selected' : '', isImgLoaded ? 'is-img-loaded' : '', isFullLoaded ? 'is-full-loaded' : '']
+  const hasLoadError = Boolean(tileId && !isImgLoaded && failedMediaIds?.has(tileId));
+  const tileClassName = ['cml-media-tile', selected ? 'is-selected' : '', isImgLoaded ? 'is-img-loaded' : '', isFullLoaded ? 'is-full-loaded' : '', hasLoadError ? 'has-load-error' : '']
     .filter(Boolean)
     .join(' ');
+  const loadErrorAttr = hasLoadError ? ' data-load-error-label="Load failed&#10;Press Enter or click to retry"' : '';
   return `
-    <article class="${tileClassName}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" aria-busy="false" style="${style}">
+    <article class="${tileClassName}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" aria-busy="false"${loadErrorAttr} style="${style}">
       <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
@@ -1772,7 +1786,9 @@ export function DocumentsListView({ items, state }) {
   const gridTilesHtml = sortedFiles.map((item) => {
     const kind = getDocFileKind(item);
     const name = escapeHtml(item.label || item.description || 'Unnamed file');
-    const thumbUrl = item.thumbnailUrl || item.sourceUrl || '';
+    // Small grid previews use the Telegram thumbnail when available — the
+    // canonical thumbnailUrl is the full original for browser-native photos.
+    const thumbUrl = item.blurThumbUrl || item.thumbnailUrl || item.sourceUrl || '';
     const hasThumb = thumbUrl && (kind === 'image' || kind === 'video');
     const { ext, color } = getFileExtIcon(item.label);
     const selected = state.selectedIds.has(item.id) ? 'is-selected' : '';
@@ -2242,7 +2258,7 @@ export function MusicListView({ items = [], state, audioState = {}, currentItem 
                 return `
                   <div class="cml-music-row ${isCurrent ? 'is-current' : ''}" data-audio-row="${escapeHtml(item.id)}" role="row">
                     <button type="button" class="cml-music-row__index" data-action="${playAction}" ${playAction === 'play-audio-item' ? `data-id="${escapeHtml(item.id)}"` : ''} aria-label="${isCurrent && isPlaying ? 'Pause track' : 'Play track'}">${isCurrent ? (isPlaying ? icon('pause') : icon('play')) : escapeHtml(String(index + 1))}</button>
-                    <span class="cml-music-row__meta">
+                    <span class="cml-music-row__meta" data-action="${playAction}" ${playAction === 'play-audio-item' ? `data-id="${escapeHtml(item.id)}"` : ''} role="button" tabindex="0" aria-label="${isCurrent && isPlaying ? 'Pause' : 'Play'} ${title}">
                       <strong class="cml-music-row__title">${title}</strong>
                       ${secondaryMeta ? `<span class="cml-music-row__subtitle">${secondaryMeta}</span>` : '<span class="cml-music-row__subtitle cml-music-row__subtitle--placeholder">Unknown artist · Unknown album</span>'}
                     </span>
@@ -4164,7 +4180,7 @@ function BinMediaTile({ item, selected, layout }) {
   const style = `width:${layout.width}px;height:${layout.height}px;`;
   const accessibleLabel = `${daysLabel} before permanent deletion`;
   return `
-    <article class="cml-media-tile cml-bin-media-tile ${selected ? 'is-selected' : ''}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" style="${style}" aria-label="${escapeHtml(accessibleLabel)}">
+    <article class="cml-media-tile cml-bin-media-tile ${selected ? 'is-selected' : ''}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" style="${style}" aria-label="${escapeHtml(accessibleLabel)}">
       <button type="button" class="cml-media-tile__select" data-action="toggle-bin-select" data-bin-id="${escapeHtml(item.id)}" aria-label="Select item with ${escapeHtml(daysLabel)} remaining">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
@@ -4219,7 +4235,7 @@ function BinTimelineSection({ section, binSelectedIds, layoutWidth }) {
   `;
 }
 
-export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutWidth, activeSectionAnchor = '' }) {
+export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutWidth, activeSectionAnchor = '', binLoadError = '' }) {
   const selectedCount = binSelectedIds.size;
   const hasItems = items.length > 0;
   const summaryCopy = selectedCount > 0
@@ -4243,6 +4259,15 @@ export function BinGrid({ items, sections, binSelectedIds, isBinLoading, layoutW
 
   const gridContent = isBinLoading
     ? renderLibraryLoading({ iconName: 'trash', title: 'Opening the bin', copy: 'Loading items waiting to expire from the library.' })
+    : binLoadError && !hasItems
+      ? `
+        <section class="cml-empty-state cml-empty-state--error" role="alert">
+          <div class="cml-empty-state__icon">${icon('trash')}</div>
+          <h2 class="cml-empty-state__title">Couldn't load the bin</h2>
+          <p class="cml-empty-state__copy">${escapeHtml(binLoadError)} Your deleted items are still safe.</p>
+          <button type="button" class="cml-topbar__secondary-button" data-action="retry-bin-load">Try again</button>
+        </section>
+      `
     : !hasItems
       ? `
         <section class="cml-empty-state">

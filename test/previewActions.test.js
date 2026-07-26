@@ -4364,7 +4364,7 @@ describe('media library download actions', () => {
 
     assert.match(appSource, /from '\.\/image-load-state\.js\?v=1'/);
     assert.match(appSource, /function markTileImageLoaded\(img, tile/);
-    assert.match(appSource, /tile\.classList\.remove\('has-load-error', 'is-retrying'\)/);
+    assert.match(appSource, /tile\.classList\.remove\('has-load-error', 'is-retrying', 'is-retry-exhausted', 'is-heic-fallback'\)/);
     assert.match(appSource, /function retryFailedImageTile\(tile\)/);
     assert.match(appSource, /img\.dataset\.loadStateBound === '1'/);
     assert.match(appSource, /img\.dataset\.loadStateBound = '1'/);
@@ -4376,25 +4376,40 @@ describe('media library download actions', () => {
 
   it('keeps image loading layout stable and exposes retry feedback accessibly', () => {
     const cssSource = fs.readFileSync(new URL('../css/media-library.css', import.meta.url), 'utf8');
+    const item = {
+      id: 'stable-photo',
+      type: 'photo',
+      sourceUrl: '/file/stable-photo.jpg',
+      thumbnailUrl: '/file/stable-photo-thumb.jpg',
+      width: 1200,
+      height: 800,
+      takenAt: '2026-05-17T10:00:00Z',
+    };
     const html = MediaTile({
-      item: {
-        id: 'stable-photo',
-        type: 'photo',
-        sourceUrl: '/file/stable-photo.jpg',
-        thumbnailUrl: '/file/stable-photo-thumb.jpg',
-        width: 1200,
-        height: 800,
-        takenAt: '2026-05-17T10:00:00Z',
-      },
+      item,
       selected: false,
       layout: { width: 300, height: 200 },
-      state: { loadedMediaIds: new Set(), fullLoadedMediaIds: new Set() },
+      state: { loadedMediaIds: new Set(), fullLoadedMediaIds: new Set(), failedMediaIds: new Set() },
     });
 
     assert.match(html, /aria-busy="false"/);
-    assert.match(html, /data-load-error-label="Load failed&#10;Press Enter or click to retry"/);
     assert.match(html, /aspect-ratio:300\/200/);
-    assert.match(cssSource, /\.cml-media-tile\.has-load-error::after[\s\S]*content: attr\(data-load-error-label\)/);
+    // Healthy tiles carry no error affordance...
+    assert.doesNotMatch(html, /has-load-error/);
+    assert.doesNotMatch(html, /data-load-error-label/);
+
+    // ...but tiles the state machine recorded as failed keep their error UI
+    // and accessible retry label across virtualization re-renders.
+    const failedHtml = MediaTile({
+      item,
+      selected: false,
+      layout: { width: 300, height: 200 },
+      state: { loadedMediaIds: new Set(), fullLoadedMediaIds: new Set(), failedMediaIds: new Set(['stable-photo']) },
+    });
+    assert.match(failedHtml, /class="cml-media-tile has-load-error"/);
+    assert.match(failedHtml, /data-load-error-label="Load failed&#10;Press Enter or click to retry"/);
+
+    assert.match(cssSource, /\.cml-media-tile\.has-load-error::before[\s\S]*content: attr\(data-load-error-label\)/);
     assert.match(cssSource, /\.cml-media-tile\.is-retrying::after/);
     assert.match(cssSource, /\.cml-media-tile\.has-load-error:focus-visible/);
     assert.doesNotMatch(cssSource, /\.cml-timeline-section__header[^}]*position:\s*absolute/);

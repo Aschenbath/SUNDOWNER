@@ -3,9 +3,9 @@
   var search = window.location.search || '';
   var hash = window.location.hash || '';
   var mediaPreloadHrefs = [
-    '/js/media-library/app.js?v=359',
-    '/js/media-library/components.js?v=125',
-    '/js/media-library/films-components.js?v=81',
+    '/js/media-library/app.js?v=360',
+    '/js/media-library/components.js?v=126',
+    '/js/media-library/films-components.js?v=82',
     '/js/theme-system.js?v=2'
   ];
 
@@ -91,12 +91,12 @@
   }
 
   function loadMediaLibrary() {
-    var mediaStyle = appendLink('stylesheet', '/css/media-library.css?v=294');
+    var mediaStyle = appendLink('stylesheet', '/css/media-library.css?v=295');
     moveLinkAfterParserStyles(mediaStyle);
     mediaPreloadHrefs.forEach(function (href) {
       appendLink('modulepreload', href);
     });
-    loadScript('/js/media-library/app.js?v=359', null, null, 'module');
+    loadScript('/js/media-library/app.js?v=360', null, null, 'module');
   }
 
   if (shouldLoadMediaLibrary()) {

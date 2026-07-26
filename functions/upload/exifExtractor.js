@@ -48,7 +48,8 @@ const TAG_GPS_ALTITUDE = 0x0006;
 const defaultRuntimeExifModuleLoader = () => import('exifr/dist/full.esm.mjs');
 let runtimeExifModule = null;
 let runtimeExifModuleLoader = defaultRuntimeExifModuleLoader;
-let runtimeExifModuleLoaderAttempted = false;
+let runtimeExifModulePromise = null;
+let runtimeExifModuleLoadSucceeded = false;
 let embeddedThumbnailExtractor = null;
 
 /**
@@ -127,7 +128,8 @@ export function __setEmbeddedThumbnailModuleLoaderForTests(loader) {
         ? loader
         : defaultRuntimeExifModuleLoader;
     runtimeExifModule = null;
-    runtimeExifModuleLoaderAttempted = false;
+    runtimeExifModulePromise = null;
+    runtimeExifModuleLoadSucceeded = false;
     embeddedThumbnailExtractor = null;
 }
 
@@ -135,7 +137,8 @@ export function __resetEmbeddedThumbnailExtractorForTests() {
     embeddedThumbnailExtractor = null;
     runtimeExifModule = null;
     runtimeExifModuleLoader = defaultRuntimeExifModuleLoader;
-    runtimeExifModuleLoaderAttempted = false;
+    runtimeExifModulePromise = null;
+    runtimeExifModuleLoadSucceeded = false;
 }
 
 async function getEmbeddedThumbnailExtractor() {
@@ -162,13 +165,32 @@ async function getRuntimeExifModule() {
         return runtimeExifModule;
     }
 
-    if (runtimeExifModuleLoaderAttempted) {
-        return null;
+    // 只在加载成功后 latch。成功但没拿到可用模块（loader 返回空）也视为已尝试，
+    // 保持原来"不重试缺失导出"的行为；只有 import 抛错才允许下一次调用重试，
+    // 否则一次瞬时加载失败会让整个 isolate 永久失去嵌入式预览能力。
+    if (runtimeExifModuleLoadSucceeded) {
+        return runtimeExifModule;
     }
 
-    runtimeExifModuleLoaderAttempted = true;
-    runtimeExifModule = await runtimeExifModuleLoader();
-    return runtimeExifModule;
+    if (!runtimeExifModulePromise) {
+        // 同一请求内的并发调用共享同一个 in-flight import，避免紧凑重试循环。
+        runtimeExifModulePromise = (async () => {
+            const loadedModule = await runtimeExifModuleLoader();
+            runtimeExifModuleLoadSucceeded = true;
+            runtimeExifModule = loadedModule;
+            return loadedModule;
+        })()
+            .catch((error) => {
+                // 每次失败只记一条日志；memo 清空后下一次请求可以重试 import。
+                console.warn('exifr runtime module load failed:', error?.message || error);
+                return null;
+            })
+            .finally(() => {
+                runtimeExifModulePromise = null;
+            });
+    }
+
+    return runtimeExifModulePromise;
 }
 
 async function extractRuntimeExifData(buffer) {

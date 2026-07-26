@@ -198,6 +198,19 @@ function isTruthyMetadataValue(value) {
     return normalized === '1' || normalized === 'true';
 }
 
+// 按 D1 binding 对象记住 schema 已就绪的 promise。之前每个请求都会 new 出新的
+// D1Database（route + fetchSecurityConfig + loadUploadConfig 各一个），每个实例
+// 首次使用都重跑 11 条 DDL + PRAGMA 修复 + backfill 哨兵，单个 GET /file/<id>
+// 在碰 Telegram 之前就欠下 ~30-40 次串行 D1 roundtrip。keyed by binding 而不是
+// module 单例，测试里每个用例的 fresh mock binding 天然隔离。
+const SCHEMA_READY_BY_BINDING = new WeakMap();
+
+export function __resetSchemaReadyForTests(binding) {
+    if (binding) {
+        SCHEMA_READY_BY_BINDING.delete(binding);
+    }
+}
+
 class D1Database {
     constructor(db) {
         this.db = db;
@@ -206,18 +219,33 @@ class D1Database {
 
     async ensureSchema() {
         if (!this.schemaReady) {
-            this.schemaReady = (async () => {
-                for (const sql of SCHEMA_STATEMENTS) {
-                    if (sql.includes('idx_index_operations_timestamp')) {
-                        await this.repairLegacySchema();
+            let shared = SCHEMA_READY_BY_BINDING.get(this.db);
+            if (!shared) {
+                shared = (async () => {
+                    for (const sql of SCHEMA_STATEMENTS) {
+                        if (sql.includes('idx_index_operations_timestamp')) {
+                            await this.repairLegacySchema();
+                        }
+                        await this.db.prepare(sql).run();
                     }
-                    await this.db.prepare(sql).run();
-                }
-                await this.backfillFileTypeBucket();
-            })();
+                    await this.backfillFileTypeBucket();
+                })();
+                SCHEMA_READY_BY_BINDING.set(this.db, shared);
+            }
+            this.schemaReady = shared;
         }
 
-        return this.schemaReady;
+        try {
+            return await this.schemaReady;
+        } catch (error) {
+            // 瞬时 D1 抖动不能把 memo 长期钉死（adapter 可能被整个 isolate 复用），
+            // 清掉后下一次调用重跑 DDL。
+            if (SCHEMA_READY_BY_BINDING.get(this.db) === this.schemaReady) {
+                SCHEMA_READY_BY_BINDING.delete(this.db);
+            }
+            this.schemaReady = null;
+            throw error;
+        }
     }
 
     // 旧记录的 file_type_bucket 列在 ALTER TABLE 之后是 NULL，需要按 IMAGE/VIDEO/AUDIO 判定

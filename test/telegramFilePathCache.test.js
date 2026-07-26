@@ -85,7 +85,7 @@ describe('resolveTelegramFilePathCached', () => {
         assert.equal(cache.putCalls.length, 1);
     });
 
-    it('does not cache when telegramAPI returns null (avoid pinning a failed lookup)', async () => {
+    it('caches a negative result for 60s so a failed lookup does not re-fire getFile per tile', async () => {
         const cache = new MemoryCache();
         const api = new FakeTelegramAPI(null);
 
@@ -94,8 +94,61 @@ describe('resolveTelegramFilePathCached', () => {
 
         assert.equal(first, null);
         assert.equal(second, null);
-        assert.equal(api.getFilePathCalls, 2, 'failed lookups must retry on the next request');
-        assert.equal(cache.putCalls.length, 0);
+        assert.equal(api.getFilePathCalls, 1, 'second call must be served by the negative cache entry');
+        assert.equal(cache.putCalls.length, 1);
+
+        const negativeEntry = cache.store.get('https://internal.cache/tg-file-path/v1/tg-id-B');
+        assert.ok(negativeEntry, 'negative entry must live in the same keyspace');
+        assert.equal(negativeEntry.headers.get('X-Tg-File-Path-Negative'), '1');
+        assert.match(negativeEntry.headers.get('Cache-Control') || '', /max-age=60(?!\d)/);
+    });
+
+    it('forceRefresh bypasses a negative entry and replaces it on success', async () => {
+        const cache = new MemoryCache();
+        let calls = 0;
+        const api = {
+            async getFilePath() {
+                calls += 1;
+                return calls === 1 ? null : 'documents/recovered.heic';
+            },
+        };
+
+        assert.equal(await resolveTelegramFilePathCached(api, 'tg-id-C', cache), null);
+        const refreshed = await resolveTelegramFilePathCached(api, 'tg-id-C', cache, { forceRefresh: true });
+        const cached = await resolveTelegramFilePathCached(api, 'tg-id-C', cache);
+
+        assert.equal(refreshed, 'documents/recovered.heic');
+        assert.equal(cached, 'documents/recovered.heic', 'positive entry must replace the negative marker');
+        assert.equal(calls, 2);
+    });
+
+    it('coalesces concurrent lookups for the same fileId into one getFile call', async () => {
+        let calls = 0;
+        let release;
+        const gate = new Promise((resolve) => { release = resolve; });
+        const api = {
+            async getFilePath() {
+                calls += 1;
+                await gate;
+                return 'documents/shared.heic';
+            },
+        };
+
+        const cache = new MemoryCache();
+        const firstPromise = resolveTelegramFilePathCached(api, 'tg-id-shared', cache);
+        const secondPromise = resolveTelegramFilePathCached(api, 'tg-id-shared', cache);
+        await Promise.resolve();
+        release();
+
+        const [first, second] = await Promise.all([firstPromise, secondPromise]);
+        assert.equal(first, 'documents/shared.heic');
+        assert.equal(second, 'documents/shared.heic');
+        assert.equal(calls, 1, 'concurrent lookups must share one in-flight getFile');
+
+        // in-flight map settles per call; a later lookup hits the edge cache instead.
+        const third = await resolveTelegramFilePathCached(api, 'tg-id-shared', cache);
+        assert.equal(third, 'documents/shared.heic');
+        assert.equal(calls, 1);
     });
 
     it('keeps different file_ids in different cache entries', async () => {

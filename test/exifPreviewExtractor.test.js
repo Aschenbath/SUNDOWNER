@@ -74,4 +74,51 @@ describe('embedded HEIC preview extraction', () => {
     assert.equal(secondPreview, null);
     assert.equal(loads, 1);
   });
+
+  it('retries the module loader after a failed import instead of latching the failure', async () => {
+    let loads = 0;
+    __setEmbeddedThumbnailModuleLoaderForTests(async () => {
+      loads += 1;
+      if (loads === 1) {
+        throw new Error('transient import failure');
+      }
+      return {
+        default: {
+          thumbnail: async () => new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9]),
+        },
+      };
+    });
+
+    const firstPreview = await extractEmbeddedPreview(new Uint8Array([0x00]), 'image/heic');
+    assert.equal(firstPreview, null, 'failed import degrades gracefully to null');
+
+    const secondPreview = await extractEmbeddedPreview(new Uint8Array([0x01]), 'image/heic');
+    assert.ok(secondPreview, 'next request must be allowed to retry the import');
+    assert.equal(secondPreview.mimeType, 'image/jpeg');
+    assert.equal(loads, 2);
+  });
+
+  it('coalesces concurrent module loads into a single import attempt', async () => {
+    let loads = 0;
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    __setEmbeddedThumbnailModuleLoaderForTests(async () => {
+      loads += 1;
+      await gate;
+      return {
+        default: {
+          thumbnail: async () => new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9]),
+        },
+      };
+    });
+
+    const firstPromise = extractEmbeddedPreview(new Uint8Array([0x00]), 'image/heic');
+    const secondPromise = extractEmbeddedPreview(new Uint8Array([0x01]), 'image/heic');
+    release();
+
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+    assert.ok(first);
+    assert.ok(second);
+    assert.equal(loads, 1, 'concurrent extraction within one request must share the in-flight import');
+  });
 });

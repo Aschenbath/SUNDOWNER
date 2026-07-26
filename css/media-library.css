@@ -2844,7 +2844,7 @@ body.codex-media-library-active #app {
   opacity: 1;
 }
 
-/* Apple-style skeleton loading state */
+/* Skeleton loading state — theme-aware base with a clearly perceptible shimmer */
 #codex-media-library-root .cml-media-tile:not(.is-img-loaded):not(.has-load-error) {
   background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
   position: relative;
@@ -2856,13 +2856,26 @@ body.codex-media-library-active #app {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.03) 50%,
-    rgba(255, 255, 255, 0) 100%
+    100deg,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 70%
   );
-  animation: cml-skeleton-shimmer 1.8s ease-in-out infinite;
+  animation: cml-skeleton-shimmer 1.6s ease-in-out infinite;
   transform: translateX(-100%);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-media-tile:not(.is-img-loaded):not(.has-load-error) {
+  background: linear-gradient(135deg, #e8eaed 0%, #f1f3f4 100%);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-media-tile:not(.is-img-loaded):not(.has-load-error)::before {
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(255, 255, 255, 0) 70%
+  );
 }
 
 @keyframes cml-skeleton-shimmer {
@@ -2874,61 +2887,97 @@ body.codex-media-library-active #app {
   }
 }
 
-/* Apple-style load error state - clean and minimal */
+/* Load error state — visible badge, retry hint, theme-aware */
 #codex-media-library-root .cml-media-tile.has-load-error {
   position: relative;
-  background: linear-gradient(135deg, #1a1a1a 0%, #242424 100%);
+  background:
+    radial-gradient(circle at center, rgba(138, 180, 248, 0.08) 0%, transparent 70%),
+    linear-gradient(135deg, #1a1a1a 0%, #242424 100%);
   cursor: pointer;
 }
 
-#codex-media-library-root .cml-media-tile.has-load-error::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    circle at center,
-    rgba(138, 180, 248, 0.08) 0%,
-    transparent 70%
-  );
-  pointer-events: none;
-  z-index: 1;
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-media-tile.has-load-error {
+  background:
+    radial-gradient(circle at center, rgba(26, 115, 232, 0.06) 0%, transparent 70%),
+    linear-gradient(135deg, #eceef1 0%, #f4f5f7 100%);
+}
+
+/* Failed images stay hidden so the browser's broken-image glyph never paints */
+#codex-media-library-root .cml-media-tile.has-load-error .cml-media-tile__image {
+  opacity: 0;
 }
 
 #codex-media-library-root .cml-media-tile.has-load-error::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 48px;
-  height: 48px;
-  background: rgba(138, 180, 248, 0.12);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 2;
-  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Error icon using pseudo-element positioned within the tile */
-#codex-media-library-root .cml-media-tile.has-load-error .cml-media-tile__image::before {
   content: "!";
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: rgba(138, 180, 248, 0.72);
-  font-size: 20px;
+  width: 44px;
+  height: 44px;
+  background: rgba(138, 180, 248, 0.14);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(138, 180, 248, 0.85);
+  font-size: 19px;
   font-weight: 700;
-  z-index: 3;
+  line-height: 1;
   pointer-events: none;
+  z-index: 2;
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), background 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-media-tile.has-load-error::after {
+  background: rgba(26, 115, 232, 0.1);
+  color: rgba(26, 115, 232, 0.8);
+}
+
+/* Retry hint below the badge, sourced from the accessible label */
+#codex-media-library-root .cml-media-tile.has-load-error::before {
+  content: attr(data-load-error-label);
+  position: absolute;
+  top: calc(50% + 30px);
+  left: 8px;
+  right: 8px;
+  text-align: center;
+  color: rgba(232, 234, 237, 0.62);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow: hidden;
+  max-height: 3em;
+  pointer-events: none;
+  z-index: 2;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-media-tile.has-load-error::before {
+  color: rgba(60, 64, 67, 0.7);
+}
+
+/* Retries exhausted — visually inert so dead tiles are not mistaken for retryable */
+#codex-media-library-root .cml-media-tile.has-load-error.is-retry-exhausted {
+  cursor: default;
+}
+
+#codex-media-library-root .cml-media-tile.has-load-error.is-retry-exhausted::after {
+  background: rgba(154, 160, 166, 0.12);
+  color: rgba(154, 160, 166, 0.6);
+}
+
+#codex-media-library-root .cml-media-tile.has-load-error.is-retry-exhausted:hover::after {
+  transform: translate(-50%, -50%);
+  background: rgba(154, 160, 166, 0.12);
 }
 
 #codex-media-library-root .cml-media-tile.is-retrying {
   position: relative;
   background: linear-gradient(135deg, #1a1a1a 0%, #242424 100%);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-media-tile.is-retrying {
+  background: linear-gradient(135deg, #eceef1 0%, #f4f5f7 100%);
 }
 
 #codex-media-library-root .cml-media-tile.is-retrying::after {
@@ -2962,7 +3011,7 @@ body.codex-media-library-active #app {
 }
 
 #codex-media-library-root .cml-media-tile.has-load-error:hover::after {
-  background: rgba(138, 180, 248, 0.18);
+  background: rgba(138, 180, 248, 0.2);
   transform: translate(-50%, -50%) scale(1.08);
 }
 
@@ -2971,27 +3020,72 @@ body.codex-media-library-active #app {
   transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  #codex-media-library-root .cml-media-tile:not(.is-img-loaded):not(.has-load-error)::before {
+    animation: none;
+  }
+
+  #codex-media-library-root .cml-media-tile.is-retrying::after {
+    animation-duration: 1600ms;
+  }
+
+  #codex-media-library-root .cml-media-tile,
+  #codex-media-library-root .cml-media-tile__image {
+    transition: none;
+  }
+}
+
+/* HEIC fallback chip — interim state while the client-side decoder works */
 #codex-media-library-root .is-heic-fallback {
   cursor: pointer;
 }
 
 #codex-media-library-root .is-heic-fallback {
   position: relative;
-  background: #292929;
+  background: linear-gradient(135deg, #232323 0%, #2c2c2c 100%);
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .is-heic-fallback {
+  background: linear-gradient(135deg, #e8eaed 0%, #f1f3f4 100%);
 }
 
 #codex-media-library-root .is-heic-fallback::after {
-  content: attr(data-mime-tag) " original";
+  content: attr(data-mime-tag);
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #9aa0a6;
-  font-size: 12px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #bdc1c6;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   pointer-events: none;
+  animation: cml-heic-chip-pulse 1.6s ease-in-out infinite;
+}
+
+#codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .is-heic-fallback::after {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #5f6368;
+}
+
+@keyframes cml-heic-chip-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #codex-media-library-root .is-heic-fallback::after {
+    animation: none;
+  }
 }
 
 #codex-media-library-root .cml-media-tile__scrim {
@@ -4939,6 +5033,15 @@ body.codex-media-library-active #app {
     background: #1a1a1d;
   }
 
+  #codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-mobile-nav {
+    background: rgba(255, 255, 255, 0.97);
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  #codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-mobile-nav__tab {
+    color: #5f6368;
+  }
+
   /* Hide bottom nav when preview is open */
   #codex-media-library-root:has(.cml-preview) .cml-mobile-nav {
     display: none;
@@ -4985,14 +5088,14 @@ body.codex-media-library-active #app {
     transition: background-color 250ms cubic-bezier(0.2, 0, 0, 1);
   }
 
-  /* Active pill — visible capsule background */
+  /* Active pill — visible capsule background, follows the accent palette */
   #codex-media-library-root .cml-mobile-nav__tab.is-active .cml-mobile-nav__icon-wrap {
-    background: rgba(138, 180, 248, 0.25);
+    background: rgba(var(--cml-theme-accent-rgb, 138, 180, 248), 0.25);
   }
 
   /* Active text + icon color */
   #codex-media-library-root .cml-mobile-nav__tab.is-active {
-    color: #8ab4f8;
+    color: rgb(var(--cml-theme-accent-rgb, 138, 180, 248));
   }
 
   /* Hover ripple for non-active */
@@ -5001,9 +5104,14 @@ body.codex-media-library-active #app {
     background: rgba(255, 255, 255, 0.08);
   }
 
+  #codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-mobile-nav__tab:hover .cml-mobile-nav__icon-wrap,
+  #codex-media-library-root .cml-app-shell[data-cml-theme-mode="light"] .cml-mobile-nav__tab:focus-visible .cml-mobile-nav__icon-wrap {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
   #codex-media-library-root .cml-mobile-nav__tab.is-active:hover .cml-mobile-nav__icon-wrap,
   #codex-media-library-root .cml-mobile-nav__tab.is-active:focus-visible .cml-mobile-nav__icon-wrap {
-    background: rgba(138, 180, 248, 0.32);
+    background: rgba(var(--cml-theme-accent-rgb, 138, 180, 248), 0.32);
   }
 
   /* Icon sizing — larger for touch */
@@ -5638,11 +5746,22 @@ body.codex-media-library-active #app {
   }
 }
 
-/* ── Tile shimmer skeleton ─────────────────────────────────────── */
+/* Docs search: message shown when a filter query hides every row/tile */
+#codex-media-library-root .cml-docs-search-empty {
+  margin: 24px 0;
+  text-align: center;
+  color: var(--cml-theme-text-muted, #8a93a3);
+  font-size: 13px;
+}
 
-#codex-media-library-root .cml-media-tile:not(.is-img-loaded) {
-  background: color-mix(in srgb, var(--cml-theme-card) 84%, #262626 16%);
-  animation: none;
+/* Music rows: the whole title block plays the track */
+#codex-media-library-root .cml-music-row__meta[data-action] {
+  cursor: pointer;
+}
+
+#codex-media-library-root .cml-music-row__meta[data-action]:hover .cml-music-row__title,
+#codex-media-library-root .cml-music-row__meta[data-action]:focus-visible .cml-music-row__title {
+  color: rgb(var(--cml-theme-accent-rgb, 138, 180, 248));
 }
 
 /* ── Blur-up progressive loading ───────────────────────────────── */
@@ -11158,6 +11277,46 @@ body.codex-media-library-active #app {
   font-weight: 800;
   line-height: 1.2;
   text-align: center;
+}
+
+/* Poster fallback pairs with an <img> inside the same frame: the fallback
+   stays hidden until the image errors (TMDB is unreachable in some regions). */
+#codex-media-library-root .cml-film-card__poster-panel:not(.is-poster-error) .cml-films-poster-fallback,
+#codex-media-library-root .cml-film-poster-card__frame:not(.is-poster-error) .cml-films-poster-fallback {
+  display: none;
+}
+
+#codex-media-library-root .cml-film-card__poster-panel.is-poster-error .cml-film-card__poster,
+#codex-media-library-root .cml-film-poster-card__frame.is-poster-error .cml-film-poster-card__image {
+  display: none;
+}
+
+#codex-media-library-root .cml-films-empty.is-loading .cml-films-empty__title {
+  animation: cml-heic-chip-pulse 1.6s ease-in-out infinite;
+}
+
+#codex-media-library-root .cml-films-retry-button {
+  justify-self: start;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--cml-theme-accent-rgb), 0.4);
+  background: rgba(var(--cml-theme-accent-rgb), 0.14);
+  color: var(--cml-theme-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+#codex-media-library-root .cml-films-retry-button:hover {
+  background: rgba(var(--cml-theme-accent-rgb), 0.22);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #codex-media-library-root .cml-films-empty.is-loading .cml-films-empty__title {
+    animation: none;
+  }
 }
 
 #codex-media-library-root .cml-films-result__body {

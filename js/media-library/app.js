@@ -54,7 +54,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=125';
+} from './components.js?v=126';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -68,7 +68,7 @@ import {
   deriveMomentCalendarMonth,
   normalizeMomentDraftAttachments,
   normalizeMomentPosts,
-} from './moments-state.js?v=4';
+} from './moments-state.js?v=5';
 import {
   mergeIndexedMediaResultWithCache,
   mergeIndexedMediaWithCachedItems,
@@ -95,7 +95,7 @@ import {
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
-import { FilmCard, FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=81';
+import { FilmCard, FilmDetailPage, FilmSearchResults, FilmsPage } from './films-components.js?v=82';
 import {
   THEME_CHANGE_EVENT,
   applyThemeToDocument,
@@ -237,6 +237,11 @@ const PHOTOS_PRIORITY_TILE_LIMIT = 16;
 const PHOTOS_VIEWPORT_PRELOAD_COUNT = 8;
 const MAX_IMAGE_RETRY_ATTEMPTS = 3;
 const IMAGE_DECODE_CONCURRENCY = 4;
+// A hung full-image fetch must not hold a decode slot forever; after this the
+// slot is released and the tile keeps its blur placeholder until re-enqueued.
+const IMAGE_DECODE_TIMEOUT_MS = 25000;
+const HEIC_TILE_DECODE_CONCURRENCY = 2;
+const HEIC_TILE_DECODE_MAX_EDGE = 640;
 const TILE_SELECTION_CHECK_MARKUP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 12.8 3.7 3.7 7.5-8.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
 const TILE_SELECTION_RING_MARKUP = '<span class="cml-media-tile__select-ring"></span>';
 const VIDEO_CATEGORY_MAX_LENGTH = 48;
@@ -732,6 +737,7 @@ const state = {
   favoriteIds: new Set(),
   loadedMediaIds: new Set(),
   fullLoadedMediaIds: new Set(),
+  failedMediaIds: new Set(),
   albumNames: [],
   albumAssignments: {},
   albumCovers: {},
@@ -780,6 +786,7 @@ const state = {
   layoutWidth: 0,
   binItems: [],
   isBinLoading: false,
+  binLoadError: '',
   binSelectedIds: new Set(),
   toastMessage: '',
   toastType: 'error',
@@ -936,6 +943,8 @@ const state = {
   filmViewMode: 'ticket',
   filmSavingTmdbIds: new Set(),
   filmError: '',
+  filmEntriesLoading: true,
+  filmEntriesError: '',
   filmNotesEditing: false,
   filmNotesDraft: '',
   filmNotesActiveLine: 0,
@@ -1988,6 +1997,10 @@ function upgradePreviewImageToHeicDecoded(img, heicUrl) {
       img.dataset.heicDecodeStatus = 'done';
       img.classList.remove('is-heic-decode-pending');
       img.classList.add('is-heic-decoded');
+      // If the placeholder preview errored first, its inline onerror hid the
+      // <img> and flagged the stage; undo both so the decoded image is visible.
+      img.style.display = '';
+      img.parentElement?.classList?.remove('is-heic-fallback');
       img.src = objectUrl;
     } catch (error) {
       console.warn('HEIC client decode failed:', error?.message || error);
@@ -2375,12 +2388,14 @@ function revealLoadedPreviewImage(img, tile) {
 }
 
 function markTileImageLoaded(img, tile, { fullLoaded = false } = {}) {
-  tile.classList.remove('has-load-error', 'is-retrying');
+  tile.classList.remove('has-load-error', 'is-retrying', 'is-retry-exhausted', 'is-heic-fallback');
   tile.removeAttribute('aria-busy');
+  tile.removeAttribute('data-load-error-label');
   tile.classList.add('is-img-loaded');
   const tileId = normalizeText(tile.dataset?.tileId || tile.dataset?.id || '');
   if (tileId) {
     state.loadedMediaIds.add(tileId);
+    state.failedMediaIds.delete(tileId);
     if (fullLoaded) {
       state.fullLoadedMediaIds.add(tileId);
     }
@@ -2397,10 +2412,21 @@ function markTileImageFailed(img, tile, event) {
     img.src = nextSource.source;
     return;
   }
+  // HEIC tiles get one client-side decode attempt before surfacing the error
+  // state — the raw original is downloadable even when no preview renders.
+  if (img.dataset.heicTileDecodeSrc && img.dataset.heicTileDecodeStatus !== 'error') {
+    scheduleHeicTileDecode(img, tile);
+    return;
+  }
   console.warn('Image load failed:', img.src, 'tile:', tile.dataset?.tileId, event);
-  tile.classList.remove('is-retrying');
+  tile.classList.remove('is-retrying', 'is-heic-fallback');
   tile.removeAttribute('aria-busy');
-  tile.classList.add('is-img-loaded', 'has-load-error');
+  tile.classList.add('has-load-error');
+  tile.setAttribute('data-load-error-label', 'Load failed\nPress Enter or click to retry');
+  const tileId = normalizeText(tile.dataset?.tileId || tile.dataset?.id || '');
+  if (tileId) {
+    state.failedMediaIds.add(tileId);
+  }
 }
 
 function retryFailedImageTile(tile) {
@@ -2411,6 +2437,7 @@ function retryFailedImageTile(tile) {
   const currentAttempt = Number.parseInt(img.dataset.retryAttempt || '0', 10);
   if (!canRetryImage(currentAttempt, MAX_IMAGE_RETRY_ATTEMPTS)) {
     tile.classList.add('is-retry-exhausted');
+    tile.setAttribute('data-load-error-label', 'Unable to load\nFile may be missing');
     return false;
   }
   const nextAttempt = currentAttempt + 1;
@@ -2423,27 +2450,98 @@ function retryFailedImageTile(tile) {
     img.dataset.triedOriginal = '1';
   }
   img.dataset.retryAttempt = String(nextAttempt);
-  tile.classList.remove('has-load-error', 'is-retry-exhausted');
+  if (img.dataset.heicTileDecodeStatus === 'error') {
+    // Allow the client-side HEIC decode fallback another chance after a manual retry.
+    delete img.dataset.heicTileDecodeStatus;
+  }
+  // HEIC fallback tiles hide the broken <img> inline; undo that so a
+  // successful retry (or client decode) is actually visible again.
+  img.style.display = '';
+  tile.classList.remove('has-load-error', 'is-retry-exhausted', 'is-heic-fallback');
+  tile.removeAttribute('data-load-error-label');
   tile.classList.add('is-retrying');
   tile.setAttribute('aria-busy', 'true');
   img.src = retryUrl;
   return true;
 }
 
-// Batched image decode queue for controlled concurrency
+function isSameImageSource(img, source) {
+  if (!(img instanceof HTMLImageElement) || !source) {
+    return false;
+  }
+  try {
+    return new URL(String(source), window.location.origin).href === (img.currentSrc || img.src || '');
+  } catch {
+    return (img.getAttribute('src') || '') === String(source);
+  }
+}
+
+// Batched image decode queue for controlled concurrency. Dedupes by tile+src so
+// re-renders cannot flood the queue, prefers tiles near the viewport over pure
+// FIFO order, drops tasks whose tiles were virtualized away, and times out hung
+// fetches so 4 stalled requests can never freeze every remaining upgrade.
 const decodeQueue = {
   pending: [],
   active: 0,
   maxConcurrent: IMAGE_DECODE_CONCURRENCY,
+  queuedKeys: new Set(),
+
+  uidCounter: 0,
+
+  taskKey(tile, fullSrc) {
+    let tileId = normalizeText(tile?.dataset?.tileId || tile?.dataset?.id || '');
+    if (!tileId && tile?.dataset) {
+      // Surfaces outside the tile pipeline (album covers, picker thumbs) get a
+      // per-element uid so two covers sharing a URL both receive their swap.
+      if (!tile.dataset.decodeUid) {
+        this.uidCounter += 1;
+        tile.dataset.decodeUid = String(this.uidCounter);
+      }
+      tileId = tile.dataset.decodeUid;
+    }
+    return `${tileId}|${fullSrc}`;
+  },
 
   enqueue(img, tile, fullSrc, applyCallback) {
-    this.pending.push({ img, tile, fullSrc, applyCallback });
+    const key = this.taskKey(tile, fullSrc);
+    if (this.queuedKeys.has(key)) {
+      return;
+    }
+    this.queuedKeys.add(key);
+    this.pending.push({ img, tile, fullSrc, applyCallback, key });
     this.processNext();
+  },
+
+  takeNextTask() {
+    const viewportHeight = window.innerHeight || 800;
+    let fallbackIdx = -1;
+    for (let i = 0; i < this.pending.length; i += 1) {
+      const task = this.pending[i];
+      if (!task.tile?.isConnected || !task.img?.isConnected) {
+        this.queuedKeys.delete(task.key);
+        this.pending.splice(i, 1);
+        i -= 1;
+        continue;
+      }
+      if (fallbackIdx === -1) {
+        fallbackIdx = i;
+      }
+      const rect = task.tile.getBoundingClientRect();
+      if (rect.bottom >= -viewportHeight && rect.top <= viewportHeight * 2) {
+        this.pending.splice(i, 1);
+        return task;
+      }
+    }
+    if (fallbackIdx === -1) {
+      return null;
+    }
+    const [task] = this.pending.splice(fallbackIdx, 1);
+    return task;
   },
 
   processNext() {
     while (this.active < this.maxConcurrent && this.pending.length > 0) {
-      const task = this.pending.shift();
+      const task = this.takeNextTask();
       if (!task) break;
 
       this.active++;
@@ -2451,31 +2549,163 @@ const decodeQueue = {
     }
   },
 
-  async decodeImage({ img, tile, fullSrc, applyCallback }) {
+  async decodeImage({ img, tile, fullSrc, applyCallback, key }) {
+    const full = new Image();
     try {
-      const full = new Image();
       full.decoding = 'async';
       full.src = fullSrc;
 
-      await full.decode();
+      await Promise.race([
+        full.decode(),
+        new Promise((_, reject) => {
+          window.setTimeout(() => reject(new Error('image decode timed out')), IMAGE_DECODE_TIMEOUT_MS);
+        })
+      ]);
 
       if (tile?.isConnected && img?.isConnected) {
         applyCallback(full);
       }
     } catch (error) {
-      // Decode failed, keep blur thumbnail visible
+      // Cancel the in-flight fetch so a timed-out slot is genuinely free, and
+      // keep the blur thumbnail visible for the tile itself.
+      try { full.src = ''; } catch { /* ignore */ }
       if (img?.isConnected) {
         captureDimension(img, tile);
       }
     } finally {
+      this.queuedKeys.delete(key);
       this.active--;
       this.processNext();
     }
   }
 };
 
+// Client-side HEIC tile decode fallback: when no renderable server preview
+// exists (no Telegram thumbnail, no embedded EXIF thumb), decode the original
+// in the browser and swap in a downscaled JPEG so the tile shows the photo
+// instead of a "HEIC" text placeholder. Decoded object URLs are kept for the
+// session (small, tile-sized JPEGs) so re-renders reuse them instantly.
+const heicTileObjectUrls = new Map();
+const heicTileDecodeQueue = {
+  pending: [],
+  active: 0,
+  maxConcurrent: HEIC_TILE_DECODE_CONCURRENCY,
+  queuedKeys: new Set(),
+
+  enqueue(img, tile, sourceUrl) {
+    if (this.queuedKeys.has(sourceUrl)) {
+      return;
+    }
+    this.queuedKeys.add(sourceUrl);
+    this.pending.push({ img, tile, sourceUrl });
+    this.processNext();
+  },
+
+  processNext() {
+    while (this.active < this.maxConcurrent && this.pending.length > 0) {
+      const task = this.pending.shift();
+      if (!task) break;
+      if (!task.tile?.isConnected || !task.img?.isConnected) {
+        this.queuedKeys.delete(task.sourceUrl);
+        continue;
+      }
+      this.active++;
+      this.decodeTask(task);
+    }
+  },
+
+  async decodeTask({ img, tile, sourceUrl }) {
+    try {
+      const objectUrl = await decodeHeicTileToObjectUrl(sourceUrl);
+      applyHeicTileObjectUrl(img, tile, objectUrl);
+    } catch (error) {
+      console.warn('HEIC tile decode failed:', error?.message || error);
+      if (img?.isConnected && tile?.isConnected) {
+        img.dataset.heicTileDecodeStatus = 'error';
+        markTileImageFailed(img, tile, error);
+      }
+    } finally {
+      this.queuedKeys.delete(sourceUrl);
+      this.active--;
+      this.processNext();
+    }
+  }
+};
+
+async function decodeHeicTileToObjectUrl(sourceUrl) {
+  if (heicTileObjectUrls.has(sourceUrl)) {
+    return heicTileObjectUrls.get(sourceUrl);
+  }
+  const { decodeHeicBufferToBlob } = await import('./heic-decoder.js?v=3');
+  const response = await fetch(sourceUrl, { credentials: 'same-origin' });
+  if (!response.ok) {
+    throw new Error(`HEIC fetch failed: ${response.status}`);
+  }
+  const buffer = await response.arrayBuffer();
+  const fullBlob = await decodeHeicBufferToBlob(buffer);
+  const tileBlob = await downscaleImageBlob(fullBlob, HEIC_TILE_DECODE_MAX_EDGE);
+  const objectUrl = URL.createObjectURL(tileBlob);
+  heicTileObjectUrls.set(sourceUrl, objectUrl);
+  return objectUrl;
+}
+
+async function downscaleImageBlob(blob, maxEdge) {
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    if (scale >= 1) {
+      bitmap.close?.();
+      return blob;
+    }
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = typeof OffscreenCanvas === 'function'
+      ? new OffscreenCanvas(width, height)
+      : Object.assign(document.createElement('canvas'), { width, height });
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+    if (typeof canvas.convertToBlob === 'function') {
+      return await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
+    }
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob((result) => (result ? resolve(result) : reject(new Error('canvas.toBlob returned null'))), 'image/jpeg', 0.85);
+    });
+  } catch {
+    // Downscaling is an optimization only; fall back to the full-size blob.
+    return blob;
+  }
+}
+
+function applyHeicTileObjectUrl(img, tile, objectUrl) {
+  if (!objectUrl || !(img instanceof HTMLImageElement) || !tile?.isConnected || !img.isConnected) {
+    return;
+  }
+  img.dataset.heicTileDecodeStatus = 'done';
+  img.style.display = '';
+  img.src = objectUrl;
+  tile.classList.remove('is-heic-fallback', 'has-load-error', 'is-retrying');
+  tile.removeAttribute('data-load-error-label');
+  tile.removeAttribute('aria-busy');
+  markTileImageLoaded(img, tile, { fullLoaded: true });
+  captureDimension(img, tile);
+}
+
+function scheduleHeicTileDecode(img, tile) {
+  const sourceUrl = img?.dataset?.heicTileDecodeSrc || '';
+  if (!sourceUrl || img.dataset.heicTileDecodeStatus === 'done') {
+    return;
+  }
+  const cached = heicTileObjectUrls.get(sourceUrl);
+  if (cached) {
+    applyHeicTileObjectUrl(img, tile, cached);
+    return;
+  }
+  heicTileDecodeQueue.enqueue(img, tile, sourceUrl);
+}
+
 function swapTileToFullImage(img, tile, fullSrc) {
-  if (!(img instanceof HTMLImageElement) || !fullSrc) {
+  if (!(img instanceof HTMLImageElement) || !fullSrc || isSameImageSource(img, fullSrc)) {
     return;
   }
 
@@ -2521,8 +2751,9 @@ function setupImageLoadAnimations() {
       // Skip fade-in for already-cached images (avoids flash on every render)
       img.style.transition = 'none';
       tile.classList.add('is-img-loaded');
-      rememberLoaded({ fullLoaded: !fullSrc || img.src === fullSrc });
-      if (fullSrc && img.src !== fullSrc) {
+      const fullLoadedNow = !fullSrc || isSameImageSource(img, fullSrc);
+      rememberLoaded({ fullLoaded: fullLoadedNow });
+      if (fullSrc && !fullLoadedNow) {
         // Do not read dimensions from the blur thumbnail; wait for the real
         // image so portrait photos do not get patched as landscape tiles.
         revealLoadedPreviewImage(img, tile);
@@ -2547,22 +2778,31 @@ function setupImageLoadAnimations() {
       return;
     }
     img.dataset.loadStateBound = '1';
+    // Load handlers stay persistent (not {once:true}) so retries after a
+    // failure still get their success path; every branch is idempotent.
     if (fullSrc) {
       // Blur-up: load tiny thumbnail first, then swap to full
-      img.addEventListener('load', function onBlurLoad() {
+      img.addEventListener('load', () => {
         tile.classList.add('is-img-loaded');
         rememberLoaded();
         revealLoadedPreviewImage(img, tile);
         swapTileToFullImage(img, tile, fullSrc);
-      }, { once: true });
+      });
       img.addEventListener('error', (event) => markTileImageFailed(img, tile, event));
     } else {
       img.addEventListener('load', () => {
         tile.classList.add('is-img-loaded');
         rememberLoaded({ fullLoaded: true });
         captureDimension(img, tile);
-      }, { once: true });
+      });
       img.addEventListener('error', (event) => markTileImageFailed(img, tile, event));
+    }
+    if (img.complete && img.getAttribute('src') && img.naturalWidth === 0) {
+      // The image finished loading (and failed) before listeners were bound —
+      // typical for rows inserted by patchTimelineContent during virtual
+      // scrolling. The error event will never re-fire, so drive the failure
+      // path manually instead of leaving the tile as a permanent skeleton.
+      markTileImageFailed(img, tile, null);
     }
   });
   // Apply cached mismatches synchronously — render() runs before the browser
@@ -2571,6 +2811,33 @@ function setupImageLoadAnimations() {
     clearTimeout(dimensionPatchTimer);
     applyDimensionPatch();
   }
+
+  // Bespoke surfaces outside the tile pipeline (album covers, video-album
+  // covers, picker thumbnails) render blur placeholders with data-full-src but
+  // historically never got listeners — they stayed on the tiny blurred
+  // Telegram thumbnail forever. Give them the same decode-queue upgrade.
+  refs.root.querySelectorAll('img.is-blur-placeholder[data-full-src]:not(.cml-media-tile__image)').forEach((img) => {
+    if (img.dataset.loadStateBound === '1') {
+      return;
+    }
+    img.dataset.loadStateBound = '1';
+    const fullSrc = img.dataset.fullSrc || '';
+    const upgradeCoverImage = () => {
+      if (!fullSrc || isSameImageSource(img, fullSrc)) {
+        img.classList.remove('is-blur-placeholder');
+        return;
+      }
+      decodeQueue.enqueue(img, img, fullSrc, () => {
+        img.src = fullSrc;
+        img.classList.remove('is-blur-placeholder');
+      });
+    };
+    if (img.complete && img.naturalWidth > 0) {
+      upgradeCoverImage();
+    } else {
+      img.addEventListener('load', upgradeCoverImage, { once: true });
+    }
+  });
 
   // Videos: seek to first frame to get a thumbnail
   refs.root.querySelectorAll('.cml-media-tile video').forEach((video) => {
@@ -6821,7 +7088,10 @@ async function fetchIndexedMediaItems(domItems, cachedMediaPayload = null) {
     totalCount: firstTotalCount,
     loadedCount: initialItems.length,
     isTruncated: firstTotalCount > initialItems.length,
-    allowCacheSupplement: true
+    // Only supplement from cache while the listing is known-incomplete;
+    // supplementing a complete listing resurrects server-deleted files as
+    // permanent load-failed tiles.
+    allowCacheSupplement: firstTotalCount > initialItems.length
   };
 
   scheduleDeferredStartupTask(async () => {
@@ -6829,32 +7099,41 @@ async function fetchIndexedMediaItems(domItems, cachedMediaPayload = null) {
     const seenFileIds = new Set(firstFiles.map((file) => normalizeText(file?.name || file?.id)).filter(Boolean));
     let start = firstReturnedCount;
     let totalCount = firstTotalCount;
+    let pagingFailed = false;
 
-    while (start < API_MAX_ITEMS) {
-      const nextPayload = await fetchListPage(start);
-      const pageFiles = safeArray(nextPayload?.files);
-      if (!pageFiles.length) {
-        break;
-      }
-      let addedCount = 0;
-      pageFiles.forEach((file) => {
-        const fileId = normalizeText(file?.name || file?.id);
-        if (fileId && seenFileIds.has(fileId)) {
-          return;
+    try {
+      // No probe request when page 1 already returned the whole library.
+      while (start < totalCount && start < API_MAX_ITEMS) {
+        const nextPayload = await fetchListPage(start);
+        const pageFiles = safeArray(nextPayload?.files);
+        if (!pageFiles.length) {
+          break;
         }
-        if (fileId) {
-          seenFileIds.add(fileId);
+        let addedCount = 0;
+        pageFiles.forEach((file) => {
+          const fileId = normalizeText(file?.name || file?.id);
+          if (fileId && seenFileIds.has(fileId)) {
+            return;
+          }
+          if (fileId) {
+            seenFileIds.add(fileId);
+          }
+          files.push(file);
+          addedCount += 1;
+        });
+        const returnedCount = toPositiveNumber(nextPayload?.returnedCount, pageFiles.length);
+        totalCount = Math.max(totalCount, toPositiveNumber(nextPayload?.totalCount, files.length));
+        const shouldStop = returnedCount < API_PAGE_SIZE || addedCount === 0 || files.length >= totalCount || files.length >= API_MAX_ITEMS;
+        if (shouldStop) {
+          break;
         }
-        files.push(file);
-        addedCount += 1;
-      });
-      const returnedCount = toPositiveNumber(nextPayload?.returnedCount, pageFiles.length);
-      totalCount = Math.max(totalCount, toPositiveNumber(nextPayload?.totalCount, files.length));
-      const shouldStop = returnedCount < API_PAGE_SIZE || addedCount === 0 || files.length >= totalCount || files.length >= API_MAX_ITEMS;
-      if (shouldStop) {
-        break;
+        start += returnedCount;
       }
-      start += returnedCount;
+    } catch (error) {
+      // A failed backfill page must not kill the whole deferred task (it used
+      // to die as an unhandled rejection, leaving stale first-page state).
+      pagingFailed = true;
+      console.warn('[media-library] library backfill paging failed', error);
     }
 
     const fullItems = files
@@ -6868,7 +7147,14 @@ async function fetchIndexedMediaItems(domItems, cachedMediaPayload = null) {
         return left.label.localeCompare(right.label);
       })
       .map(({ sortOrder, domIndex, ...item }) => item);
-    const mergedFullItems = mergeIndexedMediaWithCachedItems(fullItems, [...state.mediaItems, ...safeArray(cachedMediaPayload?.items)]);
+    // A complete server enumeration is authoritative: skip the cache union so
+    // files deleted in other sessions actually disappear instead of living on
+    // as permanent load-failed tiles. Truncated or failed syncs keep the cache
+    // supplement so items beyond the fetch window survive.
+    const syncComplete = !pagingFailed && files.length >= totalCount && totalCount <= API_MAX_ITEMS;
+    const mergedFullItems = syncComplete
+      ? fullItems
+      : mergeIndexedMediaWithCachedItems(fullItems, [...state.mediaItems, ...safeArray(cachedMediaPayload?.items)]);
 
     const nextLibrarySyncMeta = {
       source: mergedFullItems.length > fullItems.length ? 'indexed-cache' : 'indexed',
@@ -7115,7 +7401,8 @@ function patchBinGridView({ perfToken = null } = {}) {
     binSelectedIds: viewModel.binSelectedIds,
     isBinLoading: viewModel.isBinLoading,
     layoutWidth: state.layoutWidth,
-    activeSectionAnchor: state.activeSectionAnchor
+    activeSectionAnchor: state.activeSectionAnchor,
+    binLoadError: state.binLoadError
   }).trim();
   const nextRoot = template.content.querySelector('[data-bin-grid-root]');
   if (!(nextRoot instanceof HTMLElement)) {
@@ -7157,10 +7444,13 @@ async function fetchBinItems() {
       .map(buildBinItem)
       .filter(Boolean)
       .sort((left, right) => right.deletedAt - left.deletedAt);
+    state.binLoadError = '';
   } catch (error) {
     console.error('[media-library] fetchBinItems failed', error);
     state.binItems = [];
-    showToast('Failed to load Bin. Refresh and try again.');
+    // An inline error panel (with retry) renders instead of the misleading
+    // "Bin is empty" state; a toast alone disappears before users see it.
+    state.binLoadError = 'The bin list request failed.';
   } finally {
     state.isBinLoading = false;
     if (!patchBinGridView({ perfToken })) {
@@ -8880,9 +9170,9 @@ function buildContentViewKey(viewModel) {
     state.primaryFilter === 'Films'
       ? (state.filmDetailOpen && state.activeFilmId ? `detail:${state.activeFilmId}` : 'index')
       : '',
-    state.primaryFilter === 'Moments'
-      ? `${state.momentsSelectedDate}|${state.momentsCalendarMonth}`
-      : '',
+    // Calendar day/month clicks are in-view updates; keying them here made
+    // every calendar tap replay the 320ms whole-view fade transition.
+    state.primaryFilter === 'Moments' && state.momentsSelectedDate ? 'moments-day' : '',
     viewModel.activeAlbumName || '',
     viewModel.activePlaylistName || '',
     state.secondaryFilter || '',
@@ -12293,6 +12583,8 @@ function renderFilmsIndexPageHtml() {
     activeFilter: state.filmActiveFilter,
     viewMode: state.filmViewMode,
     libraryQuery: state.filmLibraryQuery,
+    isLoading: state.filmEntriesLoading,
+    loadError: state.filmEntriesError,
     searchPanelHtml: FilmSearchResults({
       results: state.filmSearchResults,
       loading: state.filmSearchLoading,
@@ -12577,15 +12869,20 @@ async function loadMovieEntries({ forceRender = false } = {}) {
     applyMovieEntries(payload?.entries || []);
     void removeKnownAccidentalFilmEntries();
     state.filmError = '';
+    state.filmEntriesError = '';
     if (forceRender) {
       render();
     }
   } catch (error) {
-    state.filmError = error.message || 'Failed to load local film list';
+    // Keep entry-load failures separate from search errors: the films index
+    // used to render "No saved films yet." on a failed fetch because the only
+    // error surface lived inside the (query-gated) search panel.
+    state.filmEntriesError = error.message || 'Failed to load local film list';
     if (forceRender) {
       render();
     }
   } finally {
+    state.filmEntriesLoading = false;
     markPerf('films-entries-fetch-end');
     measurePerf('films-entries-fetch', 'films-entries-fetch-start', 'films-entries-fetch-end');
   }
@@ -16172,7 +16469,8 @@ function render() {
                   binSelectedIds: viewModel.binSelectedIds,
                   isBinLoading: viewModel.isBinLoading,
                   layoutWidth: state.layoutWidth,
-                  activeSectionAnchor: state.activeSectionAnchor
+                  activeSectionAnchor: state.activeSectionAnchor,
+                  binLoadError: state.binLoadError
                 })
                 : viewModel.isGlobalSearchView
                 ? SearchResultsView({
@@ -16295,7 +16593,9 @@ function render() {
                         actionAction: 'open-create-playlist'
                       })}`
                 : !viewModel.isGlobalSearchView && state.secondaryFilter === 'Documents'
-                ? DocumentsListView({ items: viewModel.filteredItems, state })
+                ? (state.isLibraryLoading && !viewModel.filteredItems.length
+                  ? EmptyState({ isLoading: true, mode: 'media' })
+                  : DocumentsListView({ items: viewModel.filteredItems, state }))
                 : state.privateViewOpen && !state.privateRouteUnlocked
                 ? PrivateAlbumGate({ error: state.privatePasswordError, value: state.privatePasswordDraft })
                 : `${state.primaryFilter === 'Collections' && (viewModel.activeAlbumName || isMobileLayout()) && !hideMobileCollectionSummary
@@ -17097,6 +17397,30 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
     let items = domItems;
     let surfaceReady = hasUnderlyingSurface();
     const cachedMediaPayload = readCachedMediaPayload();
+
+    // Cache-first paint: render the cached library immediately instead of a
+    // skeleton wall while the network round trip is in flight. The indexed
+    // fetch below reconciles state (and prunes server-deleted items) when it
+    // lands; identical results short-circuit via the signature check.
+    const cachedItems = safeArray(cachedMediaPayload?.items);
+    if (!state.mediaItems.length && cachedItems.length && refs.root) {
+      state.mediaItems = cachedItems;
+      state.liveMediaSignature = cachedItems
+        .map((item) => `${item.id}:${item.takenAt}:${item.thumbnailUrl}:${item.width}x${item.height}`)
+        .join('|');
+      state.librarySyncMeta = {
+        ...cachedMediaPayload.librarySyncMeta,
+        source: 'cache-first',
+        loadedCount: cachedItems.length,
+        totalCount: Math.max(
+          Number(cachedMediaPayload.librarySyncMeta?.totalCount) || 0,
+          cachedItems.length
+        ),
+      };
+      state.isLibraryLoading = false;
+      render();
+      didUpdateVisibleUi = true;
+    }
 
     try {
       const indexedResult = mergeIndexedMediaResultWithCache(
@@ -18200,6 +18524,11 @@ function patchTimelineContent({ force = false, virtualWindow = null, changedIds 
   refreshTimelineSectionOffsetTops();
   updateActiveYear();
   updateScrubberThumb();
+  // Rows inserted above via insertAdjacentHTML carry brand-new <img> elements
+  // with no load/error listeners. Without this, virtual scrolling produced
+  // tiles whose images loaded invisibly (opacity stays 0 until is-img-loaded)
+  // and shimmered as gray skeletons forever.
+  setupImageLoadAnimations();
 }
 
 function scheduleTimelineRender() {
@@ -19049,6 +19378,15 @@ function handleAction(actionTarget, event = null) {
       return true;
     case 'request-empty-bin':
       requestEmptyBin();
+      return true;
+    case 'retry-bin-load':
+      void fetchBinItems();
+      return true;
+    case 'retry-film-entries':
+      state.filmEntriesLoading = true;
+      state.filmEntriesError = '';
+      render();
+      void loadMovieEntries({ forceRender: true });
       return true;
     case 'delete-selected':
       requestDeleteSelection(false);
@@ -20302,17 +20640,38 @@ function handleInput(event) {
   if (input.hasAttribute('data-docs-search-input')) {
     state.docsSearch = input.value;
     const query = (input.value || '').toLowerCase().trim();
-    const rows = refs.root ? Array.from(refs.root.querySelectorAll('.cml-docs-row')) : [];
-    rows.forEach((row) => {
-      if (row.classList.contains('cml-docs-row--new-folder')) return;
-      const nameEl = row.querySelector('.cml-docs-row__name');
+    // Filter list rows AND grid tiles — the search box used to be a no-op in
+    // grid view because it only walked .cml-docs-row.
+    const entries = refs.root
+      ? Array.from(refs.root.querySelectorAll('.cml-docs-row, .cml-docs-tile'))
+      : [];
+    let visibleCount = 0;
+    entries.forEach((entry) => {
+      if (entry.classList.contains('cml-docs-row--new-folder')) return;
+      const nameEl = entry.querySelector('.cml-docs-row__name, .cml-docs-tile__name');
       const name = (nameEl?.textContent || '').toLowerCase();
-      if (!query || name.includes(query)) {
-        row.style.display = '';
-      } else {
-        row.style.display = 'none';
+      const matches = !query || name.includes(query);
+      entry.style.display = matches ? '' : 'none';
+      if (matches) {
+        visibleCount += 1;
       }
     });
+    // Surface a "no matches" message instead of a silently blank area.
+    const docsContainer = refs.root?.querySelector('.cml-docs-grid, .cml-docs-table');
+    if (docsContainer instanceof HTMLElement && docsContainer.parentElement) {
+      let emptyNote = docsContainer.parentElement.querySelector('[data-docs-search-empty]');
+      if (query && visibleCount === 0) {
+        if (!emptyNote) {
+          emptyNote = document.createElement('p');
+          emptyNote.setAttribute('data-docs-search-empty', '');
+          emptyNote.className = 'cml-docs-search-empty';
+          docsContainer.insertAdjacentElement('afterend', emptyNote);
+        }
+        emptyNote.textContent = `No files in this folder match "${input.value.trim()}".`;
+      } else if (emptyNote) {
+        emptyNote.remove();
+      }
+    }
     return;
   }
   if (input.hasAttribute('data-film-library-search-input')) {
@@ -20618,6 +20977,19 @@ function handleKeyDown(event) {
       event.preventDefault();
       event.stopPropagation();
     }
+    return;
+  }
+
+  // Film cards and music rows are focusable role=button elements whose
+  // activation only lived in click delegation — Enter/Space were dead for
+  // keyboard users.
+  const roleButtonActivationTarget = event.target instanceof Element
+    ? event.target.closest('[role="button"][data-action="open-film-detail"], [role="button"][data-action="add-manual-film"], [role="button"][data-action="play-audio-item"], [role="button"][data-action="audio-toggle-play"]')
+    : null;
+  if (roleButtonActivationTarget instanceof HTMLElement && (event.key === 'Enter' || event.key === ' ')) {
+    event.preventDefault();
+    event.stopPropagation();
+    handleAction(roleButtonActivationTarget);
     return;
   }
 
