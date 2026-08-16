@@ -87,6 +87,28 @@ describe('Moments app helpers', () => {
     assert.equal(item.browserPreviewSupported, false);
   });
 
+  it('infers legacy HEIC attachments from the file name when FileType is missing', () => {
+    const item = buildMomentAttachmentItem({
+      fileId: 'Moments/2026-05-17/legacy.HEIC',
+      metadata: {},
+    });
+
+    assert.equal(item.mimeType, 'image/heic');
+    assert.equal(item.thumbnailUrl, '/file/Moments/2026-05-17/legacy.HEIC?preview=1');
+    assert.equal(item.fullPreviewUrl, '/file/Moments/2026-05-17/legacy.HEIC?preview=embedded');
+    assert.equal(item.browserPreviewSupported, false);
+  });
+
+  it('keeps already encoded Moment file ids canonical instead of double encoding them', () => {
+    const item = buildMomentAttachmentItem({
+      fileId: 'Moments/2026-05-17/a%20space.jpg',
+      metadata: {},
+    });
+
+    assert.equal(item.sourceUrl, '/file/Moments/2026-05-17/a%20space.jpg');
+    assert.equal(item.mimeType, 'image/jpeg');
+  });
+
   it('exposes a blur thumbnail for feed grids only when a Telegram thumbnail is stored', () => {
     const withThumb = buildMomentAttachmentItem({
       fileId: 'Moments/2026-05-17/photo.jpg',

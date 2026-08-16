@@ -117,7 +117,11 @@ export function setCommonHeaders(headers, encodedFileName, fileType, Referer, ur
     // 内容寻址的 /file/{id} 路径写入后不可变（同一 id 永远指向同一比特流），
     // 加上 immutable 后浏览器在 max-age 窗口内不会触发 revalidation 请求，
     // 显著减少回源跟 TG getFile 调用。
-    if (options.immutable) {
+    if (options.revalidate) {
+        cacheControl = cacheControl.startsWith('private')
+            ? 'private, no-cache'
+            : 'public, no-cache';
+    } else if (options.immutable) {
         cacheControl = `${cacheControl}, immutable`;
     }
     headers.set('Cache-Control', cacheControl);
@@ -129,9 +133,10 @@ export function setCommonHeaders(headers, encodedFileName, fileType, Referer, ur
 
 // 内容寻址的 /file/{id} 响应头封装：从 context 上取 Referer/url/responseEtag，
 // 默认带 immutable，所有 channel handler 共用同一缓存契约。
-export function applyFileResponseHeaders(context, headers, encodedFileName, fileType) {
+export function applyFileResponseHeaders(context, headers, encodedFileName, fileType, options = {}) {
     setCommonHeaders(headers, encodedFileName, fileType, context?.Referer, context?.url, {
-        immutable: true,
+        immutable: options.immutable !== false,
+        revalidate: options.revalidate === true,
         etag: context?.responseEtag || null,
     });
 }
@@ -285,7 +290,7 @@ export async function return404(url) {
             {
                 status: 404,
                 headers: {
-                    "Cache-Control": "public, max-age=86400"
+                    "Cache-Control": "no-store"
                 }
             }
         );
@@ -295,7 +300,7 @@ export async function return404(url) {
             headers: {
                 "Content-Type": "image/png",
                 "Content-Disposition": "inline",
-                "Cache-Control": "public, max-age=86400",
+                "Cache-Control": "no-store",
             },
         });
     }
@@ -313,7 +318,7 @@ export async function returnBlockImg(url) {
             status: 302,
             headers: {
                 "Location": url.origin + "/blockimg",
-                "Cache-Control": "public, max-age=86400"
+                "Cache-Control": "no-store"
             }
         })
     } else {
@@ -322,7 +327,7 @@ export async function returnBlockImg(url) {
             headers: {
                 "Content-Type": "image/png",
                 "Content-Disposition": "inline",
-                "Cache-Control": "public, max-age=86400",
+                "Cache-Control": "no-store",
             },
         });
     }
@@ -340,7 +345,7 @@ export async function returnWhiteListImg(url) {
             status: 302,
             headers: {
                 "Location": url.origin + "/whiteliston",
-                "Cache-Control": "public, max-age=86400"
+                "Cache-Control": "no-store"
             }
         })
     } else {
@@ -349,7 +354,7 @@ export async function returnWhiteListImg(url) {
             headers: {
                 "Content-Type": "image/png",
                 "Content-Disposition": "inline",
-                "Cache-Control": "public, max-age=86400",
+                "Cache-Control": "no-store",
             },
         });
     }

@@ -448,6 +448,7 @@ describe('/file HEIC preview responses', () => {
 
     assert.equal(response.status, 404);
     assert.equal(await response.text(), 'Error: Image Not Found');
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
   });
 
   it('serves an embedded HEIC preview even when stored metadata only has octet-stream', async () => {
@@ -537,10 +538,11 @@ describe('/file HEIC preview responses', () => {
     assert.match(cacheControl, /immutable/, 'Cache-Control should declare immutable for content-addressed previews');
     assert.match(cacheControl, /max-age=\d+/);
     const etag = response.headers.get('ETag') || '';
-    assert.equal(etag, '"photos/IMG_3000.HEIC-embedded"', 'ETag must encode the file id and the variant');
+    assert.equal(etag, '"photos/IMG_3000.HEIC-embedded-extracted-image-jpeg"', 'ETag must identify the extracted representation');
   });
 
-  it('short-circuits to 304 Not Modified when If-None-Match matches the file ETag', async () => {
+  it('returns an accurate 304 after resolving the embedded representation MIME', async () => {
+    __setEmbeddedThumbnailExtractorForTests(async () => new Uint8Array([0xFF, 0xD8, 0xCA, 0xFE]));
     let r2Calls = 0;
     const records = new Map([
       ['photos/IMG_3000.HEIC', {
@@ -571,7 +573,7 @@ describe('/file HEIC preview responses', () => {
       request: new Request('https://example.com/file/photos/IMG_3000.HEIC?preview=embedded', {
         headers: {
           Referer: 'https://example.com/dashboard',
-          'If-None-Match': '"photos/IMG_3000.HEIC-embedded"',
+          'If-None-Match': '"photos/IMG_3000.HEIC-embedded-extracted-image-jpeg"',
         },
       }),
       env,
@@ -582,9 +584,67 @@ describe('/file HEIC preview responses', () => {
     });
 
     assert.equal(response.status, 304, 'matching If-None-Match must return 304');
-    assert.equal(response.headers.get('ETag'), '"photos/IMG_3000.HEIC-embedded"');
+    assert.equal(response.headers.get('ETag'), '"photos/IMG_3000.HEIC-embedded-extracted-image-jpeg"', '304 ETag must match the resolved representation');
+    assert.equal(response.headers.get('Content-Type'), 'image/jpeg', '304 must describe the cached JPEG preview, not the HEIC source');
     assert.match(response.headers.get('Cache-Control') || '', /immutable/);
-    assert.equal(r2Calls, 0, 'R2 must not be touched on a 304 short-circuit');
+    assert.equal(r2Calls, 1, 'a cold cache must resolve the representation before returning 304');
+  });
+
+  it('does not reuse a Telegram thumbnail MIME for an extracted embedded preview 304', async () => {
+    const previewBytes = new Uint8Array([0xFF, 0xD8, 0xCA, 0xFE]);
+    __setEmbeddedThumbnailExtractorForTests(async () => previewBytes);
+    const records = new Map([
+      ['photos/IMG_3001.HEIC', {
+        value: '',
+        metadata: {
+          FileName: 'IMG_3001.HEIC',
+          FileType: 'image/heic',
+          Channel: 'CloudflareR2',
+          TgThumbnailFileId: 'thumbnail-webp-id',
+          TgThumbnailFileType: 'image/webp',
+          ListType: 'None',
+          Label: 'safe',
+        },
+      }],
+    ]);
+    const env = {
+      img_url: new MemoryKV(records),
+      img_r2: {
+        async get(key) {
+          return key === 'photos/IMG_3001.HEIC'
+            ? new MockR2Object(new Uint8Array([0x00, 0x01]))
+            : null;
+        },
+      },
+    };
+    const first = await onRequest({
+      request: new Request('https://example.com/file/photos/IMG_3001.HEIC?preview=embedded', {
+        headers: { Referer: 'https://example.com/dashboard' },
+      }),
+      env,
+      params: { path: 'photos/IMG_3001.HEIC' },
+      waitUntil() {},
+      next() {},
+      data: {},
+    });
+    assert.equal(first.status, 200);
+    assert.equal(first.headers.get('Content-Type'), 'image/jpeg');
+
+    const second = await onRequest({
+      request: new Request('https://example.com/file/photos/IMG_3001.HEIC?preview=embedded', {
+        headers: {
+          Referer: 'https://example.com/dashboard',
+          'If-None-Match': first.headers.get('ETag'),
+        },
+      }),
+      env,
+      params: { path: 'photos/IMG_3001.HEIC' },
+      waitUntil() {},
+      next() {},
+      data: {},
+    });
+    assert.equal(second.status, 304);
+    assert.equal(second.headers.get('Content-Type'), 'image/jpeg');
   });
 
   it('caches the embedded preview in caches.default so repeat requests skip the source fetch', async () => {
@@ -806,8 +866,7 @@ describe('/file HEIC preview responses', () => {
 
       assert.equal(response.status, 415, 'preview route must not 200 with undecodable raw HEIC');
       assert.equal(response.headers.get('X-Preview-Unavailable'), 'heic');
-      assert.match(response.headers.get('Cache-Control') || '', /public/);
-      assert.match(response.headers.get('Cache-Control') || '', /max-age=3600/);
+      assert.equal(response.headers.get('Cache-Control'), 'no-store');
       assert.deepEqual(await response.json(), { error: 'preview-unavailable', format: 'heic' });
     });
 

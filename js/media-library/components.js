@@ -981,9 +981,9 @@ export function MediaTile({ item, selected, layout, isCover = false, state = nul
   const loadedMediaIds = state?.loadedMediaIds instanceof Set ? state.loadedMediaIds : null;
   const fullLoadedMediaIds = state?.fullLoadedMediaIds instanceof Set ? state.fullLoadedMediaIds : null;
   const failedMediaIds = state?.failedMediaIds instanceof Set ? state.failedMediaIds : null;
-  const isImgLoaded = Boolean(tileId && loadedMediaIds?.has(tileId));
-  const isFullLoaded = Boolean(tileId && fullLoadedMediaIds?.has(tileId));
-  const hasLoadError = Boolean(tileId && !isImgLoaded && failedMediaIds?.has(tileId));
+  const hasLoadError = Boolean(tileId && failedMediaIds?.has(tileId));
+  const isImgLoaded = Boolean(tileId && !hasLoadError && loadedMediaIds?.has(tileId));
+  const isFullLoaded = Boolean(tileId && !hasLoadError && fullLoadedMediaIds?.has(tileId));
   const tileClassName = ['cml-media-tile', selected ? 'is-selected' : '', isImgLoaded ? 'is-img-loaded' : '', isFullLoaded ? 'is-full-loaded' : '', hasLoadError ? 'has-load-error' : '']
     .filter(Boolean)
     .join(' ');

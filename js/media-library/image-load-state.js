@@ -5,6 +5,20 @@ function toNonNegativeInteger(value) {
   return Number.isInteger(numeric) && numeric >= 0 ? numeric : null;
 }
 
+function sameImageSource(left, right) {
+  const first = String(left || '').trim();
+  const second = String(right || '').trim();
+  if (!first || !second) {
+    return first === second;
+  }
+  try {
+    const baseUrl = globalThis.location?.origin || 'http://localhost';
+    return new URL(first, baseUrl).href === new URL(second, baseUrl).href;
+  } catch {
+    return first === second;
+  }
+}
+
 export function buildImageRetryUrl(source, attempt, baseUrl = globalThis.location?.origin || '') {
   const normalizedAttempt = toNonNegativeInteger(attempt);
   if (!source || normalizedAttempt === null || !baseUrl) {
@@ -26,13 +40,20 @@ export function buildImageRetryUrl(source, attempt, baseUrl = globalThis.locatio
 export function getNextImageSource(dataset = {}) {
   const canonicalSource = String(dataset.canonicalSrc || '').trim();
   const originalSource = String(dataset.originalSrc || '').trim();
+  const currentSource = String(dataset.currentSrc || dataset.src || '').trim();
+  const fullSource = String(dataset.fullSrc || '').trim();
   const canUseOriginal = originalSource
-    && originalSource !== canonicalSource
+    && !sameImageSource(originalSource, currentSource)
     && dataset.triedOriginal !== '1';
+  const canUseFull = !canUseOriginal
+    && fullSource
+    && !sameImageSource(fullSource, currentSource)
+    && dataset.triedFull !== '1';
 
   return {
-    source: canUseOriginal ? originalSource : canonicalSource,
+    source: canUseOriginal ? originalSource : (canUseFull ? fullSource : canonicalSource),
     usesOriginal: Boolean(canUseOriginal),
+    usesFull: Boolean(canUseFull),
   };
 }
 
