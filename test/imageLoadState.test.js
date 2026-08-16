@@ -37,6 +37,7 @@ describe('media image load state', () => {
     }), {
       source: '/file/original.jpg',
       usesOriginal: true,
+      usesFull: false,
     });
 
     assert.deepEqual(getNextImageSource({
@@ -46,6 +47,31 @@ describe('media image load state', () => {
     }), {
       source: '/file/thumb.jpg',
       usesOriginal: false,
+      usesFull: false,
+    });
+  });
+
+  it('falls back from a failed blur source to the full source even when no explicit original is present', () => {
+    assert.deepEqual(getNextImageSource({
+      canonicalSrc: '/file/photos/original.jpg',
+      fullSrc: '/file/photos/original.jpg',
+      currentSrc: '/file/photos/preview.jpg?preview=1',
+      triedFull: '',
+    }), {
+      source: '/file/photos/original.jpg',
+      usesOriginal: false,
+      usesFull: true,
+    });
+
+    assert.deepEqual(getNextImageSource({
+      canonicalSrc: '/file/photos/original.jpg',
+      fullSrc: '/file/photos/original.jpg',
+      currentSrc: 'http://localhost/file/photos/original.jpg',
+      triedFull: '1',
+    }), {
+      source: '/file/photos/original.jpg',
+      usesOriginal: false,
+      usesFull: false,
     });
   });
 

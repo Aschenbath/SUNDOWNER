@@ -54,7 +54,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=126';
+} from './components.js?v=127';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -68,7 +68,7 @@ import {
   deriveMomentCalendarMonth,
   normalizeMomentDraftAttachments,
   normalizeMomentPosts,
-} from './moments-state.js?v=5';
+} from './moments-state.js?v=6';
 import {
   mergeIndexedMediaResultWithCache,
   mergeIndexedMediaWithCachedItems,
@@ -91,7 +91,7 @@ import {
   buildImageRetryUrl,
   canRetryImage,
   getNextImageSource,
-} from './image-load-state.js?v=1';
+} from './image-load-state.js?v=2';
 import {
   FILM_FILTERS
 } from './films-data.js?v=7';
@@ -2274,6 +2274,9 @@ async function fetchAdminIdentity() {
 }
 
 function captureDimension(img, tile) {
+  if (!img?.isConnected || !tile?.isConnected) {
+    return;
+  }
   const id = tile?.dataset?.tileId || tile?.dataset?.id;
   if (!id) return;
   const nw = img.naturalWidth;
@@ -2388,6 +2391,9 @@ function revealLoadedPreviewImage(img, tile) {
 }
 
 function markTileImageLoaded(img, tile, { fullLoaded = false } = {}) {
+  if (!(img instanceof HTMLImageElement) || !tile?.isConnected || !img.isConnected) {
+    return;
+  }
   tile.classList.remove('has-load-error', 'is-retrying', 'is-retry-exhausted', 'is-heic-fallback');
   tile.removeAttribute('aria-busy');
   tile.removeAttribute('data-load-error-label');
@@ -2398,6 +2404,7 @@ function markTileImageLoaded(img, tile, { fullLoaded = false } = {}) {
     state.failedMediaIds.delete(tileId);
     if (fullLoaded) {
       state.fullLoadedMediaIds.add(tileId);
+      tile.classList.add('is-full-loaded');
     }
   }
   if (img instanceof HTMLImageElement) {
@@ -2406,9 +2413,33 @@ function markTileImageLoaded(img, tile, { fullLoaded = false } = {}) {
 }
 
 function markTileImageFailed(img, tile, event) {
-  const nextSource = getNextImageSource(img.dataset);
+  if (!(img instanceof HTMLImageElement) || !tile?.isConnected || !img.isConnected) {
+    return;
+  }
+  const tileId = normalizeText(tile.dataset?.tileId || tile.dataset?.id || '');
+  if (tileId) {
+    state.loadedMediaIds.delete(tileId);
+    state.fullLoadedMediaIds.delete(tileId);
+  }
+  const nextSource = getNextImageSource({
+    ...img.dataset,
+    currentSrc: img.currentSrc || img.src || '',
+  });
   if (nextSource.usesOriginal) {
     img.dataset.triedOriginal = '1';
+    img.style.display = '';
+    tile.classList.remove('has-load-error', 'is-retry-exhausted');
+    tile.classList.add('is-retrying');
+    tile.setAttribute('aria-busy', 'true');
+    img.src = nextSource.source;
+    return;
+  }
+  if (nextSource.usesFull) {
+    img.dataset.triedFull = '1';
+    img.style.display = '';
+    tile.classList.remove('has-load-error', 'is-retry-exhausted');
+    tile.classList.add('is-retrying');
+    tile.setAttribute('aria-busy', 'true');
     img.src = nextSource.source;
     return;
   }
@@ -2423,10 +2454,10 @@ function markTileImageFailed(img, tile, event) {
   tile.removeAttribute('aria-busy');
   tile.classList.add('has-load-error');
   tile.setAttribute('data-load-error-label', 'Load failed\nPress Enter or click to retry');
-  const tileId = normalizeText(tile.dataset?.tileId || tile.dataset?.id || '');
   if (tileId) {
     state.failedMediaIds.add(tileId);
   }
+  tile.classList.remove('is-img-loaded', 'is-full-loaded', 'is-preview-loaded');
 }
 
 function retryFailedImageTile(tile) {
@@ -2441,13 +2472,19 @@ function retryFailedImageTile(tile) {
     return false;
   }
   const nextAttempt = currentAttempt + 1;
-  const nextSource = getNextImageSource(img.dataset);
+  const nextSource = getNextImageSource({
+    ...img.dataset,
+    currentSrc: img.currentSrc || img.src || '',
+  });
   const retryUrl = buildImageRetryUrl(nextSource.source, nextAttempt, window.location.origin);
   if (!retryUrl) {
     return false;
   }
   if (nextSource.usesOriginal) {
     img.dataset.triedOriginal = '1';
+  }
+  if (nextSource.usesFull) {
+    img.dataset.triedFull = '1';
   }
   img.dataset.retryAttempt = String(nextAttempt);
   if (img.dataset.heicTileDecodeStatus === 'error') {
@@ -2484,7 +2521,7 @@ const decodeQueue = {
   pending: [],
   active: 0,
   maxConcurrent: IMAGE_DECODE_CONCURRENCY,
-  queuedKeys: new Set(),
+  queuedTasks: new Map(),
 
   uidCounter: 0,
 
@@ -2504,11 +2541,19 @@ const decodeQueue = {
 
   enqueue(img, tile, fullSrc, applyCallback) {
     const key = this.taskKey(tile, fullSrc);
-    if (this.queuedKeys.has(key)) {
+    const existing = this.queuedTasks.get(key);
+    if (existing) {
+      // A cache-first render can replace the DOM node while the old decode is
+      // still in flight. Retarget the task so the fresh node receives the
+      // decoded image instead of being silently deduped.
+      existing.img = img;
+      existing.tile = tile;
+      existing.applyCallback = applyCallback;
       return;
     }
-    this.queuedKeys.add(key);
-    this.pending.push({ img, tile, fullSrc, applyCallback, key });
+    const task = { img, tile, fullSrc, applyCallback, key };
+    this.queuedTasks.set(key, task);
+    this.pending.push(task);
     this.processNext();
   },
 
@@ -2518,7 +2563,7 @@ const decodeQueue = {
     for (let i = 0; i < this.pending.length; i += 1) {
       const task = this.pending[i];
       if (!task.tile?.isConnected || !task.img?.isConnected) {
-        this.queuedKeys.delete(task.key);
+        this.queuedTasks.delete(task.key);
         this.pending.splice(i, 1);
         i -= 1;
         continue;
@@ -2549,7 +2594,8 @@ const decodeQueue = {
     }
   },
 
-  async decodeImage({ img, tile, fullSrc, applyCallback, key }) {
+  async decodeImage(task) {
+    const { fullSrc } = task;
     const full = new Image();
     try {
       full.decoding = 'async';
@@ -2562,18 +2608,18 @@ const decodeQueue = {
         })
       ]);
 
-      if (tile?.isConnected && img?.isConnected) {
-        applyCallback(full);
+      if (task.tile?.isConnected && task.img?.isConnected) {
+        task.applyCallback(full);
       }
     } catch (error) {
       // Cancel the in-flight fetch so a timed-out slot is genuinely free, and
       // keep the blur thumbnail visible for the tile itself.
       try { full.src = ''; } catch { /* ignore */ }
-      if (img?.isConnected) {
-        captureDimension(img, tile);
+      if (task.img?.isConnected) {
+        captureDimension(task.img, task.tile);
       }
     } finally {
-      this.queuedKeys.delete(key);
+      this.queuedTasks.delete(task.key);
       this.active--;
       this.processNext();
     }
@@ -2590,14 +2636,23 @@ const heicTileDecodeQueue = {
   pending: [],
   active: 0,
   maxConcurrent: HEIC_TILE_DECODE_CONCURRENCY,
-  queuedKeys: new Set(),
+  jobs: new Map(),
 
   enqueue(img, tile, sourceUrl) {
-    if (this.queuedKeys.has(sourceUrl)) {
+    if (!sourceUrl) {
       return;
     }
-    this.queuedKeys.add(sourceUrl);
-    this.pending.push({ img, tile, sourceUrl });
+    const waiter = { img, tile };
+    const existing = this.jobs.get(sourceUrl);
+    if (existing) {
+      if (!existing.waiters.some((entry) => entry.img === img && entry.tile === tile)) {
+        existing.waiters.push(waiter);
+      }
+      return;
+    }
+    const job = { sourceUrl, waiters: [waiter] };
+    this.jobs.set(sourceUrl, job);
+    this.pending.push(job);
     this.processNext();
   },
 
@@ -2605,8 +2660,9 @@ const heicTileDecodeQueue = {
     while (this.active < this.maxConcurrent && this.pending.length > 0) {
       const task = this.pending.shift();
       if (!task) break;
-      if (!task.tile?.isConnected || !task.img?.isConnected) {
-        this.queuedKeys.delete(task.sourceUrl);
+      task.waiters = task.waiters.filter((entry) => entry.tile?.isConnected && entry.img?.isConnected);
+      if (!task.waiters.length) {
+        this.jobs.delete(task.sourceUrl);
         continue;
       }
       this.active++;
@@ -2614,18 +2670,30 @@ const heicTileDecodeQueue = {
     }
   },
 
-  async decodeTask({ img, tile, sourceUrl }) {
+  async decodeTask(task) {
+    const { sourceUrl } = task;
     try {
-      const objectUrl = await decodeHeicTileToObjectUrl(sourceUrl);
-      applyHeicTileObjectUrl(img, tile, objectUrl);
+      const objectUrl = await Promise.race([
+        decodeHeicTileToObjectUrl(sourceUrl),
+        new Promise((_, reject) => {
+          window.setTimeout(() => reject(new Error('HEIC tile decode timed out')), IMAGE_DECODE_TIMEOUT_MS);
+        }),
+      ]);
+      task.waiters.forEach(({ img, tile }) => {
+        if (img?.isConnected && tile?.isConnected) {
+          applyHeicTileObjectUrl(img, tile, objectUrl);
+        }
+      });
     } catch (error) {
       console.warn('HEIC tile decode failed:', error?.message || error);
-      if (img?.isConnected && tile?.isConnected) {
-        img.dataset.heicTileDecodeStatus = 'error';
-        markTileImageFailed(img, tile, error);
-      }
+      task.waiters.forEach(({ img, tile }) => {
+        if (img?.isConnected && tile?.isConnected) {
+          img.dataset.heicTileDecodeStatus = 'error';
+          markTileImageFailed(img, tile, error);
+        }
+      });
     } finally {
-      this.queuedKeys.delete(sourceUrl);
+      this.jobs.delete(sourceUrl);
       this.active--;
       this.processNext();
     }
@@ -2683,8 +2751,10 @@ function applyHeicTileObjectUrl(img, tile, objectUrl) {
   }
   img.dataset.heicTileDecodeStatus = 'done';
   img.style.display = '';
+  img.classList.remove('is-blur-placeholder');
   img.src = objectUrl;
-  tile.classList.remove('is-heic-fallback', 'has-load-error', 'is-retrying');
+  tile.classList.remove('is-heic-fallback', 'has-load-error', 'is-retrying', 'is-retry-exhausted');
+  tile.classList.add('is-full-loaded');
   tile.removeAttribute('data-load-error-label');
   tile.removeAttribute('aria-busy');
   markTileImageLoaded(img, tile, { fullLoaded: true });
@@ -2822,7 +2892,23 @@ function setupImageLoadAnimations() {
     }
     img.dataset.loadStateBound = '1';
     const fullSrc = img.dataset.fullSrc || '';
+    const useFullSourceAfterFailure = () => {
+      if (!img.isConnected) {
+        return;
+      }
+      if (fullSrc && img.dataset.triedFull !== '1' && !isSameImageSource(img, fullSrc)) {
+        img.dataset.triedFull = '1';
+        img.style.display = '';
+        img.src = fullSrc;
+        return;
+      }
+      img.classList.remove('is-blur-placeholder');
+      img.dataset.loadState = 'error';
+    };
     const upgradeCoverImage = () => {
+      if (!img.isConnected) {
+        return;
+      }
       if (!fullSrc || isSameImageSource(img, fullSrc)) {
         img.classList.remove('is-blur-placeholder');
         return;
@@ -2834,8 +2920,11 @@ function setupImageLoadAnimations() {
     };
     if (img.complete && img.naturalWidth > 0) {
       upgradeCoverImage();
+    } else if (img.complete && img.getAttribute('src') && img.naturalWidth === 0) {
+      useFullSourceAfterFailure();
     } else {
-      img.addEventListener('load', upgradeCoverImage, { once: true });
+      img.addEventListener('load', upgradeCoverImage);
+      img.addEventListener('error', useFullSourceAfterFailure);
     }
   });
 
@@ -3181,6 +3270,41 @@ function ensureRoot() {
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function buildMediaSourceSignature(item) {
+  return [
+    normalizeText(item?.id),
+    normalizeText(item?.sourceUrl),
+    normalizeText(item?.thumbnailUrl),
+    normalizeText(item?.blurThumbUrl),
+    normalizeText(item?.fullPreviewUrl),
+    normalizeText(item?.mimeType),
+    item?.browserPreviewSupported === false ? '0' : '1',
+    Number(item?.width) || 0,
+    Number(item?.height) || 0,
+    normalizeText(item?.takenAt),
+  ].join('\u001f');
+}
+
+function resetMediaLoadStateForSourceChanges(previousItems, nextItems) {
+  const previousById = new Map(safeArray(previousItems).map((item) => [item?.id, item]));
+  const validIds = new Set(safeArray(nextItems).map((item) => item?.id));
+  for (const set of [state.loadedMediaIds, state.fullLoadedMediaIds, state.failedMediaIds]) {
+    for (const id of set) {
+      if (!validIds.has(id)) {
+        set.delete(id);
+      }
+    }
+  }
+  safeArray(nextItems).forEach((item) => {
+    const previous = previousById.get(item?.id);
+    if (previous && buildMediaSourceSignature(previous) !== buildMediaSourceSignature(item)) {
+      state.loadedMediaIds.delete(item.id);
+      state.fullLoadedMediaIds.delete(item.id);
+      state.failedMediaIds.delete(item.id);
+    }
+  });
 }
 
 function normalizeMultilineText(value, maxLength = 12000) {
@@ -6303,6 +6427,7 @@ function replaceMomentsSection(selector, markup) {
     return false;
   }
   current.replaceWith(next);
+  setupImageLoadAnimations();
   return true;
 }
 
@@ -17404,9 +17529,10 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
     // lands; identical results short-circuit via the signature check.
     const cachedItems = safeArray(cachedMediaPayload?.items);
     if (!state.mediaItems.length && cachedItems.length && refs.root) {
+      resetMediaLoadStateForSourceChanges(state.mediaItems, cachedItems);
       state.mediaItems = cachedItems;
       state.liveMediaSignature = cachedItems
-        .map((item) => `${item.id}:${item.takenAt}:${item.thumbnailUrl}:${item.width}x${item.height}`)
+        .map(buildMediaSourceSignature)
         .join('|');
       state.librarySyncMeta = {
         ...cachedMediaPayload.librarySyncMeta,
@@ -17476,11 +17602,12 @@ async function performSyncLiveMedia({ forceRender = false } = {}) {
       state.secondaryFilter = '';
     }
 
-    const signature = items.map((item) => `${item.id}:${item.takenAt}:${item.thumbnailUrl}:${item.width}x${item.height}`).join('|');
+    const signature = items.map(buildMediaSourceSignature).join('|');
     const validIds = new Set(items.map((item) => item.id));
     let changed = false;
 
     if (signature !== state.liveMediaSignature) {
+      resetMediaLoadStateForSourceChanges(state.mediaItems, items);
       state.liveMediaSignature = signature;
       state.mediaItems = items;
       changed = true;

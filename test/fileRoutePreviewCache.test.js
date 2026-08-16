@@ -128,10 +128,10 @@ describe('/file ?preview=1 Telegram thumbnail edge caching', () => {
     };
   }
 
-  function buildContext(env, requestUrl) {
+  function buildContext(env, requestUrl, requestHeaders = { Referer: 'https://example.com/dashboard' }) {
     return {
       request: new Request(requestUrl, {
-        headers: { Referer: 'https://example.com/dashboard' },
+        headers: requestHeaders,
       }),
       env,
       params: { path: 'telegram-import/Telegram_env/IMG_5000.JPG' },
@@ -163,7 +163,7 @@ describe('/file ?preview=1 Telegram thumbnail edge caching', () => {
       assert.equal(thumbnailPuts.length, 1);
       assert.equal(
         thumbnailPuts[0].key,
-        'https://example.com/file/telegram-import/Telegram_env/IMG_5000.JPG?preview=1',
+        'https://example.com/file/telegram-import/Telegram_env/IMG_5000.JPG?preview=1&thumbRev=4349cb51',
         'canonical key keeps only preview=1 and strips other query params',
       );
       assert.match(thumbnailPuts[0].cacheControl, /public/);
@@ -180,6 +180,68 @@ describe('/file ?preview=1 Telegram thumbnail edge caching', () => {
       assert.equal(fetchCallCount, fetchesAfterFirst, 'cache hit must not touch Telegram at all');
       // Dashboard 内部 Referer 命中缓存后仍按当前请求重建 private 语义
       assert.match((second.headers.get('Cache-Control') || '').toLowerCase(), /private/);
+      assert.match((second.headers.get('Cache-Control') || '').toLowerCase(), /no-cache/);
+    }));
+  });
+
+  it('changes the browser validator and edge key when recovery replaces a thumbnail', async () => {
+    const records = createThumbnailRecords();
+    const metadata = records.get('telegram-import/Telegram_env/IMG_5000.JPG').metadata;
+    const env = createEnv(records);
+    const fakeCache = createRecordingCache();
+    const versionOne = new Uint8Array([0xFF, 0xD8, 0x01]);
+    const versionTwo = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x02]);
+    const fetched = [];
+
+    await withFakeCaches(fakeCache, () => withFetchStub(async (url) => {
+      const normalized = String(url);
+      if (normalized.includes('/getFile?')) {
+        const fileId = new URL(normalized).searchParams.get('file_id');
+        return new Response(JSON.stringify({
+          ok: true,
+          result: { file_path: `photos/${fileId}.jpg` },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (normalized.includes('thumb-file-id.jpg')) {
+        fetched.push('v1');
+        return new Response(versionOne, { status: 200, headers: { 'Content-Type': 'image/jpeg' } });
+      }
+      if (normalized.includes('thumb-v2.jpg')) {
+        fetched.push('v2');
+        return new Response(versionTwo, { status: 200, headers: { 'Content-Type': 'image/png' } });
+      }
+      throw new Error(`Unexpected fetch: ${normalized}`);
+    }, async () => {
+      const first = await onRequest(buildContext(
+        env,
+        'https://example.com/file/telegram-import/Telegram_env/IMG_5000.JPG?preview=1',
+      ));
+      const firstEtag = first.headers.get('ETag');
+      const firstKey = fakeCache.puts.find((entry) => entry.key.includes('/file/')).key;
+
+      metadata.TgThumbnailFileId = 'thumb-v2';
+      metadata.TgThumbnailFileType = 'image/png';
+      const second = await onRequest(buildContext(
+        env,
+        'https://example.com/file/telegram-import/Telegram_env/IMG_5000.JPG?preview=1',
+        { Referer: 'https://example.com/dashboard', 'If-None-Match': firstEtag },
+      ));
+
+      assert.equal(second.status, 200, 'changed metadata must not reuse the old 304 validator');
+      assert.deepEqual(Array.from(new Uint8Array(await second.arrayBuffer())), Array.from(versionTwo));
+      assert.notEqual(second.headers.get('ETag'), firstEtag);
+      assert.notEqual(fakeCache.puts.filter((entry) => entry.key.includes('/file/'))[1].key, firstKey);
+      assert.deepEqual(fetched, ['v1', 'v2']);
+      assert.match((second.headers.get('Cache-Control') || '').toLowerCase(), /no-cache/);
+
+      const third = await onRequest(buildContext(
+        env,
+        'https://example.com/file/telegram-import/Telegram_env/IMG_5000.JPG?preview=1',
+        { Referer: 'https://example.com/dashboard', 'If-None-Match': second.headers.get('ETag') },
+      ));
+      assert.equal(third.status, 304);
+      assert.equal(third.headers.get('Content-Type'), 'image/png');
+      assert.match((third.headers.get('Cache-Control') || '').toLowerCase(), /no-cache/);
     }));
   });
 

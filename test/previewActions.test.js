@@ -4362,7 +4362,7 @@ describe('media library download actions', () => {
   it('keeps failed image retries bounded, canonical, and keyboard accessible', () => {
     const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
 
-    assert.match(appSource, /from '\.\/image-load-state\.js\?v=1'/);
+    assert.match(appSource, /from '\.\/image-load-state\.js\?v=2'/);
     assert.match(appSource, /function markTileImageLoaded\(img, tile/);
     assert.match(appSource, /tile\.classList\.remove\('has-load-error', 'is-retrying', 'is-retry-exhausted', 'is-heic-fallback'\)/);
     assert.match(appSource, /function retryFailedImageTile\(tile\)/);
@@ -4372,6 +4372,20 @@ describe('media library download actions', () => {
     assert.match(appSource, /canRetryImage\(currentAttempt, MAX_IMAGE_RETRY_ATTEMPTS\)/);
     assert.match(appSource, /event\.key === 'Enter' \|\| event\.key === ' '/);
     assert.doesNotMatch(appSource, /originalSrc \+ \(originalSrc\.includes\('\?'\)/);
+  });
+
+  it('keeps image decode jobs attached to fresh DOM waiters after rerenders', () => {
+    const appSource = fs.readFileSync(new URL('../js/media-library/app.js', import.meta.url), 'utf8');
+    assert.match(appSource, /queuedTasks: new Map()/);
+    assert.match(appSource, /existing\.img = img/);
+    assert.match(appSource, /jobs: new Map()/);
+    assert.match(appSource, /existing\.waiters\.push\(waiter\)/);
+    assert.match(appSource, /task\.waiters\.forEach/);
+    assert.match(appSource, /HEIC tile decode timed out/);
+    assert.match(appSource, /if \(!\(img instanceof HTMLImageElement\) \|\| !tile\?\.isConnected \|\| !img\.isConnected\)/);
+    assert.match(appSource, /nextSource\.usesFull/);
+    assert.match(appSource, /img\.classList\.remove\('is-blur-placeholder'\)/);
+    assert.match(appSource, /img\.addEventListener\('error', useFullSourceAfterFailure\)/);
   });
 
   it('keeps image loading layout stable and exposes retry feedback accessibly', () => {
@@ -4404,7 +4418,7 @@ describe('media library download actions', () => {
       item,
       selected: false,
       layout: { width: 300, height: 200 },
-      state: { loadedMediaIds: new Set(), fullLoadedMediaIds: new Set(), failedMediaIds: new Set(['stable-photo']) },
+      state: { loadedMediaIds: new Set(['stable-photo']), fullLoadedMediaIds: new Set(['stable-photo']), failedMediaIds: new Set(['stable-photo']) },
     });
     assert.match(failedHtml, /class="cml-media-tile has-load-error"/);
     assert.match(failedHtml, /data-load-error-label="Load failed&#10;Press Enter or click to retry"/);

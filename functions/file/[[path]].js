@@ -43,10 +43,51 @@ function buildPreviewFileName(fileName = 'preview.jpg') {
     return `${baseName}.jpg`;
 }
 
+function isConditionalRequest(context) {
+    const request = context?.request;
+    return Boolean(
+        request
+        && (request.method === 'GET' || request.method === 'HEAD')
+        && !request.headers.get('Range')
+        && context?.responseEtag
+        && request.headers.get('If-None-Match') === context.responseEtag
+    );
+}
+
+function setResponseRepresentationEtag(context, representation = '') {
+    const quote = String.fromCharCode(34);
+    const base = String(context?.responseEtagBase || '').split(quote).join('');
+    if (!base) {
+        return;
+    }
+    const suffix = String(representation || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    context.responseEtag = quote + base + (suffix ? '-' + suffix : '') + quote;
+}
+
+function buildNotModifiedResponse(context, encodedFileName, fileType, options = {}) {
+    const headers = new Headers();
+    applyFileResponseHeaders(context, headers, encodedFileName, fileType, options);
+    headers.delete('Content-Length');
+    return new Response(null, {
+        status: 304,
+        headers,
+    });
+}
+
 function buildEmbeddedPreviewResponse(context, fileName, preview) {
     const { request } = context;
+    const previewFileName = encodeURIComponent(buildPreviewFileName(fileName));
+    const previewFileType = preview.mimeType || 'image/jpeg';
+    setResponseRepresentationEtag(context, 'extracted-' + previewFileType);
+    if (isConditionalRequest(context)) {
+        return buildNotModifiedResponse(context, previewFileName, previewFileType);
+    }
     const headers = new Headers();
-    applyFileResponseHeaders(context, headers, encodeURIComponent(buildPreviewFileName(fileName)), preview.mimeType || 'image/jpeg');
+    applyFileResponseHeaders(context, headers, previewFileName, previewFileType);
     headers.set('Content-Length', String(preview.bytes.byteLength || 0));
 
     if (request.method === 'HEAD') {
@@ -64,7 +105,48 @@ function fileMetadataUnavailableResponse() {
 }
 
 function imageNotFoundResponse() {
-    return new Response('Error: Image Not Found', { status: 404 });
+    return new Response('Error: Image Not Found', {
+        status: 404,
+        headers: { 'Cache-Control': 'no-store' },
+    });
+}
+
+export function decodeFileRoutePath(pathValue) {
+    if (Array.isArray(pathValue)) {
+        return pathValue
+            .map((part) => decodeURIComponent(String(part ?? '')))
+            .join('/');
+    }
+
+    // Legacy callers encode directory boundaries as literal commas. Split
+    // before decoding so an encoded comma (%2C) remains part of the filename.
+    return String(pathValue ?? '')
+        .split(',')
+        .map((part) => decodeURIComponent(part))
+        .join('/');
+}
+
+function resolveConditionalResponseFileType(metadata, fileType, { wantsPreview = false } = {}) {
+    if (!wantsPreview) {
+        return fileType;
+    }
+
+    // HEIC/HEIF preview bytes come either from a Telegram thumbnail or from
+    // embedded EXIF extraction.  Their actual MIME is not knowable until the
+    // representation is read, so let the preview builder produce an accurate
+    // 304 instead of describing a cached JPEG as the source/thumbnail type.
+    if (supportsEmbeddedPreviewExtraction(fileType)) {
+        return null;
+    }
+
+    // A Telegram thumbnail has its own MIME type. Preserve it when the
+    // conditional request is satisfied from the preview representation.
+    const storedThumbnail = resolveStoredTelegramThumbnail(metadata || {});
+    if (storedThumbnail?.fileType) {
+        return storedThumbnail.fileType;
+    }
+
+    return fileType;
 }
 
 function isS3MissingObjectError(error) {
@@ -176,7 +258,7 @@ function heicPreviewUnavailableResponse() {
         headers: {
             'Content-Type': 'application/json',
             'X-Preview-Unavailable': 'heic',
-            'Cache-Control': 'public, max-age=3600',
+            'Cache-Control': 'no-store',
         },
     });
 }
@@ -256,6 +338,38 @@ function buildEmbeddedPreviewCacheKey(context) {
     return new Request(canonical.toString(), { method: 'GET' });
 }
 
+function hashThumbnailRevision(value) {
+    let hash = 2166136261;
+    const input = String(value || '');
+    for (let index = 0; index < input.length; index += 1) {
+        hash = Math.imul(hash ^ input.charCodeAt(index), 16777619);
+    }
+    return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function buildTelegramThumbnailRevision(metadata = {}) {
+    const thumbnail = resolveStoredTelegramThumbnail(metadata);
+    if (!thumbnail?.fileId) {
+        return '';
+    }
+    const uniqueId = metadata.TgThumbnailFileUniqueId
+        || metadata.TgThumbFileUniqueId
+        || metadata.tgThumbnailFileUniqueId
+        || metadata.tgThumbFileUniqueId
+        || '';
+    const size = metadata.TgThumbnailFileSize
+        || metadata.TgThumbFileSize
+        || metadata.tgThumbnailFileSize
+        || metadata.tgThumbFileSize
+        || '';
+    return hashThumbnailRevision([
+        thumbnail.fileId,
+        thumbnail.fileType || '',
+        uniqueId,
+        size,
+    ].join('\u001f'));
+}
+
 function buildTelegramThumbnailCacheKey(context) {
     if (!context?.url) {
         return null;
@@ -265,16 +379,25 @@ function buildTelegramThumbnailCacheKey(context) {
     const canonical = new URL(context.url.toString());
     canonical.search = '';
     canonical.searchParams.set('preview', '1');
+    if (context.telegramThumbnailRevision) {
+        canonical.searchParams.set('thumbRev', context.telegramThumbnailRevision);
+    }
     return new Request(canonical.toString(), { method: 'GET' });
 }
 
 function rebuildTelegramThumbnailFromCache(context, cached, encodedFileName) {
+    const fileType = cached.headers.get('Content-Type') || 'image/jpeg';
+    setResponseRepresentationEtag(context, 'thumbnail-' + (context.telegramThumbnailRevision || hashThumbnailRevision(fileType)));
+    if (isConditionalRequest(context)) {
+        return buildNotModifiedResponse(context, encodedFileName, fileType, { revalidate: true });
+    }
     const headers = new Headers();
     applyFileResponseHeaders(
         context,
         headers,
         encodedFileName,
-        cached.headers.get('Content-Type') || 'image/jpeg',
+        fileType,
+        { revalidate: true },
     );
     const contentLength = cached.headers.get('Content-Length');
     if (contentLength) {
@@ -287,12 +410,18 @@ function rebuildTelegramThumbnailFromCache(context, cached, encodedFileName) {
 }
 
 function rebuildEmbeddedPreviewFromCache(context, cached, fileName) {
+    const fileType = cached.headers.get('Content-Type') || 'image/jpeg';
+    const encodedFileName = encodeURIComponent(buildPreviewFileName(fileName));
+    setResponseRepresentationEtag(context, 'extracted-' + fileType);
+    if (isConditionalRequest(context)) {
+        return buildNotModifiedResponse(context, encodedFileName, fileType);
+    }
     const headers = new Headers();
     applyFileResponseHeaders(
         context,
         headers,
-        encodeURIComponent(buildPreviewFileName(fileName)),
-        cached.headers.get('Content-Type') || 'image/jpeg',
+        encodedFileName,
+        fileType,
     );
     const contentLength = cached.headers.get('Content-Length');
     if (contentLength) {
@@ -471,6 +600,7 @@ async function tryFallbackTelegramOriginal(context, imgRecord, fileId, fileName,
         headers,
         encodeURIComponent(fileName),
         originalTarget.fileType || fileType,
+        { revalidate: context.wantsPreview && telegramReadTarget?.isPreview === true },
     );
 
     return new Response(response.body, {
@@ -503,8 +633,7 @@ export async function onRequest(context) {  // Contents of context object
     // 解码文件ID
     let fileId = '';
     try {
-        params.path = decodeURIComponent(params.path);
-        fileId = params.path.split(',').join('/');
+        fileId = decodeFileRoutePath(params.path);
     } catch (e) {
         return new Response('Error: Decode Image ID Failed', { status: 400 });
     }
@@ -550,6 +679,12 @@ export async function onRequest(context) {  // Contents of context object
     const fileName = imgRecord.metadata?.FileName || fileId;
     const encodedFileName = encodeURIComponent(fileName);
     const fileType = resolveMimeType(imgRecord.metadata?.FileType || '', [fileName, fileId], imgRecord.metadata?.FileType || null);
+    context.telegramThumbnailRevision = buildTelegramThumbnailRevision(imgRecord.metadata);
+    const conditionalResponseFileType = resolveConditionalResponseFileType(
+        imgRecord.metadata,
+        fileType,
+        { wantsPreview },
+    );
 
     // 检查文件可访问状态
     let accessRes = await returnWithCheck(context, imgRecord);
@@ -559,22 +694,21 @@ export async function onRequest(context) {  // Contents of context object
 
     // 内容寻址 ETag：fileId 不变意味着内容不变，按 variant（原图/缩略图/嵌入式 preview）
     // 区分，让浏览器把每条变体单独缓存。Range 请求保持透传，由各 chunked handler 自己处理。
-    const variantTag = wantsEmbeddedPreview ? 'embedded' : (wantsPreview ? 'preview' : 'original');
+    const baseVariantTag = wantsEmbeddedPreview ? 'embedded' : (wantsPreview ? 'preview' : 'original');
+    const variantTag = baseVariantTag + (wantsPreview && context.telegramThumbnailRevision
+        ? '-thumbnail-' + context.telegramThumbnailRevision
+        : '');
+    context.responseEtagBase = String(fileId).split(String.fromCharCode(34)).join('') + '-' + baseVariantTag;
     const safeFileIdToken = String(fileId).replace(/"/g, '');
     context.responseEtag = `"${safeFileIdToken}-${variantTag}"`;
 
-    if (
-        (request.method === 'GET' || request.method === 'HEAD')
-        && !request.headers.get('Range')
-        && request.headers.get('If-None-Match') === context.responseEtag
-    ) {
-        const notModifiedHeaders = new Headers();
-        applyFileResponseHeaders(context, notModifiedHeaders, encodedFileName, fileType);
-        notModifiedHeaders.delete('Content-Length');
-        return new Response(null, {
-            status: 304,
-            headers: notModifiedHeaders,
-        });
+    if (conditionalResponseFileType && isConditionalRequest(context)) {
+        return buildNotModifiedResponse(
+            context,
+            encodedFileName,
+            conditionalResponseFileType,
+            { revalidate: wantsPreview && Boolean(context.telegramThumbnailRevision) },
+        );
     }
 
     /* Cloudflare R2渠道 */
@@ -738,7 +872,7 @@ export async function onRequest(context) {  // Contents of context object
                             return buildEmbeddedPreviewResponse(context, fileName, refreshedPreview);
                         }
                         const refreshedHeaders = new Headers(refreshedResponse.headers);
-                        applyFileResponseHeaders(context, refreshedHeaders, encodedFileName, responseFileType);
+                        applyFileResponseHeaders(context, refreshedHeaders, encodedFileName, responseFileType, { revalidate: true });
                         refreshedHeaders.set('Content-Length', String(refreshedBytes.byteLength));
                         return new Response(refreshedBytes, {
                             status: refreshedResponse.status,
@@ -747,7 +881,7 @@ export async function onRequest(context) {  // Contents of context object
                         });
                     }
                     const refreshedHeaders = new Headers(refreshedResponse.headers);
-                    applyFileResponseHeaders(context, refreshedHeaders, encodedFileName, responseFileType);
+                    applyFileResponseHeaders(context, refreshedHeaders, encodedFileName, responseFileType, { revalidate: true });
                     return new Response(refreshedResponse.body, {
                         status: refreshedResponse.status,
                         statusText: refreshedResponse.statusText,
@@ -792,7 +926,13 @@ export async function onRequest(context) {  // Contents of context object
         }
 
         const headers = new Headers(response.headers);
-        applyFileResponseHeaders(context, headers, encodedFileName, responseFileType);
+        applyFileResponseHeaders(
+            context,
+            headers,
+            encodedFileName,
+            responseFileType,
+            { revalidate: wantsPreview && telegramReadTarget?.isPreview === true },
+        );
 
         const newRes = new Response(response.body, {
             status: response.status,

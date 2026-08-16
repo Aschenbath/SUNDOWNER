@@ -22,7 +22,14 @@ function buildMomentFileUrl(fileId = '', queryParams = null) {
   if (!normalizedFileId) {
     return '/file/';
   }
-  const baseRoute = `/file/${normalizedFileId.split('/').map((segment) => encodeURIComponent(segment)).join('/')}`;
+  const encodedPath = normalizedFileId.split('/').map((segment) => {
+    try {
+      return encodeURIComponent(decodeURIComponent(segment));
+    } catch {
+      return encodeURIComponent(segment);
+    }
+  }).join('/');
+  const baseRoute = `/file/${encodedPath}`;
   if (!queryParams || typeof queryParams !== 'object') {
     return baseRoute;
   }
@@ -46,6 +53,23 @@ function supportsMomentBrowserImagePreview(mimeType = '') {
     'image/bmp',
     'image/avif',
   ].includes(normalized);
+}
+
+function inferMomentMimeType(metadataMimeType = '', ...references) {
+  const explicit = normalizeText(metadataMimeType).toLowerCase();
+  if (explicit) {
+    return explicit;
+  }
+  const reference = references.map(normalizeText).join(' ').toLowerCase();
+  if (/\.(?:jpe?g)\b/.test(reference)) return 'image/jpeg';
+  if (/\.png\b/.test(reference)) return 'image/png';
+  if (/\.webp\b/.test(reference)) return 'image/webp';
+  if (/\.gif\b/.test(reference)) return 'image/gif';
+  if (/\.bmp\b/.test(reference)) return 'image/bmp';
+  if (/\.avif\b/.test(reference)) return 'image/avif';
+  if (/\.heic\b/.test(reference)) return 'image/heic';
+  if (/\.heif\b/.test(reference)) return 'image/heif';
+  return '';
 }
 
 function readAttachmentMetadata(attachment = {}) {
@@ -115,7 +139,11 @@ export function buildMomentAttachmentItem(attachment = {}) {
   );
   const width = toFiniteNumber(readMetadataValue(metadata, ['Width', 'width']));
   const height = toFiniteNumber(readMetadataValue(metadata, ['Height', 'height']));
-  const mimeType = normalizeText(readMetadataValue(metadata, ['FileType', 'fileType', 'file_type'])).toLowerCase();
+  const mimeType = inferMomentMimeType(
+    readMetadataValue(metadata, ['FileType', 'fileType', 'file_type']),
+    label,
+    fileId,
+  );
   const browserPreviewSupported = !mimeType || supportsMomentBrowserImagePreview(mimeType);
   const thumbnailUrl = browserPreviewSupported ? sourceUrl : buildMomentFileUrl(fileId, { preview: '1' });
   const fullPreviewUrl = browserPreviewSupported ? '' : buildMomentFileUrl(fileId, { preview: 'embedded' });
