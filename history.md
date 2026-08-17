@@ -977,9 +977,10 @@ Process note: this merge happened during another long intermittent `claude-opus-
 - Fixed encoded-comma and array catch-all file paths, stale-DOM races in generic and HEIC decode queues, hung decode starvation, thumbnail-to-full fallback, failed-state rendering, source-change cache state, and legacy Moments HEIC metadata/URL canonicalization. Cache versions: `entry-loader.js?v=12`, `app.js?v=361`, `components.js?v=127`, `image-load-state.js?v=2`, `moments-state.js?v=6`.
 - Added executable regressions for MIME/ETag and thumbnail replacement, fallback cache policy, path decoding, decode waiter coordination, image state, and legacy Moments metadata.
 - Validation: Node 22 full suite (ignoring the pre-existing untracked `test/fileRouteUrl.test.js` WIP) `903 passing / 1 pending / 1 failing`; the sole failure is the unrelated pre-existing manage-tags purge URL WIP. Affected suite `236 passing / 1 pending`; public docs `20 passing`; all changed JS syntax checks clean; Wrangler Pages Functions build compiled successfully.
+- 2026-08-17 09:31 +08:00 delivery: PR #14 merged as `36423074d25015777c2b027f45e61477a9083747`; Cloudflare Pages reported `Deployed successfully`, all commit checks passed, and production SEA/HKG/SIN samples served `entry-loader` 12, `app` 361, `components` 127, `image-load-state` 2, and `moments-state` 6. Production bytes matched the deployed commit, and unauthenticated `/dashboard` still redirected to `/login`.
 
-### Tail Capsule (2026-08-16)
+### Tail Capsule (2026-08-17)
 
-- latest-state: photo display regression fix is ready to land; HEIC/Telegram representations now revalidate safely and stale transient responses cannot persist for a day.
+- latest-state: photo display regression fix is merged and live on Cloudflare Pages via PR #14 / merge commit `3642307`; HEIC/Telegram representations now revalidate safely and stale transient responses cannot persist for a day.
 - validation-baseline: Node 22 `903 passing / 1 pending / 1 unrelated pre-existing failure`; affected `236 passing / 1 pending`; docs `20 passing`; Wrangler build green.
 - cache-versions: entry-loader 12, app 361, components 127, image-load-state 2, moments-state 6.
