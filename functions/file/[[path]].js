@@ -19,6 +19,7 @@ import {
 } from '../utils/mediaSecurity.js';
 import { resolveStoredTelegramReadTarget, resolveStoredTelegramThumbnail } from '../utils/telegramFileId.js';
 import { resolveMimeType } from '../utils/mimeTypes.js';
+import { isPhotoFile, recordPhotoResponse } from '../utils/photoAvailability.js';
 
 let createS3Client = (options) => new S3Client(options);
 
@@ -625,7 +626,21 @@ async function tryFallbackTelegramPreviewRead(context, imgRecord, fileId, fileNa
 }
 
 
-export async function onRequest(context) {  // Contents of context object
+export async function onRequest(context) {
+    const response = await serveFile(context);
+    if (context.photoAvailabilityFileId) {
+        const update = recordPhotoResponse(context.env, context.photoAvailabilityFileId, {
+            status: response.status,
+            method: context.request.method,
+            preview: context.wantsPreview,
+        });
+        if (typeof context.waitUntil === 'function') context.waitUntil(update);
+        else await update;
+    }
+    return response;
+}
+
+async function serveFile(context) {  // Contents of context object
     const {
         request, // same as existing Worker API
         env, // same as existing Worker API
@@ -672,6 +687,9 @@ export async function onRequest(context) {  // Contents of context object
     const db = getDatabase(env);
     const imgRecord = await db.getWithMetadata(fileId);
     if (!imgRecord) {
+        // Index-only stale records can still be displayed by the library.
+        // This path is reached only after the existing access/domain checks.
+        if (isPhotoFile(fileId)) context.photoAvailabilityFileId = fileId;
         console.warn(`Image metadata not found in database: ${fileId}`);
         return imageNotFoundResponse();
     }
@@ -696,6 +714,7 @@ export async function onRequest(context) {  // Contents of context object
     if (accessRes.status !== 200) {
         return accessRes; // 如果不可访问，直接返回
     }
+    if (isPhotoFile(fileId, imgRecord.metadata)) context.photoAvailabilityFileId = fileId;
 
     // 内容寻址 ETag：fileId 不变意味着内容不变，按 variant（原图/缩略图/嵌入式 preview）
     // 区分，让浏览器把每条变体单独缓存。Range 请求保持透传，由各 chunked handler 自己处理。

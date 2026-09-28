@@ -100,6 +100,12 @@ npm run capture:readme
 
 - Preview entry also respects the persistent failure state while a manual retry is in flight. Previously, a quick second activation could open the original after the first click temporarily removed the error class; repeated activation now waits for that attempt instead of bypassing its request budget. This is covered by a dedicated regression and an isolated delayed-response browser check.
 
+### Long-lived 404 photos
+
+- Previously, unavailable files remained on the photo wall indefinitely. The file route now records the first **original-image GET returning 404** in a separate per-file `manage@sysConfig@photo404@...` record. A second original 404 at least 14 days later confirms the hide condition; one old failure, a thumbnail-only 404, HEAD, 304, access errors, 429, decode failures and 5xx do not confirm it. The clock starts with a response observed after this feature is enabled, not the photo date or upload time.
+- Normal photo walls (including Unsorted/album walls) omit confirmed long-lived failures on their next list refresh. Explicit search still includes them for retry/recovery; records, file bytes, albums, storage totals, pagination and recycle-bin behavior are not deleted or rewritten. A real successful 200/206 image response, including a usable preview, clears the state; after refreshing the list the photo returns. Hidden files are not periodically probed: recovery must be observed through search/manual access. This is a display rule, not a claim that 404s are irreversible.
+- The dashboard requests `photoAvailability=true` on paginated lists; the server annotates only that page using at most eight concurrent key reads, never a KV scan or an upstream download. The tradeoff is an extra state lookup per photo read/list entry. Writes occur only on first failure, aged confirmation, or recovery; availability-store failures leave photos visible and do not fail downloads. KV consistency can delay propagation across devices. Tests cover KV-only, D1-only and hybrid persistence, 14-day boundaries, recovery, access checks, list pagination, and synthetic desktop/mobile wall/search behavior; no historical 404 times are inferred or production photos deleted.
+
 ## Storage Model
 
 Cloudflare binding names are part of the project contract:

@@ -6,6 +6,7 @@ import { KV_TO_D1_MIGRATION_STATE_KEY, checkDatabaseConfig, getDatabase } from '
 import { cleanupExpiredRecycleBin, isRecycleBinMetadata } from '../../utils/recycleBin.js';
 import { sanitizeExposedMetadata } from '../../utils/mediaSecurity.js';
 import { methodNotAllowed, optionsResponse } from '../../utils/cors.js';
+import { annotatePhotoAvailability } from '../../utils/photoAvailability.js';
 
 // CORS 跨域响应头
 const corsHeaders = {
@@ -578,7 +579,7 @@ async function queryHybridFilesWithKvSupplement(context, db, queryOptions, {
 }
 
 export async function onRequest(context) {
-    const { request, waitUntil } = context;
+    const { request, waitUntil, env } = context;
     if (request.method === 'OPTIONS') {
         return optionsResponse();
     }
@@ -613,6 +614,7 @@ export async function onRequest(context) {
     const typeRequested = url.searchParams.get('type') || '';
     const favouritesRequested = url.searchParams.get('favourites') === 'true';
     const trashRequested = url.searchParams.get('trash') === 'true';
+    const includePhotoAvailability = url.searchParams.get('photoAvailability') === 'true';
 
     if (!['exclude', 'include', 'only'].includes(recycleBinMode)) {
         recycleBinMode = 'exclude';
@@ -796,7 +798,7 @@ export async function onRequest(context) {
             const totalPages = Math.max(1, Math.ceil(queryResult.total / pageSize));
 
             return new Response(JSON.stringify({
-                files: compatibleFiles,
+                files: includePhotoAvailability ? await annotatePhotoAvailability(env, compatibleFiles) : compatibleFiles,
                 total: queryResult.total,
                 page,
                 pageSize,
@@ -863,7 +865,7 @@ export async function onRequest(context) {
         }));
 
         return new Response(JSON.stringify({
-            files: compatibleFiles,
+            files: includePhotoAvailability ? await annotatePhotoAvailability(env, compatibleFiles) : compatibleFiles,
             directories: result.directories,
             totalCount: result.totalCount,
             directFileCount: result.directFileCount,

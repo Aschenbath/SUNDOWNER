@@ -3298,6 +3298,8 @@ function buildMediaSourceSignature(item) {
     Number(item?.width) || 0,
     Number(item?.height) || 0,
     normalizeText(item?.takenAt),
+    Number(item?.photoNotFoundSince) || 0,
+    Number(item?.photoNotFoundConfirmedAt) || 0,
   ].join('\u001f');
 }
 
@@ -7135,6 +7137,8 @@ function buildIndexedMediaItem(record, domLookup, index) {
     thumbnailUrl,
     fullPreviewUrl,
     posterUrl,
+    photoNotFoundSince: Number(metadata.PhotoNotFoundSince) || 0,
+    photoNotFoundConfirmedAt: Number(metadata.PhotoNotFoundConfirmedAt) || 0,
     type,
     mimeType,
     width,
@@ -7181,7 +7185,8 @@ async function fetchListPage(start, count = API_PAGE_SIZE) {
     count: String(count),
     recursive: 'true',
     sortBy: 'timestamp',
-    sortOrder: 'desc'
+    sortOrder: 'desc',
+    photoAvailability: 'true'
   });
   const response = await apiFetch(`/api/manage/list?${params.toString()}`, {
     timeoutMs: API_REQUEST_TIMEOUT_MS
@@ -10488,6 +10493,14 @@ function isTodoPhotoItem(item) {
 
 
 
+function isPhotoHiddenFromWall(item, now = Date.now()) {
+  const first = Number(item?.photoNotFoundSince);
+  const confirmed = Number(item?.photoNotFoundConfirmedAt);
+  return item?.type === 'photo' && Number.isSafeInteger(first) && first > 0
+    && Number.isSafeInteger(confirmed) && confirmed <= now
+    && confirmed - first >= 14 * 24 * 60 * 60 * 1000;
+}
+
 function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = false } = {}) {
   if (state.primaryFilter === 'Moments') {
     return getMomentAttachmentItems();
@@ -10501,6 +10514,9 @@ function getFilteredItems(items = getAllItems(), { ignoreVideoCategoryFilter = f
   const hasGlobalSearch = Boolean(query || countActiveMediaSearchFilters(searchFilters) > 0);
 
   return items.filter((item) => {
+    // Hide only normal walls; explicit searches remain a recovery path.
+    // Records, original links, storage totals and the recycle bin stay intact.
+    if (!hasGlobalSearch && state.primaryFilter !== 'Bin' && isPhotoHiddenFromWall(item)) return false;
     if (isPrivateRouteActive()) {
       if (!hasPrivateRouteAccess() || !isPrivateMedia(item)) {
         return false;
