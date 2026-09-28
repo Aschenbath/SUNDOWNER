@@ -392,9 +392,27 @@ export function buildJustifiedRows(items, options = {}) {
   return rows;
 }
 
-function renderMediaAsset(item, className, withControls = false, { noAction = false, preferFullImage = false, priority = false } = {}) {
+function resolveGridImageUrl(item, sourceUrl) {
+  const fallback = item.thumbnailUrl || sourceUrl;
+  if (item.type !== 'photo' || item.browserPreviewSupported === false || !item.blurThumbUrl) {
+    return fallback;
+  }
+  try {
+    const source = new URL(sourceUrl, 'https://media-library.local');
+    const thumbnail = new URL(item.blurThumbUrl, 'https://media-library.local');
+    // Stored Telegram previews are final tile images, not placeholders for a
+    // full-resolution download. This also handles persisted older media items.
+    if (thumbnail.origin === source.origin && thumbnail.pathname === source.pathname
+      && thumbnail.pathname.startsWith('/file/') && thumbnail.searchParams.get('preview') === '1') {
+      return item.blurThumbUrl;
+    }
+  } catch { /* Keep the existing fallback for malformed or inline placeholders. */ }
+  return fallback;
+}
+
+function renderMediaAsset(item, className, withControls = false, { noAction = false, preferFullImage = false, priority = false, failedAttempt = null } = {}) {
   const sourceUrl = item.sourceUrl || item.thumbnailUrl;
-  const imageUrl = withControls ? sourceUrl : (item.thumbnailUrl || sourceUrl);
+  const imageUrl = withControls ? sourceUrl : resolveGridImageUrl(item, sourceUrl);
   const mediaUrl = escapeHtml((item.type === 'video' || item.type === 'audio') ? sourceUrl : imageUrl);
   const alt = escapeHtml(safeDisplayLabel(item));
   const imageLoading = withControls || priority ? 'eager' : 'lazy';
@@ -411,6 +429,14 @@ function renderMediaAsset(item, className, withControls = false, { noAction = fa
   const previewActionAttr = (withControls || noAction)
     ? ''
     : ` data-action="open-preview" data-id="${escapeHtml(item.id)}"`;
+  if (!withControls && item.type === 'photo' && failedAttempt !== null) {
+    // No src: rendering a known failure must not restart network requests or
+    // reset the retry budget. The delegated manual retry assigns the source.
+    const heicAttr = item.browserPreviewSupported === false && sourceUrl
+      ? ` data-heic-tile-decode-src="${escapeHtml(sourceUrl)}" data-heic-tile-decode-status="error"`
+      : '';
+    return `<img class="${className}" alt="${alt}" data-canonical-src="${canonicalPhotoUrl}" data-original-src="${escapeHtml(sourceUrl || '')}" data-load-suspended="1" data-tried-original="1" data-retry-attempt="${failedAttempt}"${heicAttr}${previewActionAttr} decoding="async" />`;
+  }
   if (item.type === 'document') {
     const ext = String(item.label || '').split('.').pop()?.toUpperCase() || 'FILE';
     const docName = escapeHtml(item.label || 'Document');
@@ -982,18 +1008,22 @@ export function MediaTile({ item, selected, layout, isCover = false, state = nul
   const fullLoadedMediaIds = state?.fullLoadedMediaIds instanceof Set ? state.fullLoadedMediaIds : null;
   const failedMediaIds = state?.failedMediaIds instanceof Set ? state.failedMediaIds : null;
   const hasLoadError = Boolean(tileId && failedMediaIds?.has(tileId));
-  const isImgLoaded = Boolean(tileId && !hasLoadError && loadedMediaIds?.has(tileId));
-  const isFullLoaded = Boolean(tileId && !hasLoadError && fullLoadedMediaIds?.has(tileId));
-  const tileClassName = ['cml-media-tile', selected ? 'is-selected' : '', isImgLoaded ? 'is-img-loaded' : '', isFullLoaded ? 'is-full-loaded' : '', hasLoadError ? 'has-load-error' : '']
+  const isImgLoaded = Boolean(!hasLoadError && tileId && loadedMediaIds?.has(tileId));
+  const isFullLoaded = Boolean(!hasLoadError && tileId && fullLoadedMediaIds?.has(tileId));
+  const retryAttempt = Math.min(3, Math.max(0, Math.trunc(Number(state?.imageRetryAttempts?.get(tileId)) || 0)));
+  const isRetryExhausted = hasLoadError && retryAttempt >= 3;
+  const tileClassName = ['cml-media-tile', selected ? 'is-selected' : '', isImgLoaded ? 'is-img-loaded' : '', isFullLoaded ? 'is-full-loaded' : '', hasLoadError ? 'has-load-error' : '', isRetryExhausted ? 'is-retry-exhausted' : '']
     .filter(Boolean)
     .join(' ');
-  const loadErrorAttr = hasLoadError ? ' data-load-error-label="Load failed&#10;Press Enter or click to retry"' : '';
+  const loadErrorAttr = hasLoadError
+    ? (isRetryExhausted ? ' data-load-error-label="Unable to load&#10;File may be missing"' : ' data-load-error-label="Load failed&#10;Press Enter or click to retry"')
+    : '';
   return `
     <article class="${tileClassName}" data-action="open-preview" data-id="${escapeHtml(item.id)}" data-tile-id="${escapeHtml(item.id)}" tabindex="0" aria-label="${escapeHtml(previewLabel)}" aria-busy="false"${loadErrorAttr} style="${style}">
       <button type="button" class="cml-media-tile__select" data-action="toggle-select" data-id="${escapeHtml(item.id)}" aria-label="Select item">
         ${selected ? icon('check') : '<span class="cml-media-tile__select-ring"></span>'}
       </button>
-      ${renderMediaAsset(item, 'cml-media-tile__image', false, { preferFullImage: isFullLoaded, priority })}
+      ${renderMediaAsset(item, 'cml-media-tile__image', false, { preferFullImage: isFullLoaded, priority, failedAttempt: hasLoadError ? retryAttempt : null })}
       ${item.type === 'video' ? `<span class="cml-media-tile__video-badge" aria-hidden="true">${icon('play')}</span>` : ''}
       ${isCover ? `<span class="cml-media-tile__cover-badge" aria-label="Album cover">${icon('star')}</span>` : ''}
       <div class="cml-media-tile__scrim"></div>

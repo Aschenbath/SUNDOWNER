@@ -245,6 +245,34 @@ describe('/file ?preview=1 Telegram thumbnail edge caching', () => {
     }));
   });
 
+  it('lets a bounded manual retry recover a cached getFile failure through the route', async () => {
+    const env = createEnv(createThumbnailRecords());
+    const fakeCache = createRecordingCache();
+    const fileFetches = [];
+    let attempts = 0;
+    const url = 'https://example.com/file/telegram-import/Telegram_env/IMG_5000.JPG?preview=1';
+    await withFakeCaches(fakeCache, () => withFetchStub(async (target, init) => {
+      if (String(target).includes('/getFile?') && new URL(String(target)).searchParams.get('file_id') === 'original-file-id') {
+        return new Response('temporarily unavailable', { status: 503 });
+      }
+      if (String(target).includes('/getFile?') && ++attempts === 1) {
+        return new Response('temporarily unavailable', { status: 503 });
+      }
+      return createFetchStub(fileFetches)(target, init);
+    }, async () => {
+      assert.equal((await onRequest(buildContext(env, url))).status, 500);
+      assert.equal((await onRequest(buildContext(env, url))).status, 500);
+      assert.equal((await onRequest(buildContext(env, url + '&retry=999'))).status, 500);
+      assert.equal(attempts, 1, 'ordinary requests retain negative caching');
+      const recovered = await onRequest(buildContext(env, url + '&retry=1'));
+      assert.equal(recovered.status, 200);
+      assert.deepEqual(new Uint8Array(await recovered.arrayBuffer()), thumbBytes);
+      assert.equal(attempts, 2);
+      assert.equal((await onRequest(buildContext(env, url + '&retry=2'))).status, 200);
+      assert.equal(attempts, 2, 'a successful retry preserves positive caches');
+    }));
+  });
+
   it('consults the thumbnail cache only after access checks pass', async () => {
     const records = createThumbnailRecords();
     records.get('telegram-import/Telegram_env/IMG_5000.JPG').metadata.ListType = 'Block';

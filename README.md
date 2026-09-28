@@ -87,6 +87,14 @@ npm run capture:readme
 - The frontend is evolving from upload panel to media library: richer search, albums, films, moments, notes, and file management live together.
 - Security hardening covers constant-time comparisons, fail-closed config handling, SSRF host allowlists, direct-file access checks, token response shaping, proxy header stripping, and generic 5xx responses.
 
+### Photo loading and recovery
+
+- Previously, Telegram JPEG/PNG tiles treated the stored thumbnail as a blur placeholder and automatically downloaded every original. Tiles now keep the same-file `/file/...?preview=1` thumbnail as their final grid image, including items restored from the browser's older media cache. Opening a photo still progressively loads its original (and retains adjacent-photo prefetch). This saves grid bandwidth at the cost of thumbnail-level detail until preview is opened; files without stored thumbnails and HEIC/HEIF decoding retain their existing paths.
+- Telegram `getFile` failures remain negatively cached for 60 seconds to suppress repeated automatic calls. Previously, clicking retry hit that same failure cache. Bounded manual `retry=1..3` requests now bypass only negative file-path entries; positive thumbnail/path caches, request coalescing and access checks remain in effect. This also applies to original/embedded-preview fallback reads.
+- Discarded upstream download bodies are cancelled before retrying or replacing a 404 response, so failed streams no longer occupy connections. The existing 250/750 ms backoff and attempt limit are unchanged.
+- Failed photos used to retain only their error label across grid rerenders, restarting downloads and resetting per-element retry counts. Failed tiles now render without a network `src`; canonical/original sources and the three-attempt manual budget survive viewport changes, selection and virtualization for the page session. Disconnected nodes cannot overwrite current state. A successful load clears the failure/budget; a full page reload starts a new budget. After exhaustion, clicking the tile no longer bypasses the cap through the lightbox. Selection controls remain usable by mouse and keyboard.
+- Regression coverage: `photoLoadingPipeline`, `photoRetryPersistence`, `telegramFilePathCache`, `fileRoutePreviewCache`, `fileToolsRetry`, `previewActions` and `entryLoader` tests. An isolated 48-photo browser fixture verifies 320/390/1440/1920 px layouts in both themes, grid requests without originals, full-resolution preview, no additional failed-photo requests during rerenders, persistent retry exhaustion and manual recovery. This is not a production-network benchmark; upstream availability, missing Telegram IDs, the file-route rate limit and Docker's no-op edge-cache shim remain separate operational constraints.
+
 ## Storage Model
 
 Cloudflare binding names are part of the project contract:

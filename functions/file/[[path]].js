@@ -292,6 +292,11 @@ function shouldAttemptEmbeddedPreview(context, metadata = {}, fileType = '', opt
     return metadata?.Channel === 'CloudflareR2';
 }
 
+function telegramPathCacheOptions(context) {
+    const retry = new URL(context.request.url).searchParams.get('retry') || '';
+    return { retryFailed: /^[1-3]$/.test(retry) };
+}
+
 async function resolveTelegramSourceUrl(env, metadata = {}, fileId = '', options = {}) {
     const telegramReadTarget = resolveStoredTelegramReadTarget(fileId, metadata, options);
     let telegramFileId = telegramReadTarget.fileId;
@@ -315,7 +320,7 @@ async function resolveTelegramSourceUrl(env, metadata = {}, fileId = '', options
     }
 
     const tgApi = new TelegramAPI(telegramAccess.botToken, telegramAccess.proxyUrl || '');
-    const filePath = await resolveTelegramFilePathCached(tgApi, telegramFileId, getWorkerEdgeCache());
+    const filePath = await resolveTelegramFilePathCached(tgApi, telegramFileId, getWorkerEdgeCache(), options);
     if (!filePath) {
         return null;
     }
@@ -473,7 +478,7 @@ async function tryServeEmbeddedPreview(context, imgRecord, fileId, fileName, fil
                     return null;
                 }
 
-                const originalTarget = await resolveTelegramSourceUrl(context.env, metadata, fileId, { preview: false });
+                const originalTarget = await resolveTelegramSourceUrl(context.env, metadata, fileId, { preview: false, ...telegramPathCacheOptions(context) });
                 const targetUrl = originalTarget?.targetUrl || '';
                 if (!targetUrl) {
                     return null;
@@ -584,7 +589,7 @@ async function tryFallbackTelegramOriginal(context, imgRecord, fileId, fileName,
         return null;
     }
 
-    const originalTarget = await resolveTelegramSourceUrl(context.env, imgRecord?.metadata || {}, fileId, { preview: false });
+    const originalTarget = await resolveTelegramSourceUrl(context.env, imgRecord?.metadata || {}, fileId, { preview: false, ...telegramPathCacheOptions(context) });
     if (!originalTarget?.targetUrl) {
         return null;
     }
@@ -828,7 +833,7 @@ export async function onRequest(context) {  // Contents of context object
         const TgBotToken = telegramAccess.botToken;
         const TgProxyUrl = telegramAccess.proxyUrl || '';
         const tgApi = new TelegramAPI(TgBotToken, TgProxyUrl);
-        let filePath = await resolveTelegramFilePathCached(tgApi, TgFileID, getWorkerEdgeCache());
+        let filePath = await resolveTelegramFilePathCached(tgApi, TgFileID, getWorkerEdgeCache(), telegramPathCacheOptions(context));
         if (filePath === null) {
             const fallbackPreview = await tryFallbackTelegramPreviewRead(context, imgRecord, fileId, fileName, fileType, telegramReadTarget);
             if (fallbackPreview) {

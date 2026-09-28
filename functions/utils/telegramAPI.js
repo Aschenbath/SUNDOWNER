@@ -400,11 +400,10 @@ export async function resolveTelegramFilePathCached(telegramAPI, fileId, cache =
                 const cached = await cache.match(cacheKey);
                 if (cached) {
                     if (cached.headers?.get?.(TELEGRAM_FILE_PATH_NEGATIVE_HEADER) === '1') {
-                        return null;
-                    }
-                    const cachedPath = (await cached.text()).trim();
-                    if (cachedPath) {
-                        return cachedPath;
+                        if (options?.retryFailed !== true) return null;
+                    } else {
+                        const cachedPath = (await cached.text()).trim();
+                        if (cachedPath) return cachedPath;
                     }
                 }
             } catch (error) {

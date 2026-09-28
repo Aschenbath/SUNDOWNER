@@ -54,7 +54,7 @@ import {
   renderMomentsDayWall,
   renderMomentsFeed,
   renderMomentsPicker
-} from './components.js?v=127';
+} from './components.js?v=130';
 import {
   countActiveMediaSearchFilters,
   matchesMediaSearchFilters,
@@ -738,6 +738,7 @@ const state = {
   loadedMediaIds: new Set(),
   fullLoadedMediaIds: new Set(),
   failedMediaIds: new Set(),
+  imageRetryAttempts: new Map(),
   albumNames: [],
   albumAssignments: {},
   albumCovers: {},
@@ -2402,6 +2403,7 @@ function markTileImageLoaded(img, tile, { fullLoaded = false } = {}) {
   if (tileId) {
     state.loadedMediaIds.add(tileId);
     state.failedMediaIds.delete(tileId);
+    state.imageRetryAttempts.delete(tileId);
     if (fullLoaded) {
       state.fullLoadedMediaIds.add(tileId);
       tile.classList.add('is-full-loaded');
@@ -2458,6 +2460,10 @@ function markTileImageFailed(img, tile, event) {
     state.failedMediaIds.add(tileId);
   }
   tile.classList.remove('is-img-loaded', 'is-full-loaded', 'is-preview-loaded');
+  if (!canRetryImage(state.imageRetryAttempts.get(tileId) || 0, MAX_IMAGE_RETRY_ATTEMPTS)) {
+    tile.classList.add('is-retry-exhausted');
+    tile.setAttribute('data-load-error-label', 'Unable to load\nFile may be missing');
+  }
 }
 
 function retryFailedImageTile(tile) {
@@ -2465,7 +2471,8 @@ function retryFailedImageTile(tile) {
   if (!(tile instanceof HTMLElement) || !(img instanceof HTMLImageElement)) {
     return false;
   }
-  const currentAttempt = Number.parseInt(img.dataset.retryAttempt || '0', 10);
+  const tileId = normalizeText(tile.dataset?.tileId || tile.dataset?.id || '');
+  const currentAttempt = state.imageRetryAttempts.get(tileId) ?? Number.parseInt(img.dataset.retryAttempt || '0', 10);
   if (!canRetryImage(currentAttempt, MAX_IMAGE_RETRY_ATTEMPTS)) {
     tile.classList.add('is-retry-exhausted');
     tile.setAttribute('data-load-error-label', 'Unable to load\nFile may be missing');
@@ -2487,6 +2494,8 @@ function retryFailedImageTile(tile) {
     img.dataset.triedFull = '1';
   }
   img.dataset.retryAttempt = String(nextAttempt);
+  if (tileId) state.imageRetryAttempts.set(tileId, nextAttempt);
+  delete img.dataset.loadSuspended;
   if (img.dataset.heicTileDecodeStatus === 'error') {
     // Allow the client-side HEIC decode fallback another chance after a manual retry.
     delete img.dataset.heicTileDecodeStatus;
@@ -20229,7 +20238,9 @@ function handleClick(event) {
   // Handle click on failed image tiles to retry loading
   const failedTile = event.target instanceof Element ? event.target.closest('.cml-media-tile.has-load-error') : null;
   if (failedTile instanceof HTMLElement) {
-    if (retryFailedImageTile(failedTile)) {
+    const isTileActivation = !event.target.closest('button, a, input, textarea, select, label');
+    if (isTileActivation) {
+      retryFailedImageTile(failedTile);
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -21099,11 +21110,16 @@ function handleKeyDown(event) {
   const failedTile = event.target instanceof Element
     ? event.target.closest('.cml-media-tile.has-load-error')
     : null;
-  if (failedTile instanceof HTMLElement && (event.key === 'Enter' || event.key === ' ')) {
-    if (retryFailedImageTile(failedTile)) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
+  if ((event.key === 'Enter' || event.key === ' ') && event.target instanceof Element
+    && event.target.closest('button[data-action="toggle-select"]')) {
+    // Let the native button emit one click. The grid-wide keyboard shortcut
+    // below would otherwise target the last focused tile or toggle twice.
+    return;
+  }
+  if (failedTile instanceof HTMLElement && event.target === failedTile && (event.key === 'Enter' || event.key === ' ')) {
+    retryFailedImageTile(failedTile);
+    event.preventDefault();
+    event.stopPropagation();
     return;
   }
 

@@ -151,6 +151,18 @@ describe('resolveTelegramFilePathCached', () => {
         assert.equal(calls, 1);
     });
 
+    it('retries negative entries explicitly without evicting positive results', async () => {
+        const cache = new MemoryCache();
+        let calls = 0;
+        const api = { async getFilePath() { return ++calls === 1 ? null : 'photos/recovered.jpg'; } };
+        assert.equal(await resolveTelegramFilePathCached(api, 'retry-negative', cache), null);
+        assert.equal(await resolveTelegramFilePathCached(api, 'retry-negative', cache), null);
+        assert.equal(calls, 1);
+        assert.equal(await resolveTelegramFilePathCached(api, 'retry-negative', cache, { retryFailed: true }), 'photos/recovered.jpg');
+        assert.equal(await resolveTelegramFilePathCached(api, 'retry-negative', cache, { retryFailed: true }), 'photos/recovered.jpg');
+        assert.equal(calls, 2);
+    });
+
     it('keeps different file_ids in different cache entries', async () => {
         const cache = new MemoryCache();
         const api = new FakeTelegramAPI((id) => `documents/${id}.heic`);

@@ -226,7 +226,11 @@ export async function getFileContent(request, targetUrl, max_retries = 2) {
             });
             if (response.ok || response.status === 304) {
                 return response;
-            } else if (response.status === 404) {
+            }
+            // A discarded streaming body still occupies an upstream connection
+            // in Workers. Release it before backoff/retry or replacing a 404.
+            try { await response.body?.cancel(); } catch { /* Already closed. */ }
+            if (response.status === 404) {
                 return new Response('Error: Image Not Found', { status: 404 });
             } else {
                 retries++;

@@ -72,6 +72,28 @@ describe('getFileContent retry backoff', () => {
     assert.deepEqual(recordedDelays, []);
   });
 
+  it('cancels discarded bodies before retrying, including the final failure', async () => {
+    let cancelled = 0;
+    let attempts = 0;
+    await withFetchStub(async () => {
+      assert.equal(cancelled, attempts, 'previous upstream body must release its connection');
+      attempts += 1;
+      return new Response(new ReadableStream({ cancel() { cancelled += 1; } }), { status: 503 });
+    }, async () => {
+      assert.equal(await getFileContent(new Request('https://example.com/file/x'), 'https://upstream.example.com/x'), null);
+    });
+    assert.equal(cancelled, 3);
+  });
+
+  it('cancels the upstream 404 body before returning the generic error', async () => {
+    let cancelled = false;
+    await withFetchStub(async () => new Response(new ReadableStream({ cancel() { cancelled = true; } }), { status: 404 }), async () => {
+      const result = await getFileContent(new Request('https://example.com/file/x'), 'https://upstream.example.com/x');
+      assert.equal(result.status, 404);
+      assert.equal(cancelled, true);
+    });
+  });
+
   it('does not sleep after the final failed attempt', async () => {
     await withFetchStub(async () => {
       throw new Error('network down');
