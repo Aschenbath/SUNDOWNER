@@ -2647,20 +2647,21 @@ const heicTileDecodeQueue = {
   maxConcurrent: HEIC_TILE_DECODE_CONCURRENCY,
   jobs: new Map(),
 
-  enqueue(img, tile, sourceUrl) {
+  enqueue(img, tile, sourceUrl, requestUrl = sourceUrl) {
     if (!sourceUrl) {
       return;
     }
     const waiter = { img, tile };
-    const existing = this.jobs.get(sourceUrl);
+    const existing = this.jobs.get(requestUrl);
     if (existing) {
       if (!existing.waiters.some((entry) => entry.img === img && entry.tile === tile)) {
         existing.waiters.push(waiter);
       }
       return;
     }
-    const job = { sourceUrl, waiters: [waiter] };
-    this.jobs.set(sourceUrl, job);
+    // Attempts share decoded output, but must not join an older failed fetch.
+    const job = { sourceUrl, requestUrl, waiters: [waiter] };
+    this.jobs.set(requestUrl, job);
     this.pending.push(job);
     this.processNext();
   },
@@ -2671,7 +2672,7 @@ const heicTileDecodeQueue = {
       if (!task) break;
       task.waiters = task.waiters.filter((entry) => entry.tile?.isConnected && entry.img?.isConnected);
       if (!task.waiters.length) {
-        this.jobs.delete(task.sourceUrl);
+        this.jobs.delete(task.requestUrl);
         continue;
       }
       this.active++;
@@ -2680,10 +2681,10 @@ const heicTileDecodeQueue = {
   },
 
   async decodeTask(task) {
-    const { sourceUrl } = task;
+    const { sourceUrl, requestUrl } = task;
     try {
       const objectUrl = await Promise.race([
-        decodeHeicTileToObjectUrl(sourceUrl),
+        decodeHeicTileToObjectUrl(sourceUrl, requestUrl),
         new Promise((_, reject) => {
           window.setTimeout(() => reject(new Error('HEIC tile decode timed out')), IMAGE_DECODE_TIMEOUT_MS);
         }),
@@ -2702,19 +2703,19 @@ const heicTileDecodeQueue = {
         }
       });
     } finally {
-      this.jobs.delete(sourceUrl);
+      this.jobs.delete(requestUrl);
       this.active--;
       this.processNext();
     }
   }
 };
 
-async function decodeHeicTileToObjectUrl(sourceUrl) {
+async function decodeHeicTileToObjectUrl(sourceUrl, requestUrl = sourceUrl) {
   if (heicTileObjectUrls.has(sourceUrl)) {
     return heicTileObjectUrls.get(sourceUrl);
   }
   const { decodeHeicBufferToBlob } = await import('./heic-decoder.js?v=3');
-  const response = await fetch(sourceUrl, { credentials: 'same-origin' });
+  const response = await fetch(requestUrl, { credentials: 'same-origin' });
   if (!response.ok) {
     throw new Error(`HEIC fetch failed: ${response.status}`);
   }
@@ -2780,7 +2781,11 @@ function scheduleHeicTileDecode(img, tile) {
     applyHeicTileObjectUrl(img, tile, cached);
     return;
   }
-  heicTileDecodeQueue.enqueue(img, tile, sourceUrl);
+  const attempt = Number(img.dataset.retryAttempt || 0);
+  const requestUrl = Number.isInteger(attempt) && attempt >= 1 && attempt <= MAX_IMAGE_RETRY_ATTEMPTS
+    ? buildImageRetryUrl(sourceUrl, attempt, window.location.origin) || sourceUrl
+    : sourceUrl;
+  heicTileDecodeQueue.enqueue(img, tile, sourceUrl, requestUrl);
 }
 
 function swapTileToFullImage(img, tile, fullSrc) {
@@ -3299,8 +3304,8 @@ function buildMediaSourceSignature(item) {
 function resetMediaLoadStateForSourceChanges(previousItems, nextItems) {
   const previousById = new Map(safeArray(previousItems).map((item) => [item?.id, item]));
   const validIds = new Set(safeArray(nextItems).map((item) => item?.id));
-  for (const set of [state.loadedMediaIds, state.fullLoadedMediaIds, state.failedMediaIds]) {
-    for (const id of set) {
+  for (const set of [state.loadedMediaIds, state.fullLoadedMediaIds, state.failedMediaIds, state.imageRetryAttempts]) {
+    for (const id of set.keys()) {
       if (!validIds.has(id)) {
         set.delete(id);
       }
@@ -3312,6 +3317,7 @@ function resetMediaLoadStateForSourceChanges(previousItems, nextItems) {
       state.loadedMediaIds.delete(item.id);
       state.fullLoadedMediaIds.delete(item.id);
       state.failedMediaIds.delete(item.id);
+      state.imageRetryAttempts.delete(item.id);
     }
   });
 }
@@ -17964,6 +17970,13 @@ function openPreview(itemId, sourceHint = '') {
   const sourceTile = itemId
     ? refs.root?.querySelector(`.cml-media-tile[data-tile-id="${itemId}"]`)
     : null;
+  // The failure record persists until success, including while a manual
+  // retry is in flight and its DOM error class has temporarily been removed.
+  // A second click or keyboard fallback must not start a parallel original.
+  if (state.failedMediaIds.has(itemId)) {
+    if (sourceTile?.classList.contains('has-load-error')) retryFailedImageTile(sourceTile);
+    return;
+  }
   sourceHint = normalizeText(sourceHint) || getMediaSourceFromTile(sourceTile);
   const resolvedPreviewItem = resolvePreviewItem(getAllItems(), {
     id: itemId,

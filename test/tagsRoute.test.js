@@ -193,6 +193,34 @@ describe('manage tags route', () => {
     assert.equal(kv.putCalls, 0);
   });
 
+  it('encodes batch-tag purge URLs containing reserved filename characters', async () => {
+    const originalFetch = globalThis.fetch;
+    const purged = [];
+    globalThis.fetch = async (_url, options) => {
+      purged.push(...JSON.parse(options.body).files);
+      return new Response('{}', { status: 200 });
+    };
+    try {
+      const fileIds = ['photos/a?b#c.jpg', 'photos/100% & snow.jpg'];
+      const kv = new MemoryKV({
+        ...Object.fromEntries(fileIds.map(id => [id, JSON.stringify({ value: 'bytes', metadata: { Tags: [] } })])),
+        'manage@sysConfig@others': JSON.stringify({ cloudflareApiToken: { CF_ZONE_ID: 'zone', CF_EMAIL: 'test@example.com', CF_API_KEY: 'synthetic' } }),
+      });
+      const pending = [];
+      const response = await batchTagsOnRequest({
+        env: { img_url: kv }, waitUntil: promise => pending.push(promise),
+        request: new Request('https://example.com/api/manage/tags/batch', {
+          method: 'POST', body: JSON.stringify({ fileIds, action: 'add', tags: ['summer'] }),
+        }),
+      });
+      assert.equal(response.status, 200);
+      await Promise.all(pending);
+      assert.deepEqual(purged.sort(), ['https://example.com/file/photos/100%25%20%26%20snow.jpg', 'https://example.com/file/photos/a%3Fb%23c.jpg']);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('updates batch tags with bounded storage concurrency', async () => {
     const entries = Object.fromEntries(
       Array.from({ length: 7 }, (_, index) => [

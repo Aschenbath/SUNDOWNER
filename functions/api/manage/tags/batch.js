@@ -1,4 +1,5 @@
 import { purgeCFCache } from "../../../utils/purgeCache.js";
+import { buildHttpsFileRouteUrl } from "../../../utils/fileRouteUrl.js";
 import { batchAddFilesToIndex } from "../../../utils/indexManager.js";
 import { getDatabase } from "../../../utils/databaseAdapter.js";
 import { mergeTags, validateTag } from "../../../utils/tagHelpers.js";
@@ -158,7 +159,7 @@ export async function onRequest(context) {
                 });
 
                 // Clear CDN cache (async)
-                const cdnUrl = `https://${url.hostname}/file/${fileId}`;
+                const cdnUrl = buildHttpsFileRouteUrl(url.hostname, fileId);
                 waitUntil(purgeCFCache(env, cdnUrl));
 
                 return {

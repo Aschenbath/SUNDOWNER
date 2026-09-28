@@ -18,7 +18,7 @@ function loadHeicQueue(decodePromise, applied) {
         return timer;
       },
     },
-    decodeHeicTileToObjectUrl: () => decodePromise,
+    decodeHeicTileToObjectUrl: typeof decodePromise === 'function' ? decodePromise : () => decodePromise,
     applyHeicTileObjectUrl: (img, tile, objectUrl) => applied.push({ img, tile, objectUrl }),
     markTileImageFailed: (img, tile, error) => applied.push({ img, tile, error }),
     console: { warn() {} },
@@ -66,6 +66,31 @@ function loadDecodeQueue(decodePromise, applied) {
 }
 
 describe('HEIC image decode waiter coordination', () => {
+  it('coalesces the same attempt but separates a manual retry from the old in-flight fetch', async () => {
+    const decoded = [];
+    const completions = [];
+    const applied = [];
+    const queue = loadHeicQueue((sourceUrl, requestUrl) => {
+      decoded.push({ sourceUrl, requestUrl });
+      return new Promise(resolve => completions.push(resolve));
+    }, applied);
+    const sourceUrl = '/file/photos/retry.HEIC';
+    const retryUrl = 'https://example.com/file/photos/retry.HEIC?retry=1';
+    const old = { isConnected: true };
+    queue.enqueue(old, old, sourceUrl);
+    old.isConnected = false;
+    const first = { isConnected: true };
+    const second = { isConnected: true };
+    queue.enqueue(first, first, sourceUrl, retryUrl);
+    queue.enqueue(second, second, sourceUrl, retryUrl);
+    assert.deepEqual(decoded, [{ sourceUrl, requestUrl: sourceUrl }, { sourceUrl, requestUrl: retryUrl }]);
+    completions.forEach(resolve => resolve('blob:decoded'));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(applied.map(entry => entry.img), [first, second]);
+    assert.equal(queue.jobs.size, 0);
+    assert.equal(queue.active, 0);
+  });
+
   it('broadcasts a shared decode to a fresh tile when the first tile is detached', async () => {
     let resolveDecode;
     const decodePromise = new Promise((resolve) => {
